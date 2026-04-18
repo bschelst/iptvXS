@@ -21,7 +21,6 @@ ApplicationWindow {
         "favorites": "Favorites",
         "epg": "TV Guide",
         "recordings": "Recordings",
-        "history": "History",
         "speedtest": "Speed Test",
         "settings": "Settings",
         "servers": "Servers"
@@ -90,6 +89,8 @@ ApplicationWindow {
             return "views/EpgView.qml"
         case "recordings":
             return "views/RecordingsView.qml"
+        case "speedtest":
+            return "views/SpeedTestView.qml"
         case "settings":
             return "views/SettingsView.qml"
         case "player":

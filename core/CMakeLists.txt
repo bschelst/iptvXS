@@ -18,6 +18,7 @@ add_library(iptvxs-core STATIC
     src/recording/recording_manager.cpp
     src/gdrive/gdrive_auth.cpp
     src/gdrive/gdrive_uploader.cpp
+    src/net/speed_test_runner.cpp
     src/player/mpv_player.cpp
     include/iptvxs/db/database.h
     include/iptvxs/db/settings_repository.h
@@ -34,6 +35,7 @@ add_library(iptvxs-core STATIC
     include/iptvxs/recording/recording_manager.h
     include/iptvxs/gdrive/gdrive_auth.h
     include/iptvxs/gdrive/gdrive_uploader.h
+    include/iptvxs/net/speed_test_runner.h
     include/iptvxs/player/mpv_player.h
 )
 

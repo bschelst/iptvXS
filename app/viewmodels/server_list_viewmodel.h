@@ -47,6 +47,9 @@ public:
     Q_INVOKABLE void addServer(const QString &name, const QString &type,
                                const QString &url, const QString &username,
                                const QString &password);
+    Q_INVOKABLE void updateServer(int index, const QString &name,
+                                  const QString &url, const QString &username,
+                                  const QString &password);
     Q_INVOKABLE void removeServer(int index);
     Q_INVOKABLE void syncServer(int index);
     Q_INVOKABLE void refresh();

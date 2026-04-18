@@ -1,6 +1,10 @@
 #include "app_viewmodel.h"
 
 #include <QDesktopServices>
+#include <QDir>
+#include <QFile>
+#include <QStandardPaths>
+#include <QTimer>
 
 AppViewModel::AppViewModel(QObject *parent)
     : QObject(parent),
@@ -11,7 +15,8 @@ AppViewModel::AppViewModel(QObject *parent)
       favoriteListVm_(new FavoriteListViewModel(this)),
       epgVm_(new EpgViewModel(this)),
       recordingListVm_(new RecordingListViewModel(this)),
-      gdriveVm_(new GDriveViewModel(this)) {}
+      gdriveVm_(new GDriveViewModel(this)),
+      speedTestVm_(new SpeedTestViewModel(this)) {}
 
 AppViewModel::~AppViewModel() = default;
 
@@ -36,6 +41,7 @@ bool AppViewModel::initialize(const QString &dbPath) {
     recordingRepo_ = std::make_unique<iptvxs::RecordingRepository>(db, this);
     recordingMgr_ = std::make_unique<iptvxs::RecordingManager>(this);
     httpClient_ = std::make_unique<iptvxs::HttpClient>(this);
+    speedTestRunner_ = std::make_unique<iptvxs::SpeedTestRunner>(this);
 
     serverListVm_->setRepositories(serverRepo_.get(), categoryRepo_.get(),
                                    channelRepo_.get());
@@ -61,6 +67,9 @@ bool AppViewModel::initialize(const QString &dbPath) {
 
     connect(gdriveAuth_.get(), &iptvxs::GDriveAuth::openUrlRequested, this,
             [](const QUrl &url) { QDesktopServices::openUrl(url); });
+
+    speedTestVm_->setRunner(speedTestRunner_.get());
+    speedTestVm_->setChannelRepository(channelRepo_.get());
 
     gdriveVm_->setAuth(gdriveAuth_.get());
     gdriveVm_->setUploader(gdriveUploader_.get());
@@ -133,4 +142,62 @@ RecordingListViewModel *AppViewModel::recordingList() const {
 
 GDriveViewModel *AppViewModel::gdrive() const {
     return gdriveVm_;
+}
+
+SpeedTestViewModel *AppViewModel::speedTest() const {
+    return speedTestVm_;
+}
+
+int AppViewModel::autoSyncInterval() const {
+    return settingsRepo_ ? settingsRepo_->getInt(QStringLiteral("auto_sync_hours"), 0) : 0;
+}
+
+void AppViewModel::setAutoSyncInterval(int hours) {
+    if (!settingsRepo_) return;
+    settingsRepo_->set(QStringLiteral("auto_sync_hours"), hours);
+    emit autoSyncIntervalChanged();
+}
+
+int AppViewModel::autoSyncEpgInterval() const {
+    return settingsRepo_ ? settingsRepo_->getInt(QStringLiteral("auto_sync_epg_hours"), 0) : 0;
+}
+
+void AppViewModel::setAutoSyncEpgInterval(int hours) {
+    if (!settingsRepo_) return;
+    settingsRepo_->set(QStringLiteral("auto_sync_epg_hours"), hours);
+    emit autoSyncEpgIntervalChanged();
+}
+
+void AppViewModel::resetDatabase() {
+    if (!database_) return;
+
+    auto path = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation)
+                + QStringLiteral("/iptvxs.db");
+
+    database_->close();
+    QFile::remove(path);
+
+    databaseReady_ = false;
+    emit databaseReadyChanged();
+
+    if (database_->open(path)) {
+        auto db = database_->connection();
+        settingsRepo_ = std::make_unique<iptvxs::SettingsRepository>(db, this);
+        serverRepo_ = std::make_unique<iptvxs::ServerRepository>(db, this);
+        categoryRepo_ = std::make_unique<iptvxs::CategoryRepository>(db, this);
+        channelRepo_ = std::make_unique<iptvxs::ChannelRepository>(db, this);
+        favoriteRepo_ = std::make_unique<iptvxs::FavoriteRepository>(db, this);
+        progRepo_ = std::make_unique<iptvxs::ProgrammeRepository>(db, this);
+        recordingRepo_ = std::make_unique<iptvxs::RecordingRepository>(db, this);
+
+        serverListVm_->setRepositories(serverRepo_.get(), categoryRepo_.get(),
+                                       channelRepo_.get());
+        favoriteListVm_->setRepository(favoriteRepo_.get());
+        channelListVm_->setRepository(channelRepo_.get());
+        categoryListVm_->setRepository(categoryRepo_.get());
+        speedTestVm_->setChannelRepository(channelRepo_.get());
+
+        databaseReady_ = true;
+        emit databaseReadyChanged();
+    }
 }

@@ -80,8 +80,7 @@ Rectangle {
                 { name: "channels", icon: "📺", label: "Channels" },
                 { name: "favorites", icon: "⭐", label: "Favorites" },
                 { name: "epg", icon: "📅", label: "TV Guide" },
-                { name: "recordings", icon: "⏺", label: "Recordings" },
-                { name: "history", icon: "🕐", label: "History" }
+                { name: "recordings", icon: "⏺", label: "Recordings" }
             ]
 
             delegate: Rectangle {

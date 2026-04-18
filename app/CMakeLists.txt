@@ -26,6 +26,7 @@ qt_add_qml_module(iptvxs
         qml/views/FavoritesView.qml
         qml/views/EpgView.qml
         qml/views/RecordingsView.qml
+        qml/views/SpeedTestView.qml
         qml/components/Sidebar.qml
         qml/components/TopBar.qml
         qml/components/AddServerDialog.qml
@@ -48,6 +49,8 @@ qt_add_qml_module(iptvxs
         viewmodels/recording_list_viewmodel.cpp
         viewmodels/gdrive_viewmodel.h
         viewmodels/gdrive_viewmodel.cpp
+        viewmodels/speed_test_viewmodel.h
+        viewmodels/speed_test_viewmodel.cpp
         viewmodels/player_viewmodel.h
         viewmodels/player_viewmodel.cpp
         viewmodels/mpv_video_item.h

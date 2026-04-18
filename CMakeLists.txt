@@ -34,3 +34,34 @@ if(IPTVXS_BUILD_TESTS)
     enable_testing()
     add_subdirectory(tests)
 endif()
+
+if(UNIX AND NOT APPLE)
+    include(GNUInstallDirs)
+
+    install(FILES packaging/linux/io.github.bschelst.iptvxs.desktop
+        DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/applications)
+
+    install(FILES packaging/linux/io.github.bschelst.iptvxs.metainfo.xml
+        DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/metainfo)
+
+    install(FILES packaging/linux/io.github.bschelst.iptvxs.svg
+        DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/icons/hicolor/scalable/apps)
+endif()
+
+set(CPACK_PACKAGE_NAME "iptvxs")
+set(CPACK_PACKAGE_VERSION ${PROJECT_VERSION})
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Cross-platform IPTV viewer")
+set(CPACK_PACKAGE_CONTACT "Bart Schelstraete <bart.schelstraete@gmail.com>")
+set(CPACK_PACKAGE_VENDOR "bschelst")
+set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_SOURCE_DIR}/LICENSE")
+set(CPACK_STRIP_FILES ON)
+
+set(CPACK_DEBIAN_PACKAGE_DEPENDS
+    "libqt6core6, libqt6gui6, libqt6network6, libqt6qml6, libqt6quick6, libqt6sql6, libmpv2, ffmpeg")
+set(CPACK_DEBIAN_PACKAGE_SECTION "video")
+
+set(CPACK_RPM_PACKAGE_REQUIRES
+    "qt6-qtbase, qt6-qtdeclarative, mpv-libs, ffmpeg-free")
+set(CPACK_RPM_PACKAGE_LICENSE "MIT")
+
+include(CPack)

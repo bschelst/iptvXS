@@ -15,6 +15,7 @@
 #include "iptvxs/recording/recording_manager.h"
 #include "iptvxs/gdrive/gdrive_auth.h"
 #include "iptvxs/gdrive/gdrive_uploader.h"
+#include "iptvxs/net/speed_test_runner.h"
 
 #include "category_list_viewmodel.h"
 #include "epg_viewmodel.h"
@@ -24,6 +25,7 @@
 #include "gdrive_viewmodel.h"
 #include "recording_list_viewmodel.h"
 #include "server_list_viewmodel.h"
+#include "speed_test_viewmodel.h"
 
 class AppViewModel : public QObject {
     Q_OBJECT
@@ -41,6 +43,9 @@ class AppViewModel : public QObject {
     Q_PROPERTY(EpgViewModel *epg READ epg CONSTANT)
     Q_PROPERTY(RecordingListViewModel *recordingList READ recordingList CONSTANT)
     Q_PROPERTY(GDriveViewModel *gdrive READ gdrive CONSTANT)
+    Q_PROPERTY(SpeedTestViewModel *speedTest READ speedTest CONSTANT)
+    Q_PROPERTY(int autoSyncInterval READ autoSyncInterval WRITE setAutoSyncInterval NOTIFY autoSyncIntervalChanged)
+    Q_PROPERTY(int autoSyncEpgInterval READ autoSyncEpgInterval WRITE setAutoSyncEpgInterval NOTIFY autoSyncEpgIntervalChanged)
 
 public:
     explicit AppViewModel(QObject *parent = nullptr);
@@ -64,10 +69,20 @@ public:
     EpgViewModel *epg() const;
     RecordingListViewModel *recordingList() const;
     GDriveViewModel *gdrive() const;
+    SpeedTestViewModel *speedTest() const;
+
+    int autoSyncInterval() const;
+    void setAutoSyncInterval(int hours);
+    int autoSyncEpgInterval() const;
+    void setAutoSyncEpgInterval(int hours);
+
+    Q_INVOKABLE void resetDatabase();
 
 signals:
     void databaseReadyChanged();
     void currentViewChanged();
+    void autoSyncIntervalChanged();
+    void autoSyncEpgIntervalChanged();
     void errorOccurred(const QString &message);
 
 private:
@@ -83,6 +98,7 @@ private:
     std::unique_ptr<iptvxs::GDriveAuth> gdriveAuth_;
     std::unique_ptr<iptvxs::GDriveUploader> gdriveUploader_;
     std::unique_ptr<iptvxs::HttpClient> httpClient_;
+    std::unique_ptr<iptvxs::SpeedTestRunner> speedTestRunner_;
 
     ServerListViewModel *serverListVm_;
     CategoryListViewModel *categoryListVm_;
@@ -92,6 +108,7 @@ private:
     EpgViewModel *epgVm_;
     RecordingListViewModel *recordingListVm_;
     GDriveViewModel *gdriveVm_;
+    SpeedTestViewModel *speedTestVm_;
 
     bool databaseReady_{false};
     QString currentView_{"home"};

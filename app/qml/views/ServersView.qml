@@ -198,6 +198,34 @@ Item {
                         Layout.preferredWidth: 36
                         Layout.preferredHeight: 36
                         radius: Theme.borderRadius
+                        color: editBtnHovered ? Theme.surfaceHover : "transparent"
+
+                        property bool editBtnHovered: false
+
+                        Text {
+                            anchors.centerIn: parent
+                            text: "✏"
+                            font.pixelSize: Theme.fontSizeMd
+                        }
+
+                        MouseArea {
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onEntered: parent.editBtnHovered = true
+                            onExited: parent.editBtnHovered = false
+                            onClicked: {
+                                addServerDialog.openForEdit(
+                                    index, model.name, model.type,
+                                    model.url, model.username)
+                            }
+                        }
+                    }
+
+                    Rectangle {
+                        Layout.preferredWidth: 36
+                        Layout.preferredHeight: 36
+                        radius: Theme.borderRadius
                         color: syncBtnHovered ? Theme.surfaceHover : "transparent"
 
                         property bool syncBtnHovered: false

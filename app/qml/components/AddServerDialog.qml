@@ -26,7 +26,7 @@ Dialog {
             anchors.left: parent.left
             anchors.leftMargin: Theme.spacingLg
             anchors.verticalCenter: parent.verticalCenter
-            text: "Add Server"
+            text: editMode ? "Edit Server" : "Add Server"
             font.pixelSize: Theme.fontSizeLg
             font.bold: true
             color: Theme.textPrimary
@@ -194,7 +194,7 @@ Dialog {
                 Text {
                     id: addText
                     anchors.centerIn: parent
-                    text: "Add Server"
+                    text: editMode ? "Save" : "Add Server"
                     font.pixelSize: Theme.fontSizeSm
                     font.bold: true
                     color: "#ffffff"
@@ -209,9 +209,15 @@ Dialog {
                     onClicked: {
                         if (!canAdd) return
                         if (appViewModel) {
-                            appViewModel.serverList.addServer(
-                                nameField.text, serverType, urlField.text,
-                                usernameField.text, passwordField.text)
+                            if (editMode) {
+                                appViewModel.serverList.updateServer(
+                                    editIndex, nameField.text, urlField.text,
+                                    usernameField.text, passwordField.text)
+                            } else {
+                                appViewModel.serverList.addServer(
+                                    nameField.text, serverType, urlField.text,
+                                    usernameField.text, passwordField.text)
+                            }
                         }
                         dialog.close()
                         resetFields()
@@ -223,6 +229,19 @@ Dialog {
 
     property string serverType: "xtream"
     property bool canAdd: nameField.text.length > 0 && urlField.text.length > 0
+    property bool editMode: false
+    property int editIndex: -1
+
+    function openForEdit(index, name, type, url, username) {
+        editMode = true
+        editIndex = index
+        serverType = type
+        nameField.text = name
+        urlField.text = url
+        usernameField.text = username
+        passwordField.text = ""
+        dialog.open()
+    }
 
     function resetFields() {
         nameField.text = ""
@@ -230,6 +249,8 @@ Dialog {
         usernameField.text = ""
         passwordField.text = ""
         serverType = "xtream"
+        editMode = false
+        editIndex = -1
     }
 
     onClosed: resetFields()

@@ -1,0 +1,46 @@
+app-id: io.github.bschelst.iptvxs
+runtime: org.kde.Platform
+runtime-version: '6.7'
+sdk: org.kde.Sdk
+command: iptvxs
+
+finish-args:
+  - --share=ipc
+  - --share=network
+  - --socket=fallback-x11
+  - --socket=wayland
+  - --socket=pulseaudio
+  - --device=dri
+  - --talk-name=org.freedesktop.Notifications
+
+modules:
+  - name: mpv
+    buildsystem: meson
+    config-opts:
+      - -Dlibmpv=true
+      - -Dcplayer=false
+      - -Dtests=false
+    sources:
+      - type: archive
+        url: https://github.com/mpv-player/mpv/archive/refs/tags/v0.39.0.tar.gz
+        sha256: 2ca92437affb62c2b559b4419ea4571c2b2b0b1b26e4f5b0001b9f02f718f6ae
+
+  - name: ffmpeg
+    buildsystem: autotools
+    config-opts:
+      - --disable-doc
+      - --disable-programs
+      - --enable-shared
+      - --disable-static
+    sources:
+      - type: archive
+        url: https://ffmpeg.org/releases/ffmpeg-7.1.tar.xz
+        sha256: 40973d44970dbc83ef302b0609f2e74982be2d85916dd2ee7472d30678a7abe6
+
+  - name: iptvxs
+    buildsystem: cmake-ninja
+    config-opts:
+      - -DIPTVXS_BUILD_TESTS=OFF
+    sources:
+      - type: dir
+        path: ../..

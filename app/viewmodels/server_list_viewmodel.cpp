@@ -87,6 +87,27 @@ void ServerListViewModel::addServer(const QString &name, const QString &type,
     emit countChanged();
 }
 
+void ServerListViewModel::updateServer(int index, const QString &name,
+                                       const QString &url, const QString &username,
+                                       const QString &password) {
+    if (!serverRepo_ || index < 0 || index >= servers_.size()) return;
+
+    auto server = servers_.at(index);
+    server.name = name;
+    server.url = url;
+    server.username = username;
+    server.password = password;
+
+    if (!serverRepo_->update(server)) {
+        emit errorOccurred(QStringLiteral("Failed to update server"));
+        return;
+    }
+
+    servers_[index] = server;
+    auto idx = this->index(index);
+    emit dataChanged(idx, idx);
+}
+
 void ServerListViewModel::removeServer(int index) {
     if (!serverRepo_ || index < 0 || index >= servers_.size()) return;
 
@@ -175,8 +196,11 @@ void ServerListViewModel::syncXtreamServer(const iptvxs::Server &server) {
 
     connect(client, &iptvxs::XtreamClient::liveStreamsReady, this,
             [this, client, http, serverId](const QVector<iptvxs::XtreamStream> &streams) {
-                if (!channelRepo_) return;
+                if (!channelRepo_ || !serverRepo_) return;
                 setSyncStatus(QStringLiteral("Saving %1 channels...").arg(streams.size()));
+
+                auto srv = serverRepo_->findById(serverId);
+                if (!srv) return;
 
                 QVector<iptvxs::Channel> dbChannels;
                 dbChannels.reserve(streams.size());
@@ -191,7 +215,7 @@ void ServerListViewModel::syncXtreamServer(const iptvxs::Server &server) {
                     ch.type = QStringLiteral("live");
                     ch.streamUrl = s.directSource.isEmpty()
                         ? QStringLiteral("%1/live/%2/%3/%4.ts")
-                              .arg(QString(), QString(), QString(), s.streamId)
+                              .arg(srv->url, srv->username, srv->password, s.streamId)
                         : s.directSource;
                     ch.addedAt = s.added;
                     dbChannels.append(ch);
