@@ -78,6 +78,12 @@ Rectangle {
                 ColorAnimation { duration: Theme.animFast }
             }
 
+            MouseArea {
+                anchors.fill: parent
+                onClicked: searchField.forceActiveFocus()
+                cursorShape: Qt.IBeamCursor
+            }
+
             Row {
                 anchors.fill: parent
                 anchors.leftMargin: Theme.spacingMd
@@ -98,6 +104,7 @@ Rectangle {
                     font.pixelSize: Theme.fontSizeSm
                     color: Theme.textPrimary
                     clip: true
+                    selectByMouse: true
 
                     Text {
                         anchors.verticalCenter: parent.verticalCenter

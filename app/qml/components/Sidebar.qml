@@ -61,7 +61,7 @@ Rectangle {
                 Text {
                     visible: !sidebar.collapsed
                     anchors.verticalCenter: parent.verticalCenter
-                    text: "iptvxs"
+                    text: "iptvXS"
                     font.pixelSize: Theme.fontSizeLg
                     font.bold: true
                     color: Theme.textPrimary
@@ -155,6 +155,7 @@ Rectangle {
         Repeater {
             model: [
                 { name: "speedtest", icon: "⚡", label: "Speed Test" },
+                { name: "log", icon: "📋", label: "App Log" },
                 { name: "settings", icon: "⚙", label: "Settings" }
             ]
 

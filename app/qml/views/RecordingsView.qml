@@ -61,7 +61,7 @@ Item {
                             radius: 14
                             color: {
                                 var current = appViewModel ? appViewModel.recordingList.filterStatus : ""
-                                return current === modelData.value ? Theme.accent + "30" : (filterBtnHovered ? Theme.surfaceHover : "transparent")
+                                return current === modelData.value ? Theme.accent : (filterBtnHovered ? Theme.surfaceHover : "transparent")
                             }
                             border.color: {
                                 var current = appViewModel ? appViewModel.recordingList.filterStatus : ""
@@ -76,9 +76,10 @@ Item {
                                 anchors.centerIn: parent
                                 text: modelData.label
                                 font.pixelSize: Theme.fontSizeXs
+                                font.bold: true
                                 color: {
                                     var current = appViewModel ? appViewModel.recordingList.filterStatus : ""
-                                    return current === modelData.value ? Theme.accent : Theme.textSecondary
+                                    return current === modelData.value ? Theme.textPrimary : Theme.textSecondary
                                 }
                             }
 

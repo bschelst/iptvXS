@@ -1,16 +1,59 @@
 #include <clocale>
 
 #include <QApplication>
+#include <QDateTime>
+#include <QDir>
+#include <QFile>
 #include <QIcon>
 #include <QMenu>
+#include <QMutex>
+#include <QMutexLocker>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
 #include <QQuickStyle>
 #include <QQuickWindow>
 #include <QStandardPaths>
 #include <QSystemTrayIcon>
+#include <QTextStream>
 
 #include "viewmodels/app_viewmodel.h"
+#include "viewmodels/log_viewmodel.h"
+
+static LogViewModel *g_logViewModel = nullptr;
+static QFile *g_logFile = nullptr;
+static QMutex g_logMutex;
+
+static void appMessageHandler(QtMsgType type, const QMessageLogContext &, const QString &msg) {
+    QMutexLocker lock(&g_logMutex);
+
+    QString level;
+    switch (type) {
+    case QtDebugMsg:    level = QStringLiteral("DEBUG"); break;
+    case QtInfoMsg:     level = QStringLiteral("INFO"); break;
+    case QtWarningMsg:  level = QStringLiteral("WARN"); break;
+    case QtCriticalMsg: level = QStringLiteral("ERROR"); break;
+    case QtFatalMsg:    level = QStringLiteral("FATAL"); break;
+    }
+
+    auto timestamp = QDateTime::currentDateTime().toString(Qt::ISODateWithMs);
+    auto line = QStringLiteral("[%1] %2: %3").arg(timestamp, level, msg);
+
+    if (g_logFile && g_logFile->isOpen()) {
+        QTextStream stream(g_logFile);
+        stream << line << "\n";
+        stream.flush();
+    }
+
+    if (g_logViewModel) {
+        QMetaObject::invokeMethod(g_logViewModel, "appendLog",
+                                  Qt::QueuedConnection,
+                                  Q_ARG(QString, level),
+                                  Q_ARG(QString, timestamp),
+                                  Q_ARG(QString, msg));
+    }
+
+    fprintf(stderr, "%s\n", qPrintable(line));
+}
 
 static void showMainWindow(QQmlApplicationEngine &engine) {
     const auto roots = engine.rootObjects();
@@ -28,18 +71,32 @@ int main(int argc, char *argv[]) {
     std::setlocale(LC_NUMERIC, "C");
     QApplication app(argc, argv);
     std::setlocale(LC_NUMERIC, "C");
-    app.setApplicationName("iptvxs");
+    app.setApplicationName("iptvXS");
     app.setApplicationVersion("0.1.0");
-    app.setOrganizationName("iptvxs");
+    app.setOrganizationName("iptvXS");
     app.setQuitOnLastWindowClosed(false);
 
     QQuickStyle::setStyle("Basic");
 
     QString dataPath =
         QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
+    QDir().mkpath(dataPath);
+
+    auto logFilePath = dataPath + "/iptvxs.log";
+    g_logFile = new QFile(logFilePath);
+    g_logFile->open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text);
+
+    auto logVm = new LogViewModel(&app);
+    g_logViewModel = logVm;
+    qInstallMessageHandler(appMessageHandler);
+
+    qInfo("iptvXS v%s starting", qPrintable(app.applicationVersion()));
+    qInfo("Data directory: %s", qPrintable(dataPath));
+
     QString dbPath = dataPath + "/iptvxs.db";
 
     auto viewModel = new AppViewModel(&app);
+    viewModel->setLogViewModel(logVm);
     if (!viewModel->initialize(dbPath)) {
         qCritical("Failed to initialize database at %s", qPrintable(dbPath));
         return 1;
@@ -56,13 +113,12 @@ int main(int argc, char *argv[]) {
     engine.loadFromModule("app.iptvxs", "Main");
 
     QSystemTrayIcon trayIcon(&app);
-    trayIcon.setIcon(QIcon::fromTheme("video-television",
-                                      QIcon::fromTheme("applications-multimedia")));
-    trayIcon.setToolTip("iptvxs");
+    trayIcon.setIcon(QIcon(QStringLiteral(":/images/iptvxs_logo.png")));
+    trayIcon.setToolTip("iptvXS");
 
     auto *trayMenu = new QMenu();
 
-    auto *showAction = trayMenu->addAction("Show iptvxs");
+    auto *showAction = trayMenu->addAction("Show iptvXS");
     QObject::connect(showAction, &QAction::triggered, &engine,
                      [&engine]() { showMainWindow(engine); });
 
@@ -87,5 +143,19 @@ int main(int argc, char *argv[]) {
         trayIcon.show();
     }
 
-    return QApplication::exec();
+    qInfo("Application started successfully");
+
+    auto result = QApplication::exec();
+
+    qInfo("Application shutting down");
+    qInstallMessageHandler(nullptr);
+    g_logViewModel = nullptr;
+
+    if (g_logFile) {
+        g_logFile->close();
+        delete g_logFile;
+        g_logFile = nullptr;
+    }
+
+    return result;
 }

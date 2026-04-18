@@ -27,6 +27,7 @@ class EpgViewModel : public QAbstractListModel {
     Q_PROPERTY(int64_t timeWindowStart READ timeWindowStart NOTIFY timeWindowChanged)
     Q_PROPERTY(int64_t timeWindowEnd READ timeWindowEnd NOTIFY timeWindowChanged)
     Q_PROPERTY(int64_t currentTime READ currentTime NOTIFY currentTimeChanged)
+    Q_PROPERTY(QString searchQuery READ searchQuery WRITE setSearchQuery NOTIFY searchQueryChanged)
 
 public:
     enum Roles {
@@ -56,6 +57,9 @@ public:
     int64_t timeWindowEnd() const;
     int64_t currentTime() const;
 
+    QString searchQuery() const;
+    void setSearchQuery(const QString &query);
+
     Q_INVOKABLE void refresh();
     Q_INVOKABLE void syncEpg(const QString &epgUrl);
     Q_INVOKABLE void shiftTime(int hours);
@@ -68,6 +72,7 @@ signals:
     void syncStatusChanged();
     void timeWindowChanged();
     void currentTimeChanged();
+    void searchQueryChanged();
 
 private:
     void loadGrid();
@@ -85,7 +90,9 @@ private:
     int64_t timeWindowEnd_{0};
     bool syncing_{false};
     QString syncStatus_;
+    QString searchQuery_;
     QTimer clockTimer_;
 
     static constexpr int kTimeWindowHours = 4;
+    static constexpr int kMaxEpgRows = 200;
 };

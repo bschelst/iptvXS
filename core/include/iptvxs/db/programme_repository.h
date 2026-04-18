@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QHash>
 #include <QObject>
 #include <QSqlDatabase>
 #include <QVector>
@@ -17,6 +18,8 @@ public:
 
     QVector<Programme> findByChannel(const QString &epgChannelId,
                                      int64_t fromTime, int64_t toTime) const;
+    QHash<QString, QVector<Programme>> findByTimeWindow(
+        int64_t fromTime, int64_t toTime) const;
     QVector<Programme> findCurrent(const QString &epgChannelId) const;
     std::optional<Programme> findById(int64_t id) const;
 

@@ -4,6 +4,13 @@ qt_add_executable(iptvxs
     main.cpp
 )
 
+qt_add_resources(iptvxs "app_resources"
+    PREFIX "/"
+    BASE "../"
+    FILES
+        ../images/iptvxs_logo.png
+)
+
 set_target_properties(iptvxs PROPERTIES
     QT_QML_IMPORT_NO_IMPORT_SCAN ON
 )
@@ -27,6 +34,7 @@ qt_add_qml_module(iptvxs
         qml/views/EpgView.qml
         qml/views/RecordingsView.qml
         qml/views/SpeedTestView.qml
+        qml/views/LogView.qml
         qml/components/Sidebar.qml
         qml/components/TopBar.qml
         qml/components/AddServerDialog.qml
@@ -51,6 +59,8 @@ qt_add_qml_module(iptvxs
         viewmodels/gdrive_viewmodel.cpp
         viewmodels/speed_test_viewmodel.h
         viewmodels/speed_test_viewmodel.cpp
+        viewmodels/log_viewmodel.h
+        viewmodels/log_viewmodel.cpp
         viewmodels/player_viewmodel.h
         viewmodels/player_viewmodel.cpp
         viewmodels/mpv_video_item.h

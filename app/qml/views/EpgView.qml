@@ -32,6 +32,64 @@ Item {
                 anchors.leftMargin: Theme.spacingMd
                 anchors.rightMargin: Theme.spacingMd
 
+                Rectangle {
+                    Layout.preferredWidth: 200
+                    Layout.preferredHeight: 32
+                    radius: 16
+                    color: Theme.surfaceElevated
+                    border.color: epgSearch.activeFocus ? Theme.accent : Theme.surfaceBorder
+                    border.width: 1
+
+                    MouseArea {
+                        anchors.fill: parent
+                        onClicked: epgSearch.forceActiveFocus()
+                        cursorShape: Qt.IBeamCursor
+                    }
+
+                    Row {
+                        anchors.fill: parent
+                        anchors.leftMargin: Theme.spacingSm
+                        anchors.rightMargin: Theme.spacingSm
+                        spacing: Theme.spacingSm
+
+                        Text {
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: "🔍"
+                            font.pixelSize: Theme.fontSizeXs
+                            opacity: 0.5
+                        }
+
+                        TextInput {
+                            id: epgSearch
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: parent.width - 30
+                            font.pixelSize: Theme.fontSizeSm
+                            color: Theme.textPrimary
+                            clip: true
+                            selectByMouse: true
+
+                            Text {
+                                anchors.verticalCenter: parent.verticalCenter
+                                text: "Search channels..."
+                                font.pixelSize: Theme.fontSizeSm
+                                color: Theme.textMuted
+                                visible: !epgSearch.text && !epgSearch.activeFocus
+                            }
+
+                            onTextChanged: epgSearchTimer.restart()
+
+                            Timer {
+                                id: epgSearchTimer
+                                interval: 300
+                                onTriggered: {
+                                    if (appViewModel)
+                                        appViewModel.epg.searchQuery = epgSearch.text
+                                }
+                            }
+                        }
+                    }
+                }
+
                 ComboBox {
                     id: serverPicker
                     Layout.preferredWidth: 200
@@ -195,7 +253,7 @@ Item {
                 }
 
                 Row {
-                    x: -timelineFlickable.contentX
+                    x: -guideFlickable.contentX
 
                     Repeater {
                         model: {
@@ -248,70 +306,70 @@ Item {
                     color: Theme.surfaceBorder
                 }
 
-                Column {
-                    y: -guideFlickable.contentY
+                ListView {
+                    id: channelListView
+                    anchors.fill: parent
+                    model: appViewModel ? appViewModel.epg : null
+                    interactive: false
+                    contentY: guideListView.contentY
 
-                    Repeater {
-                        model: appViewModel ? appViewModel.epg : null
+                    delegate: Rectangle {
+                        width: channelColumnWidth
+                        height: rowHeight
+                        color: "transparent"
 
                         Rectangle {
-                            width: channelColumnWidth
-                            height: rowHeight
-                            color: "transparent"
+                            anchors.bottom: parent.bottom
+                            width: parent.width
+                            height: 1
+                            color: Theme.surfaceBorder
+                        }
+
+                        RowLayout {
+                            anchors.fill: parent
+                            anchors.margins: Theme.spacingSm
+                            spacing: Theme.spacingSm
 
                             Rectangle {
-                                anchors.bottom: parent.bottom
-                                width: parent.width
-                                height: 1
-                                color: Theme.surfaceBorder
-                            }
+                                Layout.preferredWidth: 36
+                                Layout.preferredHeight: 36
+                                radius: Theme.borderRadiusSmall
+                                color: Theme.surfaceElevated
+                                clip: true
 
-                            RowLayout {
-                                anchors.fill: parent
-                                anchors.margins: Theme.spacingSm
-                                spacing: Theme.spacingSm
-
-                                Rectangle {
-                                    Layout.preferredWidth: 36
-                                    Layout.preferredHeight: 36
-                                    radius: Theme.borderRadiusSmall
-                                    color: Theme.surfaceElevated
-                                    clip: true
-
-                                    Image {
-                                        anchors.fill: parent
-                                        anchors.margins: 4
-                                        source: model.channelLogo || ""
-                                        fillMode: Image.PreserveAspectFit
-                                        asynchronous: true
-                                        visible: status === Image.Ready
-                                    }
-
-                                    Text {
-                                        anchors.centerIn: parent
-                                        text: "📺"
-                                        font.pixelSize: Theme.fontSizeXs
-                                        visible: !model.channelLogo
-                                    }
+                                Image {
+                                    anchors.fill: parent
+                                    anchors.margins: 4
+                                    source: model.channelLogo || ""
+                                    fillMode: Image.PreserveAspectFit
+                                    asynchronous: true
+                                    visible: status === Image.Ready
                                 }
 
                                 Text {
-                                    text: model.channelName
-                                    font.pixelSize: Theme.fontSizeSm
-                                    color: Theme.textPrimary
-                                    elide: Text.ElideRight
-                                    Layout.fillWidth: true
+                                    anchors.centerIn: parent
+                                    text: "📺"
+                                    font.pixelSize: Theme.fontSizeXs
+                                    visible: !model.channelLogo
                                 }
                             }
 
-                            MouseArea {
-                                anchors.fill: parent
-                                cursorShape: Qt.PointingHandCursor
-                                onClicked: {
-                                    if (appViewModel) {
-                                        appViewModel.player.play(model.streamUrl, model.channelName, model.channelLogo)
-                                        appViewModel.currentView = "player"
-                                    }
+                            Text {
+                                text: model.channelName
+                                font.pixelSize: Theme.fontSizeSm
+                                color: Theme.textPrimary
+                                elide: Text.ElideRight
+                                Layout.fillWidth: true
+                            }
+                        }
+
+                        MouseArea {
+                            anchors.fill: parent
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: {
+                                if (appViewModel) {
+                                    appViewModel.player.play(model.streamUrl, model.channelName, model.channelLogo)
+                                    appViewModel.currentView = "player"
                                 }
                             }
                         }
@@ -325,126 +383,118 @@ Item {
                 y: timeHeaderHeight
                 width: parent.width - channelColumnWidth
                 height: parent.height - timeHeaderHeight
-                contentWidth: timelineFlickable.contentWidth
+                contentWidth: timelineContentWidth
                 clip: true
+                flickableDirection: Flickable.HorizontalFlick
 
-                contentHeight: {
-                    var c = appViewModel ? appViewModel.epg.count : 0
-                    return Math.max(c * rowHeight, height)
+                readonly property real timelineContentWidth: {
+                    if (!appViewModel) return 0
+                    return (appViewModel.epg.timeWindowEnd - appViewModel.epg.timeWindowStart) * pixelsPerSecond
                 }
 
-                ScrollBar.vertical: ScrollBar {
-                    active: true
-                    policy: ScrollBar.AsNeeded
-                }
-                ScrollBar.horizontal: ScrollBar {
-                    id: timelineFlickable
-                    active: true
-                    policy: ScrollBar.AsNeeded
+                ListView {
+                    id: guideListView
+                    anchors.fill: parent
+                    model: appViewModel ? appViewModel.epg : null
+                    clip: false
+                    cacheBuffer: rowHeight * 4
 
-                    property real contentX: guideFlickable.contentX
-                    property real contentWidth: {
-                        if (!appViewModel) return 0
-                        return (appViewModel.epg.timeWindowEnd - appViewModel.epg.timeWindowStart) * pixelsPerSecond
-                    }
-                }
+                    delegate: Item {
+                        width: guideFlickable.timelineContentWidth
+                        height: rowHeight
 
-                Column {
-                    Repeater {
-                        model: appViewModel ? appViewModel.epg : null
+                        Rectangle {
+                            anchors.bottom: parent.bottom
+                            width: parent.width
+                            height: 1
+                            color: Theme.surfaceBorder
+                        }
 
                         Item {
-                            width: timelineFlickable.contentWidth
-                            height: rowHeight
+                            anchors.fill: parent
 
-                            Rectangle {
-                                anchors.bottom: parent.bottom
-                                width: parent.width
-                                height: 1
-                                color: Theme.surfaceBorder
-                            }
+                            Repeater {
+                                model: programmes || []
 
-                            Item {
-                                anchors.fill: parent
+                                Rectangle {
+                                    property real progStart: Math.max(modelData.startTime, appViewModel.epg.timeWindowStart)
+                                    property real progEnd: Math.min(modelData.endTime, appViewModel.epg.timeWindowEnd)
+                                    property real duration: progEnd - progStart
 
-                                Repeater {
-                                    model: programmes || []
+                                    x: (progStart - appViewModel.epg.timeWindowStart) * pixelsPerSecond
+                                    width: Math.max(duration * pixelsPerSecond - 1, 2)
+                                    height: rowHeight - 1
+                                    radius: Theme.borderRadiusSmall
+                                    color: progHovered ? Theme.surfaceHover : Theme.surfaceElevated
+                                    border.color: Theme.surfaceBorder
+                                    border.width: 1
 
-                                    Rectangle {
-                                        property real progStart: Math.max(modelData.startTime, appViewModel.epg.timeWindowStart)
-                                        property real progEnd: Math.min(modelData.endTime, appViewModel.epg.timeWindowEnd)
-                                        property real duration: progEnd - progStart
+                                    property bool progHovered: false
 
-                                        x: (progStart - appViewModel.epg.timeWindowStart) * pixelsPerSecond
-                                        width: Math.max(duration * pixelsPerSecond - 1, 2)
-                                        height: rowHeight - 1
-                                        radius: Theme.borderRadiusSmall
-                                        color: progHovered ? Theme.surfaceHover : Theme.surfaceElevated
-                                        border.color: Theme.surfaceBorder
-                                        border.width: 1
+                                    Behavior on color {
+                                        ColorAnimation { duration: Theme.animFast }
+                                    }
 
-                                        property bool progHovered: false
+                                    ColumnLayout {
+                                        anchors.fill: parent
+                                        anchors.margins: Theme.spacingXs
+                                        spacing: 1
 
-                                        Behavior on color {
-                                            ColorAnimation { duration: Theme.animFast }
+                                        Text {
+                                            text: modelData.title || ""
+                                            font.pixelSize: Theme.fontSizeXs
+                                            font.bold: true
+                                            color: Theme.textPrimary
+                                            elide: Text.ElideRight
+                                            Layout.fillWidth: true
                                         }
 
-                                        ColumnLayout {
-                                            anchors.fill: parent
-                                            anchors.margins: Theme.spacingXs
-                                            spacing: 1
-
-                                            Text {
-                                                text: modelData.title || ""
-                                                font.pixelSize: Theme.fontSizeXs
-                                                font.bold: true
-                                                color: Theme.textPrimary
-                                                elide: Text.ElideRight
-                                                Layout.fillWidth: true
+                                        Text {
+                                            text: {
+                                                var s = new Date(modelData.startTime * 1000)
+                                                var e = new Date(modelData.endTime * 1000)
+                                                return Qt.formatTime(s, "HH:mm") + " - " + Qt.formatTime(e, "HH:mm")
                                             }
-
-                                            Text {
-                                                text: {
-                                                    var s = new Date(modelData.startTime * 1000)
-                                                    var e = new Date(modelData.endTime * 1000)
-                                                    return Qt.formatTime(s, "HH:mm") + " - " + Qt.formatTime(e, "HH:mm")
-                                                }
-                                                font.pixelSize: 10
-                                                color: Theme.textMuted
-                                                Layout.fillWidth: true
-                                            }
+                                            font.pixelSize: 10
+                                            color: Theme.textMuted
+                                            Layout.fillWidth: true
                                         }
+                                    }
 
-                                        MouseArea {
-                                            anchors.fill: parent
-                                            hoverEnabled: true
-                                            onEntered: parent.progHovered = true
-                                            onExited: parent.progHovered = false
+                                    MouseArea {
+                                        anchors.fill: parent
+                                        hoverEnabled: true
+                                        onEntered: parent.progHovered = true
+                                        onExited: parent.progHovered = false
 
-                                            ToolTip.visible: parent.progHovered && (modelData.description || "").length > 0
-                                            ToolTip.text: modelData.description || ""
-                                            ToolTip.delay: 500
-                                        }
+                                        ToolTip.visible: parent.progHovered && (modelData.description || "").length > 0
+                                        ToolTip.text: modelData.description || ""
+                                        ToolTip.delay: 500
                                     }
                                 }
                             }
-
-                            Rectangle {
-                                visible: {
-                                    if (!appViewModel) return false
-                                    var now = appViewModel.epg.currentTime
-                                    return now >= appViewModel.epg.timeWindowStart && now <= appViewModel.epg.timeWindowEnd
-                                }
-                                x: {
-                                    if (!appViewModel) return 0
-                                    return (appViewModel.epg.currentTime - appViewModel.epg.timeWindowStart) * pixelsPerSecond
-                                }
-                                width: 2
-                                height: rowHeight
-                                color: Theme.live
-                                z: 10
-                            }
                         }
+
+                        Rectangle {
+                            visible: {
+                                if (!appViewModel) return false
+                                var now = appViewModel.epg.currentTime
+                                return now >= appViewModel.epg.timeWindowStart && now <= appViewModel.epg.timeWindowEnd
+                            }
+                            x: {
+                                if (!appViewModel) return 0
+                                return (appViewModel.epg.currentTime - appViewModel.epg.timeWindowStart) * pixelsPerSecond
+                            }
+                            width: 2
+                            height: rowHeight
+                            color: Theme.live
+                            z: 10
+                        }
+                    }
+
+                    ScrollBar.vertical: ScrollBar {
+                        active: true
+                        policy: ScrollBar.AsNeeded
                     }
                 }
             }

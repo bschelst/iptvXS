@@ -237,6 +237,12 @@ Item {
                         border.color: channelSearch.activeFocus ? Theme.accent : Theme.surfaceBorder
                         border.width: 1
 
+                        MouseArea {
+                            anchors.fill: parent
+                            onClicked: channelSearch.forceActiveFocus()
+                            cursorShape: Qt.IBeamCursor
+                        }
+
                         Row {
                             anchors.fill: parent
                             anchors.leftMargin: Theme.spacingSm

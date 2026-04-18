@@ -43,6 +43,37 @@ QVector<Programme> ProgrammeRepository::findByChannel(
     return results;
 }
 
+QHash<QString, QVector<Programme>> ProgrammeRepository::findByTimeWindow(
+    int64_t fromTime, int64_t toTime) const {
+    QHash<QString, QVector<Programme>> result;
+    QSqlQuery q(db_);
+    q.prepare(R"(
+        SELECT id, epg_channel_id, title, description, start_time, end_time
+        FROM programmes
+        WHERE end_time > ? AND start_time < ?
+        ORDER BY epg_channel_id, start_time ASC
+    )");
+    q.addBindValue(static_cast<qlonglong>(fromTime));
+    q.addBindValue(static_cast<qlonglong>(toTime));
+
+    if (!q.exec()) {
+        return result;
+    }
+
+    while (q.next()) {
+        Programme p;
+        p.id = q.value(0).toLongLong();
+        p.epgChannelId = q.value(1).toString();
+        p.title = q.value(2).toString();
+        p.description = q.value(3).toString();
+        p.startTime = q.value(4).toLongLong();
+        p.endTime = q.value(5).toLongLong();
+        result[p.epgChannelId].append(std::move(p));
+    }
+
+    return result;
+}
+
 QVector<Programme> ProgrammeRepository::findCurrent(
     const QString &epgChannelId) const {
     int64_t now = QDateTime::currentSecsSinceEpoch();

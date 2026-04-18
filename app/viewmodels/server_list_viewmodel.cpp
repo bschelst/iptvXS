@@ -202,6 +202,14 @@ void ServerListViewModel::syncXtreamServer(const iptvxs::Server &server) {
                 auto srv = serverRepo_->findById(serverId);
                 if (!srv) return;
 
+                QHash<QString, int64_t> catMap;
+                if (categoryRepo_) {
+                    auto cats = categoryRepo_->findByServer(serverId);
+                    for (const auto &c : cats) {
+                        catMap[c.externalId] = c.id;
+                    }
+                }
+
                 QVector<iptvxs::Channel> dbChannels;
                 dbChannels.reserve(streams.size());
                 for (const auto &s : streams) {
@@ -210,7 +218,7 @@ void ServerListViewModel::syncXtreamServer(const iptvxs::Server &server) {
                     ch.externalId = s.streamId;
                     ch.name = s.name;
                     ch.logoUrl = s.streamIcon;
-                    ch.categoryId = 0;
+                    ch.categoryId = catMap.value(s.categoryId, 0);
                     ch.epgChannelId = s.epgChannelId;
                     ch.type = QStringLiteral("live");
                     ch.streamUrl = s.directSource.isEmpty()

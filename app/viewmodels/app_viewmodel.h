@@ -26,6 +26,7 @@
 #include "recording_list_viewmodel.h"
 #include "server_list_viewmodel.h"
 #include "speed_test_viewmodel.h"
+#include "log_viewmodel.h"
 
 class AppViewModel : public QObject {
     Q_OBJECT
@@ -44,6 +45,7 @@ class AppViewModel : public QObject {
     Q_PROPERTY(RecordingListViewModel *recordingList READ recordingList CONSTANT)
     Q_PROPERTY(GDriveViewModel *gdrive READ gdrive CONSTANT)
     Q_PROPERTY(SpeedTestViewModel *speedTest READ speedTest CONSTANT)
+    Q_PROPERTY(LogViewModel *log READ log CONSTANT)
     Q_PROPERTY(int autoSyncInterval READ autoSyncInterval WRITE setAutoSyncInterval NOTIFY autoSyncIntervalChanged)
     Q_PROPERTY(int autoSyncEpgInterval READ autoSyncEpgInterval WRITE setAutoSyncEpgInterval NOTIFY autoSyncEpgIntervalChanged)
 
@@ -52,6 +54,7 @@ public:
     ~AppViewModel() override;
 
     bool initialize(const QString &dbPath);
+    void setLogViewModel(LogViewModel *logVm);
 
     QString appName() const;
     QString appVersion() const;
@@ -70,6 +73,7 @@ public:
     RecordingListViewModel *recordingList() const;
     GDriveViewModel *gdrive() const;
     SpeedTestViewModel *speedTest() const;
+    LogViewModel *log() const;
 
     int autoSyncInterval() const;
     void setAutoSyncInterval(int hours);
@@ -109,6 +113,7 @@ private:
     RecordingListViewModel *recordingListVm_;
     GDriveViewModel *gdriveVm_;
     SpeedTestViewModel *speedTestVm_;
+    LogViewModel *logVm_{nullptr};
 
     bool databaseReady_{false};
     QString currentView_{"home"};

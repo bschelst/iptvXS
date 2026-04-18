@@ -19,6 +19,8 @@ void SpeedTestRunner::start(const QUrl &streamUrl, int durationSecs) {
     QNetworkRequest req(streamUrl);
     req.setAttribute(QNetworkRequest::RedirectPolicyAttribute,
                      QNetworkRequest::NoLessSafeRedirectPolicy);
+    req.setRawHeader("User-Agent", "iptvXS/1.0 (Speed Test)");
+    req.setTransferTimeout(30000);
 
     reply_ = nam_.get(req);
     connect(reply_, &QNetworkReply::readyRead, this, &SpeedTestRunner::onReadyRead);
@@ -74,12 +76,23 @@ void SpeedTestRunner::onReplyFinished() {
 }
 
 void SpeedTestRunner::onReplyError(QNetworkReply::NetworkError code) {
-    Q_UNUSED(code)
     if (!running_) {
         return;
     }
 
-    auto msg = reply_ ? reply_->errorString() : QStringLiteral("Unknown network error");
+    auto errorStr = reply_ ? reply_->errorString() : QStringLiteral("Unknown network error");
+    auto httpStatus = reply_ ? reply_->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt() : 0;
+
+    QString msg;
+    if (httpStatus > 0) {
+        msg = QStringLiteral("HTTP %1: %2 (error code: %3)")
+                  .arg(httpStatus)
+                  .arg(errorStr)
+                  .arg(static_cast<int>(code));
+    } else {
+        msg = QStringLiteral("%1 (error code: %2)").arg(errorStr).arg(static_cast<int>(code));
+    }
+
     cleanup();
     emit errorOccurred(msg);
 }

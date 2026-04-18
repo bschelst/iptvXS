@@ -12,7 +12,7 @@ Item {
         spacing: Theme.spacingLg
 
         Text {
-            text: "Welcome to iptvxs"
+            text: "Welcome to iptvXS"
             font.pixelSize: Theme.fontSizeHero
             font.bold: true
             color: Theme.textPrimary

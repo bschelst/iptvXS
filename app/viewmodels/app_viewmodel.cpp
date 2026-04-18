@@ -1,4 +1,5 @@
 #include "app_viewmodel.h"
+#include "log_viewmodel.h"
 
 #include <QDesktopServices>
 #include <QDir>
@@ -91,7 +92,9 @@ bool AppViewModel::initialize(const QString &dbPath) {
     return true;
 }
 
-QString AppViewModel::appName() const { return QStringLiteral("iptvxs"); }
+void AppViewModel::setLogViewModel(LogViewModel *logVm) { logVm_ = logVm; }
+
+QString AppViewModel::appName() const { return QStringLiteral("iptvXS"); }
 
 QString AppViewModel::appVersion() const { return QStringLiteral("0.1.0"); }
 
@@ -146,6 +149,10 @@ GDriveViewModel *AppViewModel::gdrive() const {
 
 SpeedTestViewModel *AppViewModel::speedTest() const {
     return speedTestVm_;
+}
+
+LogViewModel *AppViewModel::log() const {
+    return logVm_;
 }
 
 int AppViewModel::autoSyncInterval() const {

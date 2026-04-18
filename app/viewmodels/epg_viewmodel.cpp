@@ -106,6 +106,16 @@ int64_t EpgViewModel::currentTime() const {
     return QDateTime::currentSecsSinceEpoch();
 }
 
+QString EpgViewModel::searchQuery() const { return searchQuery_; }
+
+void EpgViewModel::setSearchQuery(const QString &query) {
+    if (searchQuery_ != query) {
+        searchQuery_ = query;
+        emit searchQueryChanged();
+        loadGrid();
+    }
+}
+
 void EpgViewModel::refresh() {
     loadGrid();
 }
@@ -186,32 +196,46 @@ void EpgViewModel::loadGrid() {
         return;
     }
 
+    auto progsByChannel =
+        progRepo_->findByTimeWindow(timeWindowStart_, timeWindowEnd_);
+
+    if (progsByChannel.isEmpty()) {
+        beginResetModel();
+        rows_.clear();
+        endResetModel();
+        emit countChanged();
+        return;
+    }
+
     auto channels = channelRepo_->findByServerAndType(
         serverId_, QStringLiteral("live"), 0, 0);
 
     QVector<EpgChannelRow> newRows;
-    newRows.reserve(channels.size());
+    newRows.reserve(progsByChannel.size());
 
     for (const auto &ch : channels) {
-        if (ch.epgChannelId.isEmpty()) {
+        if (!searchQuery_.isEmpty() &&
+            !ch.name.contains(searchQuery_, Qt::CaseInsensitive)) {
             continue;
         }
 
-        auto programmes = progRepo_->findByChannel(
-            ch.epgChannelId, timeWindowStart_, timeWindowEnd_);
-
-        if (programmes.isEmpty()) {
+        auto it = progsByChannel.find(ch.epgChannelId);
+        if (it == progsByChannel.end()) {
             continue;
         }
 
         EpgChannelRow row;
         row.channel = ch;
-        row.programmes = std::move(programmes);
+        row.programmes = std::move(it.value());
         newRows.append(std::move(row));
+
+        if (newRows.size() >= kMaxEpgRows) {
+            break;
+        }
     }
 
     beginResetModel();
-    rows_ = newRows;
+    rows_ = std::move(newRows);
     endResetModel();
     emit countChanged();
 }

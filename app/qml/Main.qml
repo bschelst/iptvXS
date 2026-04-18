@@ -12,7 +12,7 @@ ApplicationWindow {
     height: 800
     minimumWidth: 900
     minimumHeight: 600
-    title: "iptvxs"
+    title: "iptvXS"
     color: Theme.background
 
     property var viewTitles: ({
@@ -23,7 +23,8 @@ ApplicationWindow {
         "recordings": "Recordings",
         "speedtest": "Speed Test",
         "settings": "Settings",
-        "servers": "Servers"
+        "servers": "Servers",
+        "log": "Application Log"
     })
 
     RowLayout {
@@ -54,8 +55,12 @@ ApplicationWindow {
 
                 onToggleSidebar: sidebar.collapsed = !sidebar.collapsed
                 onSearchTextChanged: function(text) {
-                    if (appViewModel && appViewModel.channelList) {
+                    if (!appViewModel) return
+                    var view = sidebar.activeItem
+                    if (view === "channels" || view === "favorites") {
                         appViewModel.channelList.searchQuery = text
+                    } else if (view === "epg") {
+                        appViewModel.epg.searchQuery = text
                     }
                 }
             }
@@ -93,6 +98,8 @@ ApplicationWindow {
             return "views/SpeedTestView.qml"
         case "settings":
             return "views/SettingsView.qml"
+        case "log":
+            return "views/LogView.qml"
         case "player":
             return "views/PlayerView.qml"
         default:
