@@ -19,12 +19,23 @@ qt_add_qml_module(iptvxs
     QML_FILES
         qml/Main.qml
         qml/views/HomeView.qml
+        qml/views/ServersView.qml
+        qml/views/ChannelsView.qml
+        qml/views/SettingsView.qml
         qml/components/Sidebar.qml
         qml/components/TopBar.qml
+        qml/components/AddServerDialog.qml
+        qml/components/StyledTextField.qml
         qml/themes/Theme.qml
     SOURCES
         viewmodels/app_viewmodel.h
         viewmodels/app_viewmodel.cpp
+        viewmodels/server_list_viewmodel.h
+        viewmodels/server_list_viewmodel.cpp
+        viewmodels/category_list_viewmodel.h
+        viewmodels/category_list_viewmodel.cpp
+        viewmodels/channel_list_viewmodel.h
+        viewmodels/channel_list_viewmodel.cpp
 )
 
 target_include_directories(iptvxs

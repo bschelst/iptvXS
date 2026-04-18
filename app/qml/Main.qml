@@ -15,19 +15,17 @@ ApplicationWindow {
     title: "iptvxs"
     color: Theme.background
 
-    property string viewTitles: {
-        var titles = {
-            "home": "Home",
-            "channels": "Channels",
-            "favorites": "Favorites",
-            "epg": "TV Guide",
-            "recordings": "Recordings",
-            "history": "History",
-            "speedtest": "Speed Test",
-            "settings": "Settings"
-        }
-        return JSON.stringify(titles)
-    }
+    property var viewTitles: ({
+        "home": "Home",
+        "channels": "Channels",
+        "favorites": "Favorites",
+        "epg": "TV Guide",
+        "recordings": "Recordings",
+        "history": "History",
+        "speedtest": "Speed Test",
+        "settings": "Settings",
+        "servers": "Servers"
+    })
 
     RowLayout {
         anchors.fill: parent
@@ -53,14 +51,13 @@ ApplicationWindow {
             TopBar {
                 id: topBar
                 Layout.fillWidth: true
-                title: {
-                    var titles = JSON.parse(window.viewTitles)
-                    return titles[sidebar.activeItem] || "Home"
-                }
+                title: viewTitles[sidebar.activeItem] || "Home"
 
                 onToggleSidebar: sidebar.collapsed = !sidebar.collapsed
                 onSearchTextChanged: function(text) {
-                    console.log("Search:", text)
+                    if (appViewModel && appViewModel.channelList) {
+                        appViewModel.channelList.searchQuery = text
+                    }
                 }
             }
 
@@ -83,6 +80,12 @@ ApplicationWindow {
         switch (name) {
         case "home":
             return "views/HomeView.qml"
+        case "servers":
+            return "views/ServersView.qml"
+        case "channels":
+            return "views/ChannelsView.qml"
+        case "settings":
+            return "views/SettingsView.qml"
         default:
             return "views/HomeView.qml"
         }

@@ -76,6 +76,7 @@ Rectangle {
         Repeater {
             model: [
                 { name: "home", icon: "🏠", label: "Home" },
+                { name: "servers", icon: "📡", label: "Servers" },
                 { name: "channels", icon: "📺", label: "Channels" },
                 { name: "favorites", icon: "⭐", label: "Favorites" },
                 { name: "epg", icon: "📅", label: "TV Guide" },

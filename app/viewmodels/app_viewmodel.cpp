@@ -1,19 +1,45 @@
 #include "app_viewmodel.h"
 
-AppViewModel::AppViewModel(QObject *parent) : QObject(parent) {}
+AppViewModel::AppViewModel(QObject *parent)
+    : QObject(parent),
+      serverListVm_(new ServerListViewModel(this)),
+      categoryListVm_(new CategoryListViewModel(this)),
+      channelListVm_(new ChannelListViewModel(this)) {}
 
 AppViewModel::~AppViewModel() = default;
 
 bool AppViewModel::initialize(const QString &dbPath) {
     database_ = std::make_unique<iptvxs::Database>(this);
 
-    connect(database_.get(), &iptvxs::Database::errorOccurred, this, &AppViewModel::errorOccurred);
+    connect(database_.get(), &iptvxs::Database::errorOccurred, this,
+            &AppViewModel::errorOccurred);
 
     if (!database_->open(dbPath)) {
         return false;
     }
 
-    settings_ = std::make_unique<iptvxs::SettingsRepository>(database_->connection(), this);
+    auto db = database_->connection();
+
+    settingsRepo_ = std::make_unique<iptvxs::SettingsRepository>(db, this);
+    serverRepo_ = std::make_unique<iptvxs::ServerRepository>(db, this);
+    categoryRepo_ = std::make_unique<iptvxs::CategoryRepository>(db, this);
+    channelRepo_ = std::make_unique<iptvxs::ChannelRepository>(db, this);
+
+    serverListVm_->setRepositories(serverRepo_.get(), categoryRepo_.get(),
+                                   channelRepo_.get());
+    categoryListVm_->setRepository(categoryRepo_.get());
+    channelListVm_->setRepository(channelRepo_.get());
+
+    connect(serverListVm_, &ServerListViewModel::syncFinished, this,
+            [this](int64_t serverId) {
+                if (channelListVm_->serverId() == serverId) {
+                    channelListVm_->refresh();
+                }
+                if (categoryListVm_->serverId() == serverId) {
+                    categoryListVm_->refresh();
+                }
+            });
+
     databaseReady_ = true;
     emit databaseReadyChanged();
 
@@ -37,5 +63,18 @@ void AppViewModel::setCurrentView(const QString &view) {
 
 iptvxs::Database *AppViewModel::database() const { return database_.get(); }
 
-iptvxs::SettingsRepository *AppViewModel::settings() const { return settings_.get(); }
+iptvxs::SettingsRepository *AppViewModel::settings() const {
+    return settingsRepo_.get();
+}
 
+ServerListViewModel *AppViewModel::serverList() const {
+    return serverListVm_;
+}
+
+CategoryListViewModel *AppViewModel::categoryList() const {
+    return categoryListVm_;
+}
+
+ChannelListViewModel *AppViewModel::channelList() const {
+    return channelListVm_;
+}

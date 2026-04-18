@@ -5,7 +5,14 @@
 #include <QString>
 
 #include "iptvxs/db/database.h"
+#include "iptvxs/db/category_repository.h"
+#include "iptvxs/db/channel_repository.h"
+#include "iptvxs/db/server_repository.h"
 #include "iptvxs/db/settings_repository.h"
+
+#include "category_list_viewmodel.h"
+#include "channel_list_viewmodel.h"
+#include "server_list_viewmodel.h"
 
 class AppViewModel : public QObject {
     Q_OBJECT
@@ -15,6 +22,9 @@ class AppViewModel : public QObject {
     Q_PROPERTY(QString appVersion READ appVersion CONSTANT)
     Q_PROPERTY(bool databaseReady READ databaseReady NOTIFY databaseReadyChanged)
     Q_PROPERTY(QString currentView READ currentView WRITE setCurrentView NOTIFY currentViewChanged)
+    Q_PROPERTY(ServerListViewModel *serverList READ serverList CONSTANT)
+    Q_PROPERTY(CategoryListViewModel *categoryList READ categoryList CONSTANT)
+    Q_PROPERTY(ChannelListViewModel *channelList READ channelList CONSTANT)
 
 public:
     explicit AppViewModel(QObject *parent = nullptr);
@@ -30,6 +40,9 @@ public:
 
     iptvxs::Database *database() const;
     iptvxs::SettingsRepository *settings() const;
+    ServerListViewModel *serverList() const;
+    CategoryListViewModel *categoryList() const;
+    ChannelListViewModel *channelList() const;
 
 signals:
     void databaseReadyChanged();
@@ -38,8 +51,15 @@ signals:
 
 private:
     std::unique_ptr<iptvxs::Database> database_;
-    std::unique_ptr<iptvxs::SettingsRepository> settings_;
+    std::unique_ptr<iptvxs::SettingsRepository> settingsRepo_;
+    std::unique_ptr<iptvxs::ServerRepository> serverRepo_;
+    std::unique_ptr<iptvxs::CategoryRepository> categoryRepo_;
+    std::unique_ptr<iptvxs::ChannelRepository> channelRepo_;
+
+    ServerListViewModel *serverListVm_;
+    CategoryListViewModel *categoryListVm_;
+    ChannelListViewModel *channelListVm_;
+
     bool databaseReady_{false};
     QString currentView_{"home"};
 };
-
