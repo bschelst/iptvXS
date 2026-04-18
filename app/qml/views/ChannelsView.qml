@@ -360,6 +360,41 @@ Item {
                         }
                     }
 
+                    Rectangle {
+                        anchors.right: parent.right
+                        anchors.top: parent.top
+                        anchors.margins: Theme.spacingXs
+                        width: 24
+                        height: 24
+                        radius: 12
+                        color: starHovered ? Theme.surfaceHover : "transparent"
+                        z: 2
+
+                        property bool starHovered: false
+                        property bool isFav: appViewModel ? appViewModel.favoriteList.isFavorite(model.channelId) : false
+
+                        Text {
+                            anchors.centerIn: parent
+                            text: parent.isFav ? "⭐" : "☆"
+                            font.pixelSize: Theme.fontSizeXs
+                            color: parent.isFav ? Theme.warning : Theme.textMuted
+                        }
+
+                        MouseArea {
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onEntered: parent.starHovered = true
+                            onExited: parent.starHovered = false
+                            onClicked: {
+                                if (appViewModel) {
+                                    appViewModel.favoriteList.toggleFavorite(model.channelId)
+                                    parent.isFav = !parent.isFav
+                                }
+                            }
+                        }
+                    }
+
                     MouseArea {
                         anchors.fill: parent
                         hoverEnabled: true
@@ -372,6 +407,8 @@ Item {
                                 appViewModel.currentView = "player"
                             }
                         }
+
+                        z: -1
                     }
                 }
 

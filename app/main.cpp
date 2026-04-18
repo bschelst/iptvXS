@@ -1,19 +1,37 @@
 #include <clocale>
 
-#include <QGuiApplication>
+#include <QApplication>
+#include <QIcon>
+#include <QMenu>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
 #include <QQuickStyle>
+#include <QQuickWindow>
 #include <QStandardPaths>
+#include <QSystemTrayIcon>
 
 #include "viewmodels/app_viewmodel.h"
 
+static void showMainWindow(QQmlApplicationEngine &engine) {
+    const auto roots = engine.rootObjects();
+    if (!roots.isEmpty()) {
+        auto *window = qobject_cast<QQuickWindow *>(roots.first());
+        if (window) {
+            window->show();
+            window->raise();
+            window->requestActivate();
+        }
+    }
+}
+
 int main(int argc, char *argv[]) {
     std::setlocale(LC_NUMERIC, "C");
-    QGuiApplication app(argc, argv);
+    QApplication app(argc, argv);
+    std::setlocale(LC_NUMERIC, "C");
     app.setApplicationName("iptvxs");
     app.setApplicationVersion("0.1.0");
     app.setOrganizationName("iptvxs");
+    app.setQuitOnLastWindowClosed(false);
 
     QQuickStyle::setStyle("Basic");
 
@@ -37,5 +55,37 @@ int main(int argc, char *argv[]) {
 
     engine.loadFromModule("app.iptvxs", "Main");
 
-    return QGuiApplication::exec();
+    QSystemTrayIcon trayIcon(&app);
+    trayIcon.setIcon(QIcon::fromTheme("video-television",
+                                      QIcon::fromTheme("applications-multimedia")));
+    trayIcon.setToolTip("iptvxs");
+
+    auto *trayMenu = new QMenu();
+
+    auto *showAction = trayMenu->addAction("Show iptvxs");
+    QObject::connect(showAction, &QAction::triggered, &engine,
+                     [&engine]() { showMainWindow(engine); });
+
+    trayMenu->addSeparator();
+
+    auto *quitAction = trayMenu->addAction("Quit");
+    QObject::connect(quitAction, &QAction::triggered, &app,
+                     &QApplication::quit);
+
+    trayIcon.setContextMenu(trayMenu);
+
+    QObject::connect(
+        &trayIcon, &QSystemTrayIcon::activated, &engine,
+        [&engine](QSystemTrayIcon::ActivationReason reason) {
+            if (reason == QSystemTrayIcon::Trigger ||
+                reason == QSystemTrayIcon::DoubleClick) {
+                showMainWindow(engine);
+            }
+        });
+
+    if (QSystemTrayIcon::isSystemTrayAvailable()) {
+        trayIcon.show();
+    }
+
+    return QApplication::exec();
 }

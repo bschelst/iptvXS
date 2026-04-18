@@ -7,11 +7,13 @@
 #include "iptvxs/db/database.h"
 #include "iptvxs/db/category_repository.h"
 #include "iptvxs/db/channel_repository.h"
+#include "iptvxs/db/favorite_repository.h"
 #include "iptvxs/db/server_repository.h"
 #include "iptvxs/db/settings_repository.h"
 
 #include "category_list_viewmodel.h"
 #include "channel_list_viewmodel.h"
+#include "favorite_list_viewmodel.h"
 #include "player_viewmodel.h"
 #include "server_list_viewmodel.h"
 
@@ -27,6 +29,7 @@ class AppViewModel : public QObject {
     Q_PROPERTY(CategoryListViewModel *categoryList READ categoryList CONSTANT)
     Q_PROPERTY(ChannelListViewModel *channelList READ channelList CONSTANT)
     Q_PROPERTY(PlayerViewModel *player READ player CONSTANT)
+    Q_PROPERTY(FavoriteListViewModel *favoriteList READ favoriteList CONSTANT)
 
 public:
     explicit AppViewModel(QObject *parent = nullptr);
@@ -46,6 +49,7 @@ public:
     CategoryListViewModel *categoryList() const;
     ChannelListViewModel *channelList() const;
     PlayerViewModel *player() const;
+    FavoriteListViewModel *favoriteList() const;
 
 signals:
     void databaseReadyChanged();
@@ -58,11 +62,13 @@ private:
     std::unique_ptr<iptvxs::ServerRepository> serverRepo_;
     std::unique_ptr<iptvxs::CategoryRepository> categoryRepo_;
     std::unique_ptr<iptvxs::ChannelRepository> channelRepo_;
+    std::unique_ptr<iptvxs::FavoriteRepository> favoriteRepo_;
 
     ServerListViewModel *serverListVm_;
     CategoryListViewModel *categoryListVm_;
     ChannelListViewModel *channelListVm_;
     PlayerViewModel *playerVm_;
+    FavoriteListViewModel *favoriteListVm_;
 
     bool databaseReady_{false};
     QString currentView_{"home"};
