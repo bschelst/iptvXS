@@ -25,6 +25,7 @@ qt_add_qml_module(iptvxs
         qml/views/PlayerView.qml
         qml/views/FavoritesView.qml
         qml/views/EpgView.qml
+        qml/views/RecordingsView.qml
         qml/components/Sidebar.qml
         qml/components/TopBar.qml
         qml/components/AddServerDialog.qml
@@ -43,6 +44,10 @@ qt_add_qml_module(iptvxs
         viewmodels/favorite_list_viewmodel.cpp
         viewmodels/epg_viewmodel.h
         viewmodels/epg_viewmodel.cpp
+        viewmodels/recording_list_viewmodel.h
+        viewmodels/recording_list_viewmodel.cpp
+        viewmodels/gdrive_viewmodel.h
+        viewmodels/gdrive_viewmodel.cpp
         viewmodels/player_viewmodel.h
         viewmodels/player_viewmodel.cpp
         viewmodels/mpv_video_item.h

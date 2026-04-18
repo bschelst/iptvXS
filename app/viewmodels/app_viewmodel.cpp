@@ -1,5 +1,7 @@
 #include "app_viewmodel.h"
 
+#include <QDesktopServices>
+
 AppViewModel::AppViewModel(QObject *parent)
     : QObject(parent),
       serverListVm_(new ServerListViewModel(this)),
@@ -7,7 +9,9 @@ AppViewModel::AppViewModel(QObject *parent)
       channelListVm_(new ChannelListViewModel(this)),
       playerVm_(new PlayerViewModel(this)),
       favoriteListVm_(new FavoriteListViewModel(this)),
-      epgVm_(new EpgViewModel(this)) {}
+      epgVm_(new EpgViewModel(this)),
+      recordingListVm_(new RecordingListViewModel(this)),
+      gdriveVm_(new GDriveViewModel(this)) {}
 
 AppViewModel::~AppViewModel() = default;
 
@@ -29,6 +33,8 @@ bool AppViewModel::initialize(const QString &dbPath) {
     channelRepo_ = std::make_unique<iptvxs::ChannelRepository>(db, this);
     favoriteRepo_ = std::make_unique<iptvxs::FavoriteRepository>(db, this);
     progRepo_ = std::make_unique<iptvxs::ProgrammeRepository>(db, this);
+    recordingRepo_ = std::make_unique<iptvxs::RecordingRepository>(db, this);
+    recordingMgr_ = std::make_unique<iptvxs::RecordingManager>(this);
     httpClient_ = std::make_unique<iptvxs::HttpClient>(this);
 
     serverListVm_->setRepositories(serverRepo_.get(), categoryRepo_.get(),
@@ -38,6 +44,27 @@ bool AppViewModel::initialize(const QString &dbPath) {
     epgVm_->setHttpClient(httpClient_.get());
     categoryListVm_->setRepository(categoryRepo_.get());
     channelListVm_->setRepository(channelRepo_.get());
+    recordingMgr_->setRepositories(recordingRepo_.get(), channelRepo_.get(),
+                                   settingsRepo_.get());
+    recordingListVm_->setRepositories(recordingRepo_.get(), channelRepo_.get());
+    recordingListVm_->setRecordingManager(recordingMgr_.get());
+    recordingMgr_->start();
+
+    gdriveAuth_ = std::make_unique<iptvxs::GDriveAuth>(settingsRepo_.get(), this);
+    gdriveUploader_ = std::make_unique<iptvxs::GDriveUploader>(gdriveAuth_.get(), this);
+
+    auto clientId = settingsRepo_->getString(QStringLiteral("gdrive_client_id"));
+    auto clientSecret = settingsRepo_->getString(QStringLiteral("gdrive_client_secret"));
+    if (!clientId.isEmpty() && !clientSecret.isEmpty()) {
+        gdriveAuth_->setCredentials(clientId, clientSecret);
+    }
+
+    connect(gdriveAuth_.get(), &iptvxs::GDriveAuth::openUrlRequested, this,
+            [](const QUrl &url) { QDesktopServices::openUrl(url); });
+
+    gdriveVm_->setAuth(gdriveAuth_.get());
+    gdriveVm_->setUploader(gdriveUploader_.get());
+    gdriveVm_->setRecordingRepository(recordingRepo_.get());
 
     connect(serverListVm_, &ServerListViewModel::syncFinished, this,
             [this](int64_t serverId) {
@@ -98,4 +125,12 @@ FavoriteListViewModel *AppViewModel::favoriteList() const {
 
 EpgViewModel *AppViewModel::epg() const {
     return epgVm_;
+}
+
+RecordingListViewModel *AppViewModel::recordingList() const {
+    return recordingListVm_;
+}
+
+GDriveViewModel *AppViewModel::gdrive() const {
+    return gdriveVm_;
 }

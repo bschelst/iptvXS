@@ -9,14 +9,20 @@
 #include "iptvxs/db/channel_repository.h"
 #include "iptvxs/db/favorite_repository.h"
 #include "iptvxs/db/programme_repository.h"
+#include "iptvxs/db/recording_repository.h"
 #include "iptvxs/db/server_repository.h"
 #include "iptvxs/db/settings_repository.h"
+#include "iptvxs/recording/recording_manager.h"
+#include "iptvxs/gdrive/gdrive_auth.h"
+#include "iptvxs/gdrive/gdrive_uploader.h"
 
 #include "category_list_viewmodel.h"
 #include "epg_viewmodel.h"
 #include "channel_list_viewmodel.h"
 #include "favorite_list_viewmodel.h"
 #include "player_viewmodel.h"
+#include "gdrive_viewmodel.h"
+#include "recording_list_viewmodel.h"
 #include "server_list_viewmodel.h"
 
 class AppViewModel : public QObject {
@@ -33,6 +39,8 @@ class AppViewModel : public QObject {
     Q_PROPERTY(PlayerViewModel *player READ player CONSTANT)
     Q_PROPERTY(FavoriteListViewModel *favoriteList READ favoriteList CONSTANT)
     Q_PROPERTY(EpgViewModel *epg READ epg CONSTANT)
+    Q_PROPERTY(RecordingListViewModel *recordingList READ recordingList CONSTANT)
+    Q_PROPERTY(GDriveViewModel *gdrive READ gdrive CONSTANT)
 
 public:
     explicit AppViewModel(QObject *parent = nullptr);
@@ -54,6 +62,8 @@ public:
     PlayerViewModel *player() const;
     FavoriteListViewModel *favoriteList() const;
     EpgViewModel *epg() const;
+    RecordingListViewModel *recordingList() const;
+    GDriveViewModel *gdrive() const;
 
 signals:
     void databaseReadyChanged();
@@ -68,6 +78,10 @@ private:
     std::unique_ptr<iptvxs::ChannelRepository> channelRepo_;
     std::unique_ptr<iptvxs::FavoriteRepository> favoriteRepo_;
     std::unique_ptr<iptvxs::ProgrammeRepository> progRepo_;
+    std::unique_ptr<iptvxs::RecordingRepository> recordingRepo_;
+    std::unique_ptr<iptvxs::RecordingManager> recordingMgr_;
+    std::unique_ptr<iptvxs::GDriveAuth> gdriveAuth_;
+    std::unique_ptr<iptvxs::GDriveUploader> gdriveUploader_;
     std::unique_ptr<iptvxs::HttpClient> httpClient_;
 
     ServerListViewModel *serverListVm_;
@@ -76,6 +90,8 @@ private:
     PlayerViewModel *playerVm_;
     FavoriteListViewModel *favoriteListVm_;
     EpgViewModel *epgVm_;
+    RecordingListViewModel *recordingListVm_;
+    GDriveViewModel *gdriveVm_;
 
     bool databaseReady_{false};
     QString currentView_{"home"};

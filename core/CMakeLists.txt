@@ -14,6 +14,10 @@ add_library(iptvxs-core STATIC
     src/parser/m3u_parser.cpp
     src/parser/xmltv_parser.cpp
     src/db/programme_repository.cpp
+    src/db/recording_repository.cpp
+    src/recording/recording_manager.cpp
+    src/gdrive/gdrive_auth.cpp
+    src/gdrive/gdrive_uploader.cpp
     src/player/mpv_player.cpp
     include/iptvxs/db/database.h
     include/iptvxs/db/settings_repository.h
@@ -26,6 +30,10 @@ add_library(iptvxs-core STATIC
     include/iptvxs/parser/m3u_parser.h
     include/iptvxs/parser/xmltv_parser.h
     include/iptvxs/db/programme_repository.h
+    include/iptvxs/db/recording_repository.h
+    include/iptvxs/recording/recording_manager.h
+    include/iptvxs/gdrive/gdrive_auth.h
+    include/iptvxs/gdrive/gdrive_uploader.h
     include/iptvxs/player/mpv_player.h
 )
 

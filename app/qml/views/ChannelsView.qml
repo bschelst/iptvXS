@@ -360,36 +360,69 @@ Item {
                         }
                     }
 
-                    Rectangle {
+                    Row {
                         anchors.right: parent.right
                         anchors.top: parent.top
                         anchors.margins: Theme.spacingXs
-                        width: 24
-                        height: 24
-                        radius: 12
-                        color: starHovered ? Theme.surfaceHover : "transparent"
+                        spacing: 2
                         z: 2
 
-                        property bool starHovered: false
-                        property bool isFav: appViewModel ? appViewModel.favoriteList.isFavorite(model.channelId) : false
+                        Rectangle {
+                            width: 24
+                            height: 24
+                            radius: 12
+                            color: recBtnHovered ? Theme.error + "30" : "transparent"
 
-                        Text {
-                            anchors.centerIn: parent
-                            text: parent.isFav ? "⭐" : "☆"
-                            font.pixelSize: Theme.fontSizeXs
-                            color: parent.isFav ? Theme.warning : Theme.textMuted
+                            property bool recBtnHovered: false
+
+                            Text {
+                                anchors.centerIn: parent
+                                text: "⏺"
+                                font.pixelSize: 10
+                                color: parent.recBtnHovered ? Theme.error : Theme.textMuted
+                            }
+
+                            MouseArea {
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onEntered: parent.recBtnHovered = true
+                                onExited: parent.recBtnHovered = false
+                                onClicked: {
+                                    if (appViewModel) {
+                                        appViewModel.recordingList.startNow(model.channelId)
+                                    }
+                                }
+                            }
                         }
 
-                        MouseArea {
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
-                            onEntered: parent.starHovered = true
-                            onExited: parent.starHovered = false
-                            onClicked: {
-                                if (appViewModel) {
-                                    appViewModel.favoriteList.toggleFavorite(model.channelId)
-                                    parent.isFav = !parent.isFav
+                        Rectangle {
+                            width: 24
+                            height: 24
+                            radius: 12
+                            color: starHovered ? Theme.surfaceHover : "transparent"
+
+                            property bool starHovered: false
+                            property bool isFav: appViewModel ? appViewModel.favoriteList.isFavorite(model.channelId) : false
+
+                            Text {
+                                anchors.centerIn: parent
+                                text: parent.isFav ? "⭐" : "☆"
+                                font.pixelSize: Theme.fontSizeXs
+                                color: parent.isFav ? Theme.warning : Theme.textMuted
+                            }
+
+                            MouseArea {
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onEntered: parent.starHovered = true
+                                onExited: parent.starHovered = false
+                                onClicked: {
+                                    if (appViewModel) {
+                                        appViewModel.favoriteList.toggleFavorite(model.channelId)
+                                        parent.isFav = !parent.isFav
+                                    }
                                 }
                             }
                         }
