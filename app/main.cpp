@@ -1,3 +1,5 @@
+#include <clocale>
+
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
@@ -7,6 +9,7 @@
 #include "viewmodels/app_viewmodel.h"
 
 int main(int argc, char *argv[]) {
+    std::setlocale(LC_NUMERIC, "C");
     QGuiApplication app(argc, argv);
     app.setApplicationName("iptvxs");
     app.setApplicationVersion("0.1.0");

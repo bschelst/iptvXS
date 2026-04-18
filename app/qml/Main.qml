@@ -86,6 +86,8 @@ ApplicationWindow {
             return "views/ChannelsView.qml"
         case "settings":
             return "views/SettingsView.qml"
+        case "player":
+            return "views/PlayerView.qml"
         default:
             return "views/HomeView.qml"
         }

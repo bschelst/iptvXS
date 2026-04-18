@@ -12,6 +12,7 @@
 
 #include "category_list_viewmodel.h"
 #include "channel_list_viewmodel.h"
+#include "player_viewmodel.h"
 #include "server_list_viewmodel.h"
 
 class AppViewModel : public QObject {
@@ -25,6 +26,7 @@ class AppViewModel : public QObject {
     Q_PROPERTY(ServerListViewModel *serverList READ serverList CONSTANT)
     Q_PROPERTY(CategoryListViewModel *categoryList READ categoryList CONSTANT)
     Q_PROPERTY(ChannelListViewModel *channelList READ channelList CONSTANT)
+    Q_PROPERTY(PlayerViewModel *player READ player CONSTANT)
 
 public:
     explicit AppViewModel(QObject *parent = nullptr);
@@ -43,6 +45,7 @@ public:
     ServerListViewModel *serverList() const;
     CategoryListViewModel *categoryList() const;
     ChannelListViewModel *channelList() const;
+    PlayerViewModel *player() const;
 
 signals:
     void databaseReadyChanged();
@@ -59,6 +62,7 @@ private:
     ServerListViewModel *serverListVm_;
     CategoryListViewModel *categoryListVm_;
     ChannelListViewModel *channelListVm_;
+    PlayerViewModel *playerVm_;
 
     bool databaseReady_{false};
     QString currentView_{"home"};

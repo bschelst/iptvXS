@@ -4,7 +4,8 @@ AppViewModel::AppViewModel(QObject *parent)
     : QObject(parent),
       serverListVm_(new ServerListViewModel(this)),
       categoryListVm_(new CategoryListViewModel(this)),
-      channelListVm_(new ChannelListViewModel(this)) {}
+      channelListVm_(new ChannelListViewModel(this)),
+      playerVm_(new PlayerViewModel(this)) {}
 
 AppViewModel::~AppViewModel() = default;
 
@@ -77,4 +78,8 @@ CategoryListViewModel *AppViewModel::categoryList() const {
 
 ChannelListViewModel *AppViewModel::channelList() const {
     return channelListVm_;
+}
+
+PlayerViewModel *AppViewModel::player() const {
+    return playerVm_;
 }

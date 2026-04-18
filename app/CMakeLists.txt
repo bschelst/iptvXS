@@ -22,6 +22,7 @@ qt_add_qml_module(iptvxs
         qml/views/ServersView.qml
         qml/views/ChannelsView.qml
         qml/views/SettingsView.qml
+        qml/views/PlayerView.qml
         qml/components/Sidebar.qml
         qml/components/TopBar.qml
         qml/components/AddServerDialog.qml
@@ -36,6 +37,10 @@ qt_add_qml_module(iptvxs
         viewmodels/category_list_viewmodel.cpp
         viewmodels/channel_list_viewmodel.h
         viewmodels/channel_list_viewmodel.cpp
+        viewmodels/player_viewmodel.h
+        viewmodels/player_viewmodel.cpp
+        viewmodels/mpv_video_item.h
+        viewmodels/mpv_video_item.cpp
 )
 
 target_include_directories(iptvxs
@@ -43,11 +48,22 @@ target_include_directories(iptvxs
         ${CMAKE_CURRENT_SOURCE_DIR}/viewmodels
 )
 
+find_package(Qt6 REQUIRED COMPONENTS OpenGL)
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(MPV REQUIRED mpv)
+
+target_include_directories(iptvxs
+    PRIVATE
+        ${MPV_INCLUDE_DIRS}
+)
+
 target_link_libraries(iptvxs
     PRIVATE
         iptvxs-core
         Qt6::Quick
         Qt6::QuickControls2
+        Qt6::OpenGL
+        ${MPV_LIBRARIES}
 )
 
 install(TARGETS iptvxs

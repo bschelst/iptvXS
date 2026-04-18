@@ -367,7 +367,10 @@ Item {
                         onEntered: parent.chHovered = true
                         onExited: parent.chHovered = false
                         onClicked: {
-                            console.log("Play:", model.name, model.streamUrl)
+                            if (appViewModel) {
+                                appViewModel.player.play(model.streamUrl, model.name, model.logoUrl)
+                                appViewModel.currentView = "player"
+                            }
                         }
                     }
                 }
