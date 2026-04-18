@@ -51,6 +51,7 @@ public:
     Q_INVOKABLE void syncServer(int index);
     Q_INVOKABLE void refresh();
     Q_INVOKABLE int64_t serverIdAt(int index) const;
+    Q_INVOKABLE QString epgUrlAt(int index) const;
 
 signals:
     void countChanged();

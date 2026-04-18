@@ -123,6 +123,16 @@ int64_t ServerListViewModel::serverIdAt(int index) const {
     return servers_.at(index).id;
 }
 
+QString ServerListViewModel::epgUrlAt(int index) const {
+    if (index < 0 || index >= servers_.size()) return {};
+    const auto &srv = servers_.at(index);
+    if (srv.type == QStringLiteral("xtream")) {
+        return QStringLiteral("%1/xmltv.php?username=%2&password=%3")
+            .arg(srv.url, srv.username, srv.password);
+    }
+    return {};
+}
+
 void ServerListViewModel::loadServers() {
     if (!serverRepo_) return;
 

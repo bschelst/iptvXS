@@ -1,0 +1,91 @@
+#pragma once
+
+#include <QAbstractListModel>
+#include <QQmlEngine>
+#include <QTimer>
+
+#include "iptvxs/db/channel_repository.h"
+#include "iptvxs/db/programme_repository.h"
+#include "iptvxs/models/channel.h"
+#include "iptvxs/models/programme.h"
+#include "iptvxs/net/http_client.h"
+#include "iptvxs/parser/xmltv_parser.h"
+
+struct EpgChannelRow {
+    iptvxs::Channel channel;
+    QVector<iptvxs::Programme> programmes;
+};
+
+class EpgViewModel : public QAbstractListModel {
+    Q_OBJECT
+    QML_ELEMENT
+
+    Q_PROPERTY(int64_t serverId READ serverId WRITE setServerId NOTIFY serverIdChanged)
+    Q_PROPERTY(int count READ count NOTIFY countChanged)
+    Q_PROPERTY(bool syncing READ syncing NOTIFY syncingChanged)
+    Q_PROPERTY(QString syncStatus READ syncStatus NOTIFY syncStatusChanged)
+    Q_PROPERTY(int64_t timeWindowStart READ timeWindowStart NOTIFY timeWindowChanged)
+    Q_PROPERTY(int64_t timeWindowEnd READ timeWindowEnd NOTIFY timeWindowChanged)
+    Q_PROPERTY(int64_t currentTime READ currentTime NOTIFY currentTimeChanged)
+
+public:
+    enum Roles {
+        ChannelIdRole = Qt::UserRole + 1,
+        ChannelNameRole,
+        ChannelLogoRole,
+        StreamUrlRole,
+        ProgrammesRole
+    };
+
+    explicit EpgViewModel(QObject *parent = nullptr);
+
+    void setRepositories(iptvxs::ProgrammeRepository *progRepo,
+                         iptvxs::ChannelRepository *channelRepo);
+    void setHttpClient(iptvxs::HttpClient *http);
+
+    int rowCount(const QModelIndex &parent = {}) const override;
+    QVariant data(const QModelIndex &index, int role) const override;
+    QHash<int, QByteArray> roleNames() const override;
+
+    int64_t serverId() const;
+    void setServerId(int64_t id);
+    int count() const;
+    bool syncing() const;
+    QString syncStatus() const;
+    int64_t timeWindowStart() const;
+    int64_t timeWindowEnd() const;
+    int64_t currentTime() const;
+
+    Q_INVOKABLE void refresh();
+    Q_INVOKABLE void syncEpg(const QString &epgUrl);
+    Q_INVOKABLE void shiftTime(int hours);
+    Q_INVOKABLE QVariantList programmesForChannel(int row) const;
+
+signals:
+    void serverIdChanged();
+    void countChanged();
+    void syncingChanged();
+    void syncStatusChanged();
+    void timeWindowChanged();
+    void currentTimeChanged();
+
+private:
+    void loadGrid();
+    void setSyncing(bool syncing);
+    void setSyncStatus(const QString &status);
+
+    iptvxs::ProgrammeRepository *progRepo_{nullptr};
+    iptvxs::ChannelRepository *channelRepo_{nullptr};
+    iptvxs::HttpClient *http_{nullptr};
+    iptvxs::XmltvParser parser_;
+
+    QVector<EpgChannelRow> rows_;
+    int64_t serverId_{0};
+    int64_t timeWindowStart_{0};
+    int64_t timeWindowEnd_{0};
+    bool syncing_{false};
+    QString syncStatus_;
+    QTimer clockTimer_;
+
+    static constexpr int kTimeWindowHours = 4;
+};

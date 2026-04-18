@@ -6,7 +6,8 @@ AppViewModel::AppViewModel(QObject *parent)
       categoryListVm_(new CategoryListViewModel(this)),
       channelListVm_(new ChannelListViewModel(this)),
       playerVm_(new PlayerViewModel(this)),
-      favoriteListVm_(new FavoriteListViewModel(this)) {}
+      favoriteListVm_(new FavoriteListViewModel(this)),
+      epgVm_(new EpgViewModel(this)) {}
 
 AppViewModel::~AppViewModel() = default;
 
@@ -27,10 +28,14 @@ bool AppViewModel::initialize(const QString &dbPath) {
     categoryRepo_ = std::make_unique<iptvxs::CategoryRepository>(db, this);
     channelRepo_ = std::make_unique<iptvxs::ChannelRepository>(db, this);
     favoriteRepo_ = std::make_unique<iptvxs::FavoriteRepository>(db, this);
+    progRepo_ = std::make_unique<iptvxs::ProgrammeRepository>(db, this);
+    httpClient_ = std::make_unique<iptvxs::HttpClient>(this);
 
     serverListVm_->setRepositories(serverRepo_.get(), categoryRepo_.get(),
                                    channelRepo_.get());
     favoriteListVm_->setRepository(favoriteRepo_.get());
+    epgVm_->setRepositories(progRepo_.get(), channelRepo_.get());
+    epgVm_->setHttpClient(httpClient_.get());
     categoryListVm_->setRepository(categoryRepo_.get());
     channelListVm_->setRepository(channelRepo_.get());
 
@@ -89,4 +94,8 @@ PlayerViewModel *AppViewModel::player() const {
 
 FavoriteListViewModel *AppViewModel::favoriteList() const {
     return favoriteListVm_;
+}
+
+EpgViewModel *AppViewModel::epg() const {
+    return epgVm_;
 }

@@ -86,6 +86,8 @@ ApplicationWindow {
             return "views/ChannelsView.qml"
         case "favorites":
             return "views/FavoritesView.qml"
+        case "epg":
+            return "views/EpgView.qml"
         case "settings":
             return "views/SettingsView.qml"
         case "player":

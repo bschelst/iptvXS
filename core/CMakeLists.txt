@@ -12,6 +12,8 @@ add_library(iptvxs-core STATIC
     src/api/xtream_client.cpp
     src/api/xtream_response.cpp
     src/parser/m3u_parser.cpp
+    src/parser/xmltv_parser.cpp
+    src/db/programme_repository.cpp
     src/player/mpv_player.cpp
     include/iptvxs/db/database.h
     include/iptvxs/db/settings_repository.h
@@ -22,6 +24,8 @@ add_library(iptvxs-core STATIC
     include/iptvxs/net/http_client.h
     include/iptvxs/api/xtream_client.h
     include/iptvxs/parser/m3u_parser.h
+    include/iptvxs/parser/xmltv_parser.h
+    include/iptvxs/db/programme_repository.h
     include/iptvxs/player/mpv_player.h
 )
 
