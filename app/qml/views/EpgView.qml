@@ -364,7 +364,7 @@ Item {
                                 color: Theme.surfaceBorder
                             }
 
-                            Row {
+                            Item {
                                 anchors.fill: parent
 
                                 Repeater {

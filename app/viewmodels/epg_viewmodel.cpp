@@ -187,21 +187,27 @@ void EpgViewModel::loadGrid() {
     }
 
     auto channels = channelRepo_->findByServerAndType(
-        serverId_, QStringLiteral("live"), 100, 0);
+        serverId_, QStringLiteral("live"), 0, 0);
 
     QVector<EpgChannelRow> newRows;
     newRows.reserve(channels.size());
 
     for (const auto &ch : channels) {
-        EpgChannelRow row;
-        row.channel = ch;
-
-        if (!ch.epgChannelId.isEmpty()) {
-            row.programmes = progRepo_->findByChannel(
-                ch.epgChannelId, timeWindowStart_, timeWindowEnd_);
+        if (ch.epgChannelId.isEmpty()) {
+            continue;
         }
 
-        newRows.append(row);
+        auto programmes = progRepo_->findByChannel(
+            ch.epgChannelId, timeWindowStart_, timeWindowEnd_);
+
+        if (programmes.isEmpty()) {
+            continue;
+        }
+
+        EpgChannelRow row;
+        row.channel = ch;
+        row.programmes = std::move(programmes);
+        newRows.append(std::move(row));
     }
 
     beginResetModel();

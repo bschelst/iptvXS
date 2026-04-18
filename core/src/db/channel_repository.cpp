@@ -66,7 +66,7 @@ QVector<Channel> ChannelRepository::findByServerAndType(int64_t serverId, const 
                   "ORDER BY name COLLATE NOCASE LIMIT ? OFFSET ?");
     query.addBindValue(toVariant(serverId));
     query.addBindValue(type);
-    query.addBindValue(limit);
+    query.addBindValue(limit > 0 ? limit : -1);
     query.addBindValue(offset);
 
     if (!query.exec()) {
@@ -74,7 +74,6 @@ QVector<Channel> ChannelRepository::findByServerAndType(int64_t serverId, const 
     }
 
     QVector<Channel> channels;
-    channels.reserve(limit);
     while (query.next()) {
         channels.append(fromQuery(query));
     }
