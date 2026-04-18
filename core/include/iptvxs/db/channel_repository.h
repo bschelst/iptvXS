@@ -1,0 +1,43 @@
+#pragma once
+
+#include <QObject>
+#include <QSqlDatabase>
+#include <QVector>
+#include <optional>
+
+#include "iptvxs/models/channel.h"
+
+namespace iptvxs {
+
+class ChannelRepository : public QObject {
+    Q_OBJECT
+
+public:
+    explicit ChannelRepository(QSqlDatabase db, QObject *parent = nullptr);
+
+    QVector<Channel> findByServer(int64_t serverId, int limit = 200, int offset = 0) const;
+    QVector<Channel> findByCategory(int64_t categoryId, int limit = 200, int offset = 0) const;
+    QVector<Channel> findByServerAndType(int64_t serverId, const QString &type,
+                                         int limit = 200, int offset = 0) const;
+    QVector<Channel> search(int64_t serverId, const QString &query,
+                            int limit = 200, int offset = 0) const;
+    std::optional<Channel> findById(int64_t id) const;
+
+    void batchUpsert(const QVector<Channel> &channels);
+    bool deleteByServer(int64_t serverId);
+
+    int count(int64_t serverId) const;
+    int countByCategory(int64_t categoryId) const;
+    int countBySearch(int64_t serverId, const QString &query) const;
+
+    static constexpr int kBatchSize = 500;
+
+signals:
+    void errorOccurred(const QString &message);
+
+private:
+    static Channel fromQuery(const QSqlQuery &query);
+    QSqlDatabase db_;
+};
+
+} // namespace iptvxs
