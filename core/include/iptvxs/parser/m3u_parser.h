@@ -43,6 +43,7 @@ private:
 
     static ExtInfData parseExtInf(const QString &line);
     static QString extractAttribute(const QString &line, const QString &key);
+    static QString detectChannelType(const QString &groupTitle, const QString &url);
 
     QSet<QString> discoveredGroups_;
 };

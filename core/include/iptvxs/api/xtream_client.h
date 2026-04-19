@@ -26,8 +26,13 @@ public:
     void fetchVodStreams(const QString &categoryId = {});
     void fetchSeriesCategories();
     void fetchSeries(const QString &categoryId = {});
+    void fetchSeriesInfo(const QString &seriesId);
 
     QUrl buildApiUrl(const QString &action, const QString &categoryId = {}) const;
+
+    QString serverUrl() const { return serverUrl_; }
+    QString username() const { return username_; }
+    QString password() const { return password_; }
 
 signals:
     void serverInfoReady(const iptvxs::XtreamServerInfo &info);
@@ -37,6 +42,7 @@ signals:
     void vodStreamsReady(const QVector<iptvxs::XtreamStream> &streams);
     void seriesCategoriesReady(const QVector<iptvxs::XtreamCategory> &categories);
     void seriesReady(const QVector<iptvxs::XtreamStream> &streams);
+    void seriesInfoReady(const QString &seriesId, const QJsonObject &info);
     void errorOccurred(const QString &message);
 
 private:

@@ -50,8 +50,10 @@ std::optional<Category> CategoryRepository::findById(int64_t id) const {
 
 int64_t CategoryRepository::upsert(const Category &category) {
     QSqlQuery query(db_);
-    query.prepare("INSERT OR REPLACE INTO categories (server_id, external_id, name, type) "
-                  "VALUES (?, ?, ?, ?)");
+    query.prepare("INSERT INTO categories (server_id, external_id, name, type) "
+                  "VALUES (?, ?, ?, ?) "
+                  "ON CONFLICT(server_id, external_id, type) DO UPDATE SET "
+                  "name = excluded.name");
     query.addBindValue(toVariant(category.serverId));
     query.addBindValue(category.externalId);
     query.addBindValue(category.name);
@@ -71,8 +73,10 @@ void CategoryRepository::batchUpsert(const QVector<Category> &categories) {
 
     db_.transaction();
     QSqlQuery query(db_);
-    query.prepare("INSERT OR REPLACE INTO categories (server_id, external_id, name, type) "
-                  "VALUES (?, ?, ?, ?)");
+    query.prepare("INSERT INTO categories (server_id, external_id, name, type) "
+                  "VALUES (?, ?, ?, ?) "
+                  "ON CONFLICT(server_id, external_id, type) DO UPDATE SET "
+                  "name = excluded.name");
 
     for (const auto &cat : categories) {
         query.addBindValue(toVariant(cat.serverId));

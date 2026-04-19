@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QAbstractListModel>
+#include <QFutureWatcher>
 #include <QQmlEngine>
 #include <QTimer>
 
@@ -92,6 +93,8 @@ private:
     QString syncStatus_;
     QString searchQuery_;
     QTimer clockTimer_;
+
+    QFutureWatcher<QVector<iptvxs::Programme>> parseWatcher_;
 
     static constexpr int kTimeWindowHours = 4;
     static constexpr int kMaxEpgRows = 200;

@@ -85,6 +85,42 @@ void XtreamClient::fetchSeries(const QString &categoryId) {
     fetchStreams("get_series", categoryId, &XtreamClient::seriesReady);
 }
 
+void XtreamClient::fetchSeriesInfo(const QString &seriesId) {
+    QUrl url = buildApiUrl(QStringLiteral("get_series_info"));
+    QUrlQuery query(url.query());
+    query.addQueryItem(QStringLiteral("series_id"), seriesId);
+    url.setQuery(query);
+
+    qInfo("Fetching series info: %s", qPrintable(url.toString()));
+    auto *reply = http_->get(url);
+    connect(reply, &QNetworkReply::finished, this, [this, reply, seriesId]() {
+        reply->deleteLater();
+        if (reply->error() != QNetworkReply::NoError) {
+            emit errorOccurred(QStringLiteral("Series info request failed: %1").arg(reply->errorString()));
+            return;
+        }
+
+        auto data = reply->readAll();
+        const auto doc = QJsonDocument::fromJson(data);
+        qInfo("Series info response for %s: %d bytes, isObject=%d isArray=%d isNull=%d",
+              qPrintable(seriesId), data.size(), doc.isObject(), doc.isArray(), doc.isNull());
+        if (doc.isNull() || doc.isEmpty()) {
+            qWarning("Series info raw response: %s", data.left(500).constData());
+            emit errorOccurred(QStringLiteral("Invalid series info response"));
+            return;
+        }
+
+        QJsonObject obj;
+        if (doc.isObject()) {
+            obj = doc.object();
+        } else if (doc.isArray()) {
+            obj[QStringLiteral("episodes")] = doc.array();
+        }
+
+        emit seriesInfoReady(seriesId, obj);
+    });
+}
+
 void XtreamClient::fetchCategories(
     const QString &action,
     void (XtreamClient::*signal)(const QVector<XtreamCategory> &)) {
@@ -133,6 +169,10 @@ void XtreamClient::fetchStreams(
         QVector<XtreamStream> streams;
         const auto arr = doc.array();
         streams.reserve(arr.size());
+        if (!arr.isEmpty()) {
+            auto firstObj = arr.first().toObject();
+            qInfo("First stream entry keys: %s", qPrintable(firstObj.keys().join(", ")));
+        }
         for (const auto &val : arr) {
             streams.append(XtreamStream::fromJson(val.toObject()));
         }

@@ -124,9 +124,37 @@ int main(int argc, char *argv[]) {
 
     trayMenu->addSeparator();
 
+    auto *stopAction = trayMenu->addAction("Stop Playing");
+    QObject::connect(stopAction, &QAction::triggered, viewModel,
+                     [viewModel]() { viewModel->player()->stop(); });
+
+    auto *muteAction = trayMenu->addAction("Mute");
+    QObject::connect(muteAction, &QAction::triggered, viewModel,
+                     [viewModel]() { viewModel->player()->setMuted(true); });
+
+    auto *unmuteAction = trayMenu->addAction("Unmute");
+    QObject::connect(unmuteAction, &QAction::triggered, viewModel,
+                     [viewModel]() { viewModel->player()->setMuted(false); });
+
+    trayMenu->addSeparator();
+
     auto *quitAction = trayMenu->addAction("Quit");
     QObject::connect(quitAction, &QAction::triggered, &app,
                      &QApplication::quit);
+
+    QObject::connect(viewModel->player(), &PlayerViewModel::stateChanged,
+                     stopAction, [viewModel, stopAction]() {
+                         stopAction->setEnabled(viewModel->player()->playing() ||
+                                                viewModel->player()->paused());
+                     });
+    QObject::connect(viewModel->player(), &PlayerViewModel::mutedChanged,
+                     muteAction, [viewModel, muteAction, unmuteAction]() {
+                         bool muted = viewModel->player()->muted();
+                         muteAction->setVisible(!muted);
+                         unmuteAction->setVisible(muted);
+                     });
+    stopAction->setEnabled(false);
+    unmuteAction->setVisible(false);
 
     trayIcon.setContextMenu(trayMenu);
 

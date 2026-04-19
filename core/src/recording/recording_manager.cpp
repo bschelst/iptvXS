@@ -20,10 +20,12 @@ RecordingManager::~RecordingManager() {
 
 void RecordingManager::setRepositories(RecordingRepository *recordingRepo,
                                        ChannelRepository *channelRepo,
-                                       SettingsRepository *settingsRepo) {
+                                       SettingsRepository *settingsRepo,
+                                       ProgrammeRepository *progRepo) {
     recordingRepo_ = recordingRepo;
     channelRepo_ = channelRepo;
     settingsRepo_ = settingsRepo;
+    progRepo_ = progRepo;
 }
 
 void RecordingManager::start() {
@@ -93,18 +95,11 @@ bool RecordingManager::startRecording(int64_t recordingId) {
     recordingRepo_->updateStatus(recordingId, QStringLiteral("recording"));
     recordingRepo_->updateFilePath(recordingId, filePath);
 
+    connect(process, &QProcess::started, this, [this, recordingId]() {
+        emit recordingStarted(recordingId);
+    });
+
     process->start(QStringLiteral("ffmpeg"), args);
-
-    if (!process->waitForStarted(5000)) {
-        activeProcesses_.remove(recordingId);
-        recordingRepo_->updateStatus(recordingId, QStringLiteral("failed"),
-                                     QStringLiteral("Failed to start ffmpeg"));
-        emit recordingFailed(recordingId, QStringLiteral("Failed to start ffmpeg"));
-        process->deleteLater();
-        return false;
-    }
-
-    emit recordingStarted(recordingId);
     return true;
 }
 
@@ -126,6 +121,9 @@ bool RecordingManager::stopRecording(int64_t recordingId) {
     process->deleteLater();
 
     if (recordingRepo_) {
+        auto now = QDateTime::currentSecsSinceEpoch();
+        recordingRepo_->updateEndTime(recordingId, now);
+
         auto recording = recordingRepo_->findById(recordingId);
         if (recording && !recording->filePath.isEmpty()) {
             QFileInfo fileInfo(recording->filePath);
@@ -198,6 +196,9 @@ void RecordingManager::onProcessFinished(int64_t recordingId, int exitCode,
     }
 
     if (recordingRepo_) {
+        auto now = QDateTime::currentSecsSinceEpoch();
+        recordingRepo_->updateEndTime(recordingId, now);
+
         auto recording = recordingRepo_->findById(recordingId);
         if (recording && !recording->filePath.isEmpty()) {
             QFileInfo fileInfo(recording->filePath);
@@ -223,13 +224,30 @@ void RecordingManager::onProcessFinished(int64_t recordingId, int exitCode,
 QString RecordingManager::buildFilePath(const Recording &recording,
                                         const Channel &channel) const {
     auto dir = recordingDirectory();
-    auto timestamp = QDateTime::fromSecsSinceEpoch(recording.startTime)
-                         .toString(QStringLiteral("yyyyMMdd_HHmmss"));
+    auto dt = QDateTime::fromSecsSinceEpoch(recording.startTime);
+    auto datePart = dt.toString(QStringLiteral("yyyy-MM-dd"));
+    auto timePart = dt.toString(QStringLiteral("HHmmss"));
+
     auto safeName = channel.name;
     safeName.replace(QRegularExpression(QStringLiteral("[^a-zA-Z0-9_-]")),
                      QStringLiteral("_"));
 
-    return QStringLiteral("%1/%2_%3.mkv").arg(dir, safeName, timestamp);
+    QString progPart;
+    if (progRepo_ && !channel.epgChannelId.isEmpty()) {
+        auto programmes = progRepo_->findByChannel(channel.epgChannelId,
+                                                   recording.startTime,
+                                                   recording.startTime + 1);
+        if (!programmes.empty()) {
+            progPart = programmes.front().title;
+            progPart.replace(QRegularExpression(QStringLiteral("[^a-zA-Z0-9_-]")),
+                             QStringLiteral("_"));
+        }
+    }
+
+    if (progPart.isEmpty()) {
+        return QStringLiteral("%1/%2_%3_%4.mkv").arg(dir, datePart, timePart, safeName);
+    }
+    return QStringLiteral("%1/%2_%3_%4_%5.mkv").arg(dir, datePart, timePart, safeName, progPart);
 }
 
 QStringList RecordingManager::buildFfmpegArgs(const QString &streamUrl,

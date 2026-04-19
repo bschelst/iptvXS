@@ -162,7 +162,7 @@ Item {
                     onExited: parent.favHovered = false
                     onClicked: {
                         if (appViewModel) {
-                            appViewModel.player.play(model.streamUrl, model.name, model.logoUrl)
+                            appViewModel.player.play(model.streamUrl, model.name, model.logoUrl, model.channelId)
                             appViewModel.currentView = "player"
                         }
                     }

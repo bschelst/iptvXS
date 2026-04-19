@@ -24,7 +24,7 @@ public:
 
     bool initialize();
 
-    void play(const QUrl &url);
+    void play(const QString &url);
     void pause();
     void resume();
     void stop();
@@ -56,8 +56,10 @@ signals:
     void endOfFile();
     void errorOccurred(const QString &message);
 
-private:
+private slots:
     void processEvents();
+
+private:
     void handlePropertyChange(const QString &name, const QVariant &value);
 
     mpv_handle *mpv_{nullptr};

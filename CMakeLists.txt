@@ -38,13 +38,13 @@ endif()
 if(UNIX AND NOT APPLE)
     include(GNUInstallDirs)
 
-    install(FILES packaging/linux/io.github.bschelst.iptvxs.desktop
+    install(FILES packaging/linux/org.schelstraete.iptvxs.desktop
         DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/applications)
 
-    install(FILES packaging/linux/io.github.bschelst.iptvxs.metainfo.xml
+    install(FILES packaging/linux/org.schelstraete.iptvxs.metainfo.xml
         DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/metainfo)
 
-    install(FILES packaging/linux/io.github.bschelst.iptvxs.svg
+    install(FILES packaging/linux/org.schelstraete.iptvxs.svg
         DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/icons/hicolor/scalable/apps)
 endif()
 

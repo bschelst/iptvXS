@@ -28,6 +28,7 @@ public:
     bool updateStatus(int64_t id, const QString &status, const QString &errorMessage = {});
     bool updateFileSize(int64_t id, int64_t fileSizeBytes);
     bool updateFilePath(int64_t id, const QString &filePath);
+    bool updateEndTime(int64_t id, int64_t endTime);
 
     int count() const;
     int countByStatus(const QString &status) const;

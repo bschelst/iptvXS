@@ -167,8 +167,34 @@ Item {
                         Item { Layout.fillWidth: true }
 
                         Button {
-                            text: speedTest && speedTest.running ? "Stop" : "Start Test"
-                            enabled: speedTest !== null && streamUrlField.text.length > 0
+                            text: "Internet Test"
+                            enabled: speedTest !== null && !speedTest.running
+                            contentItem: Text {
+                                text: parent.text
+                                font.pixelSize: Theme.fontSizeSm
+                                font.bold: true
+                                color: Theme.textPrimary
+                                horizontalAlignment: Text.AlignHCenter
+                                verticalAlignment: Text.AlignVCenter
+                            }
+                            background: Rectangle {
+                                implicitWidth: 130
+                                implicitHeight: 40
+                                radius: Theme.borderRadius
+                                color: parent.hovered ? Theme.success : Theme.success + "cc"
+                                Behavior on color { ColorAnimation { duration: Theme.animFast } }
+                            }
+                            onClicked: {
+                                if (!speedTest) return
+                                root.sparklineData = []
+                                sparklineCanvas.requestPaint()
+                                speedTest.startInternetTest()
+                            }
+                        }
+
+                        Button {
+                            text: speedTest && speedTest.running ? "Stop" : "Stream Test"
+                            enabled: speedTest !== null && (speedTest.running || streamUrlField.text.length > 0)
                             contentItem: Text {
                                 text: parent.text
                                 font.pixelSize: Theme.fontSizeSm
@@ -217,11 +243,35 @@ Item {
                     anchors.margins: Theme.spacingMd
                     spacing: Theme.spacingSm
 
-                    Text {
-                        text: "Throughput"
-                        font.pixelSize: Theme.fontSizeSm
-                        font.bold: true
-                        color: Theme.textSecondary
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: Theme.spacingSm
+
+                        Text {
+                            text: "Throughput"
+                            font.pixelSize: Theme.fontSizeSm
+                            font.bold: true
+                            color: Theme.textSecondary
+                        }
+
+                        Item { Layout.fillWidth: true }
+
+                        Text {
+                            id: chartMaxLabel
+                            text: {
+                                var data = root.sparklineData
+                                if (data.length < 2) return ""
+                                var maxVal = 0
+                                for (var i = 0; i < data.length; i++) {
+                                    if (data[i] > maxVal) maxVal = data[i]
+                                }
+                                if (maxVal < 1) return "0 Mbps"
+                                if (maxVal >= 1) return maxVal.toFixed(1) + " Mbps"
+                                return (maxVal * 1000).toFixed(0) + " Kbps"
+                            }
+                            font.pixelSize: Theme.fontSizeXs
+                            color: Theme.textMuted
+                        }
                     }
 
                     Canvas {
@@ -242,39 +292,63 @@ Item {
                             }
                             if (maxVal < 1) maxVal = 1
 
+                            var leftMargin = 48
                             var padding = 4
-                            var w = width - padding * 2
+                            var w = width - leftMargin - padding
                             var h = height - padding * 2
                             var stepX = w / (root.maxDataPoints - 1)
 
+                            var accentColor = Theme.accent
                             var gradient = ctx.createLinearGradient(0, padding, 0, height - padding)
-                            gradient.addColorStop(0, Qt.rgba(
-                                Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.3))
-                            gradient.addColorStop(1, Qt.rgba(
-                                Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.02))
+                            gradient.addColorStop(0, Qt.rgba(accentColor.r, accentColor.g, accentColor.b, 0.3))
+                            gradient.addColorStop(1, Qt.rgba(accentColor.r, accentColor.g, accentColor.b, 0.02))
+
+                            ctx.font = "10px sans-serif"
+                            ctx.fillStyle = Theme.textMuted
+                            ctx.textAlign = "right"
+
+                            var gridLines = 4
+                            for (var g = 0; g <= gridLines; g++) {
+                                var gridY = padding + h - (g / gridLines) * h
+                                var gridVal = (g / gridLines) * maxVal
+                                var label
+                                if (maxVal >= 1) {
+                                    label = gridVal.toFixed(1)
+                                } else {
+                                    label = (gridVal * 1000).toFixed(0) + "K"
+                                }
+                                ctx.fillText(label, leftMargin - 6, gridY + 3)
+
+                                ctx.beginPath()
+                                ctx.moveTo(leftMargin, gridY)
+                                ctx.lineTo(width - padding, gridY)
+                                ctx.strokeStyle = Qt.rgba(1, 1, 1, 0.06)
+                                ctx.lineWidth = 1
+                                ctx.stroke()
+                            }
 
                             ctx.beginPath()
-                            ctx.moveTo(padding, height - padding)
+                            ctx.moveTo(leftMargin, height - padding)
 
                             for (var j = 0; j < data.length; j++) {
-                                var x = padding + j * stepX
+                                var x = leftMargin + j * stepX
                                 var y = padding + h - (data[j] / maxVal) * h
                                 ctx.lineTo(x, y)
                             }
 
-                            ctx.lineTo(padding + (data.length - 1) * stepX, height - padding)
+                            ctx.lineTo(leftMargin + (data.length - 1) * stepX, height - padding)
                             ctx.closePath()
                             ctx.fillStyle = gradient
                             ctx.fill()
 
                             ctx.beginPath()
                             for (var k = 0; k < data.length; k++) {
-                                var lx = padding + k * stepX
+                                var lx = leftMargin + k * stepX
                                 var ly = padding + h - (data[k] / maxVal) * h
                                 if (k === 0) ctx.moveTo(lx, ly)
                                 else ctx.lineTo(lx, ly)
                             }
-                            ctx.strokeStyle = Theme.accent
+                            ctx.strokeStyle = accentColor
                             ctx.lineWidth = 2
                             ctx.stroke()
                         }
@@ -296,28 +370,10 @@ Item {
                     anchors.margins: Theme.spacingLg
                     spacing: Theme.spacingMd
 
-                    Text {
-                        text: "Stream URL"
-                        font.pixelSize: Theme.fontSizeSm
-                        font.bold: true
-                        color: Theme.textSecondary
-                    }
-
                     TextField {
                         id: streamUrlField
-                        Layout.fillWidth: true
-                        placeholderText: "Enter stream URL or select a channel below"
-                        color: Theme.textPrimary
-                        placeholderTextColor: Theme.textMuted
-                        font.pixelSize: Theme.fontSizeSm
-
-                        background: Rectangle {
-                            radius: Theme.borderRadius
-                            color: Theme.surface
-                            border.width: 1
-                            border.color: streamUrlField.activeFocus
-                                ? Theme.accent : Theme.surfaceBorder
-                        }
+                        visible: false
+                        text: ""
                     }
 
                     RowLayout {
@@ -331,7 +387,7 @@ Item {
                         }
 
                         Repeater {
-                            model: [5, 10, 20, 30]
+                            model: [10, 30, 60, 120]
 
                             delegate: Rectangle {
                                 width: 48

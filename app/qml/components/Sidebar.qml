@@ -11,10 +11,10 @@ Rectangle {
 
     signal itemClicked(string name)
 
-    width: collapsed ? Theme.sidebarCollapsedWidth : Theme.sidebarWidth
+    Layout.preferredWidth: collapsed ? Theme.sidebarCollapsedWidth : Theme.sidebarWidth
     color: Theme.surface
 
-    Behavior on width {
+    Behavior on Layout.preferredWidth {
         NumberAnimation {
             duration: Theme.animNormal
             easing.type: Easing.OutCubic
@@ -36,51 +36,40 @@ Rectangle {
         Item {
             Layout.fillWidth: true
             Layout.preferredHeight: 48
-            Layout.leftMargin: Theme.spacingMd
             Layout.bottomMargin: Theme.spacingLg
 
             Row {
-                anchors.verticalCenter: parent.verticalCenter
-                spacing: Theme.spacingSm
+                anchors.centerIn: parent
+                spacing: 0
 
-                Rectangle {
-                    width: 32
-                    height: 32
-                    radius: Theme.borderRadius
-                    color: Theme.accent
-
-                    Text {
-                        anchors.centerIn: parent
-                        text: "X"
-                        font.pixelSize: Theme.fontSizeLg
-                        font.bold: true
-                        color: Theme.textPrimary
-                    }
+                Text {
+                    text: "iptv"
+                    font.pixelSize: Theme.fontSizeLg
+                    font.bold: true
+                    font.italic: true
+                    color: Theme.textSecondary
+                    visible: !sidebar.collapsed
                 }
 
                 Text {
-                    visible: !sidebar.collapsed
-                    anchors.verticalCenter: parent.verticalCenter
-                    text: "iptvXS"
-                    font.pixelSize: Theme.fontSizeLg
+                    text: "XS"
+                    font.pixelSize: sidebar.collapsed ? Theme.fontSizeMd : Theme.fontSizeXl
                     font.bold: true
-                    color: Theme.textPrimary
-
-                    Behavior on opacity {
-                        NumberAnimation { duration: Theme.animFast }
-                    }
+                    font.italic: true
+                    color: Theme.accent
                 }
             }
         }
 
         Repeater {
             model: [
-                { name: "home", icon: "🏠", label: "Home" },
-                { name: "servers", icon: "📡", label: "Servers" },
-                { name: "channels", icon: "📺", label: "Channels" },
-                { name: "favorites", icon: "⭐", label: "Favorites" },
-                { name: "epg", icon: "📅", label: "TV Guide" },
-                { name: "recordings", icon: "⏺", label: "Recordings" }
+                { name: "home", icon: "⌂", label: "Home" },
+                { name: "servers", icon: "⊕", label: "Servers" },
+                { name: "channels", icon: "≡", label: "Channels" },
+                { name: "vod", icon: "▷", label: "VOD" },
+                { name: "favorites", icon: "★", label: "Favorites" },
+                { name: "epg", icon: "☰", label: "TV Guide" },
+                { name: "recordings", icon: "●", label: "Recordings" }
             ]
 
             delegate: Rectangle {
@@ -118,6 +107,8 @@ Rectangle {
                     Text {
                         text: modelData.icon
                         font.pixelSize: Theme.fontSizeMd
+                        color: sidebar.activeItem === modelData.name
+                            ? Theme.accent : Theme.textMuted
                         anchors.verticalCenter: parent.verticalCenter
                     }
 
@@ -154,8 +145,8 @@ Rectangle {
 
         Repeater {
             model: [
-                { name: "speedtest", icon: "⚡", label: "Speed Test" },
-                { name: "log", icon: "📋", label: "App Log" },
+                { name: "speedtest", icon: "↕", label: "Speed Test" },
+                { name: "log", icon: "◇", label: "App Log" },
                 { name: "settings", icon: "⚙", label: "Settings" }
             ]
 
@@ -185,6 +176,8 @@ Rectangle {
                     Text {
                         text: modelData.icon
                         font.pixelSize: Theme.fontSizeMd
+                        color: sidebar.activeItem === modelData.name
+                            ? Theme.accent : Theme.textMuted
                         anchors.verticalCenter: parent.verticalCenter
                     }
 

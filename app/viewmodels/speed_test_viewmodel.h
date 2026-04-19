@@ -38,6 +38,7 @@ public:
 
     Q_INVOKABLE void startTest(const QString &streamUrl);
     Q_INVOKABLE void startTestForChannel(qint64 channelId);
+    Q_INVOKABLE void startInternetTest();
     Q_INVOKABLE void stopTest();
 
 signals:

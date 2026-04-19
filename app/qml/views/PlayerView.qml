@@ -9,6 +9,7 @@ Item {
     property string channelUrl: ""
     property string channelName: ""
     property string channelLogo: ""
+    property bool videoFullscreen: appViewModel ? appViewModel.videoFullscreen : false
 
     Rectangle {
         anchors.fill: parent
@@ -23,20 +24,23 @@ Item {
         MouseArea {
             anchors.fill: parent
             hoverEnabled: true
-            onPositionChanged: controlsTimer.restart()
+            onPositionChanged: showControls()
             onClicked: {
                 if (appViewModel) appViewModel.player.togglePause()
-                controlsTimer.restart()
+                showControls()
             }
-            onDoubleClicked: toggleFullscreen()
+            onDoubleClicked: toggleVideoFullscreen()
         }
 
+        // Buffer bar is inside the top overlay (see topOverlay)
+
+        // --- Bottom controls overlay ---
         Rectangle {
             id: controlsOverlay
             anchors.left: parent.left
             anchors.right: parent.right
             anchors.bottom: parent.bottom
-            height: 120
+            height: 130
             visible: opacity > 0
             opacity: controlsVisible ? 1.0 : 0.0
 
@@ -59,7 +63,7 @@ Item {
                     id: seekSlider
                     Layout.fillWidth: true
                     from: 0
-                    to: appViewModel ? appViewModel.player.duration : 0
+                    to: appViewModel ? Math.max(appViewModel.player.duration, 1) : 1
                     value: appViewModel ? appViewModel.player.position : 0
                     enabled: appViewModel ? appViewModel.player.duration > 0 : false
 
@@ -73,7 +77,7 @@ Item {
                         width: seekSlider.availableWidth
                         height: 4
                         radius: 2
-                        color: Theme.surfaceBorder
+                        color: "#40ffffff"
 
                         Rectangle {
                             width: seekSlider.visualPosition * parent.width
@@ -96,10 +100,12 @@ Item {
 
                 RowLayout {
                     Layout.fillWidth: true
-                    spacing: Theme.spacingMd
+                    spacing: Theme.spacingSm
 
                     PlayerButton {
-                        text: appViewModel && appViewModel.player.playing ? "⏸" : "▶"
+                        text: appViewModel && appViewModel.player.paused ? "▶" : "⏸"
+                        btnSize: 48
+                        iconSize: 22
                         onClicked: {
                             if (appViewModel) appViewModel.player.togglePause()
                         }
@@ -107,19 +113,23 @@ Item {
 
                     PlayerButton {
                         text: "⏹"
-                        onClicked: {
-                            if (appViewModel) appViewModel.player.stop()
-                        }
+                        btnSize: 48
+                        iconSize: 22
+                        onClicked: goBack()
                     }
 
                     Text {
                         text: {
-                            if (!appViewModel) return "--:-- / --:--"
-                            var pos = appViewModel.player.formatTime(appViewModel.player.position)
-                            var dur = appViewModel.player.formatTime(appViewModel.player.duration)
-                            return pos + " / " + dur
+                            if (!appViewModel) return ""
+                            var pos = appViewModel.player.position
+                            var dur = appViewModel.player.duration
+                            if (dur > 0) {
+                                return appViewModel.player.formatTime(pos) + " / " + appViewModel.player.formatTime(dur)
+                            }
+                            if (pos > 0) return appViewModel.player.formatTime(pos)
+                            return "● LIVE"
                         }
-                        font.pixelSize: Theme.fontSizeXs
+                        font.pixelSize: Theme.fontSizeSm
                         color: "#ffffff"
                     }
 
@@ -137,10 +147,116 @@ Item {
 
                     Item { Layout.fillWidth: true }
 
+                    // --- Favorite button ---
                     PlayerButton {
-                        text: appViewModel && appViewModel.player.muted ? "🔇" : "🔊"
+                        id: favBtn
+                        text: isFav ? "⭐" : "☆"
+                        property bool isFav: false
+                        visible: appViewModel ? appViewModel.player.channelId > 0 : false
                         onClicked: {
-                            if (appViewModel) appViewModel.player.toggleMute()
+                            if (appViewModel && appViewModel.player.channelId > 0) {
+                                appViewModel.favoriteList.toggleFavorite(appViewModel.player.channelId)
+                                isFav = !isFav
+                            }
+                        }
+                        Component.onCompleted: updateFav()
+                        function updateFav() {
+                            if (appViewModel && appViewModel.player.channelId > 0)
+                                isFav = appViewModel.favoriteList.isFavorite(appViewModel.player.channelId)
+                        }
+                        Connections {
+                            target: appViewModel ? appViewModel.player : null
+                            function onChannelIdChanged() { favBtn.updateFav() }
+                        }
+                    }
+
+                    // --- Record button (uses mpv stream-record to avoid second connection) ---
+                    PlayerButton {
+                        id: recBtn
+                        text: recActive ? "⏹" : "⏺"
+                        btnColor: recActive ? Theme.error : "transparent"
+                        property bool recActive: false
+                        property string recPath: ""
+                        property var recStartTime: 0
+                        onClicked: {
+                            if (!appViewModel) return
+                            showControls()
+                            if (recActive) {
+                                appViewModel.player.stopStreamRecord()
+                                if (appViewModel.player.channelId > 0) {
+                                    var endTime = Math.floor(Date.now() / 1000)
+                                    appViewModel.recordingList.addCompletedRecording(
+                                        appViewModel.player.channelId, recStartTime, endTime, recPath)
+                                }
+                                recActive = false
+                            } else {
+                                var now = new Date()
+                                recStartTime = Math.floor(now.getTime() / 1000)
+                                var ts = now.getFullYear() + "-" +
+                                    String(now.getMonth()+1).padStart(2,'0') + "-" +
+                                    String(now.getDate()).padStart(2,'0') + "_" +
+                                    String(now.getHours()).padStart(2,'0') +
+                                    String(now.getMinutes()).padStart(2,'0') +
+                                    String(now.getSeconds()).padStart(2,'0')
+                                var name = (appViewModel.player.channelName || "recording").replace(/[^a-zA-Z0-9_-]/g, "_")
+                                var dir = appViewModel.recordingDirectory
+                                recPath = dir + "/" + ts + "_" + name + ".mkv"
+                                appViewModel.player.startStreamRecord(recPath)
+                                recActive = true
+                            }
+                        }
+                        Connections {
+                            target: appViewModel ? appViewModel.player : null
+                            function onChannelIdChanged() {
+                                if (recBtn.recActive) {
+                                    appViewModel.player.stopStreamRecord()
+                                }
+                                recBtn.recActive = false
+                            }
+                        }
+                    }
+
+                    Rectangle { width: 1; height: 28; color: "#40ffffff" }
+
+                    // --- Subtitle controls ---
+                    PlayerButton {
+                        text: "CC"
+                        iconSize: 14
+                        onClicked: subPopup.visible = !subPopup.visible
+                    }
+
+                    Rectangle { width: 1; height: 28; color: "#40ffffff" }
+
+                    Rectangle {
+                        width: 44
+                        height: 44
+                        radius: Theme.borderRadius
+                        color: {
+                            if (appViewModel && appViewModel.player.muted) return Theme.error + "60"
+                            return muteHov ? "#40ffffff" : "transparent"
+                        }
+                        property bool muteHov: false
+
+                        Text {
+                            anchors.centerIn: parent
+                            text: appViewModel && appViewModel.player.muted ? "MUTED" : "🔊"
+                            font.pixelSize: appViewModel && appViewModel.player.muted ? 10 : 18
+                            font.bold: true
+                            color: appViewModel && appViewModel.player.muted ? "#ffffff" : "#ffffff"
+                        }
+
+                        MouseArea {
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onEntered: parent.muteHov = true
+                            onExited: parent.muteHov = false
+                            onClicked: {
+                                if (appViewModel) {
+                                    var newMuted = !appViewModel.player.muted
+                                    appViewModel.player.muted = newMuted
+                                }
+                            }
                         }
                     }
 
@@ -161,7 +277,7 @@ Item {
                             width: volumeSlider.availableWidth
                             height: 4
                             radius: 2
-                            color: Theme.surfaceBorder
+                            color: "#40ffffff"
 
                             Rectangle {
                                 width: volumeSlider.visualPosition * parent.width
@@ -182,14 +298,14 @@ Item {
                     }
 
                     PlayerButton {
-                        text: "⛶"
-                        font.pixelSize: Theme.fontSizeLg
-                        onClicked: toggleFullscreen()
+                        text: videoFullscreen ? "⊡" : "⛶"
+                        onClicked: toggleVideoFullscreen()
                     }
                 }
             }
         }
 
+        // --- Top overlay with back button, title, and clock ---
         Rectangle {
             id: topOverlay
             anchors.left: parent.left
@@ -211,7 +327,6 @@ Item {
 
                 PlayerButton {
                     text: "←"
-                    font.pixelSize: Theme.fontSizeLg
                     onClicked: goBack()
                 }
 
@@ -223,9 +338,210 @@ Item {
                     elide: Text.ElideRight
                     Layout.fillWidth: true
                 }
+
+                Rectangle {
+                    Layout.preferredWidth: 120
+                    Layout.preferredHeight: 3
+                    radius: 2
+                    color: "#30ffffff"
+                    visible: appViewModel ? (appViewModel.player.position <= 0 && !appViewModel.player.stopped) : false
+
+                    Rectangle {
+                        anchors.left: parent.left
+                        height: parent.height
+                        radius: 2
+                        width: parent.width * bufferAnim.value
+                        color: Theme.accent
+                    }
+
+                    SequentialAnimation {
+                        id: bufferAnim
+                        property real value: 0
+                        running: parent.visible
+                        loops: Animation.Infinite
+                        NumberAnimation { target: bufferAnim; property: "value"; from: 0; to: 0.7; duration: 600 }
+                        NumberAnimation { target: bufferAnim; property: "value"; from: 0.7; to: 1.0; duration: 300 }
+                        NumberAnimation { target: bufferAnim; property: "value"; from: 1.0; to: 0; duration: 300 }
+                    }
+                }
+
+                Text {
+                    text: Qt.formatTime(new Date(), "HH:mm")
+                    font.pixelSize: Theme.fontSizeMd
+                    color: "#ccffffff"
+                }
             }
         }
 
+        // --- Persistent recording indicator (always visible, not part of auto-hiding OSD) ---
+        Rectangle {
+            anchors.top: parent.top
+            anchors.left: parent.left
+            anchors.margins: Theme.spacingMd
+            width: recIndicatorRow.implicitWidth + Theme.spacingMd * 2
+            height: 28
+            radius: 14
+            color: Theme.error
+            visible: recBtn.recActive
+            z: 20
+
+            Row {
+                id: recIndicatorRow
+                anchors.centerIn: parent
+                spacing: Theme.spacingSm
+
+                Rectangle {
+                    width: 8; height: 8; radius: 4
+                    color: "#ffffff"
+                    anchors.verticalCenter: parent.verticalCenter
+
+                    SequentialAnimation on opacity {
+                        running: recBtn.recActive
+                        loops: Animation.Infinite
+                        NumberAnimation { to: 0.3; duration: 600 }
+                        NumberAnimation { to: 1.0; duration: 600 }
+                    }
+                }
+
+                Text {
+                    text: "REC"
+                    font.pixelSize: 11
+                    font.bold: true
+                    color: "#ffffff"
+                    anchors.verticalCenter: parent.verticalCenter
+                }
+            }
+        }
+
+        // --- Subtitle popup panel ---
+        Rectangle {
+            id: subPopup
+            visible: false
+            anchors.right: parent.right
+            anchors.bottom: controlsOverlay.top
+            anchors.rightMargin: Theme.spacingLg
+            anchors.bottomMargin: Theme.spacingSm
+            width: 280
+            height: subPopupCol.implicitHeight + Theme.spacingMd * 2
+            radius: Theme.borderRadius
+            color: "#e0202020"
+            z: 15
+
+            ColumnLayout {
+                id: subPopupCol
+                anchors.fill: parent
+                anchors.margins: Theme.spacingMd
+                spacing: Theme.spacingSm
+
+                Text {
+                    text: "Subtitles"
+                    font.pixelSize: Theme.fontSizeSm
+                    font.bold: true
+                    color: "#ffffff"
+                }
+
+                RowLayout {
+                    Layout.fillWidth: true
+
+                    Text {
+                        text: "Show subtitles"
+                        font.pixelSize: Theme.fontSizeXs
+                        color: "#ccffffff"
+                        Layout.fillWidth: true
+                    }
+
+                    Switch {
+                        id: subVisSwitch
+                        checked: true
+                        onToggled: {
+                            if (appViewModel) appViewModel.player.setSubtitleVisibility(checked)
+                        }
+                    }
+                }
+
+                Rectangle { Layout.fillWidth: true; height: 1; color: "#40ffffff" }
+
+                Text {
+                    text: "Subtitle delay: " + subDelaySlider.value.toFixed(1) + "s"
+                    font.pixelSize: Theme.fontSizeXs
+                    color: "#ccffffff"
+                }
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: Theme.spacingSm
+
+                    PlayerButton {
+                        text: "-"
+                        btnSize: 28
+                        iconSize: 16
+                        onClicked: {
+                            subDelaySlider.value -= 0.5
+                            if (appViewModel) appViewModel.player.setSubtitleDelay(subDelaySlider.value)
+                        }
+                    }
+
+                    Slider {
+                        id: subDelaySlider
+                        Layout.fillWidth: true
+                        from: -10
+                        to: 10
+                        value: 0
+                        stepSize: 0.1
+
+                        onMoved: {
+                            if (appViewModel) appViewModel.player.setSubtitleDelay(value)
+                        }
+
+                        background: Rectangle {
+                            x: subDelaySlider.leftPadding
+                            y: subDelaySlider.topPadding + subDelaySlider.availableHeight / 2 - 2
+                            width: subDelaySlider.availableWidth
+                            height: 4
+                            radius: 2
+                            color: "#40ffffff"
+
+                            Rectangle {
+                                x: parent.width / 2
+                                width: Math.abs(subDelaySlider.visualPosition - 0.5) * parent.width
+                                height: parent.height
+                                radius: 2
+                                color: Theme.accent
+                            }
+                        }
+
+                        handle: Rectangle {
+                            x: subDelaySlider.leftPadding + subDelaySlider.visualPosition * (subDelaySlider.availableWidth - width)
+                            y: subDelaySlider.topPadding + subDelaySlider.availableHeight / 2 - height / 2
+                            width: 12; height: 12; radius: 6
+                            color: "#ffffff"
+                        }
+                    }
+
+                    PlayerButton {
+                        text: "+"
+                        btnSize: 28
+                        iconSize: 16
+                        onClicked: {
+                            subDelaySlider.value += 0.5
+                            if (appViewModel) appViewModel.player.setSubtitleDelay(subDelaySlider.value)
+                        }
+                    }
+                }
+
+                PlayerButton {
+                    text: "Reset"
+                    btnSize: 28
+                    iconSize: 11
+                    onClicked: {
+                        subDelaySlider.value = 0
+                        if (appViewModel) appViewModel.player.setSubtitleDelay(0)
+                    }
+                }
+            }
+        }
+
+        // --- Stopped placeholder ---
         Text {
             anchors.centerIn: parent
             visible: appViewModel ? appViewModel.player.stopped : true
@@ -234,12 +550,47 @@ Item {
             color: Theme.textMuted
         }
 
+        // --- Loading spinner (hidden once position starts updating) ---
         BusyIndicator {
             anchors.centerIn: parent
-            visible: appViewModel ? !appViewModel.player.playing && !appViewModel.player.paused && !appViewModel.player.stopped : false
+            visible: appViewModel ? (appViewModel.player.position <= 0 && !appViewModel.player.stopped) : false
             running: visible
             width: 48
             height: 48
+        }
+    }
+
+    // --- Clock update timer ---
+    Timer {
+        interval: 30000
+        running: true
+        repeat: true
+        onTriggered: clockDummy.text = ""
+    }
+    Text { id: clockDummy; visible: false }
+
+    Timer {
+        id: pendingTimer
+        interval: 500
+        onTriggered: {
+            if (appViewModel && appViewModel.pendingPlayUrl) {
+                var url = appViewModel.pendingPlayUrl
+                var name = appViewModel.pendingPlayName
+                appViewModel.pendingPlayUrl = ""
+                appViewModel.pendingPlayName = ""
+                appViewModel.player.play(url, name, "", 0)
+            }
+        }
+    }
+
+    Timer {
+        id: subSearchTimer
+        interval: 2000
+        onTriggered: {
+            if (appViewModel && appViewModel.subtitlesEnabled) {
+                var name = appViewModel.player.channelName
+                if (name) appViewModel.searchSubtitles(name)
+            }
         }
     }
 
@@ -248,74 +599,118 @@ Item {
     Timer {
         id: controlsTimer
         interval: 3000
-        running: appViewModel ? appViewModel.player.playing : false
+        running: appViewModel ? (!appViewModel.player.stopped) : false
         onTriggered: controlsVisible = false
     }
 
+    function showControls() {
+        controlsVisible = true
+        controlsTimer.restart()
+    }
+
     Component.onCompleted: {
-        if (channelUrl && appViewModel) {
+        if (appViewModel) {
+            appViewModel.videoFullscreen = false
+            var win = playerView.Window.window
+            if (win && win.visibility === Window.FullScreen) win.showNormal()
+        }
+        if (appViewModel && appViewModel.pendingPlayUrl) {
+            pendingTimer.start()
+        } else if (channelUrl && appViewModel) {
             appViewModel.player.play(channelUrl, channelName, channelLogo)
+        }
+
+        if (appViewModel && appViewModel.subtitlesEnabled) {
+            var name = appViewModel.player.channelName || channelName
+            if (name) subSearchTimer.start()
         }
     }
 
-    function toggleFullscreen() {
+    function toggleVideoFullscreen() {
+        if (!appViewModel) return
         var win = playerView.Window.window
-        if (win) {
-            if (win.visibility === Window.FullScreen)
-                win.showNormal()
-            else
-                win.showFullScreen()
+        if (!win) return
+
+        if (appViewModel.videoFullscreen) {
+            appViewModel.videoFullscreen = false
+            win.showNormal()
+        } else {
+            appViewModel.videoFullscreen = true
+            win.showFullScreen()
         }
     }
 
     function goBack() {
+        if (appViewModel && appViewModel.videoFullscreen) {
+            appViewModel.videoFullscreen = false
+            var win = playerView.Window.window
+            if (win) win.showNormal()
+            return
+        }
         if (appViewModel) {
             appViewModel.player.stop()
-            appViewModel.currentView = "channels"
+            appViewModel.currentView = appViewModel.previousView()
         }
     }
 
-    Keys.onSpacePressed: { if (appViewModel) appViewModel.player.togglePause() }
-    Keys.onLeftPressed: { if (appViewModel) appViewModel.player.seek(Math.max(0, appViewModel.player.position - 10)) }
-    Keys.onRightPressed: { if (appViewModel) appViewModel.player.seek(appViewModel.player.position + 10) }
-    Keys.onUpPressed: { if (appViewModel) appViewModel.player.volumeUp() }
-    Keys.onDownPressed: { if (appViewModel) appViewModel.player.volumeDown() }
+    Keys.onSpacePressed: { if (appViewModel) appViewModel.player.togglePause(); showControls() }
+    Keys.onLeftPressed: { if (appViewModel) appViewModel.player.seek(Math.max(0, appViewModel.player.position - 10)); showControls() }
+    Keys.onRightPressed: { if (appViewModel) appViewModel.player.seek(appViewModel.player.position + 10); showControls() }
+    Keys.onUpPressed: { if (appViewModel) appViewModel.player.volumeUp(); showControls() }
+    Keys.onDownPressed: { if (appViewModel) appViewModel.player.volumeDown(); showControls() }
     Keys.onPressed: function(event) {
         if (event.key === Qt.Key_M) {
             if (appViewModel) appViewModel.player.toggleMute()
+            showControls()
         } else if (event.key === Qt.Key_F) {
-            toggleFullscreen()
+            toggleVideoFullscreen()
+        } else if (event.key === Qt.Key_Escape && videoFullscreen) {
+            toggleVideoFullscreen()
+            event.accepted = true
         }
     }
 
     focus: true
 
     component PlayerButton: Rectangle {
+        id: playerBtn
         property alias text: btnText.text
-        property alias font: btnText.font
+        property color btnColor: "transparent"
+        property int btnSize: 44
+        property int iconSize: 18
         signal clicked()
 
-        width: 36
-        height: 36
+        width: btnSize
+        height: btnSize
         radius: Theme.borderRadius
-        color: btnHovered ? "#40ffffff" : "transparent"
+        color: btnColor
 
         property bool btnHovered: false
+
+        // Hover overlay layered ON TOP of btnColor so the recording-state color
+        // (e.g. Theme.error) remains visible while the mouse is over the button.
+        Rectangle {
+            anchors.fill: parent
+            radius: parent.radius
+            color: "#40ffffff"
+            visible: playerBtn.btnHovered
+        }
 
         Text {
             id: btnText
             anchors.centerIn: parent
-            font.pixelSize: Theme.fontSizeMd
+            font.pixelSize: iconSize
             color: "#ffffff"
+            z: 1
         }
 
         MouseArea {
             anchors.fill: parent
             hoverEnabled: true
             cursorShape: Qt.PointingHandCursor
-            onEntered: parent.btnHovered = true
-            onExited: parent.btnHovered = false
-            onClicked: parent.clicked()
+            onEntered: playerBtn.btnHovered = true
+            onExited: playerBtn.btnHovered = false
+            onClicked: playerBtn.clicked()
         }
     }
 }

@@ -6,7 +6,7 @@ import app.iptvxs
 Item {
     id: channelsView
 
-    property int64_t activeServerId: 0
+    property var activeServerId: 0
 
     RowLayout {
         anchors.fill: parent
@@ -125,6 +125,49 @@ Item {
 
                 Rectangle {
                     Layout.fillWidth: true
+                    Layout.preferredHeight: 28
+                    Layout.leftMargin: Theme.spacingSm
+                    Layout.rightMargin: Theme.spacingSm
+                    radius: 14
+                    color: Theme.surfaceElevated
+                    border.color: catFilterInput.activeFocus ? Theme.accent : Theme.surfaceBorder
+                    border.width: 1
+
+                    Row {
+                        anchors.fill: parent
+                        anchors.leftMargin: Theme.spacingSm
+                        anchors.rightMargin: Theme.spacingSm
+                        spacing: 4
+
+                        Text {
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: "🔍"
+                            font.pixelSize: 10
+                            opacity: 0.5
+                        }
+
+                        TextInput {
+                            id: catFilterInput
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: parent.width - 20
+                            font.pixelSize: Theme.fontSizeXs
+                            color: Theme.textPrimary
+                            clip: true
+                            selectByMouse: true
+
+                            Text {
+                                anchors.verticalCenter: parent.verticalCenter
+                                text: "Filter categories..."
+                                font.pixelSize: Theme.fontSizeXs
+                                color: Theme.textMuted
+                                visible: !catFilterInput.text && !catFilterInput.activeFocus
+                            }
+                        }
+                    }
+                }
+
+                Rectangle {
+                    Layout.fillWidth: true
                     Layout.preferredHeight: 36
                     color: selectedCategoryId === 0
                         ? Theme.accentGlow : allCatHovered ? Theme.surfaceHover : "transparent"
@@ -157,11 +200,26 @@ Item {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     clip: true
+                    keyNavigationEnabled: true
+                    highlight: Rectangle { color: Theme.accent + "20"; radius: Theme.borderRadiusSmall }
+                    highlightFollowsCurrentItem: true
                     model: appViewModel ? appViewModel.categoryList : null
+
+                    Keys.onReturnPressed: if (currentIndex >= 0) selectCategory(appViewModel.categoryList.categoryIdAt(currentIndex))
+                    Keys.onEnterPressed: Keys.onReturnPressed(event)
+                    Keys.onRightPressed: channelGrid.forceActiveFocus()
 
                     delegate: Rectangle {
                         width: categoryList.width
-                        height: 36
+                        height: catVisible ? 36 : 0
+                        visible: catVisible
+                        clip: true
+
+                        property bool catVisible: {
+                            if (!catFilterInput.text) return true
+                            return model.name.toLowerCase().indexOf(catFilterInput.text.toLowerCase()) >= 0
+                        }
+
                         color: selectedCategoryId === model.categoryId
                             ? Theme.accentGlow : catHovered ? Theme.surfaceHover : "transparent"
 
@@ -213,79 +271,16 @@ Item {
                     color: Theme.surfaceBorder
                 }
 
-                RowLayout {
-                    anchors.fill: parent
+                Text {
+                    anchors.left: parent.left
                     anchors.leftMargin: Theme.spacingMd
-                    anchors.rightMargin: Theme.spacingMd
-
-                    Text {
-                        text: {
-                            var total = appViewModel ? appViewModel.channelList.totalCount : 0
-                            return total + " channels"
-                        }
-                        font.pixelSize: Theme.fontSizeSm
-                        color: Theme.textSecondary
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: {
+                        var total = appViewModel ? appViewModel.channelList.totalCount : 0
+                        return total + " live channels"
                     }
-
-                    Item { Layout.fillWidth: true }
-
-                    Rectangle {
-                        Layout.preferredWidth: 240
-                        Layout.preferredHeight: 32
-                        radius: 16
-                        color: Theme.surfaceElevated
-                        border.color: channelSearch.activeFocus ? Theme.accent : Theme.surfaceBorder
-                        border.width: 1
-
-                        MouseArea {
-                            anchors.fill: parent
-                            onClicked: channelSearch.forceActiveFocus()
-                            cursorShape: Qt.IBeamCursor
-                        }
-
-                        Row {
-                            anchors.fill: parent
-                            anchors.leftMargin: Theme.spacingSm
-                            anchors.rightMargin: Theme.spacingSm
-                            spacing: Theme.spacingSm
-
-                            Text {
-                                anchors.verticalCenter: parent.verticalCenter
-                                text: "🔍"
-                                font.pixelSize: Theme.fontSizeXs
-                                opacity: 0.5
-                            }
-
-                            TextInput {
-                                id: channelSearch
-                                anchors.verticalCenter: parent.verticalCenter
-                                width: parent.width - 30
-                                font.pixelSize: Theme.fontSizeSm
-                                color: Theme.textPrimary
-                                clip: true
-                                selectByMouse: true
-
-                                Text {
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    text: "Search channels..."
-                                    font.pixelSize: Theme.fontSizeSm
-                                    color: Theme.textMuted
-                                    visible: !channelSearch.text && !channelSearch.activeFocus
-                                }
-
-                                onTextChanged: searchTimer.restart()
-
-                                Timer {
-                                    id: searchTimer
-                                    interval: 300
-                                    onTriggered: {
-                                        if (appViewModel)
-                                            appViewModel.channelList.searchQuery = channelSearch.text
-                                    }
-                                }
-                            }
-                        }
-                    }
+                    font.pixelSize: Theme.fontSizeSm
+                    color: Theme.textSecondary
                 }
             }
 
@@ -296,11 +291,43 @@ Item {
                 cellWidth: 220
                 cellHeight: 72
                 clip: true
+                focus: true
+                keyNavigationEnabled: true
+                highlight: Rectangle {
+                    color: Theme.accent + "30"
+                    radius: Theme.borderRadius
+                }
+                highlightFollowsCurrentItem: true
                 model: appViewModel ? appViewModel.channelList : null
+
+                Keys.onReturnPressed: playCurrentItem()
+                Keys.onEnterPressed: playCurrentItem()
+                Keys.onLeftPressed: categoryList.forceActiveFocus()
+
+                function playCurrentItem() {
+                    if (currentIndex < 0 || !appViewModel) return
+                    var cl = appViewModel.channelList
+                    appViewModel.player.play(cl.streamUrlAt(currentIndex),
+                                             cl.nameAt(currentIndex),
+                                             cl.logoUrlAt(currentIndex),
+                                             cl.channelIdAt(currentIndex))
+                    appViewModel.currentView = "player"
+                }
 
                 ScrollBar.vertical: ScrollBar {
                     active: true
                     policy: ScrollBar.AsNeeded
+                    contentItem: Rectangle {
+                        implicitWidth: 6
+                        radius: 3
+                        color: Theme.accent
+                        opacity: parent.active ? 0.8 : 0.0
+                        Behavior on opacity { NumberAnimation { duration: Theme.animNormal } }
+                    }
+                    background: Rectangle {
+                        implicitWidth: 6
+                        color: "transparent"
+                    }
                 }
 
                 delegate: Rectangle {
@@ -323,8 +350,8 @@ Item {
                         spacing: Theme.spacingSm
 
                         Rectangle {
-                            Layout.preferredWidth: 48
-                            Layout.preferredHeight: 48
+                            Layout.preferredWidth: 44
+                            Layout.preferredHeight: 44
                             radius: Theme.borderRadiusSmall
                             color: Theme.surface
                             clip: true
@@ -341,7 +368,7 @@ Item {
                             Text {
                                 anchors.centerIn: parent
                                 text: "📺"
-                                font.pixelSize: Theme.fontSizeMd
+                                font.pixelSize: Theme.fontSizeSm
                                 visible: !model.logoUrl
                             }
                         }
@@ -364,70 +391,70 @@ Item {
                                 color: Theme.textMuted
                             }
                         }
-                    }
 
-                    Row {
-                        anchors.right: parent.right
-                        anchors.top: parent.top
-                        anchors.margins: Theme.spacingXs
-                        spacing: 2
-                        z: 2
+                        Column {
+                            spacing: 2
 
-                        Rectangle {
-                            width: 24
-                            height: 24
-                            radius: 12
-                            color: recBtnHovered ? Theme.error + "30" : "transparent"
+                            Rectangle {
+                                width: 22
+                                height: 22
+                                radius: 11
+                                color: isRec ? Theme.error + "40" : recBtnHovered ? Theme.error + "30" : "transparent"
+                                property bool recBtnHovered: false
+                                property bool isRec: appViewModel ? appViewModel.recordingList.isChannelRecording(model.channelId) : false
 
-                            property bool recBtnHovered: false
+                                Text {
+                                    anchors.centerIn: parent
+                                    text: parent.isRec ? "⏹" : "⏺"
+                                    font.pixelSize: 10
+                                    color: parent.isRec ? Theme.error : parent.recBtnHovered ? Theme.error : Theme.textMuted
+                                }
 
-                            Text {
-                                anchors.centerIn: parent
-                                text: "⏺"
-                                font.pixelSize: 10
-                                color: parent.recBtnHovered ? Theme.error : Theme.textMuted
-                            }
-
-                            MouseArea {
-                                anchors.fill: parent
-                                hoverEnabled: true
-                                cursorShape: Qt.PointingHandCursor
-                                onEntered: parent.recBtnHovered = true
-                                onExited: parent.recBtnHovered = false
-                                onClicked: {
-                                    if (appViewModel) {
-                                        appViewModel.recordingList.startNow(model.channelId)
+                                MouseArea {
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    cursorShape: Qt.PointingHandCursor
+                                    onEntered: parent.recBtnHovered = true
+                                    onExited: parent.recBtnHovered = false
+                                    onClicked: {
+                                        if (!appViewModel) return
+                                        if (parent.isRec) {
+                                            appViewModel.recordingList.stopChannelRecording(model.channelId)
+                                            parent.isRec = false
+                                        } else {
+                                            appViewModel.recordingList.startNow(model.channelId)
+                                            parent.isRec = true
+                                        }
                                     }
                                 }
                             }
-                        }
 
-                        Rectangle {
-                            width: 24
-                            height: 24
-                            radius: 12
-                            color: starHovered ? Theme.surfaceHover : "transparent"
+                            Rectangle {
+                                width: 22
+                                height: 22
+                                radius: 11
+                                color: starHovered ? Theme.surfaceHover : "transparent"
+                                property bool starHovered: false
+                                property bool isFav: appViewModel ? appViewModel.favoriteList.isFavorite(model.channelId) : false
 
-                            property bool starHovered: false
-                            property bool isFav: appViewModel ? appViewModel.favoriteList.isFavorite(model.channelId) : false
+                                Text {
+                                    anchors.centerIn: parent
+                                    text: parent.isFav ? "⭐" : "☆"
+                                    font.pixelSize: 11
+                                    color: parent.isFav ? Theme.warning : Theme.textMuted
+                                }
 
-                            Text {
-                                anchors.centerIn: parent
-                                text: parent.isFav ? "⭐" : "☆"
-                                font.pixelSize: Theme.fontSizeXs
-                                color: parent.isFav ? Theme.warning : Theme.textMuted
-                            }
-
-                            MouseArea {
-                                anchors.fill: parent
-                                hoverEnabled: true
-                                cursorShape: Qt.PointingHandCursor
-                                onEntered: parent.starHovered = true
-                                onExited: parent.starHovered = false
-                                onClicked: {
-                                    if (appViewModel) {
-                                        appViewModel.favoriteList.toggleFavorite(model.channelId)
-                                        parent.isFav = !parent.isFav
+                                MouseArea {
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    cursorShape: Qt.PointingHandCursor
+                                    onEntered: parent.starHovered = true
+                                    onExited: parent.starHovered = false
+                                    onClicked: {
+                                        if (appViewModel) {
+                                            appViewModel.favoriteList.toggleFavorite(model.channelId)
+                                            parent.isFav = !parent.isFav
+                                        }
                                     }
                                 }
                             }
@@ -442,10 +469,12 @@ Item {
                         onExited: parent.chHovered = false
                         onClicked: {
                             if (appViewModel) {
-                                appViewModel.player.play(model.streamUrl, model.name, model.logoUrl)
+                                appViewModel.player.play(model.streamUrl, model.name, model.logoUrl, model.channelId)
                                 appViewModel.currentView = "player"
                             }
                         }
+                        // Note: live streams work with immediate play because HTTP latency
+                        // gives the render context time to initialize
 
                         z: -1
                     }
@@ -479,14 +508,16 @@ Item {
         }
     }
 
-    property int64_t selectedCategoryId: 0
+    property var selectedCategoryId: 0
 
     function selectServer(serverId) {
         activeServerId = serverId
         selectedCategoryId = 0
         if (appViewModel) {
-            appViewModel.channelList.serverId = serverId
+            appViewModel.categoryList.filterType = "live"
             appViewModel.categoryList.serverId = serverId
+            appViewModel.channelList.typeFilter = "live"
+            appViewModel.channelList.serverId = serverId
         }
     }
 
@@ -498,8 +529,19 @@ Item {
     }
 
     Component.onCompleted: {
+        if (appViewModel) {
+            appViewModel.channelList.searchQuery = ""
+            appViewModel.channelList.categoryId = 0
+            appViewModel.channelList.typeFilter = "live"
+        }
         if (appViewModel && appViewModel.serverList.count > 0) {
             selectServer(appViewModel.serverList.serverIdAt(0))
+        }
+    }
+
+    Component.onDestruction: {
+        if (appViewModel) {
+            appViewModel.channelList.typeFilter = ""
         }
     }
 }

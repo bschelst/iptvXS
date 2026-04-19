@@ -1,17 +1,17 @@
 qt_policy(SET QTP0004 OLD)
 
-qt_add_executable(iptvxs
+qt_add_executable(iptvXS
     main.cpp
 )
 
-qt_add_resources(iptvxs "app_resources"
+qt_add_resources(iptvXS "app_resources"
     PREFIX "/"
     BASE "../"
     FILES
         ../images/iptvxs_logo.png
 )
 
-set_target_properties(iptvxs PROPERTIES
+set_target_properties(iptvXS PROPERTIES
     QT_QML_IMPORT_NO_IMPORT_SCAN ON
 )
 
@@ -19,7 +19,7 @@ set_source_files_properties(qml/themes/Theme.qml PROPERTIES
     QT_QML_SINGLETON_TYPE TRUE
 )
 
-qt_add_qml_module(iptvxs
+qt_add_qml_module(iptvXS
     URI app.iptvxs
     VERSION 1.0
     NO_IMPORT_SCAN
@@ -34,6 +34,7 @@ qt_add_qml_module(iptvxs
         qml/views/EpgView.qml
         qml/views/RecordingsView.qml
         qml/views/SpeedTestView.qml
+        qml/views/VodView.qml
         qml/views/LogView.qml
         qml/components/Sidebar.qml
         qml/components/TopBar.qml
@@ -67,31 +68,33 @@ qt_add_qml_module(iptvxs
         viewmodels/mpv_video_item.cpp
 )
 
-target_include_directories(iptvxs
+target_include_directories(iptvXS
     PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/viewmodels
 )
 
-find_package(Qt6 REQUIRED COMPONENTS OpenGL Widgets)
+find_package(Qt6 REQUIRED COMPONENTS Concurrent OpenGL Widgets QuickDialogs2)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(MPV REQUIRED mpv)
 
-target_include_directories(iptvxs
+target_include_directories(iptvXS
     PRIVATE
         ${MPV_INCLUDE_DIRS}
 )
 
-target_link_libraries(iptvxs
+target_link_libraries(iptvXS
     PRIVATE
         iptvxs-core
+        Qt6::Concurrent
         Qt6::Quick
         Qt6::QuickControls2
+        Qt6::QuickDialogs2
         Qt6::OpenGL
         Qt6::Widgets
         ${MPV_LIBRARIES}
 )
 
-install(TARGETS iptvxs
+install(TARGETS iptvXS
     BUNDLE DESTINATION .
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 )

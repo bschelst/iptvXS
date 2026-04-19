@@ -46,8 +46,8 @@ export OUTPUT="$PROJECT_DIR/iptvxs-$(cat "$PROJECT_DIR/CMakeLists.txt" | grep -o
 
 "$LINUXDEPLOY" \
     --appdir "$BUILD_DIR/AppDir" \
-    --desktop-file "$BUILD_DIR/AppDir/usr/share/applications/io.github.bschelst.iptvxs.desktop" \
-    --icon-file "$BUILD_DIR/AppDir/usr/share/icons/hicolor/scalable/apps/io.github.bschelst.iptvxs.svg" \
+    --desktop-file "$BUILD_DIR/AppDir/usr/share/applications/org.schelstraete.iptvxs.desktop" \
+    --icon-file "$BUILD_DIR/AppDir/usr/share/icons/hicolor/scalable/apps/org.schelstraete.iptvxs.svg" \
     --plugin qt \
     --output appimage
 

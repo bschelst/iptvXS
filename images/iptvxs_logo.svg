@@ -13,8 +13,6 @@
     </filter>
   </defs>
 
-  <rect width="1200" height="600" fill="#F5F5F5"/>
-
   <g filter="url(#softShadow)" transform="translate(0 -10)">
     <g transform="translate(420 80)">
       <circle cx="180" cy="74" r="30" fill="#3F3F46"/>

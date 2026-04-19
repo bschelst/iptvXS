@@ -13,6 +13,8 @@ class PlayerViewModel : public QObject {
     Q_PROPERTY(bool playing READ playing NOTIFY stateChanged)
     Q_PROPERTY(bool paused READ paused NOTIFY stateChanged)
     Q_PROPERTY(bool stopped READ stopped NOTIFY stateChanged)
+    Q_PROPERTY(bool loading READ loading NOTIFY stateChanged)
+    Q_PROPERTY(int64_t channelId READ channelId NOTIFY channelIdChanged)
     Q_PROPERTY(int volume READ volume WRITE setVolume NOTIFY volumeChanged)
     Q_PROPERTY(bool muted READ muted WRITE setMuted NOTIFY mutedChanged)
     Q_PROPERTY(double duration READ duration NOTIFY durationChanged)
@@ -28,6 +30,8 @@ public:
     bool playing() const;
     bool paused() const;
     bool stopped() const;
+    bool loading() const;
+    int64_t channelId() const;
     int volume() const;
     void setVolume(int vol);
     bool muted() const;
@@ -39,13 +43,23 @@ public:
     iptvxs::MpvPlayer *mpvPlayer() const;
 
     Q_INVOKABLE void play(const QString &url, const QString &name = {},
-                          const QString &logo = {});
+                          const QString &logo = {}, int64_t channelId = 0);
     Q_INVOKABLE void togglePause();
     Q_INVOKABLE void stop();
     Q_INVOKABLE void seek(double seconds);
     Q_INVOKABLE void volumeUp();
     Q_INVOKABLE void volumeDown();
     Q_INVOKABLE void toggleMute();
+    Q_INVOKABLE void setBufferSeconds(int seconds);
+    Q_INVOKABLE void startStreamRecord(const QString &filePath);
+    Q_INVOKABLE void stopStreamRecord();
+
+    Q_INVOKABLE void loadSubtitleFile(const QString &filePath);
+    Q_INVOKABLE void setSubtitleDelay(double seconds);
+    Q_INVOKABLE double subtitleDelay() const;
+    Q_INVOKABLE void setSubtitleVisibility(bool visible);
+    Q_INVOKABLE bool subtitleVisible() const;
+    Q_INVOKABLE void adjustSubtitleDelay(double deltaSecs);
 
     Q_INVOKABLE QString formatTime(double seconds) const;
 
@@ -57,10 +71,12 @@ signals:
     void positionChanged();
     void channelNameChanged();
     void channelLogoChanged();
+    void channelIdChanged();
     void errorOccurred(const QString &message);
 
 private:
     iptvxs::MpvPlayer *player_;
     QString channelName_;
     QString channelLogo_;
+    int64_t channelId_{0};
 };

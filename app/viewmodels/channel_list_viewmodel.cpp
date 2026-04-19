@@ -24,6 +24,8 @@ QVariant ChannelListViewModel::data(const QModelIndex &index, int role) const {
     case TypeRole: return ch.type;
     case CategoryIdRole: return QVariant::fromValue(ch.categoryId);
     case EpgChannelIdRole: return ch.epgChannelId;
+    case ExternalIdRole: return ch.externalId;
+    case ServerIdRole: return QVariant::fromValue(ch.serverId);
     default: return {};
     }
 }
@@ -37,6 +39,8 @@ QHash<int, QByteArray> ChannelListViewModel::roleNames() const {
         {TypeRole, "type"},
         {CategoryIdRole, "categoryId"},
         {EpgChannelIdRole, "epgChannelId"},
+        {ExternalIdRole, "externalId"},
+        {ServerIdRole, "serverId"},
     };
 }
 
@@ -86,12 +90,51 @@ bool ChannelListViewModel::hasMore() const {
 
 bool ChannelListViewModel::loading() const { return loading_; }
 
+QString ChannelListViewModel::typeFilter() const { return typeFilter_; }
+
+void ChannelListViewModel::setTypeFilter(const QString &type) {
+    if (typeFilter_ != type) {
+        typeFilter_ = type;
+        emit typeFilterChanged();
+        loadChannels();
+    }
+}
+
 void ChannelListViewModel::loadMore() {
     if (!hasMore() || loading_) return;
     loadChannels(true);
 }
 
 void ChannelListViewModel::refresh() { loadChannels(); }
+
+QString ChannelListViewModel::streamUrlAt(int index) const {
+    if (index < 0 || index >= channels_.size()) return {};
+    return channels_[index].streamUrl;
+}
+QString ChannelListViewModel::nameAt(int index) const {
+    if (index < 0 || index >= channels_.size()) return {};
+    return channels_[index].name;
+}
+QString ChannelListViewModel::logoUrlAt(int index) const {
+    if (index < 0 || index >= channels_.size()) return {};
+    return channels_[index].logoUrl;
+}
+int64_t ChannelListViewModel::channelIdAt(int index) const {
+    if (index < 0 || index >= channels_.size()) return 0;
+    return channels_[index].id;
+}
+QString ChannelListViewModel::typeAt(int index) const {
+    if (index < 0 || index >= channels_.size()) return {};
+    return channels_[index].type;
+}
+QString ChannelListViewModel::externalIdAt(int index) const {
+    if (index < 0 || index >= channels_.size()) return {};
+    return channels_[index].externalId;
+}
+int64_t ChannelListViewModel::serverIdAt(int index) const {
+    if (index < 0 || index >= channels_.size()) return 0;
+    return channels_[index].serverId;
+}
 
 QString ChannelListViewModel::channelUrlAt(int index) const {
     if (index < 0 || index >= channels_.size()) return {};
@@ -116,6 +159,8 @@ void ChannelListViewModel::loadChannels(bool append) {
         result = repo_->search(serverId_, searchQuery_, kPageSize, offset);
     } else if (categoryId_ > 0) {
         result = repo_->findByCategory(categoryId_, kPageSize, offset);
+    } else if (!typeFilter_.isEmpty()) {
+        result = repo_->findByServerAndType(serverId_, typeFilter_, kPageSize, offset);
     } else {
         result = repo_->findByServer(serverId_, kPageSize, offset);
     }
@@ -147,6 +192,8 @@ void ChannelListViewModel::updateTotalCount() {
         newTotal = repo_->countBySearch(serverId_, searchQuery_);
     } else if (categoryId_ > 0) {
         newTotal = repo_->countByCategory(categoryId_);
+    } else if (!typeFilter_.isEmpty()) {
+        newTotal = repo_->countByServerAndType(serverId_, typeFilter_);
     } else {
         newTotal = repo_->count(serverId_);
     }

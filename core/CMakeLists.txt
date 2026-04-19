@@ -20,6 +20,7 @@ add_library(iptvxs-core STATIC
     src/gdrive/gdrive_uploader.cpp
     src/net/speed_test_runner.cpp
     src/player/mpv_player.cpp
+    src/api/opensubtitles_client.cpp
     include/iptvxs/db/database.h
     include/iptvxs/db/settings_repository.h
     include/iptvxs/db/server_repository.h
@@ -37,6 +38,7 @@ add_library(iptvxs-core STATIC
     include/iptvxs/gdrive/gdrive_uploader.h
     include/iptvxs/net/speed_test_runner.h
     include/iptvxs/player/mpv_player.h
+    include/iptvxs/api/opensubtitles_client.h
 )
 
 target_include_directories(iptvxs-core

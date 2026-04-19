@@ -14,6 +14,9 @@ public:
     explicit HttpClient(QObject *parent = nullptr);
 
     QNetworkReply *get(const QUrl &url);
+    QNetworkReply *get(const QNetworkRequest &request);
+    QNetworkReply *post(const QUrl &url, const QByteArray &data);
+    QNetworkReply *post(const QNetworkRequest &request, const QByteArray &data);
 
     void setCustomUserAgent(const QString &suffix);
     void setTimeoutMs(int ms);

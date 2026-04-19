@@ -6,6 +6,7 @@
 #include <QTimer>
 
 #include "iptvxs/db/channel_repository.h"
+#include "iptvxs/db/programme_repository.h"
 #include "iptvxs/db/recording_repository.h"
 #include "iptvxs/db/settings_repository.h"
 
@@ -20,7 +21,8 @@ public:
 
     void setRepositories(RecordingRepository *recordingRepo,
                          ChannelRepository *channelRepo,
-                         SettingsRepository *settingsRepo);
+                         SettingsRepository *settingsRepo,
+                         ProgrammeRepository *progRepo = nullptr);
 
     void start();
     void stop();
@@ -49,6 +51,7 @@ private:
     RecordingRepository *recordingRepo_{nullptr};
     ChannelRepository *channelRepo_{nullptr};
     SettingsRepository *settingsRepo_{nullptr};
+    ProgrammeRepository *progRepo_{nullptr};
     QTimer schedulerTimer_;
     QHash<int64_t, QProcess *> activeProcesses_;
 };

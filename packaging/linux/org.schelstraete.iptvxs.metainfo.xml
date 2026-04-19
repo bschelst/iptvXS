@@ -1,14 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <component type="desktop-application">
-  <id>io.github.bschelst.iptvxs</id>
-  <name>iptvxs</name>
+  <id>org.schelstraete.iptvxs</id>
+  <name>iptvXS</name>
   <summary>Cross-platform IPTV viewer</summary>
   <metadata_license>MIT</metadata_license>
   <project_license>MIT</project_license>
 
   <description>
     <p>
-      iptvxs is a modern IPTV viewer built with Qt6 and libmpv. It supports
+      iptvXS is a modern IPTV viewer built with Qt6 and libmpv. It supports
       Xtream Codes and M3U playlist formats with features including an
       electronic programme guide (EPG), scheduled and live recording,
       Google Drive upload, favorites, and a theming system.
@@ -27,13 +27,13 @@
     </ul>
   </description>
 
-  <launchable type="desktop-id">io.github.bschelst.iptvxs.desktop</launchable>
+  <launchable type="desktop-id">org.schelstraete.iptvxs.desktop</launchable>
 
   <url type="homepage">https://github.com/bschelst/iptvxs</url>
   <url type="bugtracker">https://github.com/bschelst/iptvxs/issues</url>
 
   <provides>
-    <binary>iptvxs</binary>
+    <binary>iptvXS</binary>
   </provides>
 
   <content_rating type="oars-1.1" />

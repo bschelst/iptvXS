@@ -147,6 +147,20 @@ Item {
                         cursorShape: Qt.PointingHandCursor
                         onEntered: parent.cardHovered = true
                         onExited: parent.cardHovered = false
+                        onClicked: {
+                            var viewMap = {
+                                "Add Server": "servers",
+                                "Browse Channels": "channels",
+                                "TV Guide": "epg",
+                                "Recordings": "recordings",
+                                "Speed Test": "speedtest",
+                                "Settings": "settings"
+                            }
+                            var target = viewMap[modelData.title]
+                            if (target && appViewModel) {
+                                appViewModel.currentView = target
+                            }
+                        }
                     }
                 }
             }

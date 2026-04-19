@@ -247,6 +247,16 @@ bool RecordingRepository::updateFilePath(int64_t id, const QString &filePath) {
     return true;
 }
 
+bool RecordingRepository::updateEndTime(int64_t id, int64_t endTime) {
+    QSqlQuery q(db_);
+    q.prepare("UPDATE recordings SET end_time = ? WHERE id = ?");
+    q.addBindValue(static_cast<qlonglong>(endTime));
+    q.addBindValue(static_cast<qlonglong>(id));
+    if (!q.exec()) return false;
+    emit recordingsChanged();
+    return true;
+}
+
 int RecordingRepository::count() const {
     QSqlQuery q(db_);
     if (!q.exec("SELECT COUNT(*) FROM recordings")) {

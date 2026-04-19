@@ -1,6 +1,7 @@
 #include "recording_list_viewmodel.h"
 
 #include <QDateTime>
+#include <QFileInfo>
 
 RecordingListViewModel::RecordingListViewModel(QObject *parent)
     : QAbstractListModel(parent) {}
@@ -164,6 +165,44 @@ void RecordingListViewModel::deleteRecording(int64_t recordingId) {
     if (recordingRepo_) {
         recordingRepo_->remove(recordingId);
     }
+}
+
+bool RecordingListViewModel::isChannelRecording(int64_t channelId) const {
+    if (!recordingRepo_) return false;
+    auto recs = recordingRepo_->findByChannel(channelId);
+    for (const auto &r : recs) {
+        if (r.status == QStringLiteral("recording")) return true;
+    }
+    return false;
+}
+
+void RecordingListViewModel::stopChannelRecording(int64_t channelId) {
+    if (!recordingRepo_ || !manager_) return;
+    auto recs = recordingRepo_->findByChannel(channelId);
+    for (const auto &r : recs) {
+        if (r.status == QStringLiteral("recording")) {
+            manager_->stopRecording(r.id);
+        }
+    }
+}
+
+void RecordingListViewModel::addCompletedRecording(int64_t channelId, int64_t startTime,
+                                                    int64_t endTime, const QString &filePath) {
+    if (!recordingRepo_) return;
+
+    iptvxs::Recording rec;
+    rec.channelId = channelId;
+    rec.status = QStringLiteral("completed");
+    rec.quality = QStringLiteral("original");
+    rec.startTime = startTime;
+    rec.endTime = endTime;
+    rec.filePath = filePath;
+
+    QFileInfo fi(filePath);
+    if (fi.exists()) rec.fileSizeBytes = fi.size();
+
+    recordingRepo_->create(rec);
+    loadRecordings();
 }
 
 QString RecordingListViewModel::formatFileSize(int64_t bytes) const {

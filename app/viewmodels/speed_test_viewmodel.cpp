@@ -1,5 +1,7 @@
 #include "speed_test_viewmodel.h"
 
+#include <QRandomGenerator>
+
 SpeedTestViewModel::SpeedTestViewModel(QObject *parent)
     : QObject(parent) {}
 
@@ -62,7 +64,7 @@ int SpeedTestViewModel::duration() const { return duration_; }
 
 void SpeedTestViewModel::setDuration(int secs) {
     if (secs < 3) secs = 3;
-    if (secs > 60) secs = 60;
+    if (secs > 120) secs = 120;
     if (duration_ != secs) {
         duration_ = secs;
         emit durationChanged();
@@ -106,6 +108,16 @@ void SpeedTestViewModel::startTestForChannel(qint64 channelId) {
     }
 
     startTest(channel->streamUrl);
+}
+
+void SpeedTestViewModel::startInternetTest() {
+    static const QStringList testUrls = {
+        QStringLiteral("https://speed.cloudflare.com/__down?bytes=100000000"),
+        QStringLiteral("https://proof.ovh.net/files/100Mb.dat"),
+        QStringLiteral("https://ash-speed.hetzner.com/100MB.bin"),
+    };
+    int idx = QRandomGenerator::global()->bounded(testUrls.size());
+    startTest(testUrls.at(idx));
 }
 
 void SpeedTestViewModel::stopTest() {

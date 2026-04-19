@@ -1,11 +1,11 @@
 [Desktop Entry]
 Type=Application
-Name=iptvxs
+Name=iptvXS
 GenericName=IPTV Viewer
 Comment=Cross-platform IPTV viewer with EPG, recording, and Google Drive upload
-Exec=iptvxs
-Icon=io.github.bschelst.iptvxs
+Exec=iptvXS
+Icon=org.schelstraete.iptvxs
 Terminal=false
 Categories=AudioVideo;Video;Player;TV;
 Keywords=IPTV;streaming;television;EPG;recording;
-StartupWMClass=iptvxs
+StartupWMClass=iptvXS

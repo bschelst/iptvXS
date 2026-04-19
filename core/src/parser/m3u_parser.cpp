@@ -58,11 +58,16 @@ void M3uParser::parse(QIODevice *device, int64_t serverId) {
 
         Channel channel;
         channel.serverId = serverId;
+        channel.externalId = currentInfo.tvgId.isEmpty()
+            ? QStringLiteral("m3u_%1").arg(
+                  QString::number(qHash(line), 16))
+            : currentInfo.tvgId;
         channel.name = currentInfo.name;
         channel.streamUrl = line;
         channel.logoUrl = currentInfo.tvgLogo;
         channel.epgChannelId = currentInfo.tvgId;
-        channel.type = QStringLiteral("live");
+        channel.type = detectChannelType(currentInfo.groupTitle, line);
+        channel.groupTitle = currentInfo.groupTitle;
 
         if (!currentInfo.groupTitle.isEmpty() &&
             !discoveredGroups_.contains(currentInfo.groupTitle)) {
@@ -139,6 +144,33 @@ M3uParser::ExtInfData M3uParser::parseExtInf(const QString &line) {
     }
 
     return data;
+}
+
+QString M3uParser::detectChannelType(const QString &groupTitle, const QString &url) {
+    auto group = groupTitle.toLower();
+
+    static const QStringList vodKeywords = {
+        QStringLiteral("vod"), QStringLiteral("movie"),
+        QStringLiteral("film"), QStringLiteral("cinema")};
+    static const QStringList seriesKeywords = {
+        QStringLiteral("series"), QStringLiteral("season"),
+        QStringLiteral("episode"), QStringLiteral("show")};
+
+    for (const auto &kw : seriesKeywords) {
+        if (group.contains(kw)) return QStringLiteral("series");
+    }
+    for (const auto &kw : vodKeywords) {
+        if (group.contains(kw)) return QStringLiteral("vod");
+    }
+
+    auto lowerUrl = url.toLower();
+    if (lowerUrl.contains(QStringLiteral("/series/")))
+        return QStringLiteral("series");
+    if (lowerUrl.contains(QStringLiteral("/movie/")) ||
+        lowerUrl.contains(QStringLiteral("/vod/")))
+        return QStringLiteral("vod");
+
+    return QStringLiteral("live");
 }
 
 QString M3uParser::extractAttribute(const QString &line, const QString &key) {

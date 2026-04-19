@@ -32,6 +32,12 @@ bool PlayerViewModel::stopped() const {
     return player_->state() == iptvxs::MpvPlayer::State::Stopped;
 }
 
+bool PlayerViewModel::loading() const {
+    return player_->state() == iptvxs::MpvPlayer::State::Loading;
+}
+
+int64_t PlayerViewModel::channelId() const { return channelId_; }
+
 int PlayerViewModel::volume() const { return player_->volume(); }
 
 void PlayerViewModel::setVolume(int vol) { player_->setVolume(vol); }
@@ -51,13 +57,15 @@ QString PlayerViewModel::channelLogo() const { return channelLogo_; }
 iptvxs::MpvPlayer *PlayerViewModel::mpvPlayer() const { return player_; }
 
 void PlayerViewModel::play(const QString &url, const QString &name,
-                           const QString &logo) {
+                           const QString &logo, int64_t channelId) {
     channelName_ = name;
     channelLogo_ = logo;
+    channelId_ = channelId;
     emit channelNameChanged();
     emit channelLogoChanged();
+    emit channelIdChanged();
 
-    player_->play(QUrl(url));
+    player_->play(url);
 }
 
 void PlayerViewModel::togglePause() { player_->togglePause(); }
@@ -66,8 +74,10 @@ void PlayerViewModel::stop() {
     player_->stop();
     channelName_.clear();
     channelLogo_.clear();
+    channelId_ = 0;
     emit channelNameChanged();
     emit channelLogoChanged();
+    emit channelIdChanged();
 }
 
 void PlayerViewModel::seek(double seconds) { player_->seek(seconds); }
@@ -81,6 +91,48 @@ void PlayerViewModel::volumeDown() {
 }
 
 void PlayerViewModel::toggleMute() { player_->setMuted(!player_->muted()); }
+
+void PlayerViewModel::startStreamRecord(const QString &filePath) {
+    player_->setProperty(QStringLiteral("stream-record"), QVariant(filePath));
+}
+
+void PlayerViewModel::stopStreamRecord() {
+    player_->setProperty(QStringLiteral("stream-record"), QVariant(QString()));
+}
+
+void PlayerViewModel::loadSubtitleFile(const QString &filePath) {
+    player_->command({QStringLiteral("sub-add"), filePath, QStringLiteral("select")});
+}
+
+void PlayerViewModel::setSubtitleDelay(double seconds) {
+    player_->setProperty(QStringLiteral("sub-delay"), QVariant(seconds));
+}
+
+double PlayerViewModel::subtitleDelay() const {
+    auto val = player_->getProperty(QStringLiteral("sub-delay"));
+    return val.toDouble();
+}
+
+void PlayerViewModel::setSubtitleVisibility(bool visible) {
+    player_->setProperty(QStringLiteral("sub-visibility"), QVariant(visible));
+}
+
+bool PlayerViewModel::subtitleVisible() const {
+    auto val = player_->getProperty(QStringLiteral("sub-visibility"));
+    return val.toBool();
+}
+
+void PlayerViewModel::adjustSubtitleDelay(double deltaSecs) {
+    auto current = subtitleDelay();
+    setSubtitleDelay(current + deltaSecs);
+}
+
+void PlayerViewModel::setBufferSeconds(int seconds) {
+    player_->setProperty(QStringLiteral("cache-secs"),
+                         QVariant(qMax(0, seconds)));
+    player_->setProperty(QStringLiteral("demuxer-readahead-secs"),
+                         QVariant(qMax(0, seconds)));
+}
 
 QString PlayerViewModel::formatTime(double seconds) const {
     if (seconds < 0) return QStringLiteral("--:--");

@@ -1,5 +1,6 @@
 #include "iptvxs/api/xtream_response.h"
 
+#include <QDebug>
 #include <QJsonArray>
 
 namespace iptvxs {
@@ -50,6 +51,14 @@ XtreamStream XtreamStream::fromJson(const QJsonObject &obj) {
     stream.name = obj.value("name").toString();
     stream.streamType = obj.value("stream_type").toString();
     stream.streamId = obj.value("stream_id").toVariant().toString();
+    if (stream.streamId.isEmpty()) {
+        stream.streamId = obj.value("series_id").toVariant().toString();
+    }
+    if (stream.streamId.isEmpty() && stream.name.size() > 0) {
+        qInfo("Stream '%s' has no stream_id or series_id. Keys: %s",
+              qPrintable(stream.name),
+              qPrintable(obj.keys().join(", ")));
+    }
     stream.streamIcon = obj.value("stream_icon").toString();
     stream.epgChannelId = obj.value("epg_channel_id").toString();
     stream.added = obj.value("added").toVariant().toLongLong();

@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Controls
+import QtQuick.Dialogs
 import QtQuick.Layouts
 import app.iptvxs
 
@@ -117,7 +118,10 @@ Item {
                                     cursorShape: Qt.PointingHandCursor
                                     onEntered: parent.themeCardHovered = true
                                     onExited: parent.themeCardHovered = false
-                                    onClicked: Theme.applyTheme(modelData)
+                                    onClicked: {
+                                        Theme.applyTheme(modelData)
+                                        if (appViewModel) appViewModel.theme = modelData
+                                    }
                                 }
                             }
                         }
@@ -170,6 +174,351 @@ Item {
                         Switch {
                             checked: false
                         }
+                    }
+                }
+            }
+
+            Rectangle {
+                Layout.fillWidth: true
+                Layout.preferredHeight: playerCol.implicitHeight + Theme.spacingLg * 2
+                radius: Theme.borderRadiusLarge
+                color: Theme.surfaceElevated
+                border.color: Theme.surfaceBorder
+                border.width: 1
+
+                ColumnLayout {
+                    id: playerCol
+                    anchors.fill: parent
+                    anchors.margins: Theme.spacingLg
+                    spacing: Theme.spacingMd
+
+                    Text {
+                        text: "Player"
+                        font.pixelSize: Theme.fontSizeMd
+                        font.bold: true
+                        color: Theme.textPrimary
+                    }
+
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        spacing: Theme.spacingXs
+
+                        Text {
+                            text: "Buffer time"
+                            font.pixelSize: Theme.fontSizeSm
+                            color: Theme.textPrimary
+                        }
+
+                        Text {
+                            text: "Amount of stream data to buffer before playback"
+                            font.pixelSize: Theme.fontSizeXs
+                            color: Theme.textMuted
+                        }
+
+                        Flow {
+                            Layout.fillWidth: true
+                            spacing: Theme.spacingSm
+                            Layout.topMargin: Theme.spacingXs
+
+                            Repeater {
+                                model: [
+                                    { value: 0, label: "Default" },
+                                    { value: 5, label: "5s" },
+                                    { value: 10, label: "10s" },
+                                    { value: 15, label: "15s" }
+                                ]
+
+                                Rectangle {
+                                    width: 64
+                                    height: 32
+                                    radius: Theme.borderRadiusSmall
+                                    color: appViewModel && appViewModel.bufferSeconds === modelData.value
+                                        ? Theme.accent : bufHovered
+                                            ? Theme.surfaceHover : Theme.surface
+                                    border.width: 1
+                                    border.color: Theme.surfaceBorder
+
+                                    property bool bufHovered: false
+
+                                    Text {
+                                        anchors.centerIn: parent
+                                        text: modelData.label
+                                        font.pixelSize: Theme.fontSizeXs
+                                        color: appViewModel && appViewModel.bufferSeconds === modelData.value
+                                            ? Theme.textPrimary : Theme.textSecondary
+                                    }
+
+                                    MouseArea {
+                                        anchors.fill: parent
+                                        hoverEnabled: true
+                                        cursorShape: Qt.PointingHandCursor
+                                        onEntered: parent.bufHovered = true
+                                        onExited: parent.bufHovered = false
+                                        onClicked: {
+                                            if (appViewModel)
+                                                appViewModel.bufferSeconds = modelData.value
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            Rectangle {
+                Layout.fillWidth: true
+                Layout.preferredHeight: subCol.implicitHeight + Theme.spacingLg * 2
+                radius: Theme.borderRadiusLarge
+                color: Theme.surfaceElevated
+                border.color: Theme.surfaceBorder
+                border.width: 1
+
+                ColumnLayout {
+                    id: subCol
+                    anchors.fill: parent
+                    anchors.margins: Theme.spacingLg
+                    spacing: Theme.spacingMd
+
+                    Text {
+                        text: "Subtitles"
+                        font.pixelSize: Theme.fontSizeMd
+                        font.bold: true
+                        color: Theme.textPrimary
+                    }
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: Theme.spacingMd
+
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            spacing: Theme.spacingXs
+
+                            Text {
+                                text: "Enable subtitles"
+                                font.pixelSize: Theme.fontSizeSm
+                                color: Theme.textPrimary
+                            }
+
+                            Text {
+                                text: "Automatically search and load subtitles for VOD content"
+                                font.pixelSize: Theme.fontSizeXs
+                                color: Theme.textMuted
+                            }
+                        }
+
+                        Switch {
+                            checked: appViewModel ? appViewModel.subtitlesEnabled : false
+                            onToggled: {
+                                if (appViewModel) appViewModel.subtitlesEnabled = checked
+                            }
+                        }
+                    }
+
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        spacing: Theme.spacingXs
+
+                        Text {
+                            text: "Subtitle language"
+                            font.pixelSize: Theme.fontSizeSm
+                            color: Theme.textPrimary
+                        }
+
+                        Flow {
+                            Layout.fillWidth: true
+                            spacing: Theme.spacingSm
+
+                            Repeater {
+                                model: [
+                                    { value: "en", label: "English" },
+                                    { value: "nl", label: "Dutch" },
+                                    { value: "fr", label: "French" },
+                                    { value: "de", label: "German" },
+                                    { value: "es", label: "Spanish" },
+                                    { value: "pt", label: "Portuguese" }
+                                ]
+
+                                Rectangle {
+                                    width: subLangLabel.implicitWidth + Theme.spacingMd * 2
+                                    height: 32
+                                    radius: Theme.borderRadiusSmall
+                                    color: appViewModel && appViewModel.subtitleLanguage === modelData.value
+                                        ? Theme.accent : subLangHov ? Theme.surfaceHover : Theme.surface
+                                    border.width: 1
+                                    border.color: Theme.surfaceBorder
+                                    property bool subLangHov: false
+
+                                    Text {
+                                        id: subLangLabel
+                                        anchors.centerIn: parent
+                                        text: modelData.label
+                                        font.pixelSize: Theme.fontSizeXs
+                                        color: appViewModel && appViewModel.subtitleLanguage === modelData.value
+                                            ? Theme.textPrimary : Theme.textSecondary
+                                    }
+
+                                    MouseArea {
+                                        anchors.fill: parent
+                                        hoverEnabled: true
+                                        cursorShape: Qt.PointingHandCursor
+                                        onEntered: parent.subLangHov = true
+                                        onExited: parent.subLangHov = false
+                                        onClicked: {
+                                            if (appViewModel)
+                                                appViewModel.subtitleLanguage = modelData.value
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    Rectangle {
+                        Layout.fillWidth: true
+                        height: 1
+                        color: Theme.surfaceBorder
+                    }
+
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        spacing: Theme.spacingXs
+
+                        Text {
+                            text: "Subtitle size"
+                            font.pixelSize: Theme.fontSizeSm
+                            color: Theme.textPrimary
+                        }
+
+                        RowLayout {
+                            spacing: Theme.spacingSm
+
+                            Slider {
+                                id: subSizeSlider
+                                Layout.fillWidth: true
+                                from: 20
+                                to: 80
+                                stepSize: 2
+                                value: appViewModel ? appViewModel.subtitleSize : 48
+
+                                onMoved: {
+                                    if (appViewModel) appViewModel.subtitleSize = value
+                                }
+                            }
+
+                            Text {
+                                text: Math.round(subSizeSlider.value) + "px"
+                                font.pixelSize: Theme.fontSizeXs
+                                color: Theme.textSecondary
+                                Layout.preferredWidth: 40
+                            }
+                        }
+                    }
+
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        spacing: Theme.spacingXs
+
+                        Text {
+                            text: "Text color"
+                            font.pixelSize: Theme.fontSizeSm
+                            color: Theme.textPrimary
+                        }
+
+                        Flow {
+                            Layout.fillWidth: true
+                            spacing: Theme.spacingSm
+
+                            Repeater {
+                                model: [
+                                    { value: "#FFFFFF", label: "White" },
+                                    { value: "#FFFF00", label: "Yellow" },
+                                    { value: "#00FF00", label: "Green" },
+                                    { value: "#00FFFF", label: "Cyan" }
+                                ]
+
+                                Rectangle {
+                                    width: 60; height: 28; radius: Theme.borderRadiusSmall
+                                    color: appViewModel && appViewModel.subtitleColor === modelData.value
+                                        ? Theme.accent : subColHov ? Theme.surfaceHover : Theme.surface
+                                    border.width: 1; border.color: Theme.surfaceBorder
+                                    property bool subColHov: false
+
+                                    Row {
+                                        anchors.centerIn: parent
+                                        spacing: 4
+                                        Rectangle {
+                                            width: 10; height: 10; radius: 5; color: modelData.value
+                                            border.width: 1; border.color: Theme.surfaceBorder
+                                            anchors.verticalCenter: parent.verticalCenter
+                                        }
+                                        Text {
+                                            text: modelData.label; font.pixelSize: 9
+                                            color: appViewModel && appViewModel.subtitleColor === modelData.value ? "#FFFFFF" : Theme.textPrimary
+                                            anchors.verticalCenter: parent.verticalCenter
+                                        }
+                                    }
+
+                                    MouseArea {
+                                        anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                                        onEntered: parent.subColHov = true; onExited: parent.subColHov = false
+                                        onClicked: { if (appViewModel) appViewModel.subtitleColor = modelData.value }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        spacing: Theme.spacingXs
+
+                        Text {
+                            text: "Background"
+                            font.pixelSize: Theme.fontSizeSm
+                            color: Theme.textPrimary
+                        }
+
+                        Flow {
+                            Layout.fillWidth: true
+                            spacing: Theme.spacingSm
+
+                            Repeater {
+                                model: [
+                                    { value: "#00000000", label: "None" },
+                                    { value: "#80000000", label: "Dark" },
+                                    { value: "#CC000000", label: "Darker" },
+                                    { value: "#FF000000", label: "Black" }
+                                ]
+
+                                Rectangle {
+                                    width: 60; height: 28; radius: Theme.borderRadiusSmall
+                                    color: appViewModel && appViewModel.subtitleBgColor === modelData.value
+                                        ? Theme.accent : subBgHov ? Theme.surfaceHover : Theme.surface
+                                    border.width: 1; border.color: Theme.surfaceBorder
+                                    property bool subBgHov: false
+
+                                    Text {
+                                        anchors.centerIn: parent; text: modelData.label; font.pixelSize: 9
+                                        color: appViewModel && appViewModel.subtitleBgColor === modelData.value ? "#FFFFFF" : Theme.textPrimary
+                                    }
+
+                                    MouseArea {
+                                        anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                                        onEntered: parent.subBgHov = true; onExited: parent.subBgHov = false
+                                        onClicked: { if (appViewModel) appViewModel.subtitleBgColor = modelData.value }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    Text {
+                        text: "Powered by OpenSubtitles.org — no account needed"
+                        font.pixelSize: Theme.fontSizeXs
+                        font.italic: true
+                        color: Theme.textMuted
                     }
                 }
             }
@@ -555,6 +904,104 @@ Item {
 
             Rectangle {
                 Layout.fillWidth: true
+                Layout.preferredHeight: recCol.implicitHeight + Theme.spacingLg * 2
+                radius: Theme.borderRadiusLarge
+                color: Theme.surfaceElevated
+                border.color: Theme.surfaceBorder
+                border.width: 1
+
+                ColumnLayout {
+                    id: recCol
+                    anchors.fill: parent
+                    anchors.margins: Theme.spacingLg
+                    spacing: Theme.spacingMd
+
+                    Text {
+                        text: "Recordings"
+                        font.pixelSize: Theme.fontSizeMd
+                        font.bold: true
+                        color: Theme.textPrimary
+                    }
+
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        spacing: Theme.spacingXs
+
+                        Text {
+                            text: "Save recordings to"
+                            font.pixelSize: Theme.fontSizeSm
+                            color: Theme.textPrimary
+                        }
+
+                        Text {
+                            text: "Choose where recorded streams are saved on disk"
+                            font.pixelSize: Theme.fontSizeXs
+                            color: Theme.textMuted
+                        }
+
+                        RowLayout {
+                            Layout.fillWidth: true
+                            spacing: Theme.spacingSm
+
+                            Rectangle {
+                                Layout.fillWidth: true
+                                Layout.preferredHeight: 36
+                                radius: Theme.borderRadiusSmall
+                                color: Theme.surface
+                                border.color: Theme.surfaceBorder
+                                border.width: 1
+
+                                Text {
+                                    anchors.left: parent.left
+                                    anchors.right: parent.right
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    anchors.margins: Theme.spacingSm
+                                    text: appViewModel ? appViewModel.recordingDirectory : ""
+                                    font.pixelSize: Theme.fontSizeXs
+                                    color: Theme.textSecondary
+                                    elide: Text.ElideMiddle
+                                }
+                            }
+
+                            Rectangle {
+                                Layout.preferredWidth: browseBtnText.implicitWidth + Theme.spacingLg
+                                Layout.preferredHeight: 36
+                                radius: Theme.borderRadiusSmall
+                                color: browseBtnHov ? Theme.accentHover : Theme.accent
+
+                                property bool browseBtnHov: false
+
+                                Text {
+                                    id: browseBtnText
+                                    anchors.centerIn: parent
+                                    text: "Browse..."
+                                    font.pixelSize: Theme.fontSizeXs
+                                    color: Theme.textPrimary
+                                }
+
+                                MouseArea {
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    cursorShape: Qt.PointingHandCursor
+                                    onEntered: parent.browseBtnHov = true
+                                    onExited: parent.browseBtnHov = false
+                                    onClicked: recordingFolderDialog.open()
+                                }
+                            }
+                        }
+                    }
+
+                    Text {
+                        text: "Filename format: date_time_channel_programme.mkv"
+                        font.pixelSize: Theme.fontSizeXs
+                        color: Theme.textMuted
+                        font.italic: true
+                    }
+                }
+            }
+
+            Rectangle {
+                Layout.fillWidth: true
                 Layout.preferredHeight: dbCol.implicitHeight + Theme.spacingLg * 2
                 radius: Theme.borderRadiusLarge
                 color: Theme.surfaceElevated
@@ -597,6 +1044,40 @@ Item {
                             font.pixelSize: Theme.fontSizeSm
                             color: Theme.textPrimary
                         }
+
+                        Item { Layout.fillWidth: true }
+
+                        Text {
+                            text: appViewModel ? appViewModel.databaseSize : ""
+                            font.pixelSize: Theme.fontSizeSm
+                            font.bold: true
+                            color: Theme.accent
+                        }
+                    }
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: Theme.spacingSm
+
+                        Text {
+                            text: "Path"
+                            font.pixelSize: Theme.fontSizeXs
+                            color: Theme.textMuted
+                        }
+
+                        Text {
+                            text: appViewModel ? appViewModel.databasePath : ""
+                            font.pixelSize: Theme.fontSizeXs
+                            color: Theme.textSecondary
+                            elide: Text.ElideMiddle
+                            Layout.fillWidth: true
+                        }
+                    }
+
+                    Rectangle {
+                        Layout.fillWidth: true
+                        height: 1
+                        color: Theme.surfaceBorder
                     }
 
                     Text {
@@ -673,7 +1154,7 @@ Item {
                             text: "v" + (appViewModel ? appViewModel.appVersion : "0.1.0")
                             font.pixelSize: Theme.fontSizeSm
                             color: Theme.textSecondary
-                            anchors.baseline: parent.children[0].baseline
+                            Layout.alignment: Qt.AlignBaseline
                         }
                     }
 
@@ -799,6 +1280,20 @@ Item {
 
         Overlay.modal: Rectangle {
             color: "#80000000"
+        }
+    }
+
+    FolderDialog {
+        id: recordingFolderDialog
+        title: "Choose Recording Directory"
+        currentFolder: appViewModel
+            ? "file://" + appViewModel.recordingDirectory : ""
+
+        onAccepted: {
+            if (appViewModel) {
+                var path = selectedFolder.toString().replace("file://", "")
+                appViewModel.recordingDirectory = path
+            }
         }
     }
 }

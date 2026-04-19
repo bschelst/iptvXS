@@ -7,9 +7,7 @@ Rectangle {
     id: topBar
 
     property string title: "Home"
-    property string searchPlaceholder: "Search channels..."
 
-    signal searchTextChanged(string text)
     signal toggleSidebar()
 
     height: Theme.topBarHeight
@@ -65,66 +63,5 @@ Rectangle {
         }
 
         Item { Layout.fillWidth: true }
-
-        Rectangle {
-            Layout.preferredWidth: 320
-            Layout.preferredHeight: 36
-            radius: 18
-            color: Theme.surfaceElevated
-            border.color: searchField.activeFocus ? Theme.accent : Theme.surfaceBorder
-            border.width: 1
-
-            Behavior on border.color {
-                ColorAnimation { duration: Theme.animFast }
-            }
-
-            MouseArea {
-                anchors.fill: parent
-                onClicked: searchField.forceActiveFocus()
-                cursorShape: Qt.IBeamCursor
-            }
-
-            Row {
-                anchors.fill: parent
-                anchors.leftMargin: Theme.spacingMd
-                anchors.rightMargin: Theme.spacingMd
-                spacing: Theme.spacingSm
-
-                Text {
-                    anchors.verticalCenter: parent.verticalCenter
-                    text: "🔍"
-                    font.pixelSize: Theme.fontSizeSm
-                    opacity: 0.5
-                }
-
-                TextInput {
-                    id: searchField
-                    anchors.verticalCenter: parent.verticalCenter
-                    width: parent.width - 40
-                    font.pixelSize: Theme.fontSizeSm
-                    color: Theme.textPrimary
-                    clip: true
-                    selectByMouse: true
-
-                    Text {
-                        anchors.verticalCenter: parent.verticalCenter
-                        text: topBar.searchPlaceholder
-                        font.pixelSize: Theme.fontSizeSm
-                        color: Theme.textMuted
-                        visible: !searchField.text && !searchField.activeFocus
-                    }
-
-                    onTextChanged: {
-                        searchTimer.restart()
-                    }
-
-                    Timer {
-                        id: searchTimer
-                        interval: 300
-                        onTriggered: topBar.searchTextChanged(searchField.text)
-                    }
-                }
-            }
-        }
     }
 }

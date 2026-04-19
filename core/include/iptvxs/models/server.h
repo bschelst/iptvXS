@@ -13,6 +13,7 @@ struct Server {
     QString username;
     QString password;
     QString userAgent;
+    QString epgUrl;
     int64_t lastSyncedAt{0};
     int64_t createdAt{0};
 };

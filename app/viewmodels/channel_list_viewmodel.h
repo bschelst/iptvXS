@@ -17,6 +17,15 @@ class ChannelListViewModel : public QAbstractListModel {
     Q_PROPERTY(int totalCount READ totalCount NOTIFY totalCountChanged)
     Q_PROPERTY(bool hasMore READ hasMore NOTIFY hasMoreChanged)
     Q_PROPERTY(bool loading READ loading NOTIFY loadingChanged)
+    Q_PROPERTY(QString typeFilter READ typeFilter WRITE setTypeFilter NOTIFY typeFilterChanged)
+
+    Q_INVOKABLE QString streamUrlAt(int index) const;
+    Q_INVOKABLE QString nameAt(int index) const;
+    Q_INVOKABLE QString logoUrlAt(int index) const;
+    Q_INVOKABLE int64_t channelIdAt(int index) const;
+    Q_INVOKABLE QString typeAt(int index) const;
+    Q_INVOKABLE QString externalIdAt(int index) const;
+    Q_INVOKABLE int64_t serverIdAt(int index) const;
 
 public:
     enum Roles {
@@ -26,7 +35,9 @@ public:
         LogoUrlRole,
         TypeRole,
         CategoryIdRole,
-        EpgChannelIdRole
+        EpgChannelIdRole,
+        ExternalIdRole,
+        ServerIdRole
     };
 
     explicit ChannelListViewModel(QObject *parent = nullptr);
@@ -47,6 +58,8 @@ public:
     int totalCount() const;
     bool hasMore() const;
     bool loading() const;
+    QString typeFilter() const;
+    void setTypeFilter(const QString &type);
 
     Q_INVOKABLE void loadMore();
     Q_INVOKABLE void refresh();
@@ -61,6 +74,7 @@ signals:
     void totalCountChanged();
     void hasMoreChanged();
     void loadingChanged();
+    void typeFilterChanged();
 
 private:
     void loadChannels(bool append = false);
@@ -71,6 +85,7 @@ private:
     int64_t serverId_{0};
     int64_t categoryId_{0};
     QString searchQuery_;
+    QString typeFilter_;
     int totalCount_{0};
     bool loading_{false};
 

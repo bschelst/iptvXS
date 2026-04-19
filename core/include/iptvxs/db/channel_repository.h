@@ -25,10 +25,12 @@ public:
 
     void batchUpsert(const QVector<Channel> &channels);
     bool deleteByServer(int64_t serverId);
+    void deleteByServerAndTypeWithEmptyExternalId(int64_t serverId, const QString &type);
 
     int count(int64_t serverId) const;
     int countByCategory(int64_t categoryId) const;
     int countBySearch(int64_t serverId, const QString &query) const;
+    int countByServerAndType(int64_t serverId, const QString &type) const;
 
     static constexpr int kBatchSize = 500;
 

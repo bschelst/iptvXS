@@ -123,10 +123,17 @@ void ChannelRepository::batchUpsert(const QVector<Channel> &channels) {
 
     db_.transaction();
     QSqlQuery query(db_);
-    query.prepare("INSERT OR REPLACE INTO channels "
+    query.prepare("INSERT INTO channels "
                   "(server_id, category_id, external_id, name, stream_url, "
                   "logo_url, epg_channel_id, type, added_at) "
-                  "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                  "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) "
+                  "ON CONFLICT(server_id, external_id, type) DO UPDATE SET "
+                  "category_id = excluded.category_id, "
+                  "name = excluded.name, "
+                  "stream_url = excluded.stream_url, "
+                  "logo_url = excluded.logo_url, "
+                  "epg_channel_id = excluded.epg_channel_id, "
+                  "added_at = excluded.added_at");
 
     int processed = 0;
     for (const auto &ch : channels) {
@@ -170,6 +177,17 @@ bool ChannelRepository::deleteByServer(int64_t serverId) {
     return query.exec();
 }
 
+void ChannelRepository::deleteByServerAndTypeWithEmptyExternalId(
+    int64_t serverId, const QString &type) {
+    QSqlQuery query(db_);
+    query.prepare(
+        "DELETE FROM channels WHERE server_id = ? AND type = ? "
+        "AND (external_id IS NULL OR external_id = '')");
+    query.addBindValue(toVariant(serverId));
+    query.addBindValue(type);
+    query.exec();
+}
+
 int ChannelRepository::count(int64_t serverId) const {
     QSqlQuery query(db_);
     query.prepare("SELECT COUNT(*) FROM channels WHERE server_id = ?");
@@ -196,6 +214,17 @@ int ChannelRepository::countBySearch(int64_t serverId, const QString &searchQuer
                   "AND name LIKE ? COLLATE NOCASE");
     query.addBindValue(toVariant(serverId));
     query.addBindValue(QStringLiteral("%%%1%%").arg(searchQuery));
+    if (!query.exec() || !query.next()) {
+        return 0;
+    }
+    return query.value(0).toInt();
+}
+
+int ChannelRepository::countByServerAndType(int64_t serverId, const QString &type) const {
+    QSqlQuery query(db_);
+    query.prepare("SELECT COUNT(*) FROM channels WHERE server_id = ? AND type = ?");
+    query.addBindValue(toVariant(serverId));
+    query.addBindValue(type);
     if (!query.exec() || !query.next()) {
         return 0;
     }

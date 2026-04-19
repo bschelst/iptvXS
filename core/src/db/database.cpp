@@ -194,6 +194,10 @@ std::vector<Database::Migration> Database::migrations() const {
              }
              return true;
          }},
+        {2, "Add epg_url to servers", [](QSqlDatabase &db) -> bool {
+             QSqlQuery q(db);
+             return q.exec("ALTER TABLE servers ADD COLUMN epg_url TEXT DEFAULT ''");
+         }},
     };
 }
 

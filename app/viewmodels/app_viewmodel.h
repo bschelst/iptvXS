@@ -13,6 +13,8 @@
 #include "iptvxs/db/server_repository.h"
 #include "iptvxs/db/settings_repository.h"
 #include "iptvxs/recording/recording_manager.h"
+#include "iptvxs/api/opensubtitles_client.h"
+#include "iptvxs/api/xtream_client.h"
 #include "iptvxs/gdrive/gdrive_auth.h"
 #include "iptvxs/gdrive/gdrive_uploader.h"
 #include "iptvxs/net/speed_test_runner.h"
@@ -36,6 +38,9 @@ class AppViewModel : public QObject {
     Q_PROPERTY(QString appVersion READ appVersion CONSTANT)
     Q_PROPERTY(bool databaseReady READ databaseReady NOTIFY databaseReadyChanged)
     Q_PROPERTY(QString currentView READ currentView WRITE setCurrentView NOTIFY currentViewChanged)
+    Q_PROPERTY(bool videoFullscreen READ videoFullscreen WRITE setVideoFullscreen NOTIFY videoFullscreenChanged)
+    Q_PROPERTY(QString pendingPlayUrl MEMBER pendingPlayUrl_ NOTIFY pendingPlayChanged)
+    Q_PROPERTY(QString pendingPlayName MEMBER pendingPlayName_ NOTIFY pendingPlayChanged)
     Q_PROPERTY(ServerListViewModel *serverList READ serverList CONSTANT)
     Q_PROPERTY(CategoryListViewModel *categoryList READ categoryList CONSTANT)
     Q_PROPERTY(ChannelListViewModel *channelList READ channelList CONSTANT)
@@ -48,6 +53,16 @@ class AppViewModel : public QObject {
     Q_PROPERTY(LogViewModel *log READ log CONSTANT)
     Q_PROPERTY(int autoSyncInterval READ autoSyncInterval WRITE setAutoSyncInterval NOTIFY autoSyncIntervalChanged)
     Q_PROPERTY(int autoSyncEpgInterval READ autoSyncEpgInterval WRITE setAutoSyncEpgInterval NOTIFY autoSyncEpgIntervalChanged)
+    Q_PROPERTY(QString databasePath READ databasePath CONSTANT)
+    Q_PROPERTY(QString databaseSize READ databaseSize NOTIFY databaseReadyChanged)
+    Q_PROPERTY(QString recordingDirectory READ recordingDirectory WRITE setRecordingDirectory NOTIFY recordingDirectoryChanged)
+    Q_PROPERTY(int bufferSeconds READ bufferSeconds WRITE setBufferSeconds NOTIFY bufferSecondsChanged)
+    Q_PROPERTY(QString theme READ theme WRITE setTheme NOTIFY themeChanged)
+    Q_PROPERTY(QString subtitleLanguage READ subtitleLanguage WRITE setSubtitleLanguage NOTIFY subtitleLanguageChanged)
+    Q_PROPERTY(bool subtitlesEnabled READ subtitlesEnabled WRITE setSubtitlesEnabled NOTIFY subtitlesEnabledChanged)
+    Q_PROPERTY(int subtitleSize READ subtitleSize WRITE setSubtitleSize NOTIFY subtitleSizeChanged)
+    Q_PROPERTY(QString subtitleColor READ subtitleColor WRITE setSubtitleColor NOTIFY subtitleColorChanged)
+    Q_PROPERTY(QString subtitleBgColor READ subtitleBgColor WRITE setSubtitleBgColor NOTIFY subtitleBgColorChanged)
 
 public:
     explicit AppViewModel(QObject *parent = nullptr);
@@ -61,6 +76,7 @@ public:
     bool databaseReady() const;
     QString currentView() const;
     void setCurrentView(const QString &view);
+    Q_INVOKABLE QString previousView() const;
 
     iptvxs::Database *database() const;
     iptvxs::SettingsRepository *settings() const;
@@ -80,14 +96,54 @@ public:
     int autoSyncEpgInterval() const;
     void setAutoSyncEpgInterval(int hours);
 
+    QString databasePath() const;
+    QString databaseSize() const;
+    QString recordingDirectory() const;
+    void setRecordingDirectory(const QString &path);
+
+    int bufferSeconds() const;
+    void setBufferSeconds(int seconds);
+
+    QString theme() const;
+    void setTheme(const QString &name);
+    QString subtitleLanguage() const;
+    void setSubtitleLanguage(const QString &lang);
+    bool subtitlesEnabled() const;
+    void setSubtitlesEnabled(bool enabled);
+    int subtitleSize() const;
+    void setSubtitleSize(int size);
+    QString subtitleColor() const;
+    void setSubtitleColor(const QString &color);
+    QString subtitleBgColor() const;
+    void setSubtitleBgColor(const QString &color);
+
     Q_INVOKABLE void resetDatabase();
+    Q_INVOKABLE void searchSubtitles(const QString &query);
+    Q_INVOKABLE void loadSubtitleResult(int index);
+    Q_INVOKABLE void fetchSeriesEpisodes(int64_t serverId, const QString &seriesId,
+                                          const QString &seriesName, const QString &logoUrl);
+    Q_INVOKABLE void playSeriesEpisode(const QString &episodeId, const QString &ext,
+                                        const QString &title, const QString &logoUrl);
 
 signals:
     void databaseReadyChanged();
     void currentViewChanged();
+    void videoFullscreenChanged();
+    void pendingPlayChanged();
     void autoSyncIntervalChanged();
     void autoSyncEpgIntervalChanged();
+    void recordingDirectoryChanged();
+    void bufferSecondsChanged();
+    void themeChanged();
+    void subtitleLanguageChanged();
+    void subtitlesEnabledChanged();
+    void subtitleSizeChanged();
+    void subtitleColorChanged();
+    void subtitleBgColorChanged();
     void errorOccurred(const QString &message);
+    void subtitlesFound(int count);
+    void subtitleLoaded(const QString &filePath);
+    void seriesEpisodesReady(const QString &seriesName, const QVariantList &seasons);
 
 private:
     std::unique_ptr<iptvxs::Database> database_;
@@ -117,4 +173,17 @@ private:
 
     bool databaseReady_{false};
     QString currentView_{"home"};
+    QString previousView_{"home"};
+    bool videoFullscreen_{false};
+    QString pendingPlayUrl_;
+    QString pendingPlayName_;
+    std::unique_ptr<iptvxs::OpenSubtitlesClient> subtitlesClient_;
+    QVector<iptvxs::SubtitleResult> lastSubResults_;
+    QString seriesServerUrl_;
+    QString seriesUsername_;
+    QString seriesPassword_;
+
+public:
+    bool videoFullscreen() const;
+    void setVideoFullscreen(bool fs);
 };

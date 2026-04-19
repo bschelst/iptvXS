@@ -10,6 +10,7 @@ Dialog {
     width: 480
     modal: true
     title: "Add Server"
+    implicitHeight: Math.min(parent.height * 0.85, 520)
 
     background: Rectangle {
         color: Theme.surfaceElevated
@@ -40,10 +41,15 @@ Dialog {
         }
     }
 
-    contentItem: ColumnLayout {
-        spacing: Theme.spacingMd
+    contentItem: ScrollView {
+        contentWidth: availableWidth
+        clip: true
 
-        RowLayout {
+        ColumnLayout {
+            width: parent.width
+            spacing: Theme.spacingMd
+
+            RowLayout {
             Layout.fillWidth: true
             spacing: Theme.spacingSm
 
@@ -130,6 +136,13 @@ Dialog {
             placeholderText: "Password"
             echoMode: TextInput.Password
         }
+
+        StyledTextField {
+            id: epgUrlField
+            Layout.fillWidth: true
+            placeholderText: "EPG URL (optional, XMLTV format)"
+        }
+        }
     }
 
     footer: Rectangle {
@@ -212,11 +225,13 @@ Dialog {
                             if (editMode) {
                                 appViewModel.serverList.updateServer(
                                     editIndex, nameField.text, urlField.text,
-                                    usernameField.text, passwordField.text)
+                                    usernameField.text, passwordField.text,
+                                    epgUrlField.text)
                             } else {
                                 appViewModel.serverList.addServer(
                                     nameField.text, serverType, urlField.text,
-                                    usernameField.text, passwordField.text)
+                                    usernameField.text, passwordField.text,
+                                    epgUrlField.text)
                             }
                         }
                         dialog.close()
@@ -232,7 +247,7 @@ Dialog {
     property bool editMode: false
     property int editIndex: -1
 
-    function openForEdit(index, name, type, url, username) {
+    function openForEdit(index, name, type, url, username, epgUrl) {
         editMode = true
         editIndex = index
         serverType = type
@@ -240,6 +255,7 @@ Dialog {
         urlField.text = url
         usernameField.text = username
         passwordField.text = ""
+        epgUrlField.text = epgUrl || ""
         dialog.open()
     }
 
@@ -248,6 +264,7 @@ Dialog {
         urlField.text = ""
         usernameField.text = ""
         passwordField.text = ""
+        epgUrlField.text = ""
         serverType = "xtream"
         editMode = false
         editIndex = -1

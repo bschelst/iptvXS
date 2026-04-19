@@ -4,6 +4,7 @@
 #include <QJsonArray>
 #include <QJsonObject>
 #include <QNetworkReply>
+#include <QtConcurrent>
 
 EpgViewModel::EpgViewModel(QObject *parent)
     : QAbstractListModel(parent) {
@@ -17,6 +18,32 @@ EpgViewModel::EpgViewModel(QObject *parent)
         emit currentTimeChanged();
     });
     clockTimer_.start();
+
+    connect(&parseWatcher_, &QFutureWatcher<QVector<iptvxs::Programme>>::finished,
+            this, [this]() {
+                auto programmes = parseWatcher_.result();
+                if (programmes.isEmpty()) {
+                    setSyncStatus("No EPG data found");
+                    setSyncing(false);
+                    return;
+                }
+
+                setSyncStatus(
+                    QStringLiteral("Storing %1 programmes...").arg(programmes.size()));
+
+                if (progRepo_) {
+                    int64_t yesterday = QDateTime::currentSecsSinceEpoch() - 86400;
+                    progRepo_->deleteOlderThan(yesterday);
+                    progRepo_->batchUpsert(programmes);
+                }
+
+                qInfo("EPG sync complete: %lld programmes stored",
+                      static_cast<long long>(programmes.size()));
+                setSyncStatus(
+                    QStringLiteral("EPG synced: %1 programmes").arg(programmes.size()));
+                setSyncing(false);
+                loadGrid();
+            });
 }
 
 void EpgViewModel::setRepositories(iptvxs::ProgrammeRepository *progRepo,
@@ -127,42 +154,28 @@ void EpgViewModel::syncEpg(const QString &epgUrl) {
 
     setSyncing(true);
     setSyncStatus("Downloading EPG data...");
+    qInfo("EPG sync started: %s", qPrintable(epgUrl));
 
     auto *reply = http_->get(QUrl(epgUrl));
     connect(reply, &QNetworkReply::finished, this, [this, reply]() {
         reply->deleteLater();
 
         if (reply->error() != QNetworkReply::NoError) {
+            qWarning("EPG sync failed: %s", qPrintable(reply->errorString()));
             setSyncStatus(
                 QStringLiteral("EPG download failed: %1").arg(reply->errorString()));
             setSyncing(false);
             return;
         }
 
-        setSyncStatus("Parsing EPG data...");
+        setSyncStatus("Parsing EPG data (background)...");
         QByteArray data = reply->readAll();
-        auto programmes = parser_.parse(data);
 
-        if (programmes.isEmpty()) {
-            setSyncStatus("No EPG data found");
-            setSyncing(false);
-            return;
-        }
-
-        setSyncStatus(
-            QStringLiteral("Storing %1 programmes...").arg(programmes.size()));
-
-        if (progRepo_) {
-            int64_t yesterday = QDateTime::currentSecsSinceEpoch() - 86400;
-            progRepo_->deleteOlderThan(yesterday);
-            progRepo_->batchUpsert(programmes);
-        }
-
-        setSyncStatus(
-            QStringLiteral("EPG synced: %1 programmes").arg(programmes.size()));
-        setSyncing(false);
-
-        loadGrid();
+        auto future = QtConcurrent::run([data]() {
+            iptvxs::XmltvParser parser;
+            return parser.parse(data);
+        });
+        parseWatcher_.setFuture(future);
     });
 }
 

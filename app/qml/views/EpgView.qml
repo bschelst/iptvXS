@@ -368,7 +368,7 @@ Item {
                             cursorShape: Qt.PointingHandCursor
                             onClicked: {
                                 if (appViewModel) {
-                                    appViewModel.player.play(model.streamUrl, model.channelName, model.channelLogo)
+                                    appViewModel.player.play(model.streamUrl, model.channelName, model.channelLogo, model.channelId)
                                     appViewModel.currentView = "player"
                                 }
                             }
@@ -495,6 +495,48 @@ Item {
                     ScrollBar.vertical: ScrollBar {
                         active: true
                         policy: ScrollBar.AsNeeded
+                        contentItem: Rectangle {
+                            implicitWidth: 6
+                            radius: 3
+                            color: Theme.accent
+                            opacity: parent.active ? 0.8 : 0.0
+                            Behavior on opacity { NumberAnimation { duration: Theme.animNormal } }
+                        }
+                        background: Rectangle {
+                            implicitWidth: 6
+                            color: "transparent"
+                        }
+                    }
+                }
+
+                ScrollBar {
+                    id: hScrollBar
+                    anchors.left: parent.left
+                    anchors.leftMargin: channelColumnWidth
+                    anchors.right: parent.right
+                    anchors.bottom: parent.bottom
+                    orientation: Qt.Horizontal
+                    size: guideFlickable.width / Math.max(guideFlickable.contentWidth, 1)
+                    position: guideFlickable.contentX / Math.max(guideFlickable.contentWidth, 1)
+                    active: true
+                    policy: ScrollBar.AsNeeded
+
+                    onPositionChanged: {
+                        if (pressed) {
+                            guideFlickable.contentX = position * guideFlickable.contentWidth
+                        }
+                    }
+
+                    contentItem: Rectangle {
+                        implicitHeight: 6
+                        radius: 3
+                        color: Theme.accent
+                        opacity: hScrollBar.active ? 0.8 : 0.0
+                        Behavior on opacity { NumberAnimation { duration: Theme.animNormal } }
+                    }
+                    background: Rectangle {
+                        implicitHeight: 6
+                        color: "transparent"
                     }
                 }
             }

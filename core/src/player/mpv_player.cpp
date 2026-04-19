@@ -43,6 +43,7 @@ bool MpvPlayer::initialize() {
     mpvSetOptionString(mpv_, "input-default-bindings", "no");
     mpvSetOptionString(mpv_, "input-vo-keyboard", "no");
     mpvSetOptionString(mpv_, "osc", "no");
+    mpvSetOptionString(mpv_, "ytdl", "no");
 
     if (mpv_initialize(mpv_) < 0) {
         emit errorOccurred(QStringLiteral("Failed to initialize mpv"));
@@ -58,15 +59,18 @@ bool MpvPlayer::initialize() {
     mpv_observe_property(mpv_, 0, "mute", MPV_FORMAT_FLAG);
     mpv_observe_property(mpv_, 0, "idle-active", MPV_FORMAT_FLAG);
 
+    mpv_request_log_messages(mpv_, "warn");
     mpv_set_wakeup_callback(mpv_, wakeupCallback, this);
 
     return true;
 }
 
-void MpvPlayer::play(const QUrl &url) {
+void MpvPlayer::play(const QString &url) {
     if (!mpv_) return;
 
-    auto urlStr = url.toString().toUtf8();
+    qInfo("MpvPlayer: loading %s", qPrintable(url));
+
+    auto urlStr = url.toUtf8();
     const char *args[] = {"loadfile", urlStr.constData(), nullptr};
     mpv_command_async(mpv_, 0, args);
 
@@ -192,6 +196,7 @@ void MpvPlayer::processEvents() {
 
             if (name == QLatin1String("pause") && prop->format == MPV_FORMAT_FLAG) {
                 bool paused = *static_cast<int *>(prop->data);
+                qInfo("MpvPlayer: pause=%d state=%d", paused, static_cast<int>(state_));
                 if (paused && state_ == State::Playing) {
                     state_ = State::Paused;
                     emit stateChanged(state_);
@@ -204,6 +209,10 @@ void MpvPlayer::processEvents() {
                 emit durationChanged(duration_);
             } else if (name == QLatin1String("time-pos") && prop->format == MPV_FORMAT_DOUBLE) {
                 position_ = *static_cast<double *>(prop->data);
+                if (position_ > 0 && state_ == State::Loading) {
+                    state_ = State::Playing;
+                    emit stateChanged(state_);
+                }
                 emit positionChanged(position_);
             } else if (name == QLatin1String("volume") && prop->format == MPV_FORMAT_DOUBLE) {
                 volume_ = static_cast<int>(*static_cast<double *>(prop->data));
@@ -215,6 +224,7 @@ void MpvPlayer::processEvents() {
             break;
         }
         case MPV_EVENT_FILE_LOADED:
+            qInfo("MpvPlayer: FILE_LOADED, setting Playing");
             state_ = State::Playing;
             emit stateChanged(state_);
             emit mediaLoaded();
@@ -237,6 +247,9 @@ void MpvPlayer::processEvents() {
             }
             break;
         }
+        case MPV_EVENT_START_FILE:
+            qInfo("MpvPlayer: file loading started");
+            break;
         default:
             break;
         }

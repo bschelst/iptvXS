@@ -27,7 +27,10 @@ public:
         UrlRole,
         UsernameRole,
         LastSyncedRole,
-        ChannelCountRole
+        ChannelCountRole,
+        VodCountRole,
+        SeriesCountRole,
+        EpgUrlRole
     };
 
     explicit ServerListViewModel(QObject *parent = nullptr);
@@ -46,10 +49,12 @@ public:
 
     Q_INVOKABLE void addServer(const QString &name, const QString &type,
                                const QString &url, const QString &username,
-                               const QString &password);
+                               const QString &password,
+                               const QString &epgUrl = {});
     Q_INVOKABLE void updateServer(int index, const QString &name,
                                   const QString &url, const QString &username,
-                                  const QString &password);
+                                  const QString &password,
+                                  const QString &epgUrl = {});
     Q_INVOKABLE void removeServer(int index);
     Q_INVOKABLE void syncServer(int index);
     Q_INVOKABLE void refresh();
@@ -69,6 +74,12 @@ private:
     void syncM3uServer(const iptvxs::Server &server);
     void setSyncing(bool value);
     void setSyncStatus(const QString &status);
+    void saveXtreamCategories(int64_t serverId,
+                              const QVector<iptvxs::XtreamCategory> &cats,
+                              const QString &type);
+    void saveXtreamStreams(int64_t serverId,
+                           const QVector<iptvxs::XtreamStream> &streams,
+                           const QString &type, const QString &urlSegment);
 
     iptvxs::ServerRepository *serverRepo_{nullptr};
     iptvxs::CategoryRepository *categoryRepo_{nullptr};

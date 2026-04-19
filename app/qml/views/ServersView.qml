@@ -175,7 +175,13 @@ Item {
                             spacing: Theme.spacingMd
 
                             Text {
-                                text: model.channelCount + " channels"
+                                text: {
+                                    var parts = []
+                                    if (model.channelCount > 0) parts.push(model.channelCount + " live")
+                                    if (model.vodCount > 0) parts.push(model.vodCount + " VOD")
+                                    if (model.seriesCount > 0) parts.push(model.seriesCount + " series")
+                                    return parts.length > 0 ? parts.join(" · ") : "No channels"
+                                }
                                 font.pixelSize: Theme.fontSizeXs
                                 color: Theme.textMuted
                             }
@@ -204,7 +210,8 @@ Item {
 
                         Text {
                             anchors.centerIn: parent
-                            text: "✏"
+                            text: "✎"
+                            color: Theme.textSecondary
                             font.pixelSize: Theme.fontSizeMd
                         }
 
@@ -232,8 +239,9 @@ Item {
 
                         Text {
                             anchors.centerIn: parent
-                            text: "🔄"
-                            font.pixelSize: Theme.fontSizeMd
+                            text: "⟳"
+                            font.pixelSize: 20
+                            color: Theme.textSecondary
                         }
 
                         MouseArea {
@@ -259,8 +267,10 @@ Item {
 
                         Text {
                             anchors.centerIn: parent
-                            text: "🗑"
-                            font.pixelSize: Theme.fontSizeMd
+                            text: "✕"
+                            font.pixelSize: 18
+                            font.bold: true
+                            color: Theme.error
                         }
 
                         MouseArea {
