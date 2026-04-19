@@ -44,6 +44,13 @@ bool MpvPlayer::initialize() {
     mpvSetOptionString(mpv_, "input-vo-keyboard", "no");
     mpvSetOptionString(mpv_, "osc", "no");
     mpvSetOptionString(mpv_, "ytdl", "no");
+    mpvSetOptionString(mpv_, "cache", "yes");
+    mpvSetOptionString(mpv_, "demuxer-max-bytes", "50MiB");
+    mpvSetOptionString(mpv_, "demuxer-readahead-secs", "60");
+    mpvSetOptionString(mpv_, "stream-lavf-o-append", "reconnect=1");
+    mpvSetOptionString(mpv_, "stream-lavf-o-append", "reconnect_streamed=1");
+    mpvSetOptionString(mpv_, "stream-lavf-o-append", "reconnect_on_network_error=1");
+    mpvSetOptionString(mpv_, "stream-lavf-o-append", "reconnect_delay_max=5");
 
     if (mpv_initialize(mpv_) < 0) {
         emit errorOccurred(QStringLiteral("Failed to initialize mpv"));

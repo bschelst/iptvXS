@@ -54,10 +54,13 @@ public:
     Q_INVOKABLE void startNow(int64_t channelId, const QString &quality = "original");
     Q_INVOKABLE void stopRecording(int64_t recordingId);
     Q_INVOKABLE void deleteRecording(int64_t recordingId);
+    Q_INVOKABLE void deleteRecordingWithFile(int64_t recordingId);
+    Q_INVOKABLE qint64 totalRecordingBytes() const;
     Q_INVOKABLE bool isChannelRecording(int64_t channelId) const;
     Q_INVOKABLE void stopChannelRecording(int64_t channelId);
     Q_INVOKABLE void addCompletedRecording(int64_t channelId, int64_t startTime,
                                            int64_t endTime, const QString &filePath);
+    Q_INVOKABLE void clearError(int64_t recordingId);
     Q_INVOKABLE QString formatFileSize(int64_t bytes) const;
     Q_INVOKABLE QString formatDateTime(int64_t timestamp) const;
     Q_INVOKABLE QString formatDuration(int64_t startTime, int64_t endTime) const;

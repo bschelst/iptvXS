@@ -112,9 +112,9 @@ void SpeedTestViewModel::startTestForChannel(qint64 channelId) {
 
 void SpeedTestViewModel::startInternetTest() {
     static const QStringList testUrls = {
-        QStringLiteral("https://speed.cloudflare.com/__down?bytes=100000000"),
-        QStringLiteral("https://proof.ovh.net/files/100Mb.dat"),
         QStringLiteral("https://ash-speed.hetzner.com/100MB.bin"),
+        QStringLiteral("https://proof.ovh.net/files/100Mb.dat"),
+        QStringLiteral("https://speedtest.tele2.net/100MB.zip"),
     };
     int idx = QRandomGenerator::global()->bounded(testUrls.size());
     startTest(testUrls.at(idx));

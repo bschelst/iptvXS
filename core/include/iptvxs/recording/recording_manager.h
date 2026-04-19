@@ -47,6 +47,7 @@ private slots:
 private:
     QString buildFilePath(const Recording &recording, const Channel &channel) const;
     QStringList buildFfmpegArgs(const QString &streamUrl, const QString &outputPath) const;
+    void enforceStorageLimit();
 
     RecordingRepository *recordingRepo_{nullptr};
     ChannelRepository *channelRepo_{nullptr};

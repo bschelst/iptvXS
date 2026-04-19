@@ -135,8 +135,10 @@ Item {
 
                         Text {
                             anchors.centerIn: parent
-                            text: "⭐"
+                            text: "✕"
                             font.pixelSize: Theme.fontSizeMd
+                            font.bold: true
+                            color: parent.removeHovered ? Theme.error : Theme.textMuted
                         }
 
                         MouseArea {

@@ -6,6 +6,7 @@
 #include <QObject>
 #include <QTimer>
 #include <QUrl>
+#include <QVector>
 
 namespace iptvxs {
 
@@ -38,14 +39,19 @@ private slots:
 
 private:
     void cleanup();
+    void startConnection(const QUrl &url);
     double calculateMbps(qint64 bytes, qint64 ms) const;
 
+    static constexpr int kParallelConnections = 6;
+
     QNetworkAccessManager nam_;
-    QNetworkReply *reply_{nullptr};
+    QVector<QNetworkReply *> replies_;
     QElapsedTimer elapsed_;
     QTimer timer_;
+    QUrl testUrl_;
     qint64 totalBytes_{0};
     bool running_{false};
+    int activeConnections_{0};
 };
 
 } // namespace iptvxs

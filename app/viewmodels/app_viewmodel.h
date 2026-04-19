@@ -13,6 +13,7 @@
 #include "iptvxs/db/server_repository.h"
 #include "iptvxs/db/settings_repository.h"
 #include "iptvxs/recording/recording_manager.h"
+#include "iptvxs/db/history_repository.h"
 #include "iptvxs/api/opensubtitles_client.h"
 #include "iptvxs/api/xtream_client.h"
 #include "iptvxs/gdrive/gdrive_auth.h"
@@ -28,6 +29,7 @@
 #include "recording_list_viewmodel.h"
 #include "server_list_viewmodel.h"
 #include "speed_test_viewmodel.h"
+#include "history_viewmodel.h"
 #include "log_viewmodel.h"
 
 class AppViewModel : public QObject {
@@ -50,6 +52,7 @@ class AppViewModel : public QObject {
     Q_PROPERTY(RecordingListViewModel *recordingList READ recordingList CONSTANT)
     Q_PROPERTY(GDriveViewModel *gdrive READ gdrive CONSTANT)
     Q_PROPERTY(SpeedTestViewModel *speedTest READ speedTest CONSTANT)
+    Q_PROPERTY(HistoryViewModel *history READ history CONSTANT)
     Q_PROPERTY(LogViewModel *log READ log CONSTANT)
     Q_PROPERTY(int autoSyncInterval READ autoSyncInterval WRITE setAutoSyncInterval NOTIFY autoSyncIntervalChanged)
     Q_PROPERTY(int autoSyncEpgInterval READ autoSyncEpgInterval WRITE setAutoSyncEpgInterval NOTIFY autoSyncEpgIntervalChanged)
@@ -59,10 +62,15 @@ class AppViewModel : public QObject {
     Q_PROPERTY(int bufferSeconds READ bufferSeconds WRITE setBufferSeconds NOTIFY bufferSecondsChanged)
     Q_PROPERTY(QString theme READ theme WRITE setTheme NOTIFY themeChanged)
     Q_PROPERTY(QString subtitleLanguage READ subtitleLanguage WRITE setSubtitleLanguage NOTIFY subtitleLanguageChanged)
+    Q_PROPERTY(QString subtitleLanguageSecondary READ subtitleLanguageSecondary WRITE setSubtitleLanguageSecondary NOTIFY subtitleLanguageSecondaryChanged)
     Q_PROPERTY(bool subtitlesEnabled READ subtitlesEnabled WRITE setSubtitlesEnabled NOTIFY subtitlesEnabledChanged)
     Q_PROPERTY(int subtitleSize READ subtitleSize WRITE setSubtitleSize NOTIFY subtitleSizeChanged)
     Q_PROPERTY(QString subtitleColor READ subtitleColor WRITE setSubtitleColor NOTIFY subtitleColorChanged)
     Q_PROPERTY(QString subtitleBgColor READ subtitleBgColor WRITE setSubtitleBgColor NOTIFY subtitleBgColorChanged)
+    Q_PROPERTY(qint64 maxRecordingSizeGb READ maxRecordingSizeGb WRITE setMaxRecordingSizeGb NOTIFY maxRecordingSizeGbChanged)
+    Q_PROPERTY(int gridColumns READ gridColumns WRITE setGridColumns NOTIFY gridColumnsChanged)
+    Q_PROPERTY(bool closeToTray READ closeToTray WRITE setCloseToTray NOTIFY closeToTrayChanged)
+    Q_PROPERTY(QString videoEnhancement READ videoEnhancement WRITE setVideoEnhancement NOTIFY videoEnhancementChanged)
 
 public:
     explicit AppViewModel(QObject *parent = nullptr);
@@ -89,6 +97,7 @@ public:
     RecordingListViewModel *recordingList() const;
     GDriveViewModel *gdrive() const;
     SpeedTestViewModel *speedTest() const;
+    HistoryViewModel *history() const;
     LogViewModel *log() const;
 
     int autoSyncInterval() const;
@@ -108,6 +117,8 @@ public:
     void setTheme(const QString &name);
     QString subtitleLanguage() const;
     void setSubtitleLanguage(const QString &lang);
+    QString subtitleLanguageSecondary() const;
+    void setSubtitleLanguageSecondary(const QString &lang);
     bool subtitlesEnabled() const;
     void setSubtitlesEnabled(bool enabled);
     int subtitleSize() const;
@@ -117,11 +128,22 @@ public:
     QString subtitleBgColor() const;
     void setSubtitleBgColor(const QString &color);
 
+    qint64 maxRecordingSizeGb() const;
+    void setMaxRecordingSizeGb(qint64 gb);
+    int gridColumns() const;
+    void setGridColumns(int cols);
+    bool closeToTray() const;
+    void setCloseToTray(bool enabled);
+    QString videoEnhancement() const;
+    void setVideoEnhancement(const QString &preset);
+
     Q_INVOKABLE void resetDatabase();
     Q_INVOKABLE void searchSubtitles(const QString &query);
     Q_INVOKABLE void loadSubtitleResult(int index);
     Q_INVOKABLE void fetchSeriesEpisodes(int64_t serverId, const QString &seriesId,
                                           const QString &seriesName, const QString &logoUrl);
+    Q_INVOKABLE void playChannelById(int64_t channelId);
+    Q_INVOKABLE void playChannelByName(const QString &name);
     Q_INVOKABLE void playSeriesEpisode(const QString &episodeId, const QString &ext,
                                         const QString &title, const QString &logoUrl);
 
@@ -136,10 +158,15 @@ signals:
     void bufferSecondsChanged();
     void themeChanged();
     void subtitleLanguageChanged();
+    void subtitleLanguageSecondaryChanged();
     void subtitlesEnabledChanged();
     void subtitleSizeChanged();
     void subtitleColorChanged();
     void subtitleBgColorChanged();
+    void maxRecordingSizeGbChanged();
+    void gridColumnsChanged();
+    void closeToTrayChanged();
+    void videoEnhancementChanged();
     void errorOccurred(const QString &message);
     void subtitlesFound(int count);
     void subtitleLoaded(const QString &filePath);
@@ -169,6 +196,7 @@ private:
     RecordingListViewModel *recordingListVm_;
     GDriveViewModel *gdriveVm_;
     SpeedTestViewModel *speedTestVm_;
+    HistoryViewModel *historyVm_;
     LogViewModel *logVm_{nullptr};
 
     bool databaseReady_{false};
@@ -177,6 +205,7 @@ private:
     bool videoFullscreen_{false};
     QString pendingPlayUrl_;
     QString pendingPlayName_;
+    std::unique_ptr<iptvxs::HistoryRepository> historyRepo_;
     std::unique_ptr<iptvxs::OpenSubtitlesClient> subtitlesClient_;
     QVector<iptvxs::SubtitleResult> lastSubResults_;
     QString seriesServerUrl_;

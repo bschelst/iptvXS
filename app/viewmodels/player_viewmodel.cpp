@@ -1,5 +1,11 @@
 #include "player_viewmodel.h"
 
+#include <QDBusConnection>
+#include <QDBusInterface>
+#include <QDBusReply>
+#include <QDir>
+#include <QFileInfo>
+
 PlayerViewModel::PlayerViewModel(QObject *parent)
     : QObject(parent), player_(new iptvxs::MpvPlayer(this)) {
     player_->initialize();
@@ -55,22 +61,60 @@ QString PlayerViewModel::channelName() const { return channelName_; }
 QString PlayerViewModel::channelLogo() const { return channelLogo_; }
 
 iptvxs::MpvPlayer *PlayerViewModel::mpvPlayer() const { return player_; }
+QString PlayerViewModel::currentUrl() const { return currentUrl_; }
+
+void PlayerViewModel::inhibitScreenSaver() {
+    if (screenSaverCookie_ != 0) return;
+    QDBusInterface iface(QStringLiteral("org.freedesktop.ScreenSaver"),
+                         QStringLiteral("/org/freedesktop/ScreenSaver"),
+                         QStringLiteral("org.freedesktop.ScreenSaver"),
+                         QDBusConnection::sessionBus());
+    if (iface.isValid()) {
+        QDBusReply<uint32_t> reply = iface.call(QStringLiteral("Inhibit"),
+                                                 QStringLiteral("iptvXS"),
+                                                 QStringLiteral("Video playback"));
+        if (reply.isValid()) {
+            screenSaverCookie_ = reply.value();
+        }
+    }
+}
+
+void PlayerViewModel::uninhibitScreenSaver() {
+    if (screenSaverCookie_ == 0) return;
+    QDBusInterface iface(QStringLiteral("org.freedesktop.ScreenSaver"),
+                         QStringLiteral("/org/freedesktop/ScreenSaver"),
+                         QStringLiteral("org.freedesktop.ScreenSaver"),
+                         QDBusConnection::sessionBus());
+    if (iface.isValid()) {
+        iface.call(QStringLiteral("UnInhibit"), screenSaverCookie_);
+    }
+    screenSaverCookie_ = 0;
+}
 
 void PlayerViewModel::play(const QString &url, const QString &name,
                            const QString &logo, int64_t channelId) {
+    currentUrl_ = url;
     channelName_ = name;
     channelLogo_ = logo;
     channelId_ = channelId;
+    isLive_ = url.contains(QStringLiteral("/live/")) || url.endsWith(QStringLiteral(".ts"));
+    subtitleTracks_.clear();
+    audioTracks_.clear();
     emit channelNameChanged();
     emit channelLogoChanged();
     emit channelIdChanged();
+    emit isLiveChanged();
+    emit subtitleTracksChanged();
+    emit audioTracksChanged();
 
+    inhibitScreenSaver();
     player_->play(url);
 }
 
 void PlayerViewModel::togglePause() { player_->togglePause(); }
 
 void PlayerViewModel::stop() {
+    uninhibitScreenSaver();
     player_->stop();
     channelName_.clear();
     channelLogo_.clear();
@@ -93,6 +137,7 @@ void PlayerViewModel::volumeDown() {
 void PlayerViewModel::toggleMute() { player_->setMuted(!player_->muted()); }
 
 void PlayerViewModel::startStreamRecord(const QString &filePath) {
+    QDir().mkpath(QFileInfo(filePath).absolutePath());
     player_->setProperty(QStringLiteral("stream-record"), QVariant(filePath));
 }
 
@@ -149,4 +194,62 @@ QString PlayerViewModel::formatTime(double seconds) const {
     return QStringLiteral("%1:%2")
         .arg(m, 2, 10, QLatin1Char('0'))
         .arg(s, 2, 10, QLatin1Char('0'));
+}
+
+bool PlayerViewModel::isLive() const { return isLive_; }
+
+QVariantList PlayerViewModel::subtitleTracks() const { return subtitleTracks_; }
+
+void PlayerViewModel::refreshSubtitleTracks() {
+    subtitleTracks_.clear();
+
+    auto trackCount = player_->getProperty(QStringLiteral("track-list/count")).toInt();
+    for (int i = 0; i < trackCount; ++i) {
+        auto prefix = QStringLiteral("track-list/%1/").arg(i);
+        auto type = player_->getProperty(prefix + QStringLiteral("type")).toString();
+        if (type != QStringLiteral("sub")) continue;
+
+        QVariantMap track;
+        track[QStringLiteral("id")] = player_->getProperty(prefix + QStringLiteral("id")).toInt();
+        track[QStringLiteral("title")] = player_->getProperty(prefix + QStringLiteral("title")).toString();
+        track[QStringLiteral("lang")] = player_->getProperty(prefix + QStringLiteral("lang")).toString();
+        track[QStringLiteral("selected")] = player_->getProperty(prefix + QStringLiteral("selected")).toBool();
+        track[QStringLiteral("external")] = player_->getProperty(prefix + QStringLiteral("external")).toBool();
+        subtitleTracks_.append(track);
+    }
+
+    emit subtitleTracksChanged();
+}
+
+void PlayerViewModel::selectSubtitleTrack(int trackId) {
+    player_->setProperty(QStringLiteral("sid"), QVariant(trackId));
+    player_->setProperty(QStringLiteral("sub-visibility"), QVariant(true));
+    refreshSubtitleTracks();
+}
+
+QVariantList PlayerViewModel::audioTracks() const { return audioTracks_; }
+
+void PlayerViewModel::refreshAudioTracks() {
+    audioTracks_.clear();
+
+    auto trackCount = player_->getProperty(QStringLiteral("track-list/count")).toInt();
+    for (int i = 0; i < trackCount; ++i) {
+        auto prefix = QStringLiteral("track-list/%1/").arg(i);
+        auto type = player_->getProperty(prefix + QStringLiteral("type")).toString();
+        if (type != QStringLiteral("audio")) continue;
+
+        QVariantMap track;
+        track[QStringLiteral("id")] = player_->getProperty(prefix + QStringLiteral("id")).toInt();
+        track[QStringLiteral("title")] = player_->getProperty(prefix + QStringLiteral("title")).toString();
+        track[QStringLiteral("lang")] = player_->getProperty(prefix + QStringLiteral("lang")).toString();
+        track[QStringLiteral("selected")] = player_->getProperty(prefix + QStringLiteral("selected")).toBool();
+        audioTracks_.append(track);
+    }
+
+    emit audioTracksChanged();
+}
+
+void PlayerViewModel::selectAudioTrack(int trackId) {
+    player_->setProperty(QStringLiteral("aid"), QVariant(trackId));
+    refreshAudioTracks();
 }

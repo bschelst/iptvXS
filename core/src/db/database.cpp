@@ -198,6 +198,43 @@ std::vector<Database::Migration> Database::migrations() const {
              QSqlQuery q(db);
              return q.exec("ALTER TABLE servers ADD COLUMN epg_url TEXT DEFAULT ''");
          }},
+        {3, "Add name/logo/type to history", [](QSqlDatabase &db) -> bool {
+             QSqlQuery q(db);
+             q.exec("ALTER TABLE history ADD COLUMN name TEXT DEFAULT ''");
+             q.exec("ALTER TABLE history ADD COLUMN logo_url TEXT DEFAULT ''");
+             q.exec("ALTER TABLE history ADD COLUMN type TEXT DEFAULT 'live'");
+             return true;
+         }},
+        {4, "Remove FK constraint from history for VOD support", [](QSqlDatabase &db) -> bool {
+             QSqlQuery q(db);
+             if (!q.exec("ALTER TABLE history RENAME TO history_old"))
+                 return false;
+             if (!q.exec(
+                     "CREATE TABLE history ("
+                     "id INTEGER PRIMARY KEY, "
+                     "channel_id INTEGER DEFAULT 0, "
+                     "name TEXT DEFAULT '', "
+                     "logo_url TEXT DEFAULT '', "
+                     "type TEXT DEFAULT 'live', "
+                     "watched_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now')), "
+                     "duration_secs INTEGER DEFAULT 0)"))
+                 return false;
+             if (!q.exec(
+                     "INSERT INTO history (id, channel_id, name, logo_url, type, watched_at, duration_secs) "
+                     "SELECT id, channel_id, name, logo_url, type, watched_at, duration_secs FROM history_old"))
+                 return false;
+             if (!q.exec("DROP TABLE history_old"))
+                 return false;
+             if (!q.exec("CREATE INDEX IF NOT EXISTS idx_history_channel ON history(channel_id)"))
+                 return false;
+             if (!q.exec("CREATE INDEX IF NOT EXISTS idx_history_time ON history(watched_at DESC)"))
+                 return false;
+             return true;
+         }},
+        {5, "Add stream_url to history", [](QSqlDatabase &db) -> bool {
+             QSqlQuery q(db);
+             return q.exec("ALTER TABLE history ADD COLUMN stream_url TEXT DEFAULT ''");
+         }},
     };
 }
 

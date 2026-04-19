@@ -20,7 +20,8 @@ AppViewModel::AppViewModel(QObject *parent)
       epgVm_(new EpgViewModel(this)),
       recordingListVm_(new RecordingListViewModel(this)),
       gdriveVm_(new GDriveViewModel(this)),
-      speedTestVm_(new SpeedTestViewModel(this)) {}
+      speedTestVm_(new SpeedTestViewModel(this)),
+      historyVm_(new HistoryViewModel(this)) {}
 
 AppViewModel::~AppViewModel() = default;
 
@@ -43,6 +44,8 @@ bool AppViewModel::initialize(const QString &dbPath) {
     favoriteRepo_ = std::make_unique<iptvxs::FavoriteRepository>(db, this);
     progRepo_ = std::make_unique<iptvxs::ProgrammeRepository>(db, this);
     recordingRepo_ = std::make_unique<iptvxs::RecordingRepository>(db, this);
+    historyRepo_ = std::make_unique<iptvxs::HistoryRepository>(db, this);
+    historyVm_->setRepository(historyRepo_.get());
     recordingMgr_ = std::make_unique<iptvxs::RecordingManager>(this);
     httpClient_ = std::make_unique<iptvxs::HttpClient>(this);
     speedTestRunner_ = std::make_unique<iptvxs::SpeedTestRunner>(this);
@@ -104,6 +107,18 @@ bool AppViewModel::initialize(const QString &dbPath) {
                 }
             });
 
+    connect(playerVm_, &PlayerViewModel::stateChanged, this, [this]() {
+        if (playerVm_->playing() && historyRepo_) {
+            if (playerVm_->channelId() > 0) {
+                historyRepo_->addEntry(playerVm_->channelId());
+            } else if (!playerVm_->channelName().isEmpty()) {
+                auto type = playerVm_->isLive() ? QStringLiteral("live") : QStringLiteral("vod");
+                historyRepo_->addEntry(playerVm_->channelName(), playerVm_->channelLogo(),
+                                        type, playerVm_->currentUrl());
+            }
+        }
+    });
+
     auto bufSecs = settingsRepo_->getInt(QStringLiteral("buffer_seconds"), 0);
     if (bufSecs > 0) {
         playerVm_->setBufferSeconds(bufSecs);
@@ -115,6 +130,11 @@ bool AppViewModel::initialize(const QString &dbPath) {
     playerVm_->mpvPlayer()->setProperty(QStringLiteral("sub-color"), QVariant(subColor));
     auto subBg = settingsRepo_->getString(QStringLiteral("subtitle_bg_color"), QStringLiteral("#80000000"));
     playerVm_->mpvPlayer()->setProperty(QStringLiteral("sub-back-color"), QVariant(subBg));
+
+    auto vePreset = videoEnhancement();
+    if (vePreset != QStringLiteral("off")) {
+        setVideoEnhancement(vePreset);
+    }
 
     subtitlesClient_ = std::make_unique<iptvxs::OpenSubtitlesClient>(
         httpClient_.get(), this);
@@ -217,6 +237,8 @@ SpeedTestViewModel *AppViewModel::speedTest() const {
     return speedTestVm_;
 }
 
+HistoryViewModel *AppViewModel::history() const { return historyVm_; }
+
 LogViewModel *AppViewModel::log() const {
     return logVm_;
 }
@@ -300,6 +322,16 @@ void AppViewModel::setSubtitleLanguage(const QString &lang) {
     emit subtitleLanguageChanged();
 }
 
+QString AppViewModel::subtitleLanguageSecondary() const {
+    return settingsRepo_ ? settingsRepo_->getString(QStringLiteral("subtitle_language_secondary"), QString()) : QString();
+}
+
+void AppViewModel::setSubtitleLanguageSecondary(const QString &lang) {
+    if (!settingsRepo_) return;
+    settingsRepo_->set(QStringLiteral("subtitle_language_secondary"), lang);
+    emit subtitleLanguageSecondaryChanged();
+}
+
 bool AppViewModel::subtitlesEnabled() const {
     return settingsRepo_ ? settingsRepo_->getBool(QStringLiteral("subtitles_enabled"), false) : false;
 }
@@ -341,6 +373,87 @@ void AppViewModel::setSubtitleBgColor(const QString &color) {
     settingsRepo_->set(QStringLiteral("subtitle_bg_color"), color);
     if (playerVm_) playerVm_->mpvPlayer()->setProperty(QStringLiteral("sub-back-color"), QVariant(color));
     emit subtitleBgColorChanged();
+}
+
+qint64 AppViewModel::maxRecordingSizeGb() const {
+    return settingsRepo_ ? settingsRepo_->getInt(QStringLiteral("max_recording_size_gb"), 0) : 0;
+}
+
+void AppViewModel::setMaxRecordingSizeGb(qint64 gb) {
+    if (!settingsRepo_) return;
+    settingsRepo_->set(QStringLiteral("max_recording_size_gb"), static_cast<int>(gb));
+    emit maxRecordingSizeGbChanged();
+}
+
+int AppViewModel::gridColumns() const {
+    return settingsRepo_ ? settingsRepo_->getInt(QStringLiteral("grid_columns"), 2) : 2;
+}
+
+void AppViewModel::setGridColumns(int cols) {
+    if (!settingsRepo_) return;
+    cols = qBound(1, cols, 4);
+    settingsRepo_->set(QStringLiteral("grid_columns"), cols);
+    emit gridColumnsChanged();
+}
+
+bool AppViewModel::closeToTray() const {
+    return settingsRepo_ ? settingsRepo_->getInt(QStringLiteral("close_to_tray"), 0) != 0 : false;
+}
+
+void AppViewModel::setCloseToTray(bool enabled) {
+    if (!settingsRepo_) return;
+    settingsRepo_->set(QStringLiteral("close_to_tray"), enabled ? 1 : 0);
+    emit closeToTrayChanged();
+}
+
+QString AppViewModel::videoEnhancement() const {
+    return settingsRepo_ ? settingsRepo_->getString(QStringLiteral("video_enhancement"), QStringLiteral("off")) : QStringLiteral("off");
+}
+
+void AppViewModel::setVideoEnhancement(const QString &preset) {
+    if (!settingsRepo_ || !playerVm_) return;
+    settingsRepo_->set(QStringLiteral("video_enhancement"), preset);
+
+    auto *mpv = playerVm_->mpvPlayer();
+
+    if (preset == QStringLiteral("off")) {
+        mpv->setProperty(QStringLiteral("deband"), QVariant(false));
+        mpv->setProperty(QStringLiteral("scale"), QVariant(QStringLiteral("bilinear")));
+        mpv->setProperty(QStringLiteral("cscale"), QVariant(QStringLiteral("bilinear")));
+        mpv->setProperty(QStringLiteral("sigmoid-upscaling"), QVariant(false));
+        mpv->command(QStringList{QStringLiteral("vf"), QStringLiteral("set"), QString()});
+    } else if (preset == QStringLiteral("light")) {
+        mpv->setProperty(QStringLiteral("deband"), QVariant(true));
+        mpv->setProperty(QStringLiteral("deband-iterations"), QVariant(2));
+        mpv->setProperty(QStringLiteral("deband-threshold"), QVariant(48));
+        mpv->setProperty(QStringLiteral("deband-range"), QVariant(16));
+        mpv->setProperty(QStringLiteral("scale"), QVariant(QStringLiteral("ewa_lanczossharp")));
+        mpv->setProperty(QStringLiteral("cscale"), QVariant(QStringLiteral("ewa_lanczossharp")));
+        mpv->setProperty(QStringLiteral("sigmoid-upscaling"), QVariant(true));
+        mpv->command(QStringList{QStringLiteral("vf"), QStringLiteral("set"), QString()});
+    } else if (preset == QStringLiteral("medium")) {
+        mpv->setProperty(QStringLiteral("deband"), QVariant(true));
+        mpv->setProperty(QStringLiteral("deband-iterations"), QVariant(2));
+        mpv->setProperty(QStringLiteral("deband-threshold"), QVariant(48));
+        mpv->setProperty(QStringLiteral("deband-range"), QVariant(16));
+        mpv->setProperty(QStringLiteral("scale"), QVariant(QStringLiteral("ewa_lanczossharp")));
+        mpv->setProperty(QStringLiteral("cscale"), QVariant(QStringLiteral("ewa_lanczossharp")));
+        mpv->setProperty(QStringLiteral("sigmoid-upscaling"), QVariant(true));
+        mpv->command(QStringList{QStringLiteral("vf"), QStringLiteral("set"),
+                                  QStringLiteral("lavfi=[hqdn3d=1.2:1.2:4:4]")});
+    } else if (preset == QStringLiteral("strong")) {
+        mpv->setProperty(QStringLiteral("deband"), QVariant(true));
+        mpv->setProperty(QStringLiteral("deband-iterations"), QVariant(2));
+        mpv->setProperty(QStringLiteral("deband-threshold"), QVariant(48));
+        mpv->setProperty(QStringLiteral("deband-range"), QVariant(16));
+        mpv->setProperty(QStringLiteral("scale"), QVariant(QStringLiteral("ewa_lanczossharp")));
+        mpv->setProperty(QStringLiteral("cscale"), QVariant(QStringLiteral("ewa_lanczossharp")));
+        mpv->setProperty(QStringLiteral("sigmoid-upscaling"), QVariant(true));
+        mpv->command(QStringList{QStringLiteral("vf"), QStringLiteral("set"),
+                                  QStringLiteral("lavfi=[hqdn3d=1.8:1.8:6:6]")});
+    }
+
+    emit videoEnhancementChanged();
 }
 
 void AppViewModel::searchSubtitles(const QString &query) {
@@ -427,6 +540,28 @@ void AppViewModel::fetchSeriesEpisodes(int64_t serverId, const QString &seriesId
             });
 
     client->fetchSeriesInfo(seriesId);
+}
+
+void AppViewModel::playChannelById(int64_t channelId) {
+    if (!channelRepo_ || channelId <= 0) return;
+    auto ch = channelRepo_->findById(channelId);
+    if (!ch) return;
+    playerVm_->play(ch->streamUrl, ch->name, ch->logoUrl, ch->id);
+    setCurrentView(QStringLiteral("player"));
+}
+
+void AppViewModel::playChannelByName(const QString &name) {
+    if (!channelRepo_ || !serverRepo_ || name.isEmpty()) return;
+    auto servers = serverRepo_->findAll();
+    for (const auto &srv : servers) {
+        auto results = channelRepo_->search(srv.id, name, 1, 0);
+        if (!results.isEmpty()) {
+            const auto &ch = results.first();
+            playerVm_->play(ch.streamUrl, ch.name, ch.logoUrl, ch.id);
+            setCurrentView(QStringLiteral("player"));
+            return;
+        }
+    }
 }
 
 void AppViewModel::playSeriesEpisode(const QString &episodeId, const QString &ext,

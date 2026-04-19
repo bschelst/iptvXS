@@ -29,23 +29,22 @@ Item {
                 anchors.fill: parent
                 spacing: 0
 
-                Rectangle {
+                Item {
                     Layout.fillWidth: true
-                    Layout.preferredHeight: 48
-                    color: "transparent"
+                    Layout.preferredHeight: 36
+                    Layout.topMargin: Theme.spacingSm
 
-                    RowLayout {
-                        anchors.fill: parent
+                    Text {
+                        anchors.left: parent.left
                         anchors.leftMargin: Theme.spacingMd
-                        anchors.rightMargin: Theme.spacingMd
-
-                        Text {
-                            text: "Servers"
-                            font.pixelSize: Theme.fontSizeSm
-                            font.bold: true
-                            color: Theme.textMuted
-                            Layout.fillWidth: true
-                        }
+                        anchors.bottom: parent.bottom
+                        anchors.bottomMargin: 8
+                        text: "SERVERS"
+                        font.pixelSize: 10
+                        font.bold: true
+                        font.letterSpacing: 1.5
+                        color: Theme.textMuted
+                        opacity: 0.7
                     }
                 }
 
@@ -60,12 +59,16 @@ Item {
                         width: serverPicker.width
                         height: 36
                         color: activeServerId === model.serverId
-                            ? Theme.accentGlow : srvHovered ? Theme.surfaceHover : "transparent"
+                            ? Theme.accent + "25" : srvHovered ? Theme.surfaceHover : "transparent"
 
                         property bool srvHovered: false
 
-                        Behavior on color {
-                            ColorAnimation { duration: Theme.animFast }
+                        Rectangle {
+                            visible: activeServerId === model.serverId
+                            anchors.left: parent.left
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: 3; height: 20; radius: 2
+                            color: Theme.accent
                         }
 
                         Text {
@@ -74,6 +77,7 @@ Item {
                             anchors.verticalCenter: parent.verticalCenter
                             text: model.name
                             font.pixelSize: Theme.fontSizeSm
+                            font.bold: activeServerId === model.serverId
                             color: activeServerId === model.serverId
                                 ? Theme.textPrimary : Theme.textSecondary
                             elide: Text.ElideRight
@@ -93,25 +97,32 @@ Item {
 
                 Rectangle {
                     Layout.fillWidth: true
+                    Layout.leftMargin: Theme.spacingMd
+                    Layout.rightMargin: Theme.spacingMd
                     height: 1
                     color: Theme.surfaceBorder
                 }
 
-                Rectangle {
+                Item {
                     Layout.fillWidth: true
                     Layout.preferredHeight: 36
-                    color: "transparent"
+                    Layout.topMargin: Theme.spacingSm
 
                     RowLayout {
-                        anchors.fill: parent
+                        anchors.left: parent.left
+                        anchors.right: parent.right
                         anchors.leftMargin: Theme.spacingMd
                         anchors.rightMargin: Theme.spacingMd
+                        anchors.bottom: parent.bottom
+                        anchors.bottomMargin: 8
 
                         Text {
-                            text: "Categories"
-                            font.pixelSize: Theme.fontSizeSm
+                            text: "CATEGORIES"
+                            font.pixelSize: 10
                             font.bold: true
+                            font.letterSpacing: 1.5
                             color: Theme.textMuted
+                            opacity: 0.7
                             Layout.fillWidth: true
                         }
 
@@ -119,6 +130,7 @@ Item {
                             text: appViewModel ? appViewModel.categoryList.count : 0
                             font.pixelSize: Theme.fontSizeXs
                             color: Theme.textMuted
+                            opacity: 0.5
                         }
                     }
                 }
@@ -288,7 +300,8 @@ Item {
                 id: channelGrid
                 Layout.fillWidth: true
                 Layout.fillHeight: true
-                cellWidth: 220
+                property int cols: appViewModel ? appViewModel.gridColumns : 2
+                cellWidth: Math.floor(width / cols)
                 cellHeight: 72
                 clip: true
                 focus: true
@@ -529,6 +542,7 @@ Item {
     }
 
     Component.onCompleted: {
+        channelGrid.forceActiveFocus()
         if (appViewModel) {
             appViewModel.channelList.searchQuery = ""
             appViewModel.channelList.categoryId = 0

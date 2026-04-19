@@ -83,12 +83,43 @@ QVector<Channel> ChannelRepository::findByServerAndType(int64_t serverId, const 
 QVector<Channel> ChannelRepository::search(int64_t serverId, const QString &searchQuery,
                                             int limit, int offset) const {
     QSqlQuery query(db_);
-    query.prepare("SELECT id, server_id, category_id, external_id, name, stream_url, "
-                  "logo_url, epg_channel_id, type, added_at "
-                  "FROM channels WHERE server_id = ? AND name LIKE ? COLLATE NOCASE "
-                  "ORDER BY name COLLATE NOCASE LIMIT ? OFFSET ?");
+    query.prepare("SELECT c.id, c.server_id, c.category_id, c.external_id, c.name, c.stream_url, "
+                  "c.logo_url, c.epg_channel_id, c.type, c.added_at "
+                  "FROM channels c LEFT JOIN categories cat ON c.category_id = cat.id "
+                  "WHERE c.server_id = ? AND (c.name LIKE ? COLLATE NOCASE OR cat.name LIKE ? COLLATE NOCASE) "
+                  "ORDER BY c.name COLLATE NOCASE LIMIT ? OFFSET ?");
+    auto pattern = QStringLiteral("%%%1%%").arg(searchQuery);
     query.addBindValue(toVariant(serverId));
-    query.addBindValue(QStringLiteral("%%%1%%").arg(searchQuery));
+    query.addBindValue(pattern);
+    query.addBindValue(pattern);
+    query.addBindValue(limit);
+    query.addBindValue(offset);
+
+    if (!query.exec()) {
+        return {};
+    }
+
+    QVector<Channel> channels;
+    channels.reserve(limit);
+    while (query.next()) {
+        channels.append(fromQuery(query));
+    }
+    return channels;
+}
+
+QVector<Channel> ChannelRepository::searchWithType(int64_t serverId, const QString &searchQuery,
+                                                    const QString &type, int limit, int offset) const {
+    QSqlQuery query(db_);
+    query.prepare("SELECT c.id, c.server_id, c.category_id, c.external_id, c.name, c.stream_url, "
+                  "c.logo_url, c.epg_channel_id, c.type, c.added_at "
+                  "FROM channels c LEFT JOIN categories cat ON c.category_id = cat.id "
+                  "WHERE c.server_id = ? AND c.type = ? AND (c.name LIKE ? COLLATE NOCASE OR cat.name LIKE ? COLLATE NOCASE) "
+                  "ORDER BY c.name COLLATE NOCASE LIMIT ? OFFSET ?");
+    auto pattern = QStringLiteral("%%%1%%").arg(searchQuery);
+    query.addBindValue(toVariant(serverId));
+    query.addBindValue(type);
+    query.addBindValue(pattern);
+    query.addBindValue(pattern);
     query.addBindValue(limit);
     query.addBindValue(offset);
 
@@ -210,10 +241,28 @@ int ChannelRepository::countByCategory(int64_t categoryId) const {
 
 int ChannelRepository::countBySearch(int64_t serverId, const QString &searchQuery) const {
     QSqlQuery query(db_);
-    query.prepare("SELECT COUNT(*) FROM channels WHERE server_id = ? "
-                  "AND name LIKE ? COLLATE NOCASE");
+    auto pattern = QStringLiteral("%%%1%%").arg(searchQuery);
+    query.prepare("SELECT COUNT(*) FROM channels c LEFT JOIN categories cat ON c.category_id = cat.id "
+                  "WHERE c.server_id = ? AND (c.name LIKE ? COLLATE NOCASE OR cat.name LIKE ? COLLATE NOCASE)");
     query.addBindValue(toVariant(serverId));
-    query.addBindValue(QStringLiteral("%%%1%%").arg(searchQuery));
+    query.addBindValue(pattern);
+    query.addBindValue(pattern);
+    if (!query.exec() || !query.next()) {
+        return 0;
+    }
+    return query.value(0).toInt();
+}
+
+int ChannelRepository::countBySearchWithType(int64_t serverId, const QString &searchQuery,
+                                              const QString &type) const {
+    QSqlQuery query(db_);
+    auto pattern = QStringLiteral("%%%1%%").arg(searchQuery);
+    query.prepare("SELECT COUNT(*) FROM channels c LEFT JOIN categories cat ON c.category_id = cat.id "
+                  "WHERE c.server_id = ? AND c.type = ? AND (c.name LIKE ? COLLATE NOCASE OR cat.name LIKE ? COLLATE NOCASE)");
+    query.addBindValue(toVariant(serverId));
+    query.addBindValue(type);
+    query.addBindValue(pattern);
+    query.addBindValue(pattern);
     if (!query.exec() || !query.next()) {
         return 0;
     }

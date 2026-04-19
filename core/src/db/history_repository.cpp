@@ -1,0 +1,90 @@
+#include "iptvxs/db/history_repository.h"
+
+#include <QDateTime>
+#include <QSqlQuery>
+#include <QVariant>
+
+namespace iptvxs {
+
+HistoryRepository::HistoryRepository(QSqlDatabase db, QObject *parent)
+    : QObject(parent), db_(std::move(db)) {}
+
+void HistoryRepository::addEntry(int64_t channelId, int durationSecs) {
+    QSqlQuery query(db_);
+    query.prepare(
+        "INSERT INTO history (channel_id, watched_at, duration_secs) VALUES (?, ?, ?)");
+    query.addBindValue(QVariant::fromValue(channelId));
+    query.addBindValue(QVariant::fromValue(QDateTime::currentSecsSinceEpoch()));
+    query.addBindValue(durationSecs);
+    query.exec();
+}
+
+void HistoryRepository::addEntry(const QString &name, const QString &logo,
+                                  const QString &type, const QString &streamUrl,
+                                  int durationSecs) {
+    QSqlQuery query(db_);
+    query.prepare(
+        "INSERT INTO history (channel_id, name, logo_url, type, stream_url, watched_at, duration_secs) "
+        "VALUES (0, ?, ?, ?, ?, ?, ?)");
+    query.addBindValue(name);
+    query.addBindValue(logo);
+    query.addBindValue(type);
+    query.addBindValue(streamUrl);
+    query.addBindValue(QVariant::fromValue(QDateTime::currentSecsSinceEpoch()));
+    query.addBindValue(durationSecs);
+    query.exec();
+}
+
+QVector<HistoryEntry> HistoryRepository::findRecent(int limit, int offset) const {
+    QSqlQuery query(db_);
+    query.prepare(
+        "SELECT h.id, h.channel_id, "
+        "COALESCE(NULLIF(h.name, ''), c.name, 'Unknown'), "
+        "COALESCE(NULLIF(h.logo_url, ''), c.logo_url, ''), "
+        "COALESCE(NULLIF(h.type, ''), c.type, 'live'), "
+        "h.watched_at, h.duration_secs, "
+        "COALESCE(h.stream_url, c.stream_url, '') "
+        "FROM history h "
+        "LEFT JOIN channels c ON c.id = h.channel_id AND h.channel_id > 0 "
+        "ORDER BY h.watched_at DESC "
+        "LIMIT ? OFFSET ?");
+    query.addBindValue(limit);
+    query.addBindValue(offset);
+
+    QVector<HistoryEntry> entries;
+    if (query.exec()) {
+        while (query.next()) {
+            HistoryEntry e;
+            e.id = query.value(0).toLongLong();
+            e.channelId = query.value(1).toLongLong();
+            e.channelName = query.value(2).toString();
+            e.channelLogo = query.value(3).toString();
+            e.channelType = query.value(4).toString();
+            e.watchedAt = query.value(5).toLongLong();
+            e.durationSecs = query.value(6).toInt();
+            e.streamUrl = query.value(7).toString();
+            entries.append(e);
+        }
+    }
+    return entries;
+}
+
+int HistoryRepository::count() const {
+    QSqlQuery query(db_);
+    query.exec("SELECT COUNT(*) FROM history");
+    return query.next() ? query.value(0).toInt() : 0;
+}
+
+void HistoryRepository::removeEntry(int64_t id) {
+    QSqlQuery query(db_);
+    query.prepare("DELETE FROM history WHERE id = ?");
+    query.addBindValue(QVariant::fromValue(id));
+    query.exec();
+}
+
+void HistoryRepository::clear() {
+    QSqlQuery query(db_);
+    query.exec("DELETE FROM history");
+}
+
+} // namespace iptvxs

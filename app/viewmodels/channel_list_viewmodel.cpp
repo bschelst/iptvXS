@@ -155,7 +155,9 @@ void ChannelListViewModel::loadChannels(bool append) {
     int offset = append ? static_cast<int>(channels_.size()) : 0;
 
     QVector<iptvxs::Channel> result;
-    if (!searchQuery_.isEmpty()) {
+    if (!searchQuery_.isEmpty() && !typeFilter_.isEmpty()) {
+        result = repo_->searchWithType(serverId_, searchQuery_, typeFilter_, kPageSize, offset);
+    } else if (!searchQuery_.isEmpty()) {
         result = repo_->search(serverId_, searchQuery_, kPageSize, offset);
     } else if (categoryId_ > 0) {
         result = repo_->findByCategory(categoryId_, kPageSize, offset);
@@ -188,7 +190,9 @@ void ChannelListViewModel::loadChannels(bool append) {
 
 void ChannelListViewModel::updateTotalCount() {
     int newTotal = 0;
-    if (!searchQuery_.isEmpty()) {
+    if (!searchQuery_.isEmpty() && !typeFilter_.isEmpty()) {
+        newTotal = repo_->countBySearchWithType(serverId_, searchQuery_, typeFilter_);
+    } else if (!searchQuery_.isEmpty()) {
         newTotal = repo_->countBySearch(serverId_, searchQuery_);
     } else if (categoryId_ > 0) {
         newTotal = repo_->countByCategory(categoryId_);

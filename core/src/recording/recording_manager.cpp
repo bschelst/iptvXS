@@ -65,6 +65,8 @@ bool RecordingManager::startRecording(int64_t recordingId) {
         return false;
     }
 
+    enforceStorageLimit();
+
     auto filePath = buildFilePath(*recording, *channel);
     QDir().mkpath(QFileInfo(filePath).absolutePath());
 
@@ -259,6 +261,47 @@ QStringList RecordingManager::buildFfmpegArgs(const QString &streamUrl,
         QStringLiteral("-movflags"), QStringLiteral("+faststart"),
         outputPath
     };
+}
+
+void RecordingManager::enforceStorageLimit() {
+    if (!settingsRepo_ || !recordingRepo_) return;
+
+    auto maxGb = settingsRepo_->getInt(QStringLiteral("max_recording_size_gb"), 0);
+    if (maxGb <= 0) return;
+
+    qint64 maxBytes = static_cast<qint64>(maxGb) * 1024LL * 1024LL * 1024LL;
+    auto recordings = recordingRepo_->findAll();
+
+    qint64 totalBytes = 0;
+    for (const auto &r : recordings) {
+        if (r.status == QStringLiteral("recording")) continue;
+        if (!r.filePath.isEmpty()) {
+            QFileInfo fi(r.filePath);
+            totalBytes += fi.exists() ? fi.size() : r.fileSizeBytes;
+        }
+    }
+
+    if (totalBytes <= maxBytes) return;
+
+    std::sort(recordings.begin(), recordings.end(),
+              [](const Recording &a, const Recording &b) { return a.createdAt < b.createdAt; });
+
+    for (const auto &r : recordings) {
+        if (totalBytes <= maxBytes) break;
+        if (r.status == QStringLiteral("recording")) continue;
+        if (r.filePath.isEmpty()) continue;
+
+        QFileInfo fi(r.filePath);
+        if (fi.exists() && fi.isFile() && !fi.isSymLink()
+            && fi.absoluteFilePath().contains(QStringLiteral("iptvxs"))) {
+            qint64 fileSize = fi.size();
+            QFile::remove(fi.absoluteFilePath());
+            totalBytes -= fileSize;
+            qInfo("Auto-deleted old recording: %s (%lld bytes)",
+                  qPrintable(fi.fileName()), static_cast<long long>(fileSize));
+        }
+        recordingRepo_->remove(r.id);
+    }
 }
 
 } // namespace iptvxs

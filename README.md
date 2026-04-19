@@ -27,6 +27,9 @@
 - Channel categories with search and filtering
 - VOD movie playback with automatic subtitle fetching
 - Series support with season/episode picker
+- **Audio track selection** for multi-language VOD content
+- **Picture-in-Picture (PIP)** — video continues in a floating mini-player when navigating away
+- Configurable grid layout (1–4 columns) for channel and VOD lists
 
 ### Electronic Programme Guide (EPG)
 
@@ -37,34 +40,55 @@
 ### Recording
 
 - Live and scheduled recording via FFmpeg
+- **Schedule recordings** with custom start time (day, hour, minute picker)
 - Recordings saved to `~/Videos/iptvxs/` (configurable)
+- **Storage quota** with visual usage bar
+- Delete recordings with confirmation and file cleanup
 - Upload recordings directly to **Google Drive**
 
 ### Subtitles
 
 - Automatic subtitle search via OpenSubtitles
+- **Built-in subtitle track picker** for embedded subtitles
 - Configurable subtitle language, size, text color, and background
 - Subtitle timing adjustment in the player
+
+### Video Enhancement
+
+- GPU-accelerated video processing presets (Off / Light / Medium / Strong)
+- **Debanding** to remove color banding artifacts
+- **High-quality scaling** via ewa_lanczossharp with sigmoid upscaling
+- **Denoising** via hqdn3d filter for cleaner picture on noisy IPTV streams
 
 ### Theming
 
 - 6 built-in themes: Midnight, Ocean, Forest, Sunset, Nord, Light
 - Theme persists across sessions
 
+### Play History
+
+- Automatic tracking of watched channels, movies, and series
+- Browse history sorted by most recent
+- Remove individual entries or clear all history
+- One-click replay from history
+
 ### Steam Deck & Controller Support
 
 - Full **D-pad/controller navigation** throughout the entire UI
 - Optimized for Steam Deck's display and input
+- **Screensaver inhibition** during video playback
 - Available as a **Flatpak** for easy installation
 - Works in both Desktop Mode and Game Mode
 
 ### Other Features
 
-- Favorites system for quick access to preferred channels
+- Favorites system with easy add/remove
 - Stream speed testing
-- System tray integration
+- System tray integration with minimize-to-tray option
+- **Close confirmation** when recordings are active
 - Per-server channel synchronization
 - Configurable stream buffer time
+- Automatic stream reconnection on network drops
 
 ---
 
@@ -87,7 +111,7 @@ flatpak install --user iptvxs.flatpak
 
 #### Dependencies
 
-- Qt 6.5+ (Core, Quick, QuickControls2, Sql, Network, Concurrent, OpenGL, Widgets)
+- Qt 6.5+ (Core, Quick, QuickControls2, Sql, Network, Concurrent, OpenGL, Widgets, DBus)
 - libmpv
 - FFmpeg
 - CMake 3.22+

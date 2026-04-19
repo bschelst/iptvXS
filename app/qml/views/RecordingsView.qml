@@ -41,6 +41,37 @@ Item {
                     color: Theme.textSecondary
                 }
 
+                Item { Layout.preferredWidth: Theme.spacingSm }
+
+                Text {
+                    property real usedGb: appViewModel ? appViewModel.recordingList.totalRecordingBytes() / (1024*1024*1024) : 0
+                    property int maxGb: appViewModel ? appViewModel.maxRecordingSizeGb : 0
+                    text: usedGb.toFixed(1) + " GB used" + (maxGb > 0 ? " / " + maxGb + " GB" : "")
+                    font.pixelSize: Theme.fontSizeXs
+                    color: Theme.textMuted
+                }
+
+                Rectangle {
+                    Layout.preferredWidth: 120
+                    Layout.preferredHeight: 8
+                    radius: 4
+                    color: Theme.surface
+                    border.color: Theme.surfaceBorder
+                    border.width: 1
+                    visible: appViewModel && appViewModel.maxRecordingSizeGb > 0
+
+                    Rectangle {
+                        width: {
+                            if (!appViewModel || appViewModel.maxRecordingSizeGb <= 0) return 0
+                            var ratio = appViewModel.recordingList.totalRecordingBytes() / (appViewModel.maxRecordingSizeGb * 1024*1024*1024)
+                            return Math.min(1, ratio) * parent.width
+                        }
+                        height: parent.height
+                        radius: 4
+                        color: width / parent.width > 0.9 ? Theme.error : Theme.accent
+                    }
+                }
+
                 Item { Layout.fillWidth: true }
 
                 Rectangle {
@@ -145,7 +176,7 @@ Item {
 
             delegate: Rectangle {
                 width: recordingsList.width - Theme.spacingMd * 2
-                height: 80
+                height: model.status === "failed" && model.errorMessage ? 105 : 80
                 x: Theme.spacingMd
                 radius: Theme.borderRadius
                 color: recHovered ? Theme.surfaceHover : Theme.surfaceElevated
@@ -166,7 +197,7 @@ Item {
                     hoverEnabled: true
                     onEntered: parent.recHovered = true
                     onExited: parent.recHovered = false
-                    onDoubleClicked: {
+                    onClicked: {
                         if (model.status === "completed" && model.filePath && appViewModel) {
                             appViewModel.pendingPlayUrl = model.filePath
                             appViewModel.pendingPlayName = model.channelName + " (Recording)"
@@ -199,16 +230,26 @@ Item {
                             anchors.centerIn: parent
                             text: {
                                 switch (model.status) {
-                                case "recording": return "⏺"
-                                case "scheduled": return "⏰"
-                                case "completed": return "✅"
-                                case "failed": return "❌"
-                                case "uploading": return "☁"
+                                case "recording": return "●"
+                                case "scheduled": return "◷"
+                                case "completed": return "✓"
+                                case "failed": return "✕"
+                                case "uploading": return "↑"
                                 case "uploaded": return "☁"
-                                default: return "📹"
+                                default: return "▶"
                                 }
                             }
                             font.pixelSize: 20
+                            font.bold: model.status === "completed" || model.status === "failed"
+                            color: {
+                                switch (model.status) {
+                                case "recording": return Theme.error
+                                case "scheduled": return Theme.accent
+                                case "completed": return Theme.success
+                                case "failed": return Theme.error
+                                default: return Theme.textSecondary
+                                }
+                            }
                         }
 
                         SequentialAnimation on opacity {
@@ -376,8 +417,10 @@ Item {
 
                             Text {
                                 anchors.centerIn: parent
-                                text: "🗑"
-                                font.pixelSize: Theme.fontSizeSm
+                                text: "✕"
+                                font.pixelSize: Theme.fontSizeMd
+                                font.bold: true
+                                color: parent.deleteBtnHovered ? Theme.error : Theme.textMuted
                             }
 
                             MouseArea {
@@ -387,9 +430,9 @@ Item {
                                 onEntered: parent.deleteBtnHovered = true
                                 onExited: parent.deleteBtnHovered = false
                                 onClicked: {
-                                    if (appViewModel) {
-                                        appViewModel.recordingList.deleteRecording(model.recordingId)
-                                    }
+                                    deleteConfirmDialog.recordingId = model.recordingId
+                                    deleteConfirmDialog.recordingName = model.channelName || "Recording"
+                                    deleteConfirmDialog.visible = true
                                 }
                             }
                         }
@@ -401,19 +444,59 @@ Item {
                     anchors.bottom: parent.bottom
                     anchors.left: parent.left
                     anchors.right: parent.right
-                    anchors.margins: Theme.spacingSm
-                    height: visible ? errorText.implicitHeight + 8 : 0
+                    anchors.bottomMargin: 4
+                    anchors.leftMargin: Theme.spacingSm + 44 + Theme.spacingMd
+                    anchors.rightMargin: Theme.spacingSm
+                    height: visible ? 22 : 0
                     radius: 4
-                    color: Theme.error + "10"
+                    color: Theme.error + "30"
 
                     Text {
-                        id: errorText
-                        anchors.centerIn: parent
-                        width: parent.width - 16
-                        text: model.errorMessage || ""
-                        font.pixelSize: Theme.fontSizeXs
-                        color: Theme.error
+                        anchors.verticalCenter: parent.verticalCenter
+                        anchors.left: parent.left
+                        anchors.right: dismissBtn.left
+                        anchors.leftMargin: 8
+                        anchors.rightMargin: 4
+                        text: {
+                            var msg = model.errorMessage || ""
+                            var lines = msg.split("\n")
+                            for (var i = 0; i < lines.length; i++) {
+                                var l = lines[i].trim()
+                                if (l.startsWith("Error opening") || l.startsWith("Error ")) {
+                                    return l
+                                }
+                            }
+                            return lines[lines.length - 1] || msg
+                        }
+                        font.pixelSize: 11
+                        color: "#ff6b6b"
                         elide: Text.ElideRight
+                    }
+
+                    Text {
+                        id: dismissBtn
+                        anchors.right: parent.right
+                        anchors.rightMargin: 8
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: "✕"
+                        font.pixelSize: 12
+                        color: Theme.error
+                        opacity: dismissHov ? 1.0 : 0.6
+
+                        property bool dismissHov: false
+
+                        MouseArea {
+                            anchors.fill: parent
+                            anchors.margins: -4
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onEntered: parent.dismissHov = true
+                            onExited: parent.dismissHov = false
+                            onClicked: {
+                                if (appViewModel)
+                                    appViewModel.recordingList.clearError(model.recordingId)
+                            }
+                        }
                     }
                 }
             }
@@ -434,12 +517,16 @@ Item {
         id: manualRecordDialog
         anchors.centerIn: parent
         width: 480
-        height: 520
+        height: 600
         modal: true
         padding: Theme.spacingLg
 
         property var selectedChannelId: 0
         property int durationMinutes: 60
+        property bool startNow: true
+        property int startHour: new Date().getHours()
+        property int startMinute: new Date().getMinutes()
+        property int startDay: 0
 
         background: Rectangle {
             color: Theme.surfaceElevated
@@ -474,6 +561,7 @@ Item {
                     if (currentIndex >= 0 && appViewModel) {
                         var srvId = appViewModel.serverList.serverIdAt(currentIndex)
                         channelCombo.model = null
+                        appViewModel.channelList.typeFilter = "live"
                         appViewModel.channelList.serverId = srvId
                         channelCombo.model = appViewModel.channelList
                     }
@@ -497,6 +585,99 @@ Item {
                         manualRecordDialog.selectedChannelId = appViewModel.channelList.data(
                             appViewModel.channelList.index(currentIndex, 0), 257)
                     }
+                }
+            }
+
+            Text { text: "Start Time"; font.pixelSize: Theme.fontSizeSm; color: Theme.textSecondary }
+
+            Row {
+                spacing: Theme.spacingSm
+
+                Repeater {
+                    model: [
+                        { label: "Now", value: true },
+                        { label: "Schedule", value: false }
+                    ]
+
+                    Rectangle {
+                        width: startModeLabel.implicitWidth + Theme.spacingMd * 2
+                        height: 32
+                        radius: Theme.borderRadiusSmall
+                        color: manualRecordDialog.startNow === modelData.value ? Theme.accent : startModeHov ? Theme.surfaceHover : Theme.surface
+                        border.width: 1
+                        border.color: Theme.surfaceBorder
+                        property bool startModeHov: false
+
+                        Text {
+                            id: startModeLabel
+                            anchors.centerIn: parent
+                            text: modelData.label
+                            font.pixelSize: Theme.fontSizeXs
+                            color: manualRecordDialog.startNow === modelData.value ? Theme.textPrimary : Theme.textSecondary
+                        }
+
+                        MouseArea {
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onEntered: parent.startModeHov = true
+                            onExited: parent.startModeHov = false
+                            onClicked: manualRecordDialog.startNow = modelData.value
+                        }
+                    }
+                }
+            }
+
+            RowLayout {
+                visible: !manualRecordDialog.startNow
+                Layout.fillWidth: true
+                spacing: Theme.spacingSm
+
+                ComboBox {
+                    id: dayCombo
+                    Layout.preferredWidth: 140
+                    Layout.preferredHeight: 32
+                    model: {
+                        var days = []
+                        var now = new Date()
+                        for (var i = 0; i < 7; i++) {
+                            var d = new Date(now.getTime() + i * 86400000)
+                            days.push(i === 0 ? "Today" : i === 1 ? "Tomorrow" : Qt.formatDate(d, "ddd dd MMM"))
+                        }
+                        return days
+                    }
+                    currentIndex: manualRecordDialog.startDay
+                    onCurrentIndexChanged: manualRecordDialog.startDay = currentIndex
+                    background: Rectangle { radius: Theme.borderRadiusSmall; color: Theme.surface; border.color: Theme.surfaceBorder; border.width: 1 }
+                    contentItem: Text { leftPadding: Theme.spacingSm; text: dayCombo.currentText; font.pixelSize: Theme.fontSizeSm; color: Theme.textPrimary; verticalAlignment: Text.AlignVCenter }
+                }
+
+                SpinBox {
+                    id: hourSpin
+                    Layout.preferredWidth: 80
+                    Layout.preferredHeight: 32
+                    from: 0; to: 23
+                    value: manualRecordDialog.startHour
+                    onValueChanged: manualRecordDialog.startHour = value
+                    editable: true
+                    background: Rectangle { radius: Theme.borderRadiusSmall; color: Theme.surface; border.color: Theme.surfaceBorder; border.width: 1 }
+                    contentItem: TextInput { text: hourSpin.textFromValue(hourSpin.value, hourSpin.locale); font.pixelSize: Theme.fontSizeSm; color: Theme.textPrimary; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter; readOnly: !hourSpin.editable; validator: hourSpin.validator; inputMethodHints: Qt.ImhDigitsOnly }
+                    textFromValue: function(value) { return value.toString().padStart(2, '0') }
+                }
+
+                Text { text: ":"; font.pixelSize: Theme.fontSizeMd; color: Theme.textPrimary }
+
+                SpinBox {
+                    id: minuteSpin
+                    Layout.preferredWidth: 80
+                    Layout.preferredHeight: 32
+                    from: 0; to: 59; stepSize: 5
+                    value: manualRecordDialog.startMinute
+                    onValueChanged: manualRecordDialog.startMinute = value
+                    editable: true
+                    background: Rectangle { radius: Theme.borderRadiusSmall; color: Theme.surface; border.color: Theme.surfaceBorder; border.width: 1 }
+                    contentItem: TextInput { text: minuteSpin.textFromValue(minuteSpin.value, minuteSpin.locale); font.pixelSize: Theme.fontSizeSm; color: Theme.textPrimary; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter; readOnly: !minuteSpin.editable; validator: minuteSpin.validator; inputMethodHints: Qt.ImhDigitsOnly }
+                    textFromValue: function(value) { return value.toString().padStart(2, '0') }
                 }
             }
 
@@ -570,16 +751,31 @@ Item {
                     color: startRecHov ? Theme.error : Theme.error + "cc"
                     opacity: manualRecordDialog.selectedChannelId > 0 ? 1.0 : 0.4
                     property bool startRecHov: false
-                    Text { id: startRecText; anchors.centerIn: parent; text: "Start Recording"; font.pixelSize: Theme.fontSizeSm; font.bold: true; color: "#ffffff" }
+                    Text {
+                        id: startRecText
+                        anchors.centerIn: parent
+                        text: manualRecordDialog.startNow ? "Start Recording" : "Schedule"
+                        font.pixelSize: Theme.fontSizeSm
+                        font.bold: true
+                        color: "#ffffff"
+                    }
                     MouseArea {
                         anchors.fill: parent; hoverEnabled: true
                         cursorShape: manualRecordDialog.selectedChannelId > 0 ? Qt.PointingHandCursor : Qt.ForbiddenCursor
                         onEntered: parent.startRecHov = true; onExited: parent.startRecHov = false
                         onClicked: {
                             if (manualRecordDialog.selectedChannelId > 0 && appViewModel) {
-                                var now = Math.floor(Date.now() / 1000)
-                                var endTime = now + manualRecordDialog.durationMinutes * 60
-                                appViewModel.recordingList.scheduleRecording(manualRecordDialog.selectedChannelId, now, endTime, "original")
+                                var startEpoch
+                                if (manualRecordDialog.startNow) {
+                                    startEpoch = Math.floor(Date.now() / 1000)
+                                } else {
+                                    var now = new Date()
+                                    var d = new Date(now.getTime() + manualRecordDialog.startDay * 86400000)
+                                    d.setHours(manualRecordDialog.startHour, manualRecordDialog.startMinute, 0, 0)
+                                    startEpoch = Math.floor(d.getTime() / 1000)
+                                }
+                                var endEpoch = startEpoch + manualRecordDialog.durationMinutes * 60
+                                appViewModel.recordingList.scheduleRecording(manualRecordDialog.selectedChannelId, startEpoch, endEpoch, "original")
                                 appViewModel.recordingList.refresh()
                                 manualRecordDialog.close()
                             }
@@ -594,8 +790,147 @@ Item {
         onOpened: {
             selectedChannelId = 0
             durationMinutes = 60
+            startNow = true
+            startDay = 0
+            var now = new Date()
+            startHour = now.getHours()
+            startMinute = now.getMinutes()
             serverCombo.currentIndex = -1
             channelCombo.currentIndex = -1
+            if (appViewModel)
+                appViewModel.channelList.typeFilter = "live"
+        }
+
+        onClosed: {
+            if (appViewModel)
+                appViewModel.channelList.typeFilter = ""
+        }
+    }
+
+    Rectangle {
+        id: deleteConfirmDialog
+        visible: false
+        anchors.fill: parent
+        color: "#C0000000"
+        z: 200
+
+        property int recordingId: 0
+        property string recordingName: ""
+
+        MouseArea {
+            anchors.fill: parent
+            onClicked: deleteConfirmDialog.visible = false
+        }
+
+        Rectangle {
+            anchors.centerIn: parent
+            width: 380
+            height: confirmCol.implicitHeight + Theme.spacingLg * 2
+            radius: Theme.borderRadiusLarge
+            color: Theme.surfaceElevated
+            border.color: Theme.surfaceBorder
+            border.width: 1
+
+            MouseArea { anchors.fill: parent }
+
+            ColumnLayout {
+                id: confirmCol
+                anchors.fill: parent
+                anchors.margins: Theme.spacingLg
+                spacing: Theme.spacingMd
+
+                Text {
+                    text: "Delete Recording"
+                    font.pixelSize: Theme.fontSizeLg
+                    font.bold: true
+                    color: Theme.textPrimary
+                }
+
+                Text {
+                    text: "Are you sure you want to delete this recording?\nThe file will be permanently removed from disk."
+                    font.pixelSize: Theme.fontSizeSm
+                    color: Theme.textSecondary
+                    wrapMode: Text.WordWrap
+                    Layout.fillWidth: true
+                    lineHeight: 1.4
+                }
+
+                Text {
+                    text: deleteConfirmDialog.recordingName
+                    font.pixelSize: Theme.fontSizeSm
+                    font.bold: true
+                    color: Theme.textPrimary
+                    elide: Text.ElideRight
+                    Layout.fillWidth: true
+                }
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: Theme.spacingSm
+
+                    Item { Layout.fillWidth: true }
+
+                    Rectangle {
+                        width: cancelBtnText.implicitWidth + 24
+                        height: 36
+                        radius: Theme.borderRadius
+                        color: cancelBtnHov ? Theme.surfaceHover : Theme.surface
+                        border.color: Theme.surfaceBorder
+                        border.width: 1
+                        property bool cancelBtnHov: false
+
+                        Text {
+                            id: cancelBtnText
+                            anchors.centerIn: parent
+                            text: "Cancel"
+                            font.pixelSize: Theme.fontSizeSm
+                            color: Theme.textSecondary
+                        }
+
+                        MouseArea {
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onEntered: parent.cancelBtnHov = true
+                            onExited: parent.cancelBtnHov = false
+                            onClicked: deleteConfirmDialog.visible = false
+                        }
+                    }
+
+                    Rectangle {
+                        width: deleteBtnText.implicitWidth + 24
+                        height: 36
+                        radius: Theme.borderRadius
+                        color: deleteBtnHov ? Qt.darker(Theme.error, 1.2) : Theme.error
+
+                        property bool deleteBtnHov: false
+
+                        Text {
+                            id: deleteBtnText
+                            anchors.centerIn: parent
+                            text: "Delete"
+                            font.pixelSize: Theme.fontSizeSm
+                            font.bold: true
+                            color: "#FFFFFF"
+                        }
+
+                        MouseArea {
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onEntered: parent.deleteBtnHov = true
+                            onExited: parent.deleteBtnHov = false
+                            onClicked: {
+                                if (appViewModel) {
+                                    appViewModel.recordingList.deleteRecordingWithFile(deleteConfirmDialog.recordingId)
+                                    appViewModel.recordingList.refresh()
+                                }
+                                deleteConfirmDialog.visible = false
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 }

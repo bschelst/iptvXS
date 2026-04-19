@@ -263,6 +263,186 @@ Item {
                             }
                         }
                     }
+
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        spacing: Theme.spacingXs
+
+                        Text {
+                            text: "Grid columns"
+                            font.pixelSize: Theme.fontSizeSm
+                            color: Theme.textPrimary
+                        }
+
+                        Text {
+                            text: "Number of columns in TV Channels and VOD grids"
+                            font.pixelSize: Theme.fontSizeXs
+                            color: Theme.textMuted
+                        }
+
+                        Flow {
+                            Layout.fillWidth: true
+                            spacing: Theme.spacingSm
+                            Layout.topMargin: Theme.spacingXs
+
+                            Repeater {
+                                model: [
+                                    { value: 1, label: "1 column" },
+                                    { value: 2, label: "2 columns" },
+                                    { value: 3, label: "3 columns" },
+                                    { value: 4, label: "4 columns" }
+                                ]
+
+                                Rectangle {
+                                    width: 80
+                                    height: 32
+                                    radius: Theme.borderRadiusSmall
+                                    color: appViewModel && appViewModel.gridColumns === modelData.value
+                                        ? Theme.accent : colHovered
+                                            ? Theme.surfaceHover : Theme.surface
+                                    border.width: 1
+                                    border.color: Theme.surfaceBorder
+
+                                    property bool colHovered: false
+
+                                    Text {
+                                        anchors.centerIn: parent
+                                        text: modelData.label
+                                        font.pixelSize: Theme.fontSizeXs
+                                        color: appViewModel && appViewModel.gridColumns === modelData.value
+                                            ? Theme.textPrimary : Theme.textSecondary
+                                    }
+
+                                    MouseArea {
+                                        anchors.fill: parent
+                                        hoverEnabled: true
+                                        cursorShape: Qt.PointingHandCursor
+                                        onEntered: parent.colHovered = true
+                                        onExited: parent.colHovered = false
+                                        onClicked: {
+                                            if (appViewModel)
+                                                appViewModel.gridColumns = modelData.value
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            Rectangle {
+                Layout.fillWidth: true
+                Layout.preferredHeight: appBehaviorCol.implicitHeight + Theme.spacingLg * 2
+                radius: Theme.borderRadiusLarge
+                color: Theme.surfaceElevated
+                border.color: Theme.surfaceBorder
+                border.width: 1
+
+                ColumnLayout {
+                    id: appBehaviorCol
+                    anchors.fill: parent
+                    anchors.margins: Theme.spacingLg
+                    spacing: Theme.spacingMd
+
+                    Text {
+                        text: "Application"
+                        font.pixelSize: Theme.fontSizeMd
+                        font.bold: true
+                        color: Theme.textPrimary
+                    }
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: Theme.spacingMd
+
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            spacing: 2
+
+                            Text {
+                                text: "Minimize to tray on close"
+                                font.pixelSize: Theme.fontSizeSm
+                                color: Theme.textPrimary
+                            }
+
+                            Text {
+                                text: "Keep app running in background when closing the window"
+                                font.pixelSize: Theme.fontSizeXs
+                                color: Theme.textMuted
+                            }
+                        }
+
+                        Switch {
+                            checked: appViewModel ? appViewModel.closeToTray : false
+                            onToggled: {
+                                if (appViewModel) appViewModel.closeToTray = checked
+                            }
+                        }
+                    }
+
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        spacing: Theme.spacingXs
+
+                        Text {
+                            text: "Video enhancement"
+                            font.pixelSize: Theme.fontSizeSm
+                            color: Theme.textPrimary
+                        }
+
+                        Text {
+                            text: "Improve video quality with debanding, scaling, and denoising (uses more GPU)"
+                            font.pixelSize: Theme.fontSizeXs
+                            color: Theme.textMuted
+                        }
+
+                        Flow {
+                            Layout.fillWidth: true
+                            spacing: Theme.spacingSm
+                            Layout.topMargin: Theme.spacingXs
+
+                            Repeater {
+                                model: [
+                                    { value: "off", label: "Off" },
+                                    { value: "light", label: "Light" },
+                                    { value: "medium", label: "Medium" },
+                                    { value: "strong", label: "Strong" }
+                                ]
+
+                                Rectangle {
+                                    width: 80
+                                    height: 32
+                                    radius: Theme.borderRadiusSmall
+                                    color: appViewModel && appViewModel.videoEnhancement === modelData.value
+                                        ? Theme.accent : veHov ? Theme.surfaceHover : Theme.surface
+                                    border.width: 1
+                                    border.color: Theme.surfaceBorder
+                                    property bool veHov: false
+
+                                    Text {
+                                        anchors.centerIn: parent
+                                        text: modelData.label
+                                        font.pixelSize: Theme.fontSizeXs
+                                        color: appViewModel && appViewModel.videoEnhancement === modelData.value
+                                            ? Theme.textPrimary : Theme.textSecondary
+                                    }
+
+                                    MouseArea {
+                                        anchors.fill: parent
+                                        hoverEnabled: true
+                                        cursorShape: Qt.PointingHandCursor
+                                        onEntered: parent.veHov = true
+                                        onExited: parent.veHov = false
+                                        onClicked: {
+                                            if (appViewModel)
+                                                appViewModel.videoEnhancement = modelData.value
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
 
@@ -316,12 +496,39 @@ Item {
                         }
                     }
 
+                    property var langOptions: [
+                        { value: "en", label: "English" },
+                        { value: "nl", label: "Dutch" },
+                        { value: "fr", label: "French" },
+                        { value: "de", label: "German" },
+                        { value: "es", label: "Spanish" },
+                        { value: "pt", label: "Portuguese" },
+                        { value: "it", label: "Italian" },
+                        { value: "pl", label: "Polish" },
+                        { value: "ru", label: "Russian" },
+                        { value: "ar", label: "Arabic" },
+                        { value: "tr", label: "Turkish" },
+                        { value: "sv", label: "Swedish" },
+                        { value: "da", label: "Danish" },
+                        { value: "no", label: "Norwegian" },
+                        { value: "fi", label: "Finnish" },
+                        { value: "cs", label: "Czech" },
+                        { value: "hu", label: "Hungarian" },
+                        { value: "ro", label: "Romanian" },
+                        { value: "el", label: "Greek" },
+                        { value: "he", label: "Hebrew" },
+                        { value: "hi", label: "Hindi" },
+                        { value: "zh", label: "Chinese" },
+                        { value: "ja", label: "Japanese" },
+                        { value: "ko", label: "Korean" }
+                    ]
+
                     ColumnLayout {
                         Layout.fillWidth: true
                         spacing: Theme.spacingXs
 
                         Text {
-                            text: "Subtitle language"
+                            text: "Primary subtitle language"
                             font.pixelSize: Theme.fontSizeSm
                             color: Theme.textPrimary
                         }
@@ -331,18 +538,11 @@ Item {
                             spacing: Theme.spacingSm
 
                             Repeater {
-                                model: [
-                                    { value: "en", label: "English" },
-                                    { value: "nl", label: "Dutch" },
-                                    { value: "fr", label: "French" },
-                                    { value: "de", label: "German" },
-                                    { value: "es", label: "Spanish" },
-                                    { value: "pt", label: "Portuguese" }
-                                ]
+                                model: langOptions
 
                                 Rectangle {
                                     width: subLangLabel.implicitWidth + Theme.spacingMd * 2
-                                    height: 32
+                                    height: 28
                                     radius: Theme.borderRadiusSmall
                                     color: appViewModel && appViewModel.subtitleLanguage === modelData.value
                                         ? Theme.accent : subLangHov ? Theme.surfaceHover : Theme.surface
@@ -354,7 +554,7 @@ Item {
                                         id: subLangLabel
                                         anchors.centerIn: parent
                                         text: modelData.label
-                                        font.pixelSize: Theme.fontSizeXs
+                                        font.pixelSize: 11
                                         color: appViewModel && appViewModel.subtitleLanguage === modelData.value
                                             ? Theme.textPrimary : Theme.textSecondary
                                     }
@@ -370,6 +570,58 @@ Item {
                                                 appViewModel.subtitleLanguage = modelData.value
                                         }
                                     }
+                                }
+                            }
+                        }
+                    }
+
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        spacing: Theme.spacingXs
+
+                        Text {
+                            text: "Secondary subtitle language"
+                            font.pixelSize: Theme.fontSizeSm
+                            color: Theme.textPrimary
+                        }
+
+                        Text {
+                            text: "Shown as fallback when primary is not available"
+                            font.pixelSize: Theme.fontSizeXs
+                            color: Theme.textMuted
+                        }
+
+                        Flow {
+                            Layout.fillWidth: true
+                            spacing: Theme.spacingSm
+
+                            Rectangle {
+                                width: noneLbl.implicitWidth + Theme.spacingMd * 2
+                                height: 28
+                                radius: Theme.borderRadiusSmall
+                                color: appViewModel && !appViewModel.subtitleLanguageSecondary
+                                    ? Theme.accent : noneHov ? Theme.surfaceHover : Theme.surface
+                                border.width: 1; border.color: Theme.surfaceBorder
+                                property bool noneHov: false
+
+                                Text { id: noneLbl; anchors.centerIn: parent; text: "None"; font.pixelSize: 11; color: appViewModel && !appViewModel.subtitleLanguageSecondary ? Theme.textPrimary : Theme.textSecondary }
+                                MouseArea { anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onEntered: parent.noneHov = true; onExited: parent.noneHov = false; onClicked: { if (appViewModel) appViewModel.subtitleLanguageSecondary = "" } }
+                            }
+
+                            Repeater {
+                                model: langOptions
+
+                                Rectangle {
+                                    width: secLangLabel.implicitWidth + Theme.spacingMd * 2
+                                    height: 28
+                                    radius: Theme.borderRadiusSmall
+                                    color: appViewModel && appViewModel.subtitleLanguageSecondary === modelData.value
+                                        ? Theme.accent : secLangHov ? Theme.surfaceHover : Theme.surface
+                                    border.width: 1; border.color: Theme.surfaceBorder
+                                    property bool secLangHov: false
+
+                                    Text { id: secLangLabel; anchors.centerIn: parent; text: modelData.label; font.pixelSize: 11; color: appViewModel && appViewModel.subtitleLanguageSecondary === modelData.value ? Theme.textPrimary : Theme.textSecondary }
+                                    MouseArea { anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onEntered: parent.secLangHov = true; onExited: parent.secLangHov = false; onClicked: { if (appViewModel) appViewModel.subtitleLanguageSecondary = modelData.value } }
                                 }
                             }
                         }
@@ -996,6 +1248,73 @@ Item {
                         font.pixelSize: Theme.fontSizeXs
                         color: Theme.textMuted
                         font.italic: true
+                    }
+
+                    Rectangle { Layout.fillWidth: true; height: 1; color: Theme.surfaceBorder; opacity: 0.5 }
+
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        spacing: Theme.spacingXs
+
+                        Text {
+                            text: "Maximum recording storage"
+                            font.pixelSize: Theme.fontSizeSm
+                            color: Theme.textPrimary
+                        }
+
+                        Text {
+                            text: "Oldest recordings are automatically deleted when the limit is reached"
+                            font.pixelSize: Theme.fontSizeXs
+                            color: Theme.textMuted
+                        }
+
+                        Flow {
+                            Layout.fillWidth: true
+                            spacing: Theme.spacingSm
+
+                            Repeater {
+                                model: [
+                                    { value: 0, label: "Unlimited" },
+                                    { value: 2, label: "2 GB" },
+                                    { value: 10, label: "10 GB" },
+                                    { value: 20, label: "20 GB" },
+                                    { value: 40, label: "40 GB" },
+                                    { value: 100, label: "100 GB" }
+                                ]
+
+                                Rectangle {
+                                    width: maxSzLabel.implicitWidth + 20
+                                    height: 28
+                                    radius: Theme.borderRadiusSmall
+                                    color: appViewModel && appViewModel.maxRecordingSizeGb === modelData.value
+                                        ? Theme.accent : maxSzHov ? Theme.surfaceHover : Theme.surface
+                                    border.width: 1
+                                    border.color: appViewModel && appViewModel.maxRecordingSizeGb === modelData.value
+                                        ? Theme.accent : Theme.surfaceBorder
+                                    property bool maxSzHov: false
+
+                                    Text {
+                                        id: maxSzLabel
+                                        anchors.centerIn: parent
+                                        text: modelData.label
+                                        font.pixelSize: 9
+                                        color: appViewModel && appViewModel.maxRecordingSizeGb === modelData.value
+                                            ? "#FFFFFF" : Theme.textPrimary
+                                    }
+
+                                    MouseArea {
+                                        anchors.fill: parent
+                                        hoverEnabled: true
+                                        cursorShape: Qt.PointingHandCursor
+                                        onEntered: parent.maxSzHov = true
+                                        onExited: parent.maxSzHov = false
+                                        onClicked: {
+                                            if (appViewModel) appViewModel.maxRecordingSizeGb = modelData.value
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }

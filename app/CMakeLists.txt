@@ -9,6 +9,8 @@ qt_add_resources(iptvXS "app_resources"
     BASE "../"
     FILES
         ../images/iptvxs_logo.png
+        ../images/iptvxs_tray.png
+        ../images/iptvxs_icon_256.png
 )
 
 set_target_properties(iptvXS PROPERTIES
@@ -36,6 +38,7 @@ qt_add_qml_module(iptvXS
         qml/views/SpeedTestView.qml
         qml/views/VodView.qml
         qml/views/LogView.qml
+        qml/views/HistoryView.qml
         qml/components/Sidebar.qml
         qml/components/TopBar.qml
         qml/components/AddServerDialog.qml
@@ -60,6 +63,8 @@ qt_add_qml_module(iptvXS
         viewmodels/gdrive_viewmodel.cpp
         viewmodels/speed_test_viewmodel.h
         viewmodels/speed_test_viewmodel.cpp
+        viewmodels/history_viewmodel.h
+        viewmodels/history_viewmodel.cpp
         viewmodels/log_viewmodel.h
         viewmodels/log_viewmodel.cpp
         viewmodels/player_viewmodel.h
@@ -73,7 +78,7 @@ target_include_directories(iptvXS
         ${CMAKE_CURRENT_SOURCE_DIR}/viewmodels
 )
 
-find_package(Qt6 REQUIRED COMPONENTS Concurrent OpenGL Widgets QuickDialogs2)
+find_package(Qt6 REQUIRED COMPONENTS Concurrent DBus OpenGL Widgets QuickDialogs2)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(MPV REQUIRED mpv)
 
@@ -86,6 +91,7 @@ target_link_libraries(iptvXS
     PRIVATE
         iptvxs-core
         Qt6::Concurrent
+        Qt6::DBus
         Qt6::Quick
         Qt6::QuickControls2
         Qt6::QuickDialogs2

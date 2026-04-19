@@ -11,15 +11,57 @@ Item {
     property string channelLogo: ""
     property bool videoFullscreen: appViewModel ? appViewModel.videoFullscreen : false
 
+    function langCodesFor(iso1) {
+        var map = {
+            "en": ["eng"], "nl": ["dut","nld"], "fr": ["fre","fra"],
+            "de": ["ger","deu"], "es": ["spa"], "it": ["ita"],
+            "pt": ["por"], "ru": ["rus"], "ar": ["ara"], "tr": ["tur"],
+            "pl": ["pol"], "zh": ["chi","zho"], "ja": ["jpn"], "ko": ["kor"],
+            "hi": ["hin"], "sv": ["swe"], "da": ["dan"], "no": ["nor"],
+            "fi": ["fin"], "cs": ["cze","ces"], "hu": ["hun"],
+            "ro": ["rum","ron"], "el": ["gre","ell"], "he": ["heb"],
+            "th": ["tha"], "vi": ["vie"]
+        }
+        return map[iso1] || [iso1]
+    }
+
+    function langMatches(trackLang, settingLang) {
+        if (!trackLang || !settingLang) return false
+        var codes = langCodesFor(settingLang.toLowerCase())
+        return codes.indexOf(trackLang.toLowerCase()) >= 0
+    }
+
+    function langName(code) {
+        var map = {
+            "eng": "English", "dut": "Dutch", "nld": "Dutch",
+            "fre": "French", "fra": "French",
+            "ger": "German", "deu": "German",
+            "spa": "Spanish", "ita": "Italian",
+            "por": "Portuguese", "rus": "Russian",
+            "ara": "Arabic", "tur": "Turkish",
+            "pol": "Polish", "chi": "Chinese", "zho": "Chinese",
+            "jpn": "Japanese", "kor": "Korean",
+            "hin": "Hindi", "swe": "Swedish",
+            "dan": "Danish", "nor": "Norwegian",
+            "fin": "Finnish", "cze": "Czech", "ces": "Czech",
+            "hun": "Hungarian", "rum": "Romanian", "ron": "Romanian",
+            "gre": "Greek", "ell": "Greek",
+            "heb": "Hebrew", "tha": "Thai",
+            "vie": "Vietnamese", "ind": "Indonesian",
+            "may": "Malay", "msa": "Malay",
+            "bul": "Bulgarian", "hrv": "Croatian",
+            "srp": "Serbian", "slv": "Slovenian",
+            "ukr": "Ukrainian", "cat": "Catalan",
+            "per": "Persian", "fas": "Persian",
+            "und": "Undetermined", "mul": "Multiple"
+        }
+        if (!code) return ""
+        return map[code.toLowerCase()] || code.toUpperCase()
+    }
+
     Rectangle {
         anchors.fill: parent
-        color: "#000000"
-
-        MpvVideoItem {
-            id: videoSurface
-            anchors.fill: parent
-            player: appViewModel ? appViewModel.player.mpvPlayer : null
-        }
+        color: "transparent"
 
         MouseArea {
             anchors.fill: parent
@@ -147,7 +189,7 @@ Item {
 
                     Item { Layout.fillWidth: true }
 
-                    // --- Favorite button ---
+                    // --- Favorite button (live channels only) ---
                     PlayerButton {
                         id: favBtn
                         text: isFav ? "⭐" : "☆"
@@ -170,11 +212,12 @@ Item {
                         }
                     }
 
-                    // --- Record button (uses mpv stream-record to avoid second connection) ---
+                    // --- Record button (live only) ---
                     PlayerButton {
                         id: recBtn
                         text: recActive ? "⏹" : "⏺"
                         btnColor: recActive ? Theme.error : "transparent"
+                        visible: appViewModel ? appViewModel.player.isLive : false
                         property bool recActive: false
                         property string recPath: ""
                         property var recStartTime: 0
@@ -216,16 +259,36 @@ Item {
                         }
                     }
 
-                    Rectangle { width: 1; height: 28; color: "#40ffffff" }
-
-                    // --- Subtitle controls ---
-                    PlayerButton {
-                        text: "CC"
-                        iconSize: 14
-                        onClicked: subPopup.visible = !subPopup.visible
+                    Rectangle {
+                        width: 1; height: 28; color: "#40ffffff"
+                        visible: ccBtn.visible
                     }
 
-                    Rectangle { width: 1; height: 28; color: "#40ffffff" }
+                    PlayerButton {
+                        id: ccBtn
+                        visible: appViewModel && !appViewModel.player.isLive && appViewModel.subtitlesEnabled
+                        text: "CC"
+                        iconSize: 14
+                        onClicked: subTrackPopup.visible = !subTrackPopup.visible
+                    }
+
+                    Rectangle {
+                        width: 1; height: 28; color: "#40ffffff"
+                        visible: ccBtn.visible || audioBtn.visible
+                    }
+
+                    PlayerButton {
+                        id: audioBtn
+                        visible: appViewModel && appViewModel.player.audioTracks.length > 1
+                        text: "AUD"
+                        iconSize: 12
+                        onClicked: audioTrackPopup.visible = !audioTrackPopup.visible
+                    }
+
+                    Rectangle {
+                        width: 1; height: 28; color: "#40ffffff"
+                        visible: audioBtn.visible
+                    }
 
                     Rectangle {
                         width: 44
@@ -366,6 +429,7 @@ Item {
                 }
 
                 Text {
+                    id: clockText
                     text: Qt.formatTime(new Date(), "HH:mm")
                     font.pixelSize: Theme.fontSizeMd
                     color: "#ccffffff"
@@ -413,22 +477,28 @@ Item {
             }
         }
 
-        // --- Subtitle popup panel ---
+        // --- Subtitle track picker popup ---
         Rectangle {
-            id: subPopup
+            id: subTrackPopup
             visible: false
             anchors.right: parent.right
             anchors.bottom: controlsOverlay.top
             anchors.rightMargin: Theme.spacingLg
             anchors.bottomMargin: Theme.spacingSm
-            width: 280
-            height: subPopupCol.implicitHeight + Theme.spacingMd * 2
+            width: 300
+            height: subTrackCol.implicitHeight + Theme.spacingMd * 2
             radius: Theme.borderRadius
             color: "#e0202020"
             z: 15
 
+            onVisibleChanged: {
+                if (visible && appViewModel) {
+                    appViewModel.player.refreshSubtitleTracks()
+                }
+            }
+
             ColumnLayout {
-                id: subPopupCol
+                id: subTrackCol
                 anchors.fill: parent
                 anchors.margins: Theme.spacingMd
                 spacing: Theme.spacingSm
@@ -457,6 +527,108 @@ Item {
                             if (appViewModel) appViewModel.player.setSubtitleVisibility(checked)
                         }
                     }
+                }
+
+                Rectangle { Layout.fillWidth: true; height: 1; color: "#40ffffff" }
+
+                Text {
+                    text: "Subtitle tracks"
+                    font.pixelSize: Theme.fontSizeXs
+                    font.bold: true
+                    color: "#ccffffff"
+                    visible: subTrackList.count > 0
+                }
+
+                Rectangle {
+                    visible: subTrackList.count > 0
+                    Layout.fillWidth: true
+                    height: Math.min(subTrackList.contentHeight, 150)
+                    color: "transparent"
+
+                    ListView {
+                        id: subTrackList
+                        anchors.fill: parent
+                        clip: true
+                        model: {
+                            if (!appViewModel) return []
+                            var tracks = appViewModel.player.subtitleTracks
+                            var primary = appViewModel.subtitleLanguage || ""
+                            var secondary = appViewModel.subtitleLanguageSecondary || ""
+                            if (!primary && !secondary) return tracks
+                            var filtered = []
+                            for (var i = 0; i < tracks.length; i++) {
+                                var t = tracks[i]
+                                if (t.selected || t.external
+                                    || playerView.langMatches(t.lang, primary)
+                                    || playerView.langMatches(t.lang, secondary)
+                                    || !t.lang)
+                                    filtered.push(t)
+                            }
+                            return filtered.length > 0 ? filtered : tracks
+                        }
+                        spacing: 2
+
+                        delegate: Rectangle {
+                            width: subTrackList.width
+                            height: 36
+                            radius: 6
+                            color: modelData.selected ? Theme.accent + "50" : stHov ? Theme.accent + "25" : "#15ffffff"
+                            border.width: modelData.selected ? 1 : 0
+                            border.color: Theme.accent
+                            property bool stHov: false
+
+                            Behavior on color { ColorAnimation { duration: 150 } }
+
+                            RowLayout {
+                                anchors.fill: parent
+                                anchors.leftMargin: 10
+                                anchors.rightMargin: 10
+
+                                Text {
+                                    text: modelData.selected ? "●" : "○"
+                                    font.pixelSize: 12
+                                    color: modelData.selected ? Theme.accent : stHov ? "#bbffffff" : "#60ffffff"
+                                }
+
+                                Text {
+                                    text: {
+                                        var lang = playerView.langName(modelData.lang)
+                                        var title = modelData.title || ""
+                                        if (modelData.external) title = title ? title + " (ext)" : "(external)"
+                                        if (lang && title) return lang + " — " + title
+                                        if (lang) return lang
+                                        if (title) return title
+                                        return "Track " + modelData.id
+                                    }
+                                    font.pixelSize: Theme.fontSizeXs
+                                    font.bold: modelData.selected
+                                    color: modelData.selected ? "#ffffff" : stHov ? "#eeffffff" : "#ccffffff"
+                                    elide: Text.ElideRight
+                                    Layout.fillWidth: true
+                                }
+                            }
+
+                            MouseArea {
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onEntered: parent.stHov = true
+                                onExited: parent.stHov = false
+                                onClicked: {
+                                    if (appViewModel) appViewModel.player.selectSubtitleTrack(modelData.id)
+                                    subTrackPopup.visible = false
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Text {
+                    visible: subTrackList.count === 0
+                    text: "No subtitle tracks available"
+                    font.pixelSize: Theme.fontSizeXs
+                    color: "#80ffffff"
+                    font.italic: true
                 }
 
                 Rectangle { Layout.fillWidth: true; height: 1; color: "#40ffffff" }
@@ -541,6 +713,112 @@ Item {
             }
         }
 
+        // --- Audio track popup ---
+        Rectangle {
+            id: audioTrackPopup
+            visible: false
+            anchors.right: parent.right
+            anchors.bottom: parent.bottom
+            anchors.bottomMargin: 80
+            anchors.rightMargin: Theme.spacingMd
+            width: 280
+            height: Math.min(audioTrackCol.implicitHeight + Theme.spacingMd * 2, 350)
+            radius: Theme.borderRadiusLarge
+            color: "#e0202020"
+
+            onVisibleChanged: {
+                if (visible && appViewModel)
+                    appViewModel.player.refreshAudioTracks()
+            }
+            border.color: "#40ffffff"
+            border.width: 1
+            z: 50
+
+            Flickable {
+                anchors.fill: parent
+                anchors.margins: Theme.spacingMd
+                contentHeight: audioTrackCol.implicitHeight
+                clip: true
+                boundsBehavior: Flickable.StopAtBounds
+
+                ScrollBar.vertical: ScrollBar {
+                    active: true
+                    policy: ScrollBar.AsNeeded
+                }
+
+                ColumnLayout {
+                    id: audioTrackCol
+                    width: parent.width
+                    spacing: Theme.spacingSm
+
+                    Text {
+                        text: "Audio tracks"
+                        font.pixelSize: Theme.fontSizeSm
+                        font.bold: true
+                        color: "#ffffff"
+                    }
+
+                    Rectangle { Layout.fillWidth: true; height: 1; color: "#40ffffff" }
+
+                    Repeater {
+                        model: appViewModel ? appViewModel.player.audioTracks : []
+
+                        Rectangle {
+                            Layout.fillWidth: true
+                            height: 36
+                            radius: 4
+                            color: modelData.selected ? Theme.accent + "50" : atHov ? Theme.accent + "25" : "#15ffffff"
+                            border.width: modelData.selected ? 1 : 0
+                            border.color: Theme.accent
+                            property bool atHov: false
+
+                            Behavior on color { ColorAnimation { duration: 150 } }
+
+                            RowLayout {
+                                anchors.fill: parent
+                                anchors.leftMargin: 10
+                                anchors.rightMargin: 10
+
+                                Text {
+                                    text: modelData.selected ? "●" : "○"
+                                    font.pixelSize: 12
+                                    color: modelData.selected ? Theme.accent : atHov ? "#bbffffff" : "#60ffffff"
+                                }
+
+                                Text {
+                                    text: {
+                                        var lang = playerView.langName(modelData.lang)
+                                        var title = modelData.title || ""
+                                        if (lang && title) return lang + " — " + title
+                                        if (lang) return lang
+                                        if (title) return title
+                                        return "Track " + modelData.id
+                                    }
+                                    font.pixelSize: Theme.fontSizeXs
+                                    font.bold: modelData.selected
+                                    color: modelData.selected ? "#ffffff" : atHov ? "#eeffffff" : "#ccffffff"
+                                    elide: Text.ElideRight
+                                    Layout.fillWidth: true
+                                }
+                            }
+
+                            MouseArea {
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onEntered: parent.atHov = true
+                                onExited: parent.atHov = false
+                                onClicked: {
+                                    if (appViewModel) appViewModel.player.selectAudioTrack(modelData.id)
+                                    audioTrackPopup.visible = false
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         // --- Stopped placeholder ---
         Text {
             anchors.centerIn: parent
@@ -560,14 +838,12 @@ Item {
         }
     }
 
-    // --- Clock update timer ---
     Timer {
         interval: 30000
         running: true
         repeat: true
-        onTriggered: clockDummy.text = ""
+        onTriggered: clockText.text = Qt.formatTime(new Date(), "HH:mm")
     }
-    Text { id: clockDummy; visible: false }
 
     Timer {
         id: pendingTimer
@@ -587,9 +863,13 @@ Item {
         id: subSearchTimer
         interval: 2000
         onTriggered: {
-            if (appViewModel && appViewModel.subtitlesEnabled) {
-                var name = appViewModel.player.channelName
-                if (name) appViewModel.searchSubtitles(name)
+            if (appViewModel && !appViewModel.player.isLive) {
+                appViewModel.player.refreshSubtitleTracks()
+                appViewModel.player.refreshAudioTracks()
+                if (appViewModel.subtitlesEnabled) {
+                    var name = appViewModel.player.channelName
+                    if (name) appViewModel.searchSubtitles(name)
+                }
             }
         }
     }
@@ -620,9 +900,8 @@ Item {
             appViewModel.player.play(channelUrl, channelName, channelLogo)
         }
 
-        if (appViewModel && appViewModel.subtitlesEnabled) {
-            var name = appViewModel.player.channelName || channelName
-            if (name) subSearchTimer.start()
+        if (appViewModel && !appViewModel.player.isLive) {
+            subSearchTimer.start()
         }
     }
 

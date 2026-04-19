@@ -90,6 +90,11 @@ int main(int argc, char *argv[]) {
     g_logViewModel = logVm;
     qInstallMessageHandler(appMessageHandler);
 
+    QIcon appIcon;
+    appIcon.addFile(QStringLiteral(":/images/iptvxs_icon_256.png"), QSize(256, 256));
+    appIcon.addFile(QStringLiteral(":/images/iptvxs_tray.png"), QSize(128, 128));
+    app.setWindowIcon(appIcon);
+
     qInfo("iptvXS v%s starting", qPrintable(app.applicationVersion()));
     qInfo("Data directory: %s", qPrintable(dataPath));
 
@@ -113,7 +118,7 @@ int main(int argc, char *argv[]) {
     engine.loadFromModule("app.iptvxs", "Main");
 
     QSystemTrayIcon trayIcon(&app);
-    trayIcon.setIcon(QIcon(QStringLiteral(":/images/iptvxs_logo.png")));
+    trayIcon.setIcon(QIcon(QStringLiteral(":/images/iptvxs_tray.png")));
     trayIcon.setToolTip("iptvXS");
 
     auto *trayMenu = new QMenu();
@@ -170,6 +175,8 @@ int main(int argc, char *argv[]) {
     if (QSystemTrayIcon::isSystemTrayAvailable()) {
         trayIcon.show();
     }
+
+    showMainWindow(engine);
 
     qInfo("Application started successfully");
 

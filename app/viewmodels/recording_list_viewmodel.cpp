@@ -1,6 +1,7 @@
 #include "recording_list_viewmodel.h"
 
 #include <QDateTime>
+#include <QFile>
 #include <QFileInfo>
 
 RecordingListViewModel::RecordingListViewModel(QObject *parent)
@@ -167,6 +168,40 @@ void RecordingListViewModel::deleteRecording(int64_t recordingId) {
     }
 }
 
+void RecordingListViewModel::deleteRecordingWithFile(int64_t recordingId) {
+    if (manager_ && manager_->isRecording(recordingId)) {
+        manager_->stopRecording(recordingId);
+    }
+    if (recordingRepo_) {
+        auto rec = recordingRepo_->findById(recordingId);
+        if (rec && !rec->filePath.isEmpty()) {
+            QFileInfo fi(rec->filePath);
+            if (fi.exists() && fi.isFile() && !fi.isSymLink()
+                && fi.absoluteFilePath().contains(QStringLiteral("iptvxs"))
+                && !fi.fileName().contains(QStringLiteral("*"))
+                && !fi.fileName().contains(QStringLiteral("?"))) {
+                QFile::remove(fi.absoluteFilePath());
+                qInfo("Deleted recording file: %s", qPrintable(fi.absoluteFilePath()));
+            }
+        }
+        recordingRepo_->remove(recordingId);
+    }
+}
+
+qint64 RecordingListViewModel::totalRecordingBytes() const {
+    qint64 total = 0;
+    for (const auto &entry : recordings_) {
+        const auto &r = entry.recording;
+        if (r.fileSizeBytes > 0) {
+            total += r.fileSizeBytes;
+        } else if (!r.filePath.isEmpty()) {
+            QFileInfo fi(r.filePath);
+            if (fi.exists()) total += fi.size();
+        }
+    }
+    return total;
+}
+
 bool RecordingListViewModel::isChannelRecording(int64_t channelId) const {
     if (!recordingRepo_) return false;
     auto recs = recordingRepo_->findByChannel(channelId);
@@ -203,6 +238,13 @@ void RecordingListViewModel::addCompletedRecording(int64_t channelId, int64_t st
 
     recordingRepo_->create(rec);
     loadRecordings();
+}
+
+void RecordingListViewModel::clearError(int64_t recordingId) {
+    if (recordingRepo_) {
+        recordingRepo_->updateStatus(recordingId, QStringLiteral("failed"), QString());
+        loadRecordings();
+    }
 }
 
 QString RecordingListViewModel::formatFileSize(int64_t bytes) const {

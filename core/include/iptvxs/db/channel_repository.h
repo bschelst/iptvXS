@@ -21,6 +21,8 @@ public:
                                          int limit = 200, int offset = 0) const;
     QVector<Channel> search(int64_t serverId, const QString &query,
                             int limit = 200, int offset = 0) const;
+    QVector<Channel> searchWithType(int64_t serverId, const QString &query,
+                                    const QString &type, int limit = 200, int offset = 0) const;
     std::optional<Channel> findById(int64_t id) const;
 
     void batchUpsert(const QVector<Channel> &channels);
@@ -30,6 +32,7 @@ public:
     int count(int64_t serverId) const;
     int countByCategory(int64_t categoryId) const;
     int countBySearch(int64_t serverId, const QString &query) const;
+    int countBySearchWithType(int64_t serverId, const QString &query, const QString &type) const;
     int countByServerAndType(int64_t serverId, const QString &type) const;
 
     static constexpr int kBatchSize = 500;

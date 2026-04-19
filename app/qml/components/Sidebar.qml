@@ -31,12 +31,12 @@ Rectangle {
     ColumnLayout {
         anchors.fill: parent
         anchors.topMargin: Theme.spacingMd
-        spacing: Theme.spacingXs
+        spacing: 0
 
         Item {
             Layout.fillWidth: true
             Layout.preferredHeight: 48
-            Layout.bottomMargin: Theme.spacingLg
+            Layout.bottomMargin: Theme.spacingMd
 
             Row {
                 anchors.centerIn: parent
@@ -61,20 +61,33 @@ Rectangle {
             }
         }
 
+        Text {
+            visible: !sidebar.collapsed
+            text: "MAIN"
+            font.pixelSize: 10
+            font.bold: true
+            font.letterSpacing: 1.5
+            color: Theme.textMuted
+            opacity: 0.6
+            Layout.leftMargin: Theme.spacingLg
+            Layout.bottomMargin: 4
+        }
+
         Repeater {
             model: [
                 { name: "home", icon: "⌂", label: "Home" },
                 { name: "servers", icon: "⊕", label: "Servers" },
-                { name: "channels", icon: "≡", label: "Channels" },
+                { name: "channels", icon: "≡", label: "TV Channels" },
                 { name: "vod", icon: "▷", label: "VOD" },
                 { name: "favorites", icon: "★", label: "Favorites" },
                 { name: "epg", icon: "☰", label: "TV Guide" },
-                { name: "recordings", icon: "●", label: "Recordings" }
+                { name: "recordings", icon: "●", label: "Recordings" },
+                { name: "history", icon: "↺", label: "Play History" }
             ]
 
             delegate: Rectangle {
                 Layout.fillWidth: true
-                Layout.preferredHeight: 44
+                Layout.preferredHeight: 40
                 Layout.leftMargin: Theme.spacingSm
                 Layout.rightMargin: Theme.spacingSm
                 radius: Theme.borderRadius
@@ -93,7 +106,7 @@ Rectangle {
                     anchors.left: parent.left
                     anchors.verticalCenter: parent.verticalCenter
                     width: 3
-                    height: 24
+                    height: 20
                     radius: 2
                     color: Theme.accent
                 }
@@ -102,20 +115,27 @@ Rectangle {
                     anchors.verticalCenter: parent.verticalCenter
                     anchors.left: parent.left
                     anchors.leftMargin: Theme.spacingMd
-                    spacing: Theme.spacingMd
+                    spacing: Theme.spacingSm
 
-                    Text {
-                        text: modelData.icon
-                        font.pixelSize: Theme.fontSizeMd
-                        color: sidebar.activeItem === modelData.name
-                            ? Theme.accent : Theme.textMuted
+                    Item {
+                        width: 22
+                        height: 22
                         anchors.verticalCenter: parent.verticalCenter
+
+                        Text {
+                            anchors.centerIn: parent
+                            text: modelData.icon
+                            font.pixelSize: 16
+                            color: sidebar.activeItem === modelData.name
+                                ? Theme.accent : Theme.textMuted
+                        }
                     }
 
                     Text {
                         visible: !sidebar.collapsed
                         text: modelData.label
                         font.pixelSize: Theme.fontSizeSm
+                        font.weight: sidebar.activeItem === modelData.name ? Font.DemiBold : Font.Normal
                         color: sidebar.activeItem === modelData.name
                             ? Theme.textPrimary
                             : Theme.textSecondary
@@ -143,6 +163,28 @@ Rectangle {
 
         Item { Layout.fillHeight: true }
 
+        Rectangle {
+            Layout.fillWidth: true
+            Layout.leftMargin: Theme.spacingLg
+            Layout.rightMargin: Theme.spacingLg
+            Layout.bottomMargin: Theme.spacingSm
+            height: 1
+            color: Theme.surfaceBorder
+            opacity: 0.5
+        }
+
+        Text {
+            visible: !sidebar.collapsed
+            text: "TOOLS"
+            font.pixelSize: 10
+            font.bold: true
+            font.letterSpacing: 1.5
+            color: Theme.textMuted
+            opacity: 0.6
+            Layout.leftMargin: Theme.spacingLg
+            Layout.bottomMargin: 4
+        }
+
         Repeater {
             model: [
                 { name: "speedtest", icon: "↕", label: "Speed Test" },
@@ -152,10 +194,9 @@ Rectangle {
 
             delegate: Rectangle {
                 Layout.fillWidth: true
-                Layout.preferredHeight: 44
+                Layout.preferredHeight: 40
                 Layout.leftMargin: Theme.spacingSm
                 Layout.rightMargin: Theme.spacingSm
-                Layout.bottomMargin: index === 1 ? Theme.spacingMd : 0
                 radius: Theme.borderRadius
                 color: sidebar.activeItem === modelData.name
                     ? Theme.accentGlow
@@ -167,24 +208,41 @@ Rectangle {
                     ColorAnimation { duration: Theme.animFast }
                 }
 
+                Rectangle {
+                    visible: sidebar.activeItem === modelData.name
+                    anchors.left: parent.left
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: 3
+                    height: 20
+                    radius: 2
+                    color: Theme.accent
+                }
+
                 Row {
                     anchors.verticalCenter: parent.verticalCenter
                     anchors.left: parent.left
                     anchors.leftMargin: Theme.spacingMd
-                    spacing: Theme.spacingMd
+                    spacing: Theme.spacingSm
 
-                    Text {
-                        text: modelData.icon
-                        font.pixelSize: Theme.fontSizeMd
-                        color: sidebar.activeItem === modelData.name
-                            ? Theme.accent : Theme.textMuted
+                    Item {
+                        width: 22
+                        height: 22
                         anchors.verticalCenter: parent.verticalCenter
+
+                        Text {
+                            anchors.centerIn: parent
+                            text: modelData.icon
+                            font.pixelSize: 16
+                            color: sidebar.activeItem === modelData.name
+                                ? Theme.accent : Theme.textMuted
+                        }
                     }
 
                     Text {
                         visible: !sidebar.collapsed
                         text: modelData.label
                         font.pixelSize: Theme.fontSizeSm
+                        font.weight: sidebar.activeItem === modelData.name ? Font.DemiBold : Font.Normal
                         color: sidebar.activeItem === modelData.name
                             ? Theme.textPrimary
                             : Theme.textSecondary
@@ -205,5 +263,7 @@ Rectangle {
                 }
             }
         }
+
+        Item { Layout.preferredHeight: Theme.spacingSm }
     }
 }

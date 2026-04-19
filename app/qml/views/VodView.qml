@@ -29,19 +29,22 @@ Item {
                 anchors.fill: parent
                 spacing: 0
 
-                Rectangle {
+                Item {
                     Layout.fillWidth: true
-                    Layout.preferredHeight: 48
-                    color: "transparent"
+                    Layout.preferredHeight: 36
+                    Layout.topMargin: Theme.spacingSm
 
                     Text {
                         anchors.left: parent.left
                         anchors.leftMargin: Theme.spacingMd
-                        anchors.verticalCenter: parent.verticalCenter
-                        text: "Servers"
-                        font.pixelSize: Theme.fontSizeSm
+                        anchors.bottom: parent.bottom
+                        anchors.bottomMargin: 8
+                        text: "SERVERS"
+                        font.pixelSize: 10
                         font.bold: true
+                        font.letterSpacing: 1.5
                         color: Theme.textMuted
+                        opacity: 0.7
                     }
                 }
 
@@ -56,9 +59,17 @@ Item {
                         width: serverPicker.width
                         height: 36
                         color: activeServerId === model.serverId
-                            ? Theme.accentGlow : srvHov ? Theme.surfaceHover : "transparent"
+                            ? Theme.accent + "25" : srvHov ? Theme.surfaceHover : "transparent"
 
                         property bool srvHov: false
+
+                        Rectangle {
+                            visible: activeServerId === model.serverId
+                            anchors.left: parent.left
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: 3; height: 20; radius: 2
+                            color: Theme.accent
+                        }
 
                         Text {
                             anchors.left: parent.left
@@ -66,6 +77,7 @@ Item {
                             anchors.verticalCenter: parent.verticalCenter
                             text: model.name
                             font.pixelSize: Theme.fontSizeSm
+                            font.bold: activeServerId === model.serverId
                             color: activeServerId === model.serverId
                                 ? Theme.textPrimary : Theme.textSecondary
                             elide: Text.ElideRight
@@ -85,23 +97,28 @@ Item {
 
                 Rectangle {
                     Layout.fillWidth: true
+                    Layout.leftMargin: Theme.spacingMd
+                    Layout.rightMargin: Theme.spacingMd
                     height: 1
                     color: Theme.surfaceBorder
                 }
 
-                Rectangle {
+                Item {
                     Layout.fillWidth: true
                     Layout.preferredHeight: 36
-                    color: "transparent"
+                    Layout.topMargin: Theme.spacingSm
 
                     Text {
                         anchors.left: parent.left
                         anchors.leftMargin: Theme.spacingMd
-                        anchors.verticalCenter: parent.verticalCenter
-                        text: "Type"
-                        font.pixelSize: Theme.fontSizeSm
+                        anchors.bottom: parent.bottom
+                        anchors.bottomMargin: 8
+                        text: "TYPE"
+                        font.pixelSize: 10
                         font.bold: true
+                        font.letterSpacing: 1.5
                         color: Theme.textMuted
+                        opacity: 0.7
                     }
                 }
 
@@ -115,9 +132,17 @@ Item {
                         Layout.fillWidth: true
                         Layout.preferredHeight: 36
                         color: activeType === modelData.type
-                            ? Theme.accentGlow : typeHov ? Theme.surfaceHover : "transparent"
+                            ? Theme.accent + "25" : typeHov ? Theme.surfaceHover : "transparent"
 
                         property bool typeHov: false
+
+                        Rectangle {
+                            visible: activeType === modelData.type
+                            anchors.left: parent.left
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: 3; height: 20; radius: 2
+                            color: Theme.accent
+                        }
 
                         Text {
                             anchors.left: parent.left
@@ -245,7 +270,8 @@ Item {
                 id: vodGrid
                 Layout.fillWidth: true
                 Layout.fillHeight: true
-                cellWidth: 220
+                property int cols: appViewModel ? appViewModel.gridColumns : 2
+                cellWidth: Math.floor(width / cols)
                 cellHeight: 72
                 clip: true
                 focus: true
@@ -676,6 +702,7 @@ Item {
     }
 
     Component.onCompleted: {
+        vodGrid.forceActiveFocus()
         if (appViewModel) {
             appViewModel.channelList.searchQuery = ""
             appViewModel.channelList.categoryId = 0

@@ -22,6 +22,9 @@ class PlayerViewModel : public QObject {
     Q_PROPERTY(QString channelName READ channelName NOTIFY channelNameChanged)
     Q_PROPERTY(QString channelLogo READ channelLogo NOTIFY channelLogoChanged)
     Q_PROPERTY(iptvxs::MpvPlayer *mpvPlayer READ mpvPlayer CONSTANT)
+    Q_PROPERTY(bool isLive READ isLive NOTIFY isLiveChanged)
+    Q_PROPERTY(QVariantList subtitleTracks READ subtitleTracks NOTIFY subtitleTracksChanged)
+    Q_PROPERTY(QVariantList audioTracks READ audioTracks NOTIFY audioTracksChanged)
 
 public:
     explicit PlayerViewModel(QObject *parent = nullptr);
@@ -41,6 +44,7 @@ public:
     QString channelName() const;
     QString channelLogo() const;
     iptvxs::MpvPlayer *mpvPlayer() const;
+    QString currentUrl() const;
 
     Q_INVOKABLE void play(const QString &url, const QString &name = {},
                           const QString &logo = {}, int64_t channelId = 0);
@@ -60,6 +64,14 @@ public:
     Q_INVOKABLE void setSubtitleVisibility(bool visible);
     Q_INVOKABLE bool subtitleVisible() const;
     Q_INVOKABLE void adjustSubtitleDelay(double deltaSecs);
+    Q_INVOKABLE void selectSubtitleTrack(int trackId);
+    Q_INVOKABLE void refreshSubtitleTracks();
+    Q_INVOKABLE void selectAudioTrack(int trackId);
+    Q_INVOKABLE void refreshAudioTracks();
+
+    bool isLive() const;
+    QVariantList subtitleTracks() const;
+    QVariantList audioTracks() const;
 
     Q_INVOKABLE QString formatTime(double seconds) const;
 
@@ -72,11 +84,21 @@ signals:
     void channelNameChanged();
     void channelLogoChanged();
     void channelIdChanged();
+    void isLiveChanged();
+    void subtitleTracksChanged();
+    void audioTracksChanged();
     void errorOccurred(const QString &message);
 
 private:
     iptvxs::MpvPlayer *player_;
+    QString currentUrl_;
     QString channelName_;
     QString channelLogo_;
     int64_t channelId_{0};
+    bool isLive_{false};
+    QVariantList subtitleTracks_;
+    QVariantList audioTracks_;
+    uint32_t screenSaverCookie_{0};
+    void inhibitScreenSaver();
+    void uninhibitScreenSaver();
 };
