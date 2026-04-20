@@ -140,6 +140,8 @@ Item {
                     Layout.preferredHeight: 28
                     Layout.leftMargin: Theme.spacingSm
                     Layout.rightMargin: Theme.spacingSm
+                    Layout.topMargin: Theme.spacingSm
+                    Layout.bottomMargin: Theme.spacingMd
                     radius: 14
                     color: Theme.surfaceElevated
                     border.color: catFilterInput.activeFocus ? Theme.accent : Theme.surfaceBorder
@@ -289,7 +291,7 @@ Item {
                     anchors.verticalCenter: parent.verticalCenter
                     text: {
                         var total = appViewModel ? appViewModel.channelList.totalCount : 0
-                        return total + " live channels"
+                        return total + " TV channels"
                     }
                     font.pixelSize: Theme.fontSizeSm
                     color: Theme.textSecondary

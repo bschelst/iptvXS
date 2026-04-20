@@ -235,6 +235,10 @@ std::vector<Database::Migration> Database::migrations() const {
              QSqlQuery q(db);
              return q.exec("ALTER TABLE history ADD COLUMN stream_url TEXT DEFAULT ''");
          }},
+        {6, "Add gdrive_upload_url to recordings", [](QSqlDatabase &db) -> bool {
+             QSqlQuery q(db);
+             return q.exec("ALTER TABLE recordings ADD COLUMN gdrive_upload_url TEXT DEFAULT ''");
+         }},
     };
 }
 

@@ -29,6 +29,7 @@ public:
     bool updateFileSize(int64_t id, int64_t fileSizeBytes);
     bool updateFilePath(int64_t id, const QString &filePath);
     bool updateEndTime(int64_t id, int64_t endTime);
+    bool updateUploadUrl(int64_t id, const QString &uploadUrl);
 
     int count() const;
     int countByStatus(const QString &status) const;

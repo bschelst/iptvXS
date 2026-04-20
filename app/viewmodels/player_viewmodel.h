@@ -25,6 +25,9 @@ class PlayerViewModel : public QObject {
     Q_PROPERTY(bool isLive READ isLive NOTIFY isLiveChanged)
     Q_PROPERTY(QVariantList subtitleTracks READ subtitleTracks NOTIFY subtitleTracksChanged)
     Q_PROPERTY(QVariantList audioTracks READ audioTracks NOTIFY audioTracksChanged)
+    Q_PROPERTY(bool recording READ recording NOTIFY recordingChanged)
+    Q_PROPERTY(QString recordingPath READ recordingPath NOTIFY recordingChanged)
+    Q_PROPERTY(qint64 recordingStartTime READ recordingStartTime NOTIFY recordingChanged)
 
 public:
     explicit PlayerViewModel(QObject *parent = nullptr);
@@ -72,6 +75,9 @@ public:
     bool isLive() const;
     QVariantList subtitleTracks() const;
     QVariantList audioTracks() const;
+    bool recording() const;
+    QString recordingPath() const;
+    qint64 recordingStartTime() const;
 
     Q_INVOKABLE QString formatTime(double seconds) const;
 
@@ -87,6 +93,8 @@ signals:
     void isLiveChanged();
     void subtitleTracksChanged();
     void audioTracksChanged();
+    void recordingChanged();
+    void streamRecordingStopped(const QString &filePath, qint64 startTime);
     void errorOccurred(const QString &message);
 
 private:
@@ -98,6 +106,9 @@ private:
     bool isLive_{false};
     QVariantList subtitleTracks_;
     QVariantList audioTracks_;
+    bool recording_{false};
+    QString recordingPath_;
+    qint64 recordingStartTime_{0};
     uint32_t screenSaverCookie_{0};
     void inhibitScreenSaver();
     void uninhibitScreenSaver();

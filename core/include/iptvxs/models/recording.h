@@ -16,6 +16,7 @@ struct Recording {
     int64_t endTime{0};
     int64_t fileSizeBytes{0};
     QString gdriveFileId;
+    QString gdriveUploadUrl;
     QString errorMessage;
     int64_t createdAt{0};
 };

@@ -74,7 +74,8 @@ int main(int argc, char *argv[]) {
     app.setApplicationName("iptvXS");
     app.setApplicationVersion("0.1.0");
     app.setOrganizationName("iptvXS");
-    app.setQuitOnLastWindowClosed(false);
+    // Tied to closeToTray setting below, once viewModel is available.
+    app.setQuitOnLastWindowClosed(true);
 
     QQuickStyle::setStyle("Basic");
 
@@ -106,6 +107,16 @@ int main(int argc, char *argv[]) {
         qCritical("Failed to initialize database at %s", qPrintable(dbPath));
         return 1;
     }
+
+    auto applyQuitPolicy = [viewModel, &app]() {
+        const bool tray = viewModel->closeToTray();
+        app.setQuitOnLastWindowClosed(!tray);
+        qInfo("Quit policy: quitOnLastWindowClosed=%s (closeToTray=%s)",
+              tray ? "false" : "true", tray ? "on" : "off");
+    };
+    applyQuitPolicy();
+    QObject::connect(viewModel, &AppViewModel::closeToTrayChanged, &app,
+                     applyQuitPolicy);
 
     QQmlApplicationEngine engine;
 
@@ -172,9 +183,22 @@ int main(int argc, char *argv[]) {
             }
         });
 
-    if (QSystemTrayIcon::isSystemTrayAvailable()) {
-        trayIcon.show();
-    }
+    auto applyTrayVisibility = [viewModel, &trayIcon]() {
+        if (!QSystemTrayIcon::isSystemTrayAvailable()) {
+            trayIcon.hide();
+            return;
+        }
+        const bool tray = viewModel->closeToTray();
+        if (tray) {
+            trayIcon.show();
+        } else {
+            trayIcon.hide();
+        }
+        qInfo("Tray icon visible=%s", tray ? "true" : "false");
+    };
+    applyTrayVisibility();
+    QObject::connect(viewModel, &AppViewModel::closeToTrayChanged, &trayIcon,
+                     applyTrayVisibility);
 
     showMainWindow(engine);
 

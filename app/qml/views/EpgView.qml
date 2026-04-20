@@ -354,12 +354,25 @@ Item {
                                 }
                             }
 
-                            Text {
-                                text: model.channelName
-                                font.pixelSize: Theme.fontSizeSm
-                                color: Theme.textPrimary
-                                elide: Text.ElideRight
+                            RowLayout {
                                 Layout.fillWidth: true
+                                spacing: 4
+
+                                Text {
+                                    visible: model.isFavorite === true
+                                    text: "★"
+                                    font.pixelSize: Theme.fontSizeSm
+                                    color: Theme.warning
+                                }
+
+                                Text {
+                                    text: model.channelName
+                                    font.pixelSize: Theme.fontSizeSm
+                                    color: Theme.textPrimary
+                                    font.bold: model.isFavorite === true
+                                    elide: Text.ElideRight
+                                    Layout.fillWidth: true
+                                }
                             }
                         }
 

@@ -4,13 +4,65 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QMimeType>
 #include <QNetworkReply>
 #include <QNetworkRequest>
+#include <QUrl>
+#include <QUrlQuery>
 
 namespace iptvxs {
 
 GDriveUploader::GDriveUploader(GDriveAuth *auth, QObject *parent)
     : QObject(parent), auth_(auth) {}
+
+void GDriveUploader::withFreshToken(std::function<void()> action,
+                                    std::function<void(const QString &)> onError) {
+    if (!auth_ || !auth_->isAuthenticated()) {
+        if (onError)
+            onError(QStringLiteral("Not authenticated with Google Drive"));
+        return;
+    }
+
+    if (!auth_->needsRefresh()) {
+        action();
+        return;
+    }
+
+    qInfo("GDrive: access token expired, refreshing before API call");
+    auto conn = std::make_shared<QMetaObject::Connection>();
+    auto errConn = std::make_shared<QMetaObject::Connection>();
+
+    *conn = connect(auth_, &GDriveAuth::tokenRefreshed, this,
+                    [action, conn, errConn, this]() {
+                        disconnect(*conn);
+                        disconnect(*errConn);
+                        qInfo("GDrive: token refreshed, proceeding");
+                        action();
+                    });
+    *errConn = connect(auth_, &GDriveAuth::authenticationFailed, this,
+                       [onError, conn, errConn, this](const QString &error) {
+                           disconnect(*conn);
+                           disconnect(*errConn);
+                           qWarning("GDrive: token refresh failed: %s", qPrintable(error));
+                           if (onError) onError(error);
+                       });
+
+    auth_->refreshTokenIfNeeded();
+}
+
+QByteArray GDriveUploader::mimeForFile(const QString &filePath) {
+    QMimeDatabase db;
+    auto mime = db.mimeTypeForFile(filePath);
+    auto name = mime.name().toUtf8();
+    if (name == "application/octet-stream") {
+        if (filePath.endsWith(QStringLiteral(".ts"), Qt::CaseInsensitive))
+            return "video/mp2t";
+        if (filePath.endsWith(QStringLiteral(".mkv"), Qt::CaseInsensitive))
+            return "video/x-matroska";
+        return "video/mp4";
+    }
+    return name;
+}
 
 void GDriveUploader::uploadFile(int64_t recordingId, const QString &filePath,
                                 const QString &fileName, const QString &folderId) {
@@ -18,13 +70,13 @@ void GDriveUploader::uploadFile(int64_t recordingId, const QString &filePath,
         return;
     }
 
-    if (!auth_ || !auth_->isAuthenticated()) {
-        emit uploadFailed(recordingId, QStringLiteral("Not authenticated with Google Drive"));
-        return;
-    }
-
-    auth_->refreshTokenIfNeeded();
-    initiateResumableUpload(recordingId, filePath, fileName, folderId);
+    withFreshToken(
+        [this, recordingId, filePath, fileName, folderId]() {
+            initiateResumableUpload(recordingId, filePath, fileName, folderId);
+        },
+        [this, recordingId](const QString &error) {
+            emit uploadFailed(recordingId, error);
+        });
 }
 
 void GDriveUploader::cancelUpload(int64_t recordingId) {
@@ -39,6 +91,97 @@ bool GDriveUploader::isUploading(int64_t recordingId) const {
     return activeUploads_.contains(recordingId);
 }
 
+void GDriveUploader::ensureFolder(const QString &folderName) {
+    withFreshToken(
+        [this, folderName]() {
+            QUrl listUrl(QStringLiteral("https://www.googleapis.com/drive/v3/files"));
+            QUrlQuery q;
+            QString escaped = folderName;
+            escaped.replace(QLatin1Char('\''), QStringLiteral("\\'"));
+            q.addQueryItem(QStringLiteral("q"),
+                           QStringLiteral("mimeType='application/vnd.google-apps.folder' and "
+                                          "trashed=false and name='%1'")
+                               .arg(escaped));
+            q.addQueryItem(QStringLiteral("fields"), QStringLiteral("files(id,name)"));
+            q.addQueryItem(QStringLiteral("pageSize"), QStringLiteral("1"));
+            listUrl.setQuery(q);
+
+            QNetworkRequest listReq(listUrl);
+            listReq.setRawHeader("Authorization",
+                                 QByteArray("Bearer ") + auth_->accessToken().toUtf8());
+            auto *listReply = nam_.get(listReq);
+
+            connect(listReply, &QNetworkReply::finished, this,
+                    [this, listReply, folderName]() {
+                        listReply->deleteLater();
+                        if (listReply->error() != QNetworkReply::NoError) {
+                            qWarning("GDrive ensureFolder list failed: %s",
+                                     qPrintable(listReply->errorString()));
+                            emit folderResolveFailed(folderName, listReply->errorString());
+                            return;
+                        }
+                        auto body = listReply->readAll();
+                        qInfo("GDrive ensureFolder search response: %s", body.constData());
+                        auto obj = QJsonDocument::fromJson(body).object();
+                        auto arr = obj.value(QStringLiteral("files")).toArray();
+                        if (!arr.isEmpty()) {
+                            const auto id =
+                                arr.first().toObject().value(QStringLiteral("id")).toString();
+                            qInfo("GDrive folder '%s' found: %s", qPrintable(folderName),
+                                  qPrintable(id));
+                            emit folderResolved(folderName, id);
+                            return;
+                        }
+
+                        QJsonObject bodyObj;
+                        bodyObj[QStringLiteral("name")] = folderName;
+                        bodyObj[QStringLiteral("mimeType")] =
+                            QStringLiteral("application/vnd.google-apps.folder");
+
+                        QNetworkRequest createReq(QUrl(QStringLiteral(
+                            "https://www.googleapis.com/drive/v3/files?fields=id,name")));
+                        createReq.setRawHeader(
+                            "Authorization",
+                            QByteArray("Bearer ") + auth_->accessToken().toUtf8());
+                        createReq.setHeader(QNetworkRequest::ContentTypeHeader,
+                                            QStringLiteral("application/json"));
+
+                        auto *createReply = nam_.post(
+                            createReq,
+                            QJsonDocument(bodyObj).toJson(QJsonDocument::Compact));
+                        connect(createReply, &QNetworkReply::finished, this,
+                                [this, createReply, folderName]() {
+                                    createReply->deleteLater();
+                                    if (createReply->error() != QNetworkReply::NoError) {
+                                        qWarning("GDrive create folder failed: %s — %s",
+                                                 qPrintable(createReply->errorString()),
+                                                 createReply->readAll().constData());
+                                        emit folderResolveFailed(folderName,
+                                                                 createReply->errorString());
+                                        return;
+                                    }
+                                    auto o =
+                                        QJsonDocument::fromJson(createReply->readAll()).object();
+                                    const auto id =
+                                        o.value(QStringLiteral("id")).toString();
+                                    if (id.isEmpty()) {
+                                        emit folderResolveFailed(
+                                            folderName,
+                                            QStringLiteral(
+                                                "Create folder response missing id"));
+                                        return;
+                                    }
+                                    qInfo("GDrive folder '%s' created: %s",
+                                          qPrintable(folderName), qPrintable(id));
+                                    emit folderResolved(folderName, id);
+                                });
+                    });
+        },
+        [this, folderName](const QString &error) {
+            emit folderResolveFailed(folderName, error);
+        });
+}
+
 void GDriveUploader::initiateResumableUpload(int64_t recordingId, const QString &filePath,
                                              const QString &fileName, const QString &folderId) {
     QFileInfo fileInfo(filePath);
@@ -46,6 +189,11 @@ void GDriveUploader::initiateResumableUpload(int64_t recordingId, const QString 
         emit uploadFailed(recordingId, QStringLiteral("File not found: %1").arg(filePath));
         return;
     }
+
+    auto contentType = mimeForFile(filePath);
+    qInfo("GDrive upload: file=%s size=%lld mime=%s folder=%s",
+          qPrintable(filePath), static_cast<long long>(fileInfo.size()),
+          contentType.constData(), qPrintable(folderId));
 
     QJsonObject metadata;
     metadata.insert(QStringLiteral("name"), fileName.isEmpty() ? fileInfo.fileName() : fileName);
@@ -61,7 +209,7 @@ void GDriveUploader::initiateResumableUpload(int64_t recordingId, const QString 
                          QStringLiteral("Bearer %1").arg(auth_->accessToken()).toUtf8());
     request.setHeader(QNetworkRequest::ContentTypeHeader,
                       QStringLiteral("application/json; charset=UTF-8"));
-    request.setRawHeader("X-Upload-Content-Type", "video/x-matroska");
+    request.setRawHeader("X-Upload-Content-Type", contentType);
     request.setRawHeader("X-Upload-Content-Length",
                          QByteArray::number(fileInfo.size()));
 
@@ -69,28 +217,40 @@ void GDriveUploader::initiateResumableUpload(int64_t recordingId, const QString 
     auto *reply = nam_.post(request, body);
 
     connect(reply, &QNetworkReply::finished, this,
-            [this, reply, recordingId, filePath]() {
+            [this, reply, recordingId, filePath, contentType]() {
                 reply->deleteLater();
 
+                auto initStatus = reply->attribute(
+                    QNetworkRequest::HttpStatusCodeAttribute).toInt();
+                qInfo("GDrive resumable init response: http=%d error=%d",
+                      initStatus, static_cast<int>(reply->error()));
+
                 if (reply->error() != QNetworkReply::NoError) {
+                    auto body = reply->readAll();
+                    qWarning("GDrive resumable init failed: %s — %s",
+                             qPrintable(reply->errorString()), body.constData());
                     emit uploadFailed(recordingId, reply->errorString());
                     return;
                 }
 
-                auto location = QString::fromUtf8(reply->rawHeader("Location"));
+                auto location = QString::fromUtf8(reply->rawHeader("Location")).trimmed();
                 if (location.isEmpty()) {
                     emit uploadFailed(recordingId,
                                       QStringLiteral("No upload URL in response"));
                     return;
                 }
 
+                qInfo("GDrive upload session started for recording %lld, url=%s",
+                      static_cast<long long>(recordingId), qPrintable(location));
+                emit uploadSessionCreated(recordingId, location);
                 emit uploadStarted(recordingId);
-                uploadChunk(recordingId, location, filePath, 0);
+                uploadChunk(recordingId, location, filePath, 0, contentType);
             });
 }
 
 void GDriveUploader::uploadChunk(int64_t recordingId, const QString &uploadUrl,
-                                 const QString &filePath, int64_t offset) {
+                                 const QString &filePath, int64_t offset,
+                                 const QByteArray &contentType) {
     QFile file(filePath);
     if (!file.open(QIODevice::ReadOnly)) {
         emit uploadFailed(recordingId,
@@ -115,7 +275,7 @@ void GDriveUploader::uploadChunk(int64_t recordingId, const QString &uploadUrl,
                              .arg(fileSize)
                              .toUtf8());
     request.setHeader(QNetworkRequest::ContentLengthHeader, chunk.size());
-    request.setHeader(QNetworkRequest::ContentTypeHeader, "video/x-matroska");
+    request.setHeader(QNetworkRequest::ContentTypeHeader, contentType);
 
     QNetworkReply *chunkReply = nam_.put(request, chunk);
     activeUploads_.insert(recordingId, chunkReply);
@@ -126,7 +286,8 @@ void GDriveUploader::uploadChunk(int64_t recordingId, const QString &uploadUrl,
             });
 
     connect(chunkReply, &QNetworkReply::finished, this,
-            [this, chunkReply, recordingId, uploadUrl, filePath, fileSize, endByte]() {
+            [this, chunkReply, recordingId, uploadUrl, filePath, fileSize, endByte,
+             contentType]() {
                 activeUploads_.remove(recordingId);
                 chunkReply->deleteLater();
 
@@ -136,6 +297,8 @@ void GDriveUploader::uploadChunk(int64_t recordingId, const QString &uploadUrl,
                 if (statusCode == 200 || statusCode == 201) {
                     auto doc = QJsonDocument::fromJson(chunkReply->readAll());
                     auto fileId = doc.object().value(QStringLiteral("id")).toString();
+                    qInfo("GDrive upload complete: recording=%lld fileId=%s",
+                          static_cast<long long>(recordingId), qPrintable(fileId));
                     emit uploadCompleted(recordingId, fileId);
                     return;
                 }
@@ -143,10 +306,15 @@ void GDriveUploader::uploadChunk(int64_t recordingId, const QString &uploadUrl,
                 if (statusCode == 308) {
                     auto nextOffset = endByte + 1;
                     emit uploadProgress(recordingId, nextOffset, fileSize);
-                    uploadChunk(recordingId, uploadUrl, filePath, nextOffset);
+                    uploadChunk(recordingId, uploadUrl, filePath, nextOffset,
+                                contentType);
                     return;
                 }
 
+                auto body = chunkReply->readAll();
+                qWarning("GDrive chunk upload failed: status=%d error=%s body=%s",
+                         statusCode, qPrintable(chunkReply->errorString()),
+                         body.constData());
                 if (chunkReply->error() != QNetworkReply::NoError) {
                     emit uploadFailed(recordingId, chunkReply->errorString());
                 } else {
@@ -154,6 +322,86 @@ void GDriveUploader::uploadChunk(int64_t recordingId, const QString &uploadUrl,
                                       QStringLiteral("Unexpected status: %1").arg(statusCode));
                 }
             });
+}
+
+void GDriveUploader::resumeUpload(int64_t recordingId, const QString &filePath,
+                                  const QString &uploadUrl) {
+    if (activeUploads_.contains(recordingId)) return;
+    if (uploadUrl.isEmpty() || filePath.isEmpty()) return;
+
+    QFileInfo fi(filePath);
+    if (!fi.exists()) {
+        emit uploadFailed(recordingId, QStringLiteral("File not found: %1").arg(filePath));
+        return;
+    }
+
+    auto contentType = mimeForFile(filePath);
+    auto fileSize = fi.size();
+
+    qInfo("GDrive resuming upload: recording=%lld file=%s size=%lld",
+          static_cast<long long>(recordingId), qPrintable(filePath),
+          static_cast<long long>(fileSize));
+
+    withFreshToken(
+        [this, recordingId, filePath, uploadUrl, contentType, fileSize]() {
+            QNetworkRequest request{QUrl{uploadUrl}};
+            request.setRawHeader("Content-Range",
+                                 QStringLiteral("bytes */%1").arg(fileSize).toUtf8());
+            request.setHeader(QNetworkRequest::ContentLengthHeader, 0);
+            request.setHeader(QNetworkRequest::ContentTypeHeader, contentType);
+
+            auto *reply = nam_.put(request, QByteArray());
+            connect(reply, &QNetworkReply::finished, this,
+                    [this, reply, recordingId, filePath, uploadUrl, contentType,
+                     fileSize]() {
+                        reply->deleteLater();
+                        auto status = reply->attribute(
+                            QNetworkRequest::HttpStatusCodeAttribute).toInt();
+
+                        if (status == 200 || status == 201) {
+                            auto doc = QJsonDocument::fromJson(reply->readAll());
+                            auto fileId =
+                                doc.object().value(QStringLiteral("id")).toString();
+                            qInfo("GDrive resume: already complete, fileId=%s",
+                                  qPrintable(fileId));
+                            emit uploadCompleted(recordingId, fileId);
+                            return;
+                        }
+
+                        if (status == 308) {
+                            auto rangeHeader =
+                                QString::fromUtf8(reply->rawHeader("Range"));
+                            int64_t nextOffset = 0;
+                            if (rangeHeader.startsWith(QStringLiteral("bytes=0-"))) {
+                                nextOffset =
+                                    rangeHeader.mid(8).toLongLong() + 1;
+                            }
+                            qInfo("GDrive resume: continuing from byte %lld/%lld",
+                                  static_cast<long long>(nextOffset),
+                                  static_cast<long long>(fileSize));
+                            emit uploadStarted(recordingId);
+                            emit uploadProgress(recordingId, nextOffset, fileSize);
+                            uploadChunk(recordingId, uploadUrl, filePath,
+                                        nextOffset, contentType);
+                            return;
+                        }
+
+                        if (status == 404 || status == 410) {
+                            qInfo("GDrive resume: session expired, starting fresh");
+                            emit uploadFailed(
+                                recordingId,
+                                QStringLiteral("Upload session expired — please retry"));
+                            return;
+                        }
+
+                        qWarning("GDrive resume probe failed: status=%d error=%s",
+                                 status, qPrintable(reply->errorString()));
+                        emit uploadFailed(recordingId, reply->errorString());
+                    });
+        },
+        [this, recordingId](const QString &error) {
+            emit uploadFailed(recordingId, error);
+        });
 }
 
 } // namespace iptvxs

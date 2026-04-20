@@ -75,24 +75,26 @@ Rectangle {
 
         Repeater {
             model: [
-                { name: "home", icon: "⌂", label: "Home" },
-                { name: "servers", icon: "⊕", label: "Servers" },
-                { name: "channels", icon: "≡", label: "TV Channels" },
-                { name: "vod", icon: "▷", label: "VOD" },
+                { name: "home", icon: "🏠", label: "Home" },
+                { name: "servers", icon: "🔗", label: "Servers" },
+                { name: "channels", icon: "📺", label: "TV Channels" },
+                { name: "vod", icon: "🎬", label: "VOD" },
                 { name: "favorites", icon: "★", label: "Favorites" },
-                { name: "epg", icon: "☰", label: "TV Guide" },
-                { name: "recordings", icon: "●", label: "Recordings" },
-                { name: "history", icon: "↺", label: "Play History" }
+                { name: "epg", icon: "📅", label: "TV Guide" },
+                { name: "recordings", icon: "⏺", label: "Recordings" },
+                { name: "history", icon: "🕐", label: "Play History" }
             ]
 
             delegate: Rectangle {
                 Layout.fillWidth: true
-                Layout.preferredHeight: 40
+                Layout.preferredHeight: 44
                 Layout.leftMargin: Theme.spacingSm
                 Layout.rightMargin: Theme.spacingSm
-                radius: Theme.borderRadius
+                Layout.topMargin: 2
+                Layout.bottomMargin: 2
+                radius: 12
                 color: sidebar.activeItem === modelData.name
-                    ? Theme.accentGlow
+                    ? Theme.accent
                     : hovered ? Theme.surfaceHover : "transparent"
 
                 property bool hovered: false
@@ -101,33 +103,25 @@ Rectangle {
                     ColorAnimation { duration: Theme.animFast }
                 }
 
-                Rectangle {
-                    visible: sidebar.activeItem === modelData.name
-                    anchors.left: parent.left
-                    anchors.verticalCenter: parent.verticalCenter
-                    width: 3
-                    height: 20
-                    radius: 2
-                    color: Theme.accent
-                }
-
                 Row {
                     anchors.verticalCenter: parent.verticalCenter
                     anchors.left: parent.left
-                    anchors.leftMargin: Theme.spacingMd
+                    anchors.leftMargin: sidebar.collapsed ? 0 : Theme.spacingMd
+                    anchors.right: parent.right
+                    anchors.rightMargin: sidebar.collapsed ? 0 : Theme.spacingSm
                     spacing: Theme.spacingSm
 
                     Item {
-                        width: 22
-                        height: 22
+                        width: sidebar.collapsed ? parent.width : 24
+                        height: 24
                         anchors.verticalCenter: parent.verticalCenter
 
                         Text {
                             anchors.centerIn: parent
                             text: modelData.icon
-                            font.pixelSize: 16
+                            font.pixelSize: 18
                             color: sidebar.activeItem === modelData.name
-                                ? Theme.accent : Theme.textMuted
+                                ? "#ffffff" : Theme.textSecondary
                         }
                     }
 
@@ -137,7 +131,7 @@ Rectangle {
                         font.pixelSize: Theme.fontSizeSm
                         font.weight: sidebar.activeItem === modelData.name ? Font.DemiBold : Font.Normal
                         color: sidebar.activeItem === modelData.name
-                            ? Theme.textPrimary
+                            ? "#ffffff"
                             : Theme.textSecondary
                         anchors.verticalCenter: parent.verticalCenter
 
@@ -187,19 +181,21 @@ Rectangle {
 
         Repeater {
             model: [
-                { name: "speedtest", icon: "↕", label: "Speed Test" },
-                { name: "log", icon: "◇", label: "App Log" },
+                { name: "speedtest", icon: "⚡", label: "Speed Test" },
+                { name: "log", icon: "📋", label: "App Log" },
                 { name: "settings", icon: "⚙", label: "Settings" }
             ]
 
             delegate: Rectangle {
                 Layout.fillWidth: true
-                Layout.preferredHeight: 40
+                Layout.preferredHeight: 44
                 Layout.leftMargin: Theme.spacingSm
                 Layout.rightMargin: Theme.spacingSm
-                radius: Theme.borderRadius
+                Layout.topMargin: 2
+                Layout.bottomMargin: 2
+                radius: 12
                 color: sidebar.activeItem === modelData.name
-                    ? Theme.accentGlow
+                    ? Theme.accent
                     : hovered ? Theme.surfaceHover : "transparent"
 
                 property bool hovered: false
@@ -208,33 +204,25 @@ Rectangle {
                     ColorAnimation { duration: Theme.animFast }
                 }
 
-                Rectangle {
-                    visible: sidebar.activeItem === modelData.name
-                    anchors.left: parent.left
-                    anchors.verticalCenter: parent.verticalCenter
-                    width: 3
-                    height: 20
-                    radius: 2
-                    color: Theme.accent
-                }
-
                 Row {
                     anchors.verticalCenter: parent.verticalCenter
                     anchors.left: parent.left
-                    anchors.leftMargin: Theme.spacingMd
+                    anchors.leftMargin: sidebar.collapsed ? 0 : Theme.spacingMd
+                    anchors.right: parent.right
+                    anchors.rightMargin: sidebar.collapsed ? 0 : Theme.spacingSm
                     spacing: Theme.spacingSm
 
                     Item {
-                        width: 22
-                        height: 22
+                        width: sidebar.collapsed ? parent.width : 24
+                        height: 24
                         anchors.verticalCenter: parent.verticalCenter
 
                         Text {
                             anchors.centerIn: parent
                             text: modelData.icon
-                            font.pixelSize: 16
+                            font.pixelSize: 18
                             color: sidebar.activeItem === modelData.name
-                                ? Theme.accent : Theme.textMuted
+                                ? "#ffffff" : Theme.textSecondary
                         }
                     }
 
@@ -244,7 +232,7 @@ Rectangle {
                         font.pixelSize: Theme.fontSizeSm
                         font.weight: sidebar.activeItem === modelData.name ? Font.DemiBold : Font.Normal
                         color: sidebar.activeItem === modelData.name
-                            ? Theme.textPrimary
+                            ? "#ffffff"
                             : Theme.textSecondary
                         anchors.verticalCenter: parent.verticalCenter
                     }

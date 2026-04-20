@@ -3,6 +3,7 @@
 #include <QDBusConnection>
 #include <QDBusInterface>
 #include <QDBusReply>
+#include <QDateTime>
 #include <QDir>
 #include <QFileInfo>
 
@@ -93,6 +94,42 @@ void PlayerViewModel::uninhibitScreenSaver() {
 
 void PlayerViewModel::play(const QString &url, const QString &name,
                            const QString &logo, int64_t channelId) {
+    // Idempotent: if the same URL is already loaded and playing, do not reload.
+    // Reloading would issue `loadfile` in mpv, which resets file-local
+    // properties including `stream-record` — stopping any active recording.
+    const bool sameUrl = (url == currentUrl_) && !url.isEmpty();
+    const bool alreadyActive =
+        sameUrl && (player_->state() == iptvxs::MpvPlayer::State::Playing ||
+                    player_->state() == iptvxs::MpvPlayer::State::Paused ||
+                    player_->state() == iptvxs::MpvPlayer::State::Loading);
+    if (alreadyActive) {
+        // Metadata may still need refreshing (e.g. logo) but skip the reload.
+        if (channelName_ != name) {
+            channelName_ = name;
+            emit channelNameChanged();
+        }
+        if (channelLogo_ != logo) {
+            channelLogo_ = logo;
+            emit channelLogoChanged();
+        }
+        if (channelId_ != channelId) {
+            channelId_ = channelId;
+            emit channelIdChanged();
+        }
+        qInfo("PlayerViewModel::play skipped reload — same URL already active "
+              "(recording=%s)", recording_ ? "on" : "off");
+        return;
+    }
+
+    // Switching streams drops any active recording; mpv's loadfile wipes
+    // stream-record anyway, so reflect that in our state.
+    if (recording_) {
+        recording_ = false;
+        recordingPath_.clear();
+        recordingStartTime_ = 0;
+        emit recordingChanged();
+    }
+
     currentUrl_ = url;
     channelName_ = name;
     channelLogo_ = logo;
@@ -114,6 +151,9 @@ void PlayerViewModel::play(const QString &url, const QString &name,
 void PlayerViewModel::togglePause() { player_->togglePause(); }
 
 void PlayerViewModel::stop() {
+    if (recording_) {
+        stopStreamRecord();
+    }
     uninhibitScreenSaver();
     player_->stop();
     channelName_.clear();
@@ -139,11 +179,29 @@ void PlayerViewModel::toggleMute() { player_->setMuted(!player_->muted()); }
 void PlayerViewModel::startStreamRecord(const QString &filePath) {
     QDir().mkpath(QFileInfo(filePath).absolutePath());
     player_->setProperty(QStringLiteral("stream-record"), QVariant(filePath));
+    recording_ = true;
+    recordingPath_ = filePath;
+    recordingStartTime_ =
+        static_cast<qint64>(QDateTime::currentSecsSinceEpoch());
+    emit recordingChanged();
 }
 
 void PlayerViewModel::stopStreamRecord() {
     player_->setProperty(QStringLiteral("stream-record"), QVariant(QString()));
+    if (recording_) {
+        auto path = recordingPath_;
+        auto startTime = recordingStartTime_;
+        recording_ = false;
+        recordingPath_.clear();
+        recordingStartTime_ = 0;
+        emit recordingChanged();
+        emit streamRecordingStopped(path, startTime);
+    }
 }
+
+bool PlayerViewModel::recording() const { return recording_; }
+QString PlayerViewModel::recordingPath() const { return recordingPath_; }
+qint64 PlayerViewModel::recordingStartTime() const { return recordingStartTime_; }
 
 void PlayerViewModel::loadSubtitleFile(const QString &filePath) {
     player_->command({QStringLiteral("sub-add"), filePath, QStringLiteral("select")});

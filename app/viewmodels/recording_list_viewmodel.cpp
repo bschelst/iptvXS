@@ -136,7 +136,8 @@ void RecordingListViewModel::scheduleRecording(int64_t channelId, int64_t startT
     recordingRepo_->create(rec);
 }
 
-void RecordingListViewModel::startNow(int64_t channelId, const QString &quality) {
+void RecordingListViewModel::startNow(int64_t channelId, int64_t durationSecs,
+                                       const QString &quality) {
     if (!recordingRepo_ || !manager_) {
         return;
     }
@@ -146,6 +147,9 @@ void RecordingListViewModel::startNow(int64_t channelId, const QString &quality)
     rec.status = QStringLiteral("scheduled");
     rec.quality = quality;
     rec.startTime = QDateTime::currentSecsSinceEpoch();
+    if (durationSecs > 0) {
+        rec.endTime = rec.startTime + durationSecs;
+    }
 
     auto id = recordingRepo_->create(rec);
     if (id > 0) {
@@ -221,6 +225,44 @@ void RecordingListViewModel::stopChannelRecording(int64_t channelId) {
     }
 }
 
+int64_t RecordingListViewModel::startStreamRecording(int64_t channelId,
+                                                      const QString &filePath) {
+    if (!recordingRepo_) return 0;
+
+    iptvxs::Recording rec;
+    rec.channelId = channelId;
+    rec.status = QStringLiteral("recording");
+    rec.quality = QStringLiteral("original");
+    rec.startTime = QDateTime::currentSecsSinceEpoch();
+    rec.filePath = filePath;
+
+    auto id = recordingRepo_->create(rec);
+    loadRecordings();
+    emit activeCountChanged();
+    return id;
+}
+
+void RecordingListViewModel::completeStreamRecording(int64_t recordingId, int64_t endTime,
+                                                      const QString &filePath) {
+    if (!recordingRepo_) return;
+
+    auto rec = recordingRepo_->findById(recordingId);
+    if (!rec) return;
+
+    auto updated = *rec;
+    updated.status = QStringLiteral("completed");
+    updated.endTime = endTime;
+    if (!filePath.isEmpty()) updated.filePath = filePath;
+
+    QFileInfo fi(updated.filePath);
+    if (fi.exists()) updated.fileSizeBytes = fi.size();
+
+    recordingRepo_->update(updated);
+    loadRecordings();
+    emit activeCountChanged();
+    if (recordingId > 0) emit recordingCreated(recordingId);
+}
+
 void RecordingListViewModel::addCompletedRecording(int64_t channelId, int64_t startTime,
                                                     int64_t endTime, const QString &filePath) {
     if (!recordingRepo_) return;
@@ -236,8 +278,9 @@ void RecordingListViewModel::addCompletedRecording(int64_t channelId, int64_t st
     QFileInfo fi(filePath);
     if (fi.exists()) rec.fileSizeBytes = fi.size();
 
-    recordingRepo_->create(rec);
+    auto newId = recordingRepo_->create(rec);
     loadRecordings();
+    if (newId > 0) emit recordingCreated(newId);
 }
 
 void RecordingListViewModel::clearError(int64_t recordingId) {

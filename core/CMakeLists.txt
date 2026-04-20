@@ -53,6 +53,23 @@ target_include_directories(iptvxs-core
         ${MPV_INCLUDE_DIRS}
 )
 
+# Bundled Google Drive OAuth client ID (Desktop app type). PKCE flow — no secret.
+# Override per build if forking: cmake -DIPTVXS_GDRIVE_CLIENT_ID=xxx.apps.googleusercontent.com ..
+set(IPTVXS_GDRIVE_CLIENT_ID
+    "703922347851-rhr3erji70jmte5n7rk3nsg8ovne4fdo.apps.googleusercontent.com"
+    CACHE STRING "Google Drive OAuth 2.0 Desktop client ID")
+# Google's token endpoint requires client_secret even for Desktop clients that
+# use PKCE. Google's own docs note the secret "is not treated as a secret" for
+# installed apps — the real protection comes from PKCE's code_verifier.
+set(IPTVXS_GDRIVE_CLIENT_SECRET
+    "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"
+    CACHE STRING "Google Drive OAuth 2.0 Desktop client secret (non-confidential for Desktop clients)")
+target_compile_definitions(iptvxs-core
+    PUBLIC
+        IPTVXS_GDRIVE_CLIENT_ID="${IPTVXS_GDRIVE_CLIENT_ID}"
+        IPTVXS_GDRIVE_CLIENT_SECRET="${IPTVXS_GDRIVE_CLIENT_SECRET}"
+)
+
 target_link_libraries(iptvxs-core
     PUBLIC
         Qt6::Core

@@ -112,6 +112,8 @@ Item {
                             { label: "Recording", value: "recording" },
                             { label: "Scheduled", value: "scheduled" },
                             { label: "Completed", value: "completed" },
+                            { label: "Uploading", value: "uploading" },
+                            { label: "Uploaded", value: "uploaded" },
                             { label: "Failed", value: "failed" }
                         ]
 
@@ -176,7 +178,12 @@ Item {
 
             delegate: Rectangle {
                 width: recordingsList.width - Theme.spacingMd * 2
-                height: model.status === "failed" && model.errorMessage ? 105 : 80
+                readonly property bool isUploading:
+                    model.status === "uploading" && appViewModel &&
+                    appViewModel.gdrive.uploading
+                readonly property bool hasBottomBar:
+                    (model.status === "failed" && model.errorMessage) || isUploading
+                height: hasBottomBar ? 108 : 80
                 x: Theme.spacingMd
                 radius: Theme.borderRadius
                 color: recHovered ? Theme.surfaceHover : Theme.surfaceElevated
@@ -208,8 +215,11 @@ Item {
                 }
 
                 RowLayout {
-                    anchors.fill: parent
+                    anchors.top: parent.top
+                    anchors.left: parent.left
+                    anchors.right: parent.right
                     anchors.margins: Theme.spacingSm
+                    height: 72
                     spacing: Theme.spacingMd
 
                     Rectangle {
@@ -221,6 +231,8 @@ Item {
                             case "recording": return Theme.error + "20"
                             case "scheduled": return Theme.accent + "20"
                             case "completed": return Theme.success + "20"
+                            case "uploading": return Theme.accent + "20"
+                            case "uploaded": return Theme.success + "20"
                             case "failed": return Theme.error + "10"
                             default: return Theme.surface
                             }
@@ -246,6 +258,8 @@ Item {
                                 case "recording": return Theme.error
                                 case "scheduled": return Theme.accent
                                 case "completed": return Theme.success
+                                case "uploading": return Theme.accent
+                                case "uploaded": return Theme.success
                                 case "failed": return Theme.error
                                 default: return Theme.textSecondary
                                 }
@@ -253,7 +267,7 @@ Item {
                         }
 
                         SequentialAnimation on opacity {
-                            running: model.status === "recording"
+                            running: model.status === "recording" || model.status === "uploading"
                             loops: Animation.Infinite
                             NumberAnimation { to: 0.4; duration: 800 }
                             NumberAnimation { to: 1.0; duration: 800 }
@@ -314,6 +328,8 @@ Item {
                                     case "recording": return Theme.error
                                     case "scheduled": return Theme.accent
                                     case "completed": return Theme.success
+                                    case "uploading": return Theme.accent
+                                    case "uploaded": return Theme.success
                                     case "failed": return Theme.error + "cc"
                                     default: return Theme.surface
                                     }
@@ -371,8 +387,11 @@ Item {
                                 onEntered: parent.stopBtnHovered = true
                                 onExited: parent.stopBtnHovered = false
                                 onClicked: {
-                                    if (appViewModel) {
+                                    if (!appViewModel) return
+                                    if (model.isActive) {
                                         appViewModel.recordingList.stopRecording(model.recordingId)
+                                    } else if (model.status === "recording" && appViewModel.player.recording) {
+                                        appViewModel.player.stopStreamRecord()
                                     }
                                 }
                             }
@@ -497,6 +516,51 @@ Item {
                                     appViewModel.recordingList.clearError(model.recordingId)
                             }
                         }
+                    }
+                }
+
+                ColumnLayout {
+                    visible: isUploading
+                    anchors.bottom: parent.bottom
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.bottomMargin: 6
+                    anchors.leftMargin: Theme.spacingSm + 44 + Theme.spacingMd
+                    anchors.rightMargin: Theme.spacingSm
+                    spacing: 2
+
+                    Rectangle {
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 6
+                        radius: 3
+                        color: Theme.surface
+                        border.color: Theme.surfaceBorder
+                        border.width: 1
+
+                        Rectangle {
+                            width: {
+                                var p = appViewModel ? appViewModel.gdrive.uploadProgress : 0
+                                return Math.max(0, Math.min(1, p)) * parent.width
+                            }
+                            height: parent.height
+                            radius: 3
+                            color: Theme.accent
+
+                            Behavior on width {
+                                NumberAnimation { duration: 200 }
+                            }
+                        }
+                    }
+
+                    Text {
+                        text: {
+                            var p = appViewModel ? appViewModel.gdrive.uploadProgress : 0
+                            var pct = Math.round(p * 100)
+                            var status = appViewModel ? appViewModel.gdrive.uploadStatus : ""
+                            return pct + "% — " + status
+                        }
+                        font.pixelSize: 10
+                        color: Theme.textMuted
                     }
                 }
             }
@@ -654,29 +718,33 @@ Item {
 
                 SpinBox {
                     id: hourSpin
-                    Layout.preferredWidth: 80
-                    Layout.preferredHeight: 32
+                    Layout.preferredWidth: 90
+                    Layout.preferredHeight: 36
                     from: 0; to: 23
                     value: manualRecordDialog.startHour
                     onValueChanged: manualRecordDialog.startHour = value
                     editable: true
                     background: Rectangle { radius: Theme.borderRadiusSmall; color: Theme.surface; border.color: Theme.surfaceBorder; border.width: 1 }
-                    contentItem: TextInput { text: hourSpin.textFromValue(hourSpin.value, hourSpin.locale); font.pixelSize: Theme.fontSizeSm; color: Theme.textPrimary; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter; readOnly: !hourSpin.editable; validator: hourSpin.validator; inputMethodHints: Qt.ImhDigitsOnly }
+                    contentItem: TextInput { text: hourSpin.textFromValue(hourSpin.value, hourSpin.locale); font.pixelSize: Theme.fontSizeMd; font.bold: true; color: Theme.textPrimary; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter; readOnly: !hourSpin.editable; validator: hourSpin.validator; inputMethodHints: Qt.ImhDigitsOnly; selectionColor: Theme.accent }
+                    up.indicator: Rectangle { x: parent.width - width; width: 24; height: parent.height; radius: Theme.borderRadiusSmall; color: hourSpin.up.pressed ? Theme.accent : Theme.surfaceHover; Text { anchors.centerIn: parent; text: "+"; font.pixelSize: 16; font.bold: true; color: Theme.textPrimary } }
+                    down.indicator: Rectangle { x: 0; width: 24; height: parent.height; radius: Theme.borderRadiusSmall; color: hourSpin.down.pressed ? Theme.accent : Theme.surfaceHover; Text { anchors.centerIn: parent; text: "−"; font.pixelSize: 16; font.bold: true; color: Theme.textPrimary } }
                     textFromValue: function(value) { return value.toString().padStart(2, '0') }
                 }
 
-                Text { text: ":"; font.pixelSize: Theme.fontSizeMd; color: Theme.textPrimary }
+                Text { text: ":"; font.pixelSize: 20; font.bold: true; color: Theme.textPrimary }
 
                 SpinBox {
                     id: minuteSpin
-                    Layout.preferredWidth: 80
-                    Layout.preferredHeight: 32
+                    Layout.preferredWidth: 90
+                    Layout.preferredHeight: 36
                     from: 0; to: 59; stepSize: 5
                     value: manualRecordDialog.startMinute
                     onValueChanged: manualRecordDialog.startMinute = value
                     editable: true
                     background: Rectangle { radius: Theme.borderRadiusSmall; color: Theme.surface; border.color: Theme.surfaceBorder; border.width: 1 }
-                    contentItem: TextInput { text: minuteSpin.textFromValue(minuteSpin.value, minuteSpin.locale); font.pixelSize: Theme.fontSizeSm; color: Theme.textPrimary; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter; readOnly: !minuteSpin.editable; validator: minuteSpin.validator; inputMethodHints: Qt.ImhDigitsOnly }
+                    contentItem: TextInput { text: minuteSpin.textFromValue(minuteSpin.value, minuteSpin.locale); font.pixelSize: Theme.fontSizeMd; font.bold: true; color: Theme.textPrimary; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter; readOnly: !minuteSpin.editable; validator: minuteSpin.validator; inputMethodHints: Qt.ImhDigitsOnly; selectionColor: Theme.accent }
+                    up.indicator: Rectangle { x: parent.width - width; width: 24; height: parent.height; radius: Theme.borderRadiusSmall; color: minuteSpin.up.pressed ? Theme.accent : Theme.surfaceHover; Text { anchors.centerIn: parent; text: "+"; font.pixelSize: 16; font.bold: true; color: Theme.textPrimary } }
+                    down.indicator: Rectangle { x: 0; width: 24; height: parent.height; radius: Theme.borderRadiusSmall; color: minuteSpin.down.pressed ? Theme.accent : Theme.surfaceHover; Text { anchors.centerIn: parent; text: "−"; font.pixelSize: 16; font.bold: true; color: Theme.textPrimary } }
                     textFromValue: function(value) { return value.toString().padStart(2, '0') }
                 }
             }
@@ -775,7 +843,13 @@ Item {
                                     startEpoch = Math.floor(d.getTime() / 1000)
                                 }
                                 var endEpoch = startEpoch + manualRecordDialog.durationMinutes * 60
-                                appViewModel.recordingList.scheduleRecording(manualRecordDialog.selectedChannelId, startEpoch, endEpoch, "original")
+                                if (manualRecordDialog.startNow) {
+                                    appViewModel.recordingList.startNow(
+                                        manualRecordDialog.selectedChannelId,
+                                        manualRecordDialog.durationMinutes * 60, "original")
+                                } else {
+                                    appViewModel.recordingList.scheduleRecording(manualRecordDialog.selectedChannelId, startEpoch, endEpoch, "original")
+                                }
                                 appViewModel.recordingList.refresh()
                                 manualRecordDialog.close()
                             }

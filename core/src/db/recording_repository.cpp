@@ -12,8 +12,9 @@ int64_t RecordingRepository::create(const Recording &recording) {
     QSqlQuery q(db_);
     q.prepare(R"(
         INSERT INTO recordings (channel_id, programme_id, status, file_path, quality,
-                                start_time, end_time, file_size_bytes, gdrive_file_id, error_message)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                start_time, end_time, file_size_bytes, gdrive_file_id,
+                                gdrive_upload_url, error_message)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     )");
     q.addBindValue(static_cast<qlonglong>(recording.channelId));
     q.addBindValue(recording.programmeId > 0
@@ -28,6 +29,7 @@ int64_t RecordingRepository::create(const Recording &recording) {
                        : QVariant());
     q.addBindValue(static_cast<qlonglong>(recording.fileSizeBytes));
     q.addBindValue(recording.gdriveFileId);
+    q.addBindValue(recording.gdriveUploadUrl);
     q.addBindValue(recording.errorMessage);
 
     if (!q.exec()) {
@@ -46,7 +48,7 @@ bool RecordingRepository::update(const Recording &recording) {
         UPDATE recordings SET
             channel_id = ?, programme_id = ?, status = ?, file_path = ?,
             quality = ?, start_time = ?, end_time = ?, file_size_bytes = ?,
-            gdrive_file_id = ?, error_message = ?
+            gdrive_file_id = ?, gdrive_upload_url = ?, error_message = ?
         WHERE id = ?
     )");
     q.addBindValue(static_cast<qlonglong>(recording.channelId));
@@ -62,6 +64,7 @@ bool RecordingRepository::update(const Recording &recording) {
                        : QVariant());
     q.addBindValue(static_cast<qlonglong>(recording.fileSizeBytes));
     q.addBindValue(recording.gdriveFileId);
+    q.addBindValue(recording.gdriveUploadUrl);
     q.addBindValue(recording.errorMessage);
     q.addBindValue(static_cast<qlonglong>(recording.id));
 
@@ -98,7 +101,7 @@ std::optional<Recording> RecordingRepository::findById(int64_t id) const {
     q.prepare(R"(
         SELECT id, channel_id, programme_id, status, file_path, quality,
                start_time, end_time, file_size_bytes, gdrive_file_id,
-               error_message, created_at
+               gdrive_upload_url, error_message, created_at
         FROM recordings WHERE id = ?
     )");
     q.addBindValue(static_cast<qlonglong>(id));
@@ -116,7 +119,7 @@ QVector<Recording> RecordingRepository::findAll() const {
     q.prepare(R"(
         SELECT id, channel_id, programme_id, status, file_path, quality,
                start_time, end_time, file_size_bytes, gdrive_file_id,
-               error_message, created_at
+               gdrive_upload_url, error_message, created_at
         FROM recordings
         ORDER BY start_time DESC
     )");
@@ -138,7 +141,7 @@ QVector<Recording> RecordingRepository::findByStatus(const QString &status) cons
     q.prepare(R"(
         SELECT id, channel_id, programme_id, status, file_path, quality,
                start_time, end_time, file_size_bytes, gdrive_file_id,
-               error_message, created_at
+               gdrive_upload_url, error_message, created_at
         FROM recordings WHERE status = ?
         ORDER BY start_time DESC
     )");
@@ -161,7 +164,7 @@ QVector<Recording> RecordingRepository::findScheduled(int64_t fromTime, int64_t 
     q.prepare(R"(
         SELECT id, channel_id, programme_id, status, file_path, quality,
                start_time, end_time, file_size_bytes, gdrive_file_id,
-               error_message, created_at
+               gdrive_upload_url, error_message, created_at
         FROM recordings
         WHERE status = 'scheduled' AND start_time >= ? AND start_time <= ?
         ORDER BY start_time ASC
@@ -186,7 +189,7 @@ QVector<Recording> RecordingRepository::findByChannel(int64_t channelId) const {
     q.prepare(R"(
         SELECT id, channel_id, programme_id, status, file_path, quality,
                start_time, end_time, file_size_bytes, gdrive_file_id,
-               error_message, created_at
+               gdrive_upload_url, error_message, created_at
         FROM recordings WHERE channel_id = ?
         ORDER BY start_time DESC
     )");
@@ -290,9 +293,18 @@ Recording RecordingRepository::recordingFromQuery(const QSqlQuery &q) const {
     rec.endTime = q.value(7).toLongLong();
     rec.fileSizeBytes = q.value(8).toLongLong();
     rec.gdriveFileId = q.value(9).toString();
-    rec.errorMessage = q.value(10).toString();
-    rec.createdAt = q.value(11).toLongLong();
+    rec.gdriveUploadUrl = q.value(10).toString();
+    rec.errorMessage = q.value(11).toString();
+    rec.createdAt = q.value(12).toLongLong();
     return rec;
+}
+
+bool RecordingRepository::updateUploadUrl(int64_t id, const QString &uploadUrl) {
+    QSqlQuery q(db_);
+    q.prepare("UPDATE recordings SET gdrive_upload_url = ? WHERE id = ?");
+    q.addBindValue(uploadUrl);
+    q.addBindValue(static_cast<qlonglong>(id));
+    return q.exec();
 }
 
 } // namespace iptvxs

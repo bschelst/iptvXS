@@ -3,6 +3,7 @@
 #include <QObject>
 #include <QQmlEngine>
 #include <QString>
+#include <QTimer>
 
 #include "iptvxs/db/database.h"
 #include "iptvxs/db/category_repository.h"
@@ -59,6 +60,7 @@ class AppViewModel : public QObject {
     Q_PROPERTY(QString databasePath READ databasePath CONSTANT)
     Q_PROPERTY(QString databaseSize READ databaseSize NOTIFY databaseReadyChanged)
     Q_PROPERTY(QString recordingDirectory READ recordingDirectory WRITE setRecordingDirectory NOTIFY recordingDirectoryChanged)
+    Q_PROPERTY(QString recordingDestination READ recordingDestination WRITE setRecordingDestination NOTIFY recordingDestinationChanged)
     Q_PROPERTY(int bufferSeconds READ bufferSeconds WRITE setBufferSeconds NOTIFY bufferSecondsChanged)
     Q_PROPERTY(QString theme READ theme WRITE setTheme NOTIFY themeChanged)
     Q_PROPERTY(QString subtitleLanguage READ subtitleLanguage WRITE setSubtitleLanguage NOTIFY subtitleLanguageChanged)
@@ -108,6 +110,8 @@ public:
     QString databasePath() const;
     QString databaseSize() const;
     QString recordingDirectory() const;
+    QString recordingDestination() const;
+    void setRecordingDestination(const QString &dest);
     void setRecordingDirectory(const QString &path);
 
     int bufferSeconds() const;
@@ -155,6 +159,7 @@ signals:
     void autoSyncIntervalChanged();
     void autoSyncEpgIntervalChanged();
     void recordingDirectoryChanged();
+    void recordingDestinationChanged();
     void bufferSecondsChanged();
     void themeChanged();
     void subtitleLanguageChanged();
@@ -202,6 +207,18 @@ private:
     bool databaseReady_{false};
     QString currentView_{"home"};
     QString previousView_{"home"};
+
+    QTimer *autoSyncTimer_{nullptr};
+    QTimer *autoSyncEpgTimer_{nullptr};
+    int autoSyncServerCursor_{0};
+    int autoSyncEpgCursor_{0};
+    bool autoSyncInProgress_{false};
+    bool autoSyncEpgInProgress_{false};
+
+    void rescheduleAutoSyncChannels();
+    void rescheduleAutoSyncEpg();
+    void runAutoSyncChannels();
+    void runAutoSyncEpg();
     bool videoFullscreen_{false};
     QString pendingPlayUrl_;
     QString pendingPlayName_;

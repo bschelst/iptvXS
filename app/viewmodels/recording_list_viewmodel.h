@@ -51,7 +51,11 @@ public:
     Q_INVOKABLE void refresh();
     Q_INVOKABLE void scheduleRecording(int64_t channelId, int64_t startTime,
                                        int64_t endTime, const QString &quality = "original");
-    Q_INVOKABLE void startNow(int64_t channelId, const QString &quality = "original");
+    Q_INVOKABLE void startNow(int64_t channelId, int64_t durationSecs = 0,
+                              const QString &quality = "original");
+    Q_INVOKABLE int64_t startStreamRecording(int64_t channelId, const QString &filePath);
+    Q_INVOKABLE void completeStreamRecording(int64_t recordingId, int64_t endTime,
+                                              const QString &filePath);
     Q_INVOKABLE void stopRecording(int64_t recordingId);
     Q_INVOKABLE void deleteRecording(int64_t recordingId);
     Q_INVOKABLE void deleteRecordingWithFile(int64_t recordingId);
@@ -69,6 +73,7 @@ signals:
     void countChanged();
     void activeCountChanged();
     void filterStatusChanged();
+    void recordingCreated(int64_t recordingId);
 
 private:
     struct RecordingEntry {

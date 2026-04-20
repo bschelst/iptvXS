@@ -4,7 +4,9 @@
 #include <QJsonArray>
 #include <QJsonObject>
 #include <QNetworkReply>
+#include <QSet>
 #include <QtConcurrent>
+#include <algorithm>
 
 EpgViewModel::EpgViewModel(QObject *parent)
     : QAbstractListModel(parent) {
@@ -47,9 +49,11 @@ EpgViewModel::EpgViewModel(QObject *parent)
 }
 
 void EpgViewModel::setRepositories(iptvxs::ProgrammeRepository *progRepo,
-                                   iptvxs::ChannelRepository *channelRepo) {
+                                   iptvxs::ChannelRepository *channelRepo,
+                                   iptvxs::FavoriteRepository *favoriteRepo) {
     progRepo_ = progRepo;
     channelRepo_ = channelRepo;
+    favoriteRepo_ = favoriteRepo;
 }
 
 void EpgViewModel::setHttpClient(iptvxs::HttpClient *http) {
@@ -79,6 +83,8 @@ QVariant EpgViewModel::data(const QModelIndex &index, int role) const {
         return row.channel.logoUrl;
     case StreamUrlRole:
         return row.channel.streamUrl;
+    case IsFavoriteRole:
+        return row.isFavorite;
     case ProgrammesRole: {
         QVariantList progs;
         for (const auto &p : row.programmes) {
@@ -104,6 +110,7 @@ QHash<int, QByteArray> EpgViewModel::roleNames() const {
         {ChannelLogoRole, "channelLogo"},
         {StreamUrlRole, "streamUrl"},
         {ProgrammesRole, "programmes"},
+        {IsFavoriteRole, "isFavorite"},
     };
 }
 
@@ -213,6 +220,9 @@ void EpgViewModel::loadGrid() {
         progRepo_->findByTimeWindow(timeWindowStart_, timeWindowEnd_);
 
     if (progsByChannel.isEmpty()) {
+        qInfo("EPG loadGrid: no programmes in window [%lld..%lld]",
+              static_cast<long long>(timeWindowStart_),
+              static_cast<long long>(timeWindowEnd_));
         beginResetModel();
         rows_.clear();
         endResetModel();
@@ -223,29 +233,69 @@ void EpgViewModel::loadGrid() {
     auto channels = channelRepo_->findByServerAndType(
         serverId_, QStringLiteral("live"), 0, 0);
 
+    QSet<int64_t> favoriteIds;
+    if (favoriteRepo_) {
+        for (const auto &fav : favoriteRepo_->findAll()) {
+            favoriteIds.insert(fav.channelId);
+        }
+    }
+
+    std::sort(channels.begin(), channels.end(),
+              [&favoriteIds](const iptvxs::Channel &a, const iptvxs::Channel &b) {
+                  const bool favA = favoriteIds.contains(a.id);
+                  const bool favB = favoriteIds.contains(b.id);
+                  if (favA != favB) {
+                      return favA;
+                  }
+                  return QString::localeAwareCompare(a.name, b.name) < 0;
+              });
+
     QVector<EpgChannelRow> newRows;
     newRows.reserve(progsByChannel.size());
+
+    int skippedBySearch = 0;
+    int missingTvgId = 0;
+    int noProgrammes = 0;
+    int matched = 0;
 
     for (const auto &ch : channels) {
         if (!searchQuery_.isEmpty() &&
             !ch.name.contains(searchQuery_, Qt::CaseInsensitive)) {
+            ++skippedBySearch;
+            continue;
+        }
+
+        if (ch.epgChannelId.isEmpty()) {
+            ++missingTvgId;
             continue;
         }
 
         auto it = progsByChannel.find(ch.epgChannelId);
         if (it == progsByChannel.end()) {
+            ++noProgrammes;
             continue;
         }
 
         EpgChannelRow row;
         row.channel = ch;
         row.programmes = std::move(it.value());
+        row.isFavorite = favoriteIds.contains(ch.id);
         newRows.append(std::move(row));
+        ++matched;
 
         if (newRows.size() >= kMaxEpgRows) {
             break;
         }
     }
+
+    qInfo("EPG loadGrid: totalChannels=%lld rows=%lld matched=%d noTvgId=%d "
+          "noProgInWindow=%d skippedBySearch=%d xmltvChannels=%lld window=[%lld..%lld]",
+          static_cast<long long>(channels.size()),
+          static_cast<long long>(newRows.size()),
+          matched, missingTvgId, noProgrammes, skippedBySearch,
+          static_cast<long long>(progsByChannel.size()),
+          static_cast<long long>(timeWindowStart_),
+          static_cast<long long>(timeWindowEnd_));
 
     beginResetModel();
     rows_ = std::move(newRows);

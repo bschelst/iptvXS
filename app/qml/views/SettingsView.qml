@@ -7,6 +7,33 @@ import app.iptvxs
 Item {
     id: settingsView
 
+    property var langOptions: [
+        { value: "en", label: "English" },
+        { value: "nl", label: "Dutch" },
+        { value: "fr", label: "French" },
+        { value: "de", label: "German" },
+        { value: "es", label: "Spanish" },
+        { value: "pt", label: "Portuguese" },
+        { value: "it", label: "Italian" },
+        { value: "pl", label: "Polish" },
+        { value: "ru", label: "Russian" },
+        { value: "ar", label: "Arabic" },
+        { value: "tr", label: "Turkish" },
+        { value: "sv", label: "Swedish" },
+        { value: "da", label: "Danish" },
+        { value: "no", label: "Norwegian" },
+        { value: "fi", label: "Finnish" },
+        { value: "cs", label: "Czech" },
+        { value: "hu", label: "Hungarian" },
+        { value: "ro", label: "Romanian" },
+        { value: "el", label: "Greek" },
+        { value: "he", label: "Hebrew" },
+        { value: "hi", label: "Hindi" },
+        { value: "zh", label: "Chinese" },
+        { value: "ja", label: "Japanese" },
+        { value: "ko", label: "Korean" }
+    ]
+
     ScrollView {
         anchors.fill: parent
         contentWidth: availableWidth
@@ -496,33 +523,6 @@ Item {
                         }
                     }
 
-                    property var langOptions: [
-                        { value: "en", label: "English" },
-                        { value: "nl", label: "Dutch" },
-                        { value: "fr", label: "French" },
-                        { value: "de", label: "German" },
-                        { value: "es", label: "Spanish" },
-                        { value: "pt", label: "Portuguese" },
-                        { value: "it", label: "Italian" },
-                        { value: "pl", label: "Polish" },
-                        { value: "ru", label: "Russian" },
-                        { value: "ar", label: "Arabic" },
-                        { value: "tr", label: "Turkish" },
-                        { value: "sv", label: "Swedish" },
-                        { value: "da", label: "Danish" },
-                        { value: "no", label: "Norwegian" },
-                        { value: "fi", label: "Finnish" },
-                        { value: "cs", label: "Czech" },
-                        { value: "hu", label: "Hungarian" },
-                        { value: "ro", label: "Romanian" },
-                        { value: "el", label: "Greek" },
-                        { value: "he", label: "Hebrew" },
-                        { value: "hi", label: "Hindi" },
-                        { value: "zh", label: "Chinese" },
-                        { value: "ja", label: "Japanese" },
-                        { value: "ko", label: "Korean" }
-                    ]
-
                     ColumnLayout {
                         Layout.fillWidth: true
                         spacing: Theme.spacingXs
@@ -538,7 +538,7 @@ Item {
                             spacing: Theme.spacingSm
 
                             Repeater {
-                                model: langOptions
+                                model: settingsView.langOptions
 
                                 Rectangle {
                                     width: subLangLabel.implicitWidth + Theme.spacingMd * 2
@@ -609,7 +609,7 @@ Item {
                             }
 
                             Repeater {
-                                model: langOptions
+                                model: settingsView.langOptions
 
                                 Rectangle {
                                     width: secLangLabel.implicitWidth + Theme.spacingMd * 2
@@ -1034,114 +1034,95 @@ Item {
                         }
                     }
 
-                    ColumnLayout {
+                    Text {
                         Layout.fillWidth: true
-                        spacing: Theme.spacingXs
-
-                        Text {
-                            text: "Client ID"
-                            font.pixelSize: Theme.fontSizeXs
-                            color: Theme.textMuted
-                        }
-
-                        Rectangle {
-                            Layout.fillWidth: true
-                            Layout.preferredHeight: 36
-                            radius: Theme.borderRadiusSmall
-                            color: Theme.surface
-                            border.color: gdriveClientIdInput.activeFocus ? Theme.accent : Theme.surfaceBorder
-                            border.width: 1
-
-                            TextInput {
-                                id: gdriveClientIdInput
-                                anchors.fill: parent
-                                anchors.margins: Theme.spacingSm
-                                font.pixelSize: Theme.fontSizeSm
-                                color: Theme.textPrimary
-                                clip: true
-                                selectByMouse: true
-                                echoMode: TextInput.Password
-
-                                Text {
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    text: "Enter Google OAuth Client ID..."
-                                    font.pixelSize: Theme.fontSizeSm
-                                    color: Theme.textMuted
-                                    visible: !gdriveClientIdInput.text && !gdriveClientIdInput.activeFocus
-                                }
-                            }
-                        }
+                        text: "Authenticates with Google using OAuth 2.0 + PKCE. Click Login to open your browser and grant iptvXS access to the Google Drive folder it uploads recordings to."
+                        font.pixelSize: Theme.fontSizeXs
+                        color: Theme.textMuted
+                        wrapMode: Text.WordWrap
                     }
 
                     ColumnLayout {
                         Layout.fillWidth: true
                         spacing: Theme.spacingXs
+                        visible: appViewModel && appViewModel.gdrive.authenticated
 
                         Text {
-                            text: "Client Secret"
+                            text: "Upload folder"
                             font.pixelSize: Theme.fontSizeXs
                             color: Theme.textMuted
                         }
 
-                        Rectangle {
+                        RowLayout {
                             Layout.fillWidth: true
-                            Layout.preferredHeight: 36
-                            radius: Theme.borderRadiusSmall
-                            color: Theme.surface
-                            border.color: gdriveClientSecretInput.activeFocus ? Theme.accent : Theme.surfaceBorder
-                            border.width: 1
+                            spacing: Theme.spacingSm
 
-                            TextInput {
-                                id: gdriveClientSecretInput
-                                anchors.fill: parent
-                                anchors.margins: Theme.spacingSm
-                                font.pixelSize: Theme.fontSizeSm
-                                color: Theme.textPrimary
-                                clip: true
-                                selectByMouse: true
-                                echoMode: TextInput.Password
+                            Rectangle {
+                                Layout.fillWidth: true
+                                Layout.preferredHeight: 36
+                                radius: Theme.borderRadiusSmall
+                                color: Theme.surface
+                                border.color: gdriveFolderInput.activeFocus ? Theme.accent : Theme.surfaceBorder
+                                border.width: 1
+
+                                TextInput {
+                                    id: gdriveFolderInput
+                                    anchors.fill: parent
+                                    anchors.margins: Theme.spacingSm
+                                    font.pixelSize: Theme.fontSizeSm
+                                    color: Theme.textPrimary
+                                    clip: true
+                                    selectByMouse: true
+                                    text: appViewModel ? appViewModel.gdrive.folderName : "iptvxs-recordings"
+
+                                    Text {
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        text: "e.g. iptvxs-recordings"
+                                        font.pixelSize: Theme.fontSizeSm
+                                        color: Theme.textMuted
+                                        visible: !gdriveFolderInput.text && !gdriveFolderInput.activeFocus
+                                    }
+                                }
+                            }
+
+                            Rectangle {
+                                Layout.preferredWidth: saveFolderBtn.implicitWidth + Theme.spacingLg
+                                Layout.preferredHeight: 36
+                                radius: Theme.borderRadiusSmall
+                                color: saveFolderHov ? Theme.accent : Theme.accentHover
+
+                                property bool saveFolderHov: false
 
                                 Text {
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    text: "Enter Google OAuth Client Secret..."
-                                    font.pixelSize: Theme.fontSizeSm
-                                    color: Theme.textMuted
-                                    visible: !gdriveClientSecretInput.text && !gdriveClientSecretInput.activeFocus
+                                    id: saveFolderBtn
+                                    anchors.centerIn: parent
+                                    text: "Save & create"
+                                    font.pixelSize: Theme.fontSizeXs
+                                    color: "#ffffff"
+                                    font.bold: true
+                                }
+
+                                MouseArea {
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    cursorShape: Qt.PointingHandCursor
+                                    onEntered: parent.saveFolderHov = true
+                                    onExited: parent.saveFolderHov = false
+                                    onClicked: {
+                                        if (!appViewModel) return
+                                        appViewModel.gdrive.folderName = gdriveFolderInput.text
+                                        appViewModel.gdrive.resolveFolderNow()
+                                    }
                                 }
                             }
                         }
-                    }
-
-                    Rectangle {
-                        Layout.preferredWidth: saveGdriveBtn.implicitWidth + Theme.spacingLg
-                        Layout.preferredHeight: 32
-                        radius: Theme.borderRadiusSmall
-                        color: saveGdriveBtnHovered ? Theme.accent : Theme.accentHover
-
-                        property bool saveGdriveBtnHovered: false
 
                         Text {
-                            id: saveGdriveBtn
-                            anchors.centerIn: parent
-                            text: "Save Credentials"
+                            Layout.fillWidth: true
+                            text: "The folder is created on your Google Drive if it doesn't exist. Only folders created by iptvXS are visible to the app (drive.file scope)."
                             font.pixelSize: Theme.fontSizeXs
-                            color: Theme.textPrimary
-                        }
-
-                        MouseArea {
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
-                            onEntered: parent.saveGdriveBtnHovered = true
-                            onExited: parent.saveGdriveBtnHovered = false
-                            onClicked: {
-                                if (appViewModel && gdriveClientIdInput.text && gdriveClientSecretInput.text) {
-                                    appViewModel.gdrive.setClientCredentials(
-                                        gdriveClientIdInput.text,
-                                        gdriveClientSecretInput.text
-                                    )
-                                }
-                            }
+                            color: Theme.textMuted
+                            wrapMode: Text.WordWrap
                         }
                     }
 
@@ -1180,13 +1161,91 @@ Item {
                         spacing: Theme.spacingXs
 
                         Text {
-                            text: "Save recordings to"
+                            text: "Destination"
                             font.pixelSize: Theme.fontSizeSm
                             color: Theme.textPrimary
                         }
 
                         Text {
-                            text: "Choose where recorded streams are saved on disk"
+                            text: appViewModel && appViewModel.recordingDestination === "gdrive"
+                                ? "Recordings are saved locally first, then uploaded to Google Drive"
+                                : "Where new recordings are stored when they finish"
+                            font.pixelSize: Theme.fontSizeXs
+                            color: Theme.textMuted
+                        }
+
+                        RowLayout {
+                            Layout.fillWidth: true
+                            spacing: Theme.spacingSm
+
+                            Repeater {
+                                model: [
+                                    { value: "local", label: "Local folder" },
+                                    { value: "gdrive", label: "Google Drive" }
+                                ]
+
+                                Rectangle {
+                                    readonly property bool selected:
+                                        appViewModel && appViewModel.recordingDestination === modelData.value
+                                    readonly property bool gdriveLocked:
+                                        modelData.value === "gdrive" &&
+                                        appViewModel && !appViewModel.gdrive.authenticated
+
+                                    Layout.fillWidth: true
+                                    Layout.preferredHeight: 40
+                                    radius: Theme.borderRadiusSmall
+                                    color: selected ? Theme.accent
+                                        : destHov ? Theme.surfaceHover : Theme.surface
+                                    border.width: 1
+                                    border.color: selected ? Theme.accent : Theme.surfaceBorder
+                                    opacity: gdriveLocked ? 0.5 : 1.0
+
+                                    property bool destHov: false
+
+                                    Text {
+                                        anchors.centerIn: parent
+                                        text: modelData.label +
+                                            (gdriveLocked ? "  (connect Google Drive first)" : "")
+                                        font.pixelSize: Theme.fontSizeSm
+                                        color: selected ? "#ffffff" : Theme.textSecondary
+                                        font.bold: selected
+                                    }
+
+                                    MouseArea {
+                                        anchors.fill: parent
+                                        hoverEnabled: true
+                                        cursorShape: gdriveLocked
+                                            ? Qt.ForbiddenCursor : Qt.PointingHandCursor
+                                        enabled: !gdriveLocked
+                                        onEntered: parent.destHov = true
+                                        onExited: parent.destHov = false
+                                        onClicked: {
+                                            if (appViewModel && !gdriveLocked) {
+                                                appViewModel.recordingDestination = modelData.value
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        spacing: Theme.spacingXs
+
+                        Text {
+                            text: appViewModel && appViewModel.recordingDestination === "gdrive"
+                                ? "Local staging folder"
+                                : "Save recordings to"
+                            font.pixelSize: Theme.fontSizeSm
+                            color: Theme.textPrimary
+                        }
+
+                        Text {
+                            text: appViewModel && appViewModel.recordingDestination === "gdrive"
+                                ? "Recordings are written here during capture, then uploaded to Google Drive"
+                                : "Choose where recorded streams are saved on disk"
                             font.pixelSize: Theme.fontSizeXs
                             color: Theme.textMuted
                         }

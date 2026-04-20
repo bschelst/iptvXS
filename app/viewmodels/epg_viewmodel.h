@@ -6,6 +6,7 @@
 #include <QTimer>
 
 #include "iptvxs/db/channel_repository.h"
+#include "iptvxs/db/favorite_repository.h"
 #include "iptvxs/db/programme_repository.h"
 #include "iptvxs/models/channel.h"
 #include "iptvxs/models/programme.h"
@@ -15,6 +16,7 @@
 struct EpgChannelRow {
     iptvxs::Channel channel;
     QVector<iptvxs::Programme> programmes;
+    bool isFavorite{false};
 };
 
 class EpgViewModel : public QAbstractListModel {
@@ -36,13 +38,15 @@ public:
         ChannelNameRole,
         ChannelLogoRole,
         StreamUrlRole,
-        ProgrammesRole
+        ProgrammesRole,
+        IsFavoriteRole
     };
 
     explicit EpgViewModel(QObject *parent = nullptr);
 
     void setRepositories(iptvxs::ProgrammeRepository *progRepo,
-                         iptvxs::ChannelRepository *channelRepo);
+                         iptvxs::ChannelRepository *channelRepo,
+                         iptvxs::FavoriteRepository *favoriteRepo);
     void setHttpClient(iptvxs::HttpClient *http);
 
     int rowCount(const QModelIndex &parent = {}) const override;
@@ -82,6 +86,7 @@ private:
 
     iptvxs::ProgrammeRepository *progRepo_{nullptr};
     iptvxs::ChannelRepository *channelRepo_{nullptr};
+    iptvxs::FavoriteRepository *favoriteRepo_{nullptr};
     iptvxs::HttpClient *http_{nullptr};
     iptvxs::XmltvParser parser_;
 

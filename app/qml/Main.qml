@@ -21,7 +21,9 @@ ApplicationWindow {
             window.hide()
             return
         }
-        if (appViewModel && appViewModel.recordingList.activeCount > 0) {
+        var hasRecordings = appViewModel && appViewModel.recordingList.activeCount > 0
+        var hasUpload = appViewModel && appViewModel.gdrive.uploading
+        if (hasRecordings || hasUpload) {
             close.accepted = false
             closeConfirmDialog.visible = true
         }
@@ -29,7 +31,7 @@ ApplicationWindow {
 
     property var viewTitles: ({
         "home": "Home",
-        "channels": "Channels",
+        "channels": "TV Channels",
         "vod": "Video on Demand",
         "favorites": "Favorites",
         "epg": "TV Guide",
@@ -294,7 +296,13 @@ ApplicationWindow {
                 spacing: Theme.spacingMd
 
                 Text {
-                    text: "Recording in Progress"
+                    text: {
+                        var hasRec = appViewModel && appViewModel.recordingList.activeCount > 0
+                        var hasUp = appViewModel && appViewModel.gdrive.uploading
+                        if (hasRec && hasUp) return "Recording & Upload in Progress"
+                        if (hasUp) return "Upload in Progress"
+                        return "Recording in Progress"
+                    }
                     font.pixelSize: Theme.fontSizeLg
                     font.bold: true
                     color: Theme.textPrimary
@@ -302,9 +310,15 @@ ApplicationWindow {
 
                 Text {
                     text: {
+                        var parts = []
                         var n = appViewModel ? appViewModel.recordingList.activeCount : 0
-                        return "You have " + n + " active recording" + (n > 1 ? "s" : "") +
-                               ".\nClosing the app will stop all recordings."
+                        if (n > 0) parts.push("You have " + n + " active recording" + (n > 1 ? "s" : ""))
+                        if (appViewModel && appViewModel.gdrive.uploading)
+                            parts.push("A Google Drive upload is in progress")
+                        parts.push("Closing the app will interrupt" +
+                            (parts.length > 1 ? " them" : " it") +
+                            ". Uploads will resume on next launch.")
+                        return parts.join(".\n")
                     }
                     font.pixelSize: Theme.fontSizeSm
                     color: Theme.textSecondary

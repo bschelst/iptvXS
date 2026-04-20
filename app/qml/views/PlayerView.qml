@@ -145,7 +145,7 @@ Item {
                     spacing: Theme.spacingSm
 
                     PlayerButton {
-                        text: appViewModel && appViewModel.player.paused ? "▶" : "⏸"
+                        text: appViewModel && appViewModel.player.paused ? "▶\uFE0E" : "⏸\uFE0E"
                         btnSize: 48
                         iconSize: 22
                         onClicked: {
@@ -154,7 +154,7 @@ Item {
                     }
 
                     PlayerButton {
-                        text: "⏹"
+                        text: "⏹\uFE0E"
                         btnSize: 48
                         iconSize: 22
                         onClicked: goBack()
@@ -192,7 +192,7 @@ Item {
                     // --- Favorite button (live channels only) ---
                     PlayerButton {
                         id: favBtn
-                        text: isFav ? "⭐" : "☆"
+                        text: isFav ? "★" : "☆"
                         property bool isFav: false
                         visible: appViewModel ? appViewModel.player.channelId > 0 : false
                         onClicked: {
@@ -215,26 +215,17 @@ Item {
                     // --- Record button (live only) ---
                     PlayerButton {
                         id: recBtn
-                        text: recActive ? "⏹" : "⏺"
+                        readonly property bool recActive: appViewModel ? appViewModel.player.recording : false
+                        text: recActive ? "⏹\uFE0E" : "⏺\uFE0E"
                         btnColor: recActive ? Theme.error : "transparent"
                         visible: appViewModel ? appViewModel.player.isLive : false
-                        property bool recActive: false
-                        property string recPath: ""
-                        property var recStartTime: 0
                         onClicked: {
                             if (!appViewModel) return
                             showControls()
                             if (recActive) {
                                 appViewModel.player.stopStreamRecord()
-                                if (appViewModel.player.channelId > 0) {
-                                    var endTime = Math.floor(Date.now() / 1000)
-                                    appViewModel.recordingList.addCompletedRecording(
-                                        appViewModel.player.channelId, recStartTime, endTime, recPath)
-                                }
-                                recActive = false
                             } else {
                                 var now = new Date()
-                                recStartTime = Math.floor(now.getTime() / 1000)
                                 var ts = now.getFullYear() + "-" +
                                     String(now.getMonth()+1).padStart(2,'0') + "-" +
                                     String(now.getDate()).padStart(2,'0') + "_" +
@@ -243,18 +234,10 @@ Item {
                                     String(now.getSeconds()).padStart(2,'0')
                                 var name = (appViewModel.player.channelName || "recording").replace(/[^a-zA-Z0-9_-]/g, "_")
                                 var dir = appViewModel.recordingDirectory
-                                recPath = dir + "/" + ts + "_" + name + ".mkv"
-                                appViewModel.player.startStreamRecord(recPath)
-                                recActive = true
-                            }
-                        }
-                        Connections {
-                            target: appViewModel ? appViewModel.player : null
-                            function onChannelIdChanged() {
-                                if (recBtn.recActive) {
-                                    appViewModel.player.stopStreamRecord()
-                                }
-                                recBtn.recActive = false
+                                var outPath = dir + "/" + ts + "_" + name + ".mkv"
+                                appViewModel.recordingList.startStreamRecording(
+                                    appViewModel.player.channelId, outPath)
+                                appViewModel.player.startStreamRecord(outPath)
                             }
                         }
                     }
@@ -299,13 +282,55 @@ Item {
                             return muteHov ? "#40ffffff" : "transparent"
                         }
                         property bool muteHov: false
+                        readonly property bool isMuted: appViewModel ? appViewModel.player.muted : false
 
-                        Text {
+                        Canvas {
+                            id: speakerCanvas
                             anchors.centerIn: parent
-                            text: appViewModel && appViewModel.player.muted ? "MUTED" : "🔊"
-                            font.pixelSize: appViewModel && appViewModel.player.muted ? 10 : 18
-                            font.bold: true
-                            color: appViewModel && appViewModel.player.muted ? "#ffffff" : "#ffffff"
+                            width: 24
+                            height: 24
+                            antialiasing: true
+                            property bool muted: parent.isMuted
+                            onMutedChanged: requestPaint()
+                            Component.onCompleted: requestPaint()
+
+                            onPaint: {
+                                var ctx = getContext("2d")
+                                ctx.reset()
+                                ctx.fillStyle = "#ffffff"
+                                ctx.strokeStyle = "#ffffff"
+                                ctx.lineWidth = 1.8
+                                ctx.lineCap = "round"
+
+                                // Speaker body (trapezoid with rectangular base)
+                                ctx.beginPath()
+                                ctx.moveTo(3, 9)
+                                ctx.lineTo(3, 15)
+                                ctx.lineTo(8, 15)
+                                ctx.lineTo(13, 20)
+                                ctx.lineTo(13, 4)
+                                ctx.lineTo(8, 9)
+                                ctx.closePath()
+                                ctx.fill()
+
+                                if (muted) {
+                                    // Cross mark to the right
+                                    ctx.beginPath()
+                                    ctx.moveTo(16, 8)
+                                    ctx.lineTo(22, 16)
+                                    ctx.moveTo(22, 8)
+                                    ctx.lineTo(16, 16)
+                                    ctx.stroke()
+                                } else {
+                                    // Two concentric sound-wave arcs
+                                    ctx.beginPath()
+                                    ctx.arc(14, 12, 3.5, -Math.PI / 3, Math.PI / 3)
+                                    ctx.stroke()
+                                    ctx.beginPath()
+                                    ctx.arc(14, 12, 6.5, -Math.PI / 3, Math.PI / 3)
+                                    ctx.stroke()
+                                }
+                            }
                         }
 
                         MouseArea {
@@ -361,7 +386,8 @@ Item {
                     }
 
                     PlayerButton {
-                        text: videoFullscreen ? "⊡" : "⛶"
+                        text: videoFullscreen ? "⤢" : "⛶\uFE0E"
+                        iconSize: 20
                         onClicked: toggleVideoFullscreen()
                     }
                 }

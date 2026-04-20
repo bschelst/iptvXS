@@ -1,6 +1,7 @@
 #include "app_viewmodel.h"
 #include "log_viewmodel.h"
 
+#include <QDateTime>
 #include <QDesktopServices>
 #include <QJsonArray>
 #include <QJsonObject>
@@ -53,7 +54,10 @@ bool AppViewModel::initialize(const QString &dbPath) {
     serverListVm_->setRepositories(serverRepo_.get(), categoryRepo_.get(),
                                    channelRepo_.get());
     favoriteListVm_->setRepository(favoriteRepo_.get());
-    epgVm_->setRepositories(progRepo_.get(), channelRepo_.get());
+    epgVm_->setRepositories(progRepo_.get(), channelRepo_.get(),
+                            favoriteRepo_.get());
+    connect(favoriteListVm_, &FavoriteListViewModel::favoriteToggled,
+            epgVm_, [this](int64_t, bool) { epgVm_->refresh(); });
     epgVm_->setHttpClient(httpClient_.get());
     categoryListVm_->setRepository(categoryRepo_.get());
     channelListVm_->setRepository(channelRepo_.get());
@@ -61,6 +65,76 @@ bool AppViewModel::initialize(const QString &dbPath) {
                                    settingsRepo_.get(), progRepo_.get());
     recordingListVm_->setRepositories(recordingRepo_.get(), channelRepo_.get());
     recordingListVm_->setRecordingManager(recordingMgr_.get());
+
+    // When destination=gdrive and the user is authenticated, auto-upload new
+    // recordings to the chosen Drive folder as soon as they finish.
+    connect(recordingListVm_, &RecordingListViewModel::recordingCreated, this,
+            [this](int64_t recordingId) {
+                if (recordingDestination() != QStringLiteral("gdrive")) return;
+                if (!gdriveVm_ || !gdriveVm_->authenticated()) {
+                    qWarning("Recording %lld destination=gdrive but user not authenticated",
+                             static_cast<long long>(recordingId));
+                    return;
+                }
+                qInfo("Recording %lld auto-uploading to Google Drive",
+                      static_cast<long long>(recordingId));
+                gdriveVm_->uploadRecording(recordingId);
+            });
+
+    autoSyncTimer_ = new QTimer(this);
+    autoSyncTimer_->setSingleShot(true);
+    connect(autoSyncTimer_, &QTimer::timeout, this,
+            [this]() { runAutoSyncChannels(); });
+
+    autoSyncEpgTimer_ = new QTimer(this);
+    autoSyncEpgTimer_->setSingleShot(true);
+    connect(autoSyncEpgTimer_, &QTimer::timeout, this,
+            [this]() { runAutoSyncEpg(); });
+
+    connect(serverListVm_, &ServerListViewModel::syncFinished, this,
+            [this](int64_t) {
+                if (!autoSyncInProgress_) return;
+                ++autoSyncServerCursor_;
+                if (autoSyncServerCursor_ < serverListVm_->count()) {
+                    qInfo("Auto channel sync: next server (%d/%d)",
+                          autoSyncServerCursor_ + 1, serverListVm_->count());
+                    serverListVm_->syncServer(autoSyncServerCursor_);
+                    return;
+                }
+                autoSyncInProgress_ = false;
+                if (settingsRepo_) {
+                    settingsRepo_->set(
+                        QStringLiteral("last_channel_sync_ts"),
+                        static_cast<int>(QDateTime::currentSecsSinceEpoch()));
+                }
+                qInfo("Auto channel sync finished");
+                rescheduleAutoSyncChannels();
+            });
+
+    connect(epgVm_, &EpgViewModel::syncingChanged, this, [this]() {
+        if (!autoSyncEpgInProgress_) return;
+        if (epgVm_->syncing()) return;
+        // Sync just finished — advance to next server with an EPG URL, or stop.
+        const int n = serverListVm_ ? serverListVm_->count() : 0;
+        int next = -1;
+        for (int i = autoSyncEpgCursor_ + 1; i < n; ++i) {
+            if (!serverListVm_->epgUrlAt(i).isEmpty()) { next = i; break; }
+        }
+        if (next >= 0) {
+            autoSyncEpgCursor_ = next;
+            qInfo("Auto EPG sync: next server (index %d)", next);
+            epgVm_->syncEpg(serverListVm_->epgUrlAt(next));
+            return;
+        }
+        autoSyncEpgInProgress_ = false;
+        if (settingsRepo_) {
+            settingsRepo_->set(
+                QStringLiteral("last_epg_sync_ts"),
+                static_cast<int>(QDateTime::currentSecsSinceEpoch()));
+        }
+        qInfo("Auto EPG sync finished");
+        rescheduleAutoSyncEpg();
+    });
     connect(recordingMgr_.get(), &iptvxs::RecordingManager::recordingFailed, this,
             [](int64_t recordingId, const QString &error) {
                 qWarning("Recording %lld failed: %s",
@@ -72,19 +146,32 @@ bool AppViewModel::initialize(const QString &dbPath) {
                       static_cast<long long>(recordingId));
             });
     connect(recordingMgr_.get(), &iptvxs::RecordingManager::recordingStopped, this,
-            [](int64_t recordingId) {
+            [this](int64_t recordingId) {
                 qInfo("Recording %lld completed",
                       static_cast<long long>(recordingId));
+                if (recordingDestination() == QStringLiteral("gdrive") &&
+                    gdriveVm_ && gdriveVm_->authenticated()) {
+                    qInfo("Recording %lld auto-uploading to Google Drive (scheduled)",
+                          static_cast<long long>(recordingId));
+                    gdriveVm_->uploadRecording(recordingId);
+                }
             });
     recordingMgr_->start();
 
     gdriveAuth_ = std::make_unique<iptvxs::GDriveAuth>(settingsRepo_.get(), this);
     gdriveUploader_ = std::make_unique<iptvxs::GDriveUploader>(gdriveAuth_.get(), this);
 
-    auto clientId = settingsRepo_->getString(QStringLiteral("gdrive_client_id"));
-    auto clientSecret = settingsRepo_->getString(QStringLiteral("gdrive_client_secret"));
-    if (!clientId.isEmpty() && !clientSecret.isEmpty()) {
-        gdriveAuth_->setCredentials(clientId, clientSecret);
+    // Client ID is now bundled in the binary (PKCE flow). Clean up legacy
+    // per-user credential rows from the settings DB.
+    settingsRepo_->remove(QStringLiteral("gdrive_client_id"));
+    settingsRepo_->remove(QStringLiteral("gdrive_client_secret"));
+
+    // Migrate old default folder name to branded version.
+    auto oldFolder = settingsRepo_->getString(QStringLiteral("gdrive_folder_name"));
+    if (oldFolder == QStringLiteral("iptvxs-recordings")) {
+        settingsRepo_->set(QStringLiteral("gdrive_folder_name"),
+                           QStringLiteral("iptvXS-recordings"));
+        settingsRepo_->remove(QStringLiteral("gdrive_folder_id"));
     }
 
     connect(gdriveAuth_.get(), &iptvxs::GDriveAuth::openUrlRequested, this,
@@ -96,6 +183,9 @@ bool AppViewModel::initialize(const QString &dbPath) {
     gdriveVm_->setAuth(gdriveAuth_.get());
     gdriveVm_->setUploader(gdriveUploader_.get());
     gdriveVm_->setRecordingRepository(recordingRepo_.get());
+    gdriveVm_->setSettingsRepository(settingsRepo_.get());
+    gdriveVm_->setDeleteLocalAfterUpload(recordingDestination() == QStringLiteral("gdrive"));
+    gdriveVm_->resumePendingUploads();
 
     connect(serverListVm_, &ServerListViewModel::syncFinished, this,
             [this](int64_t serverId) {
@@ -104,6 +194,22 @@ bool AppViewModel::initialize(const QString &dbPath) {
                 }
                 if (categoryListVm_->serverId() == serverId) {
                     categoryListVm_->refresh();
+                }
+            });
+
+    connect(playerVm_, &PlayerViewModel::streamRecordingStopped, this,
+            [this](const QString &filePath, qint64 startTime) {
+                Q_UNUSED(startTime)
+                if (!recordingRepo_) return;
+                auto recs = recordingRepo_->findByStatus(QStringLiteral("recording"));
+                for (const auto &rec : recs) {
+                    if (rec.filePath == filePath) {
+                        auto now = QDateTime::currentSecsSinceEpoch();
+                        recordingListVm_->completeStreamRecording(rec.id, now, filePath);
+                        qInfo("Stream recording %lld finalized via player stop",
+                              static_cast<long long>(rec.id));
+                        return;
+                    }
                 }
             });
 
@@ -162,6 +268,9 @@ bool AppViewModel::initialize(const QString &dbPath) {
 
     databaseReady_ = true;
     emit databaseReadyChanged();
+
+    rescheduleAutoSyncChannels();
+    rescheduleAutoSyncEpg();
 
     return true;
 }
@@ -251,6 +360,7 @@ void AppViewModel::setAutoSyncInterval(int hours) {
     if (!settingsRepo_) return;
     settingsRepo_->set(QStringLiteral("auto_sync_hours"), hours);
     emit autoSyncIntervalChanged();
+    rescheduleAutoSyncChannels();
 }
 
 int AppViewModel::autoSyncEpgInterval() const {
@@ -261,6 +371,104 @@ void AppViewModel::setAutoSyncEpgInterval(int hours) {
     if (!settingsRepo_) return;
     settingsRepo_->set(QStringLiteral("auto_sync_epg_hours"), hours);
     emit autoSyncEpgIntervalChanged();
+    rescheduleAutoSyncEpg();
+}
+
+void AppViewModel::rescheduleAutoSyncChannels() {
+    if (!autoSyncTimer_ || !settingsRepo_) return;
+    const int hours = autoSyncInterval();
+    autoSyncTimer_->stop();
+    if (hours <= 0) {
+        qInfo("Auto channel sync disabled");
+        return;
+    }
+    const qint64 now = QDateTime::currentSecsSinceEpoch();
+    const qint64 last =
+        settingsRepo_->getInt(QStringLiteral("last_channel_sync_ts"), 0);
+    const qint64 dueAt = last + static_cast<qint64>(hours) * 3600;
+    qint64 delaySec = dueAt - now;
+    if (delaySec < 60) delaySec = 60;  // run shortly after startup if overdue
+    autoSyncTimer_->setInterval(static_cast<int>(
+        qMin<qint64>(delaySec, static_cast<qint64>(hours) * 3600) * 1000));
+    autoSyncTimer_->start();
+    qInfo("Auto channel sync scheduled in %lld seconds (interval %d hours)",
+          static_cast<long long>(delaySec), hours);
+}
+
+void AppViewModel::rescheduleAutoSyncEpg() {
+    if (!autoSyncEpgTimer_ || !settingsRepo_) return;
+    const int hours = autoSyncEpgInterval();
+    autoSyncEpgTimer_->stop();
+    if (hours <= 0) {
+        qInfo("Auto EPG sync disabled");
+        return;
+    }
+    const qint64 now = QDateTime::currentSecsSinceEpoch();
+    const qint64 last =
+        settingsRepo_->getInt(QStringLiteral("last_epg_sync_ts"), 0);
+    const qint64 dueAt = last + static_cast<qint64>(hours) * 3600;
+    qint64 delaySec = dueAt - now;
+    if (delaySec < 120) delaySec = 120;
+    autoSyncEpgTimer_->setInterval(static_cast<int>(
+        qMin<qint64>(delaySec, static_cast<qint64>(hours) * 3600) * 1000));
+    autoSyncEpgTimer_->start();
+    qInfo("Auto EPG sync scheduled in %lld seconds (interval %d hours)",
+          static_cast<long long>(delaySec), hours);
+}
+
+void AppViewModel::runAutoSyncChannels() {
+    if (!serverListVm_ || !settingsRepo_) return;
+    if (autoSyncInProgress_ || serverListVm_->syncing()) {
+        qInfo("Auto channel sync skipped: another sync is in progress");
+        return;
+    }
+    const int n = serverListVm_->count();
+    if (n <= 0) {
+        qInfo("Auto channel sync: no servers configured");
+        settingsRepo_->set(QStringLiteral("last_channel_sync_ts"),
+                           static_cast<int>(QDateTime::currentSecsSinceEpoch()));
+        rescheduleAutoSyncChannels();
+        return;
+    }
+    autoSyncInProgress_ = true;
+    autoSyncServerCursor_ = 0;
+    qInfo("Auto channel sync starting for %d server(s)", n);
+    serverListVm_->syncServer(autoSyncServerCursor_);
+}
+
+void AppViewModel::runAutoSyncEpg() {
+    if (!serverListVm_ || !epgVm_ || !settingsRepo_) return;
+    if (autoSyncEpgInProgress_ || epgVm_->syncing()) {
+        qInfo("Auto EPG sync skipped: another sync is in progress");
+        return;
+    }
+    const int n = serverListVm_->count();
+    if (n <= 0) {
+        qInfo("Auto EPG sync: no servers configured");
+        settingsRepo_->set(QStringLiteral("last_epg_sync_ts"),
+                           static_cast<int>(QDateTime::currentSecsSinceEpoch()));
+        rescheduleAutoSyncEpg();
+        return;
+    }
+    autoSyncEpgInProgress_ = true;
+    autoSyncEpgCursor_ = -1;
+    // Advance to the first server that has an EPG URL.
+    for (int i = 0; i < n; ++i) {
+        if (!serverListVm_->epgUrlAt(i).isEmpty()) {
+            autoSyncEpgCursor_ = i;
+            break;
+        }
+    }
+    if (autoSyncEpgCursor_ < 0) {
+        qInfo("Auto EPG sync: no server has an EPG URL configured");
+        autoSyncEpgInProgress_ = false;
+        settingsRepo_->set(QStringLiteral("last_epg_sync_ts"),
+                           static_cast<int>(QDateTime::currentSecsSinceEpoch()));
+        rescheduleAutoSyncEpg();
+        return;
+    }
+    qInfo("Auto EPG sync starting (server index %d)", autoSyncEpgCursor_);
+    epgVm_->syncEpg(serverListVm_->epgUrlAt(autoSyncEpgCursor_));
 }
 
 QString AppViewModel::databasePath() const {
@@ -289,6 +497,24 @@ void AppViewModel::setRecordingDirectory(const QString &path) {
     if (!settingsRepo_ || path.isEmpty()) return;
     settingsRepo_->set(QStringLiteral("recording_directory"), path);
     emit recordingDirectoryChanged();
+}
+
+QString AppViewModel::recordingDestination() const {
+    if (!settingsRepo_) return QStringLiteral("local");
+    auto v = settingsRepo_->getString(QStringLiteral("recording_destination"),
+                                      QStringLiteral("local"));
+    return (v == QStringLiteral("gdrive")) ? v : QStringLiteral("local");
+}
+
+void AppViewModel::setRecordingDestination(const QString &dest) {
+    if (!settingsRepo_) return;
+    auto normalized = (dest == QStringLiteral("gdrive")) ? dest : QStringLiteral("local");
+    if (recordingDestination() == normalized) return;
+    settingsRepo_->set(QStringLiteral("recording_destination"), normalized);
+    if (gdriveVm_) {
+        gdriveVm_->setDeleteLocalAfterUpload(normalized == QStringLiteral("gdrive"));
+    }
+    emit recordingDestinationChanged();
 }
 
 int AppViewModel::bufferSeconds() const {
