@@ -120,7 +120,7 @@ bool AppViewModel::initialize(const QString &dbPath) {
     connect(serverListVm_, &ServerListViewModel::syncFinished, this,
             [this](int64_t) {
                 if (!autoSyncInProgress_) return;
-                ++autoSyncServerCursor_;
+                advanceAutoSyncToNextEnabled();
                 if (autoSyncServerCursor_ < serverListVm_->count()) {
                     qInfo("Auto channel sync: next server (%d/%d)",
                           autoSyncServerCursor_ + 1, serverListVm_->count());
@@ -477,6 +477,17 @@ void AppViewModel::rescheduleAutoSyncEpg() {
           static_cast<long long>(delaySec), hours);
 }
 
+void AppViewModel::advanceAutoSyncToNextEnabled() {
+    ++autoSyncServerCursor_;
+    while (autoSyncServerCursor_ < serverListVm_->count()) {
+        auto sid = serverListVm_->serverIdAt(autoSyncServerCursor_);
+        auto idx = serverListVm_->index(autoSyncServerCursor_);
+        auto enabled = serverListVm_->data(idx, ServerListViewModel::EnabledRole).toBool();
+        if (enabled) return;
+        ++autoSyncServerCursor_;
+    }
+}
+
 void AppViewModel::runAutoSyncChannels() {
     if (!serverListVm_ || !settingsRepo_) return;
     if (autoSyncInProgress_ || serverListVm_->syncing()) {
@@ -492,7 +503,16 @@ void AppViewModel::runAutoSyncChannels() {
         return;
     }
     autoSyncInProgress_ = true;
-    autoSyncServerCursor_ = 0;
+    autoSyncServerCursor_ = -1;
+    advanceAutoSyncToNextEnabled();
+    if (autoSyncServerCursor_ < 0 || autoSyncServerCursor_ >= n) {
+        autoSyncInProgress_ = false;
+        qInfo("Auto channel sync: no enabled servers");
+        settingsRepo_->set(QStringLiteral("last_channel_sync_ts"),
+                           static_cast<int>(QDateTime::currentSecsSinceEpoch()));
+        rescheduleAutoSyncChannels();
+        return;
+    }
     qInfo("Auto channel sync starting for %d server(s)", n);
     autoSyncWatchdog_->start(120 * 1000);
     serverListVm_->syncServer(autoSyncServerCursor_);

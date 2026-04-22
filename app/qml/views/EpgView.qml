@@ -117,6 +117,14 @@ Item {
                         leftPadding: Theme.spacingSm
                     }
 
+                    delegate: ItemDelegate {
+                        width: serverPicker.width
+                        height: model.enabled ? implicitHeight : 0
+                        visible: model.enabled
+                        text: model.name
+                        highlighted: serverPicker.highlightedIndex === index
+                    }
+
                     onCurrentValueChanged: {
                         if (appViewModel && currentValue > 0) {
                             appViewModel.epg.serverId = currentValue

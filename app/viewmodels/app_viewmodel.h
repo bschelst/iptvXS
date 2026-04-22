@@ -236,6 +236,7 @@ private:
 
     void rescheduleAutoSyncChannels();
     void rescheduleAutoSyncEpg();
+    void advanceAutoSyncToNextEnabled();
     void runAutoSyncChannels();
     void runAutoSyncEpg();
     bool videoFullscreen_{false};

@@ -57,7 +57,9 @@ Item {
 
                     delegate: Rectangle {
                         width: serverPicker.width
-                        height: 36
+                        height: model.enabled ? 36 : 0
+                        visible: model.enabled
+                        clip: true
                         color: activeServerId === model.serverId
                             ? Theme.accent + "25" : srvHov ? Theme.surfaceHover : "transparent"
 
