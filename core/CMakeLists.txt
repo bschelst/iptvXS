@@ -1,5 +1,13 @@
-find_package(PkgConfig REQUIRED)
-pkg_check_modules(MPV REQUIRED mpv)
+if(WIN32)
+    find_package(mpv CONFIG QUIET)
+    if(NOT mpv_FOUND)
+        find_path(MPV_INCLUDE_DIRS mpv/client.h)
+        find_library(MPV_LIBRARIES NAMES mpv libmpv)
+    endif()
+else()
+    find_package(PkgConfig REQUIRED)
+    pkg_check_modules(MPV REQUIRED mpv)
+endif()
 
 add_library(iptvxs-core STATIC
     src/db/database.cpp
@@ -82,3 +90,7 @@ target_link_libraries(iptvxs-core
         Qt6::Network
         ${MPV_LIBRARIES}
 )
+
+if(WIN32)
+    target_link_libraries(iptvxs-core PUBLIC ws2_32)
+endif()

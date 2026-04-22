@@ -1,8 +1,12 @@
 #include "player_viewmodel.h"
 
+#ifdef Q_OS_LINUX
 #include <QDBusConnection>
 #include <QDBusInterface>
 #include <QDBusReply>
+#elif defined(Q_OS_WIN)
+#include <windows.h>
+#endif
 #include <QDateTime>
 #include <QDir>
 #include <QFileInfo>
@@ -65,6 +69,7 @@ iptvxs::MpvPlayer *PlayerViewModel::mpvPlayer() const { return player_; }
 QString PlayerViewModel::currentUrl() const { return currentUrl_; }
 
 void PlayerViewModel::inhibitScreenSaver() {
+#ifdef Q_OS_LINUX
     if (screenSaverCookie_ != 0) return;
     QDBusInterface iface(QStringLiteral("org.freedesktop.ScreenSaver"),
                          QStringLiteral("/org/freedesktop/ScreenSaver"),
@@ -78,9 +83,13 @@ void PlayerViewModel::inhibitScreenSaver() {
             screenSaverCookie_ = reply.value();
         }
     }
+#elif defined(Q_OS_WIN)
+    SetThreadExecutionState(ES_CONTINUOUS | ES_DISPLAY_REQUIRED | ES_SYSTEM_REQUIRED);
+#endif
 }
 
 void PlayerViewModel::uninhibitScreenSaver() {
+#ifdef Q_OS_LINUX
     if (screenSaverCookie_ == 0) return;
     QDBusInterface iface(QStringLiteral("org.freedesktop.ScreenSaver"),
                          QStringLiteral("/org/freedesktop/ScreenSaver"),
@@ -90,6 +99,9 @@ void PlayerViewModel::uninhibitScreenSaver() {
         iface.call(QStringLiteral("UnInhibit"), screenSaverCookie_);
     }
     screenSaverCookie_ = 0;
+#elif defined(Q_OS_WIN)
+    SetThreadExecutionState(ES_CONTINUOUS);
+#endif
 }
 
 void PlayerViewModel::play(const QString &url, const QString &name,

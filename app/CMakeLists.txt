@@ -81,9 +81,12 @@ target_include_directories(iptvXS
         ${CMAKE_CURRENT_SOURCE_DIR}/viewmodels
 )
 
-find_package(Qt6 REQUIRED COMPONENTS Concurrent DBus OpenGL Widgets QuickDialogs2)
-find_package(PkgConfig REQUIRED)
-pkg_check_modules(MPV REQUIRED mpv)
+find_package(Qt6 REQUIRED COMPONENTS Concurrent OpenGL Widgets QuickDialogs2)
+if(NOT WIN32)
+    find_package(Qt6 REQUIRED COMPONENTS DBus)
+    find_package(PkgConfig REQUIRED)
+    pkg_check_modules(MPV REQUIRED mpv)
+endif()
 
 target_include_directories(iptvXS
     PRIVATE
@@ -94,7 +97,7 @@ target_link_libraries(iptvXS
     PRIVATE
         iptvxs-core
         Qt6::Concurrent
-        Qt6::DBus
+        $<$<NOT:$<PLATFORM_ID:Windows>>:Qt6::DBus>
         Qt6::Quick
         Qt6::QuickControls2
         Qt6::QuickDialogs2
