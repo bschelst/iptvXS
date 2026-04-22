@@ -91,9 +91,7 @@ int main(int argc, char *argv[]) {
     g_logViewModel = logVm;
     qInstallMessageHandler(appMessageHandler);
 
-    QIcon appIcon;
-    appIcon.addFile(QStringLiteral(":/images/iptvxs_icon_256.png"), QSize(256, 256));
-    appIcon.addFile(QStringLiteral(":/images/iptvxs_tray.png"), QSize(128, 128));
+    QIcon appIcon(QStringLiteral(":/images/iptvxs_tray.png"));
     app.setWindowIcon(appIcon);
 
     qInfo("iptvXS v%s starting", qPrintable(app.applicationVersion()));

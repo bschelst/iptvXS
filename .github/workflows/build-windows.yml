@@ -8,6 +8,7 @@ on:
 
 env:
   MPV_VERSION: "0.41.0"
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   build:
@@ -35,7 +36,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: mpv-dev
-          key: mpv-dev-x86_64-v2-${{ env.MPV_VERSION }}
+          key: mpv-dev-x86_64-20260421
 
       - name: Download mpv dev libraries
         if: steps.cache-mpv.outputs.cache-hit != 'true'
@@ -46,18 +47,26 @@ jobs:
           7z x mpv-dev.7z -ompv-dev
           dir mpv-dev
 
-      - name: Prepare mpv import library
+      - name: Generate MSVC import library
         run: |
           cd mpv-dev
-          dir
-          # Generate MSVC import lib from the .def file
-          if (Test-Path "mpv.def") {
+          # The dev package has libmpv.dll.a (GCC) but we need mpv.lib (MSVC)
+          # Generate .def from the DLL exports, then create .lib
+          if (Test-Path "libmpv-2.dll") {
+            # Use dumpbin to extract exports and create a .def file
+            $exports = dumpbin /exports libmpv-2.dll | Select-String "^\s+\d+\s+[0-9A-F]+\s+[0-9A-F]+\s+(\S+)" | ForEach-Object { $_.Matches.Groups[1].Value }
+            "LIBRARY libmpv-2.dll" | Out-File -Encoding ASCII mpv.def
+            "EXPORTS" | Out-File -Encoding ASCII -Append mpv.def
+            $exports | ForEach-Object { "  $_" | Out-File -Encoding ASCII -Append mpv.def }
+            Write-Host "Generated mpv.def with $($exports.Count) exports"
             lib /def:mpv.def /out:mpv.lib /machine:x64
           } else {
-            Write-Host "No mpv.def found, listing available files:"
+            Write-Host "ERROR: libmpv-2.dll not found"
             Get-ChildItem -Recurse | Select-Object FullName
+            exit 1
           }
-          dir
+          Write-Host "Files after lib generation:"
+          dir *.lib, *.dll, *.def
 
       - name: Configure CMake
         run: |
@@ -74,10 +83,15 @@ jobs:
         run: |
           mkdir package
           $exe = Get-ChildItem -Path build -Recurse -Filter "iptvXS.exe" | Select-Object -First 1
+          if (-not $exe) {
+            Write-Host "ERROR: iptvXS.exe not found"
+            Get-ChildItem -Path build -Recurse -Filter "*.exe" | Select-Object FullName
+            exit 1
+          }
           Copy-Item $exe.FullName package/
           cd package
           windeployqt --qmldir ../app/qml iptvXS.exe
-          Copy-Item ../mpv-dev/*.dll .
+          Copy-Item ../mpv-dev/libmpv-2.dll .
 
       - name: Create ZIP
         run: |
