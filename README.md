@@ -137,7 +137,7 @@ flatpak install --user iptvxs.flatpak
 #### Build
 
 ```bash
-git clone https://github.com/bschelst/iptvxs.git
+git clone https://github.com/bschelst/iptvXS.git
 cd iptvxs
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build --parallel $(nproc)
