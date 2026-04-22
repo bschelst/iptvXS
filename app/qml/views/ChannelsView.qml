@@ -349,9 +349,9 @@ Item {
                     }
 
                     Rectangle {
-                        Layout.preferredWidth: newFilterLabel.implicitWidth + 20
-                        Layout.preferredHeight: 28
-                        radius: 14
+                        Layout.preferredWidth: newFilterRow.implicitWidth + 24
+                        Layout.preferredHeight: 32
+                        radius: 16
                         color: {
                             var active = appViewModel && appViewModel.channelList.recentlyAddedFilter
                             return active ? Theme.accent : newFilterHov ? Theme.surfaceHover : Theme.surface
@@ -364,19 +364,20 @@ Item {
                         property bool newFilterHov: false
 
                         Row {
+                            id: newFilterRow
                             anchors.centerIn: parent
-                            spacing: 4
+                            spacing: 5
 
                             Text {
                                 text: "\u2728"
-                                font.pixelSize: 11
+                                font.pixelSize: 13
                                 anchors.verticalCenter: parent.verticalCenter
                             }
 
                             Text {
                                 id: newFilterLabel
                                 text: "New"
-                                font.pixelSize: Theme.fontSizeXs
+                                font.pixelSize: Theme.fontSizeSm
                                 font.bold: appViewModel && appViewModel.channelList.recentlyAddedFilter
                                 color: appViewModel && appViewModel.channelList.recentlyAddedFilter
                                     ? "#ffffff" : Theme.textSecondary
@@ -407,7 +408,7 @@ Item {
                 Layout.fillHeight: true
                 property int cols: appViewModel ? appViewModel.gridColumns : 2
                 cellWidth: Math.floor(width / cols)
-                cellHeight: 72
+                cellHeight: 80
                 clip: true
                 focus: true
                 keyNavigationEnabled: true
@@ -463,7 +464,7 @@ Item {
                         anchors.left: parent.left
                         anchors.leftMargin: 10
                         anchors.verticalCenter: parent.verticalCenter
-                        width: 44; height: 44
+                        width: 52; height: 52
                         radius: 6; color: Theme.surface; clip: true
 
                         Image {

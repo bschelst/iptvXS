@@ -46,6 +46,8 @@ if(UNIX AND NOT APPLE)
 
     install(FILES packaging/linux/org.schelstraete.iptvxs.svg
         DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/icons/hicolor/scalable/apps)
+    install(FILES packaging/linux/org.schelstraete.iptvxs.png
+        DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/icons/hicolor/256x256/apps)
 endif()
 
 set(CPACK_PACKAGE_NAME "iptvxs")
