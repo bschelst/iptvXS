@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#6c5ce7"/>
+      <stop offset="100%" style="stop-color:#4834d4"/>
+    </linearGradient>
+  </defs>
+  <rect width="256" height="256" rx="48" fill="url(#bg)"/>
+  <g transform="translate(128,128)">
+    <!-- TV screen shape -->
+    <rect x="-72" y="-56" width="144" height="96" rx="12" fill="#0a0a0f" opacity="0.9"/>
+    <rect x="-64" y="-48" width="128" height="80" rx="8" fill="none" stroke="#f0f0f5" stroke-width="3"/>
+    <!-- Play triangle -->
+    <polygon points="-16,-20 24,0 -16,20" fill="#f0f0f5"/>
+    <!-- Signal waves -->
+    <path d="M56,-36 Q72,-36 72,-20" fill="none" stroke="#00cec9" stroke-width="3" stroke-linecap="round"/>
+    <path d="M56,-44 Q80,-44 80,-20" fill="none" stroke="#00cec9" stroke-width="2.5" stroke-linecap="round" opacity="0.7"/>
+    <path d="M56,-52 Q88,-52 88,-20" fill="none" stroke="#00cec9" stroke-width="2" stroke-linecap="round" opacity="0.4"/>
+    <!-- Stand -->
+    <rect x="-24" y="44" width="48" height="6" rx="3" fill="#f0f0f5" opacity="0.8"/>
+  </g>
+</svg>

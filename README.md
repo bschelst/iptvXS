@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="images/iptvxs_logo.png" alt="iptvXS" width="128" />
+  <img src="images/iptvxs_logo_purple.svg" alt="iptvXS" width="256" />
 </p>
 
 <h1 align="center">iptvXS</h1>
