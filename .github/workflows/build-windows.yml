@@ -7,7 +7,7 @@ on:
       - 'v*'
 
 env:
-  MPV_VERSION: "0.39.0"
+  MPV_VERSION: "0.41.0"
 
 jobs:
   build:
@@ -40,7 +40,7 @@ jobs:
       - name: Download mpv dev libraries
         if: steps.cache-mpv.outputs.cache-hit != 'true'
         run: |
-          $url = "https://github.com/shinchiro/mpv-winbuild-cmake/releases/download/20241013/mpv-dev-x86_64-v3-20241013-git-c4c4b28.7z"
+          $url = "https://github.com/shinchiro/mpv-winbuild-cmake/releases/download/20260421/mpv-dev-x86_64-v3-20260421-git-5921fe5.7z"
           Write-Host "Downloading $url"
           Invoke-WebRequest -Uri $url -OutFile mpv-dev.7z -MaximumRetryCount 3
           7z x mpv-dev.7z -ompv-dev
