@@ -40,17 +40,22 @@ jobs:
       - name: Download mpv dev libraries
         if: steps.cache-mpv.outputs.cache-hit != 'true'
         run: |
-          Invoke-WebRequest -Uri "https://sourceforge.net/projects/mpv-player-windows/files/libmpv/mpv-dev-x86_64-v3-20241013-git-c4c4b28.7z/download" -OutFile mpv-dev.7z
+          $url = "https://github.com/shinchiro/mpv-winbuild-cmake/releases/download/20241013/mpv-dev-x86_64-v3-20241013-git-c4c4b28.7z"
+          Write-Host "Downloading $url"
+          Invoke-WebRequest -Uri $url -OutFile mpv-dev.7z -MaximumRetryCount 3
           7z x mpv-dev.7z -ompv-dev
           dir mpv-dev
 
       - name: Prepare mpv import library
         run: |
           cd mpv-dev
-          if (Test-Path "libmpv-2.dll") {
+          dir
+          # Generate MSVC import lib from the .def file
+          if (Test-Path "mpv.def") {
             lib /def:mpv.def /out:mpv.lib /machine:x64
-          } elseif (Test-Path "mpv-2.dll") {
-            lib /def:mpv.def /out:mpv.lib /machine:x64
+          } else {
+            Write-Host "No mpv.def found, listing available files:"
+            Get-ChildItem -Recurse | Select-Object FullName
           }
           dir
 
