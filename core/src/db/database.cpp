@@ -239,6 +239,38 @@ std::vector<Database::Migration> Database::migrations() const {
              QSqlQuery q(db);
              return q.exec("ALTER TABLE recordings ADD COLUMN gdrive_upload_url TEXT DEFAULT ''");
          }},
+        {7, "Channel groups and first_seen_at", [](QSqlDatabase &db) -> bool {
+             QSqlQuery q(db);
+
+             if (!q.exec(R"(CREATE TABLE IF NOT EXISTS channel_groups (
+                     id INTEGER PRIMARY KEY AUTOINCREMENT,
+                     name TEXT NOT NULL,
+                     position INTEGER NOT NULL DEFAULT 0,
+                     created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
+                 ))"))
+                 return false;
+
+             if (!q.exec(R"(CREATE TABLE IF NOT EXISTS group_members (
+                     id INTEGER PRIMARY KEY AUTOINCREMENT,
+                     group_id INTEGER NOT NULL REFERENCES channel_groups(id) ON DELETE CASCADE,
+                     channel_id INTEGER NOT NULL REFERENCES channels(id) ON DELETE CASCADE,
+                     position INTEGER NOT NULL DEFAULT 0,
+                     UNIQUE(group_id, channel_id)
+                 ))"))
+                 return false;
+
+             if (!q.exec("CREATE INDEX IF NOT EXISTS idx_group_members_group ON group_members(group_id)"))
+                 return false;
+
+             if (!q.exec("ALTER TABLE channels ADD COLUMN first_seen_at INTEGER NOT NULL DEFAULT 0"))
+                 return false;
+
+             // Back-fill first_seen_at from added_at for existing rows.
+             if (!q.exec("UPDATE channels SET first_seen_at = COALESCE(added_at, 0) WHERE first_seen_at = 0"))
+                 return false;
+
+             return true;
+         }},
     };
 }
 

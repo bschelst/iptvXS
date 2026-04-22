@@ -1,5 +1,8 @@
 #include "channel_list_viewmodel.h"
 
+#include <QDateTime>
+#include <algorithm>
+
 ChannelListViewModel::ChannelListViewModel(QObject *parent)
     : QAbstractListModel(parent) {}
 
@@ -100,6 +103,16 @@ void ChannelListViewModel::setTypeFilter(const QString &type) {
     }
 }
 
+bool ChannelListViewModel::recentlyAddedFilter() const { return recentlyAddedFilter_; }
+
+void ChannelListViewModel::setRecentlyAddedFilter(bool enabled) {
+    if (recentlyAddedFilter_ != enabled) {
+        recentlyAddedFilter_ = enabled;
+        emit recentlyAddedFilterChanged();
+        loadChannels();
+    }
+}
+
 void ChannelListViewModel::loadMore() {
     if (!hasMore() || loading_) return;
     loadChannels(true);
@@ -165,6 +178,18 @@ void ChannelListViewModel::loadChannels(bool append) {
         result = repo_->findByServerAndType(serverId_, typeFilter_, kPageSize, offset);
     } else {
         result = repo_->findByServer(serverId_, kPageSize, offset);
+    }
+
+    // Filter by recently added (last 7 days) if enabled
+    if (recentlyAddedFilter_) {
+        auto sinceSecs = QDateTime::currentSecsSinceEpoch() - 7 * 24 * 3600;
+        QVector<iptvxs::Channel> filtered;
+        filtered.reserve(result.size());
+        std::copy_if(result.begin(), result.end(), std::back_inserter(filtered),
+                     [sinceSecs](const iptvxs::Channel &ch) {
+                         return ch.addedAt >= sinceSecs;
+                     });
+        result = filtered;
     }
 
     if (append) {

@@ -45,7 +45,7 @@ private:
                                  const QString &fileName, const QString &folderId);
     void uploadChunk(int64_t recordingId, const QString &uploadUrl,
                      const QString &filePath, int64_t offset,
-                     const QByteArray &contentType);
+                     const QByteArray &contentType, int64_t declaredSize = 0);
 
     void withFreshToken(std::function<void()> action,
                         std::function<void(const QString &)> onError = {});

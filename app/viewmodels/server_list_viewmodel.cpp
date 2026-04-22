@@ -127,6 +127,11 @@ void ServerListViewModel::updateServer(int index, const QString &name,
     emit dataChanged(idx, idx);
 }
 
+QString ServerListViewModel::passwordAt(int index) const {
+    if (index < 0 || index >= servers_.size()) return {};
+    return servers_.at(index).password;
+}
+
 void ServerListViewModel::removeServer(int index) {
     if (!serverRepo_ || index < 0 || index >= servers_.size()) return;
 

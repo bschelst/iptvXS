@@ -20,8 +20,11 @@
 #include "iptvxs/gdrive/gdrive_auth.h"
 #include "iptvxs/gdrive/gdrive_uploader.h"
 #include "iptvxs/net/speed_test_runner.h"
+#include "iptvxs/db/channel_group_repository.h"
+#include "iptvxs/cache/logo_cache.h"
 
 #include "category_list_viewmodel.h"
+#include "group_list_viewmodel.h"
 #include "epg_viewmodel.h"
 #include "channel_list_viewmodel.h"
 #include "favorite_list_viewmodel.h"
@@ -73,6 +76,10 @@ class AppViewModel : public QObject {
     Q_PROPERTY(int gridColumns READ gridColumns WRITE setGridColumns NOTIFY gridColumnsChanged)
     Q_PROPERTY(bool closeToTray READ closeToTray WRITE setCloseToTray NOTIFY closeToTrayChanged)
     Q_PROPERTY(QString videoEnhancement READ videoEnhancement WRITE setVideoEnhancement NOTIFY videoEnhancementChanged)
+    Q_PROPERTY(QString hwdecMode READ hwdecMode WRITE setHwdecMode NOTIFY hwdecModeChanged)
+    Q_PROPERTY(bool deinterlace READ deinterlace WRITE setDeinterlace NOTIFY deinterlaceChanged)
+    Q_PROPERTY(GroupListViewModel *groupList READ groupList CONSTANT)
+    Q_PROPERTY(iptvxs::LogoCache *logoCache READ logoCache CONSTANT)
 
 public:
     explicit AppViewModel(QObject *parent = nullptr);
@@ -101,6 +108,8 @@ public:
     SpeedTestViewModel *speedTest() const;
     HistoryViewModel *history() const;
     LogViewModel *log() const;
+    GroupListViewModel *groupList() const;
+    iptvxs::LogoCache *logoCache() const;
 
     int autoSyncInterval() const;
     void setAutoSyncInterval(int hours);
@@ -140,7 +149,12 @@ public:
     void setCloseToTray(bool enabled);
     QString videoEnhancement() const;
     void setVideoEnhancement(const QString &preset);
+    QString hwdecMode() const;
+    void setHwdecMode(const QString &mode);
+    bool deinterlace() const;
+    void setDeinterlace(bool enabled);
 
+    Q_INVOKABLE bool fileExists(const QString &path) const;
     Q_INVOKABLE void resetDatabase();
     Q_INVOKABLE void searchSubtitles(const QString &query);
     Q_INVOKABLE void loadSubtitleResult(int index);
@@ -172,6 +186,8 @@ signals:
     void gridColumnsChanged();
     void closeToTrayChanged();
     void videoEnhancementChanged();
+    void hwdecModeChanged();
+    void deinterlaceChanged();
     void errorOccurred(const QString &message);
     void subtitlesFound(int count);
     void subtitleLoaded(const QString &filePath);
@@ -202,6 +218,7 @@ private:
     GDriveViewModel *gdriveVm_;
     SpeedTestViewModel *speedTestVm_;
     HistoryViewModel *historyVm_;
+    GroupListViewModel *groupListVm_;
     LogViewModel *logVm_{nullptr};
 
     bool databaseReady_{false};
@@ -210,6 +227,8 @@ private:
 
     QTimer *autoSyncTimer_{nullptr};
     QTimer *autoSyncEpgTimer_{nullptr};
+    QTimer *autoSyncWatchdog_{nullptr};
+    QTimer *autoSyncEpgWatchdog_{nullptr};
     int autoSyncServerCursor_{0};
     int autoSyncEpgCursor_{0};
     bool autoSyncInProgress_{false};
@@ -223,6 +242,8 @@ private:
     QString pendingPlayUrl_;
     QString pendingPlayName_;
     std::unique_ptr<iptvxs::HistoryRepository> historyRepo_;
+    std::unique_ptr<iptvxs::ChannelGroupRepository> groupRepo_;
+    std::unique_ptr<iptvxs::LogoCache> logoCache_;
     std::unique_ptr<iptvxs::OpenSubtitlesClient> subtitlesClient_;
     QVector<iptvxs::SubtitleResult> lastSubResults_;
     QString seriesServerUrl_;

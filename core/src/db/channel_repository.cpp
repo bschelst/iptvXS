@@ -16,7 +16,7 @@ ChannelRepository::ChannelRepository(QSqlDatabase db, QObject *parent)
 QVector<Channel> ChannelRepository::findByServer(int64_t serverId, int limit, int offset) const {
     QSqlQuery query(db_);
     query.prepare("SELECT id, server_id, category_id, external_id, name, stream_url, "
-                  "logo_url, epg_channel_id, type, added_at "
+                  "logo_url, epg_channel_id, type, added_at, first_seen_at "
                   "FROM channels WHERE server_id = ? ORDER BY name COLLATE NOCASE "
                   "LIMIT ? OFFSET ?");
     query.addBindValue(toVariant(serverId));
@@ -38,7 +38,7 @@ QVector<Channel> ChannelRepository::findByServer(int64_t serverId, int limit, in
 QVector<Channel> ChannelRepository::findByCategory(int64_t categoryId, int limit, int offset) const {
     QSqlQuery query(db_);
     query.prepare("SELECT id, server_id, category_id, external_id, name, stream_url, "
-                  "logo_url, epg_channel_id, type, added_at "
+                  "logo_url, epg_channel_id, type, added_at, first_seen_at "
                   "FROM channels WHERE category_id = ? ORDER BY name COLLATE NOCASE "
                   "LIMIT ? OFFSET ?");
     query.addBindValue(toVariant(categoryId));
@@ -61,7 +61,7 @@ QVector<Channel> ChannelRepository::findByServerAndType(int64_t serverId, const 
                                                          int limit, int offset) const {
     QSqlQuery query(db_);
     query.prepare("SELECT id, server_id, category_id, external_id, name, stream_url, "
-                  "logo_url, epg_channel_id, type, added_at "
+                  "logo_url, epg_channel_id, type, added_at, first_seen_at "
                   "FROM channels WHERE server_id = ? AND type = ? "
                   "ORDER BY name COLLATE NOCASE LIMIT ? OFFSET ?");
     query.addBindValue(toVariant(serverId));
@@ -84,7 +84,7 @@ QVector<Channel> ChannelRepository::search(int64_t serverId, const QString &sear
                                             int limit, int offset) const {
     QSqlQuery query(db_);
     query.prepare("SELECT c.id, c.server_id, c.category_id, c.external_id, c.name, c.stream_url, "
-                  "c.logo_url, c.epg_channel_id, c.type, c.added_at "
+                  "c.logo_url, c.epg_channel_id, c.type, c.added_at, c.first_seen_at "
                   "FROM channels c LEFT JOIN categories cat ON c.category_id = cat.id "
                   "WHERE c.server_id = ? AND (c.name LIKE ? COLLATE NOCASE OR cat.name LIKE ? COLLATE NOCASE) "
                   "ORDER BY c.name COLLATE NOCASE LIMIT ? OFFSET ?");
@@ -111,7 +111,7 @@ QVector<Channel> ChannelRepository::searchWithType(int64_t serverId, const QStri
                                                     const QString &type, int limit, int offset) const {
     QSqlQuery query(db_);
     query.prepare("SELECT c.id, c.server_id, c.category_id, c.external_id, c.name, c.stream_url, "
-                  "c.logo_url, c.epg_channel_id, c.type, c.added_at "
+                  "c.logo_url, c.epg_channel_id, c.type, c.added_at, c.first_seen_at "
                   "FROM channels c LEFT JOIN categories cat ON c.category_id = cat.id "
                   "WHERE c.server_id = ? AND c.type = ? AND (c.name LIKE ? COLLATE NOCASE OR cat.name LIKE ? COLLATE NOCASE) "
                   "ORDER BY c.name COLLATE NOCASE LIMIT ? OFFSET ?");
@@ -138,13 +138,35 @@ QVector<Channel> ChannelRepository::searchWithType(int64_t serverId, const QStri
 std::optional<Channel> ChannelRepository::findById(int64_t id) const {
     QSqlQuery query(db_);
     query.prepare("SELECT id, server_id, category_id, external_id, name, stream_url, "
-                  "logo_url, epg_channel_id, type, added_at "
+                  "logo_url, epg_channel_id, type, added_at, first_seen_at "
                   "FROM channels WHERE id = ?");
     query.addBindValue(toVariant(id));
     if (!query.exec() || !query.next()) {
         return std::nullopt;
     }
     return fromQuery(query);
+}
+
+QVector<Channel> ChannelRepository::searchAll(const QString &searchQuery, int limit) const {
+    QSqlQuery query(db_);
+    query.prepare("SELECT id, server_id, category_id, external_id, name, stream_url, "
+                  "logo_url, epg_channel_id, type, added_at, first_seen_at "
+                  "FROM channels WHERE name LIKE ? COLLATE NOCASE "
+                  "ORDER BY name COLLATE NOCASE LIMIT ?");
+    auto pattern = QStringLiteral("%%%1%%").arg(searchQuery);
+    query.addBindValue(pattern);
+    query.addBindValue(limit);
+
+    if (!query.exec()) {
+        return {};
+    }
+
+    QVector<Channel> channels;
+    channels.reserve(limit);
+    while (query.next()) {
+        channels.append(fromQuery(query));
+    }
+    return channels;
 }
 
 void ChannelRepository::batchUpsert(const QVector<Channel> &channels) {
@@ -156,8 +178,8 @@ void ChannelRepository::batchUpsert(const QVector<Channel> &channels) {
     QSqlQuery query(db_);
     query.prepare("INSERT INTO channels "
                   "(server_id, category_id, external_id, name, stream_url, "
-                  "logo_url, epg_channel_id, type, added_at) "
-                  "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) "
+                  "logo_url, epg_channel_id, type, added_at, first_seen_at) "
+                  "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, strftime('%s', 'now')) "
                   "ON CONFLICT(server_id, external_id, type) DO UPDATE SET "
                   "category_id = excluded.category_id, "
                   "name = excluded.name, "
@@ -280,6 +302,41 @@ int ChannelRepository::countByServerAndType(int64_t serverId, const QString &typ
     return query.value(0).toInt();
 }
 
+QVector<Channel> ChannelRepository::findRecentlyAdded(int64_t serverId, int64_t sinceSecs,
+                                                       int limit, int offset) const {
+    QSqlQuery query(db_);
+    query.prepare("SELECT id, server_id, category_id, external_id, name, stream_url, "
+                  "logo_url, epg_channel_id, type, added_at, first_seen_at "
+                  "FROM channels WHERE server_id = ? AND first_seen_at > ? "
+                  "ORDER BY first_seen_at DESC LIMIT ? OFFSET ?");
+    query.addBindValue(toVariant(serverId));
+    query.addBindValue(toVariant(sinceSecs));
+    query.addBindValue(limit);
+    query.addBindValue(offset);
+
+    if (!query.exec()) {
+        return {};
+    }
+
+    QVector<Channel> channels;
+    channels.reserve(limit);
+    while (query.next()) {
+        channels.append(fromQuery(query));
+    }
+    return channels;
+}
+
+int ChannelRepository::countRecentlyAdded(int64_t serverId, int64_t sinceSecs) const {
+    QSqlQuery query(db_);
+    query.prepare("SELECT COUNT(*) FROM channels WHERE server_id = ? AND first_seen_at > ?");
+    query.addBindValue(toVariant(serverId));
+    query.addBindValue(toVariant(sinceSecs));
+    if (!query.exec() || !query.next()) {
+        return 0;
+    }
+    return query.value(0).toInt();
+}
+
 Channel ChannelRepository::fromQuery(const QSqlQuery &query) {
     Channel ch;
     ch.id = query.value(0).toLongLong();
@@ -292,6 +349,7 @@ Channel ChannelRepository::fromQuery(const QSqlQuery &query) {
     ch.epgChannelId = query.value(7).toString();
     ch.type = query.value(8).toString();
     ch.addedAt = query.value(9).toLongLong();
+    ch.firstSeenAt = query.value(10).toLongLong();
     return ch;
 }
 

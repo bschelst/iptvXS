@@ -31,7 +31,7 @@ Item {
         }
 
         Text {
-            text: "Your cross-platform IPTV viewer"
+            text: "Live TV, VOD & recordings — all in one"
             font.pixelSize: Theme.fontSizeLg
             color: Theme.textSecondary
             Layout.bottomMargin: Theme.spacingLg

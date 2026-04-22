@@ -24,6 +24,10 @@ public:
     QVector<Channel> searchWithType(int64_t serverId, const QString &query,
                                     const QString &type, int limit = 200, int offset = 0) const;
     std::optional<Channel> findById(int64_t id) const;
+    QVector<Channel> searchAll(const QString &query, int limit = 50) const;
+    QVector<Channel> findRecentlyAdded(int64_t serverId, int64_t sinceSecs,
+                                       int limit = 200, int offset = 0) const;
+    int countRecentlyAdded(int64_t serverId, int64_t sinceSecs) const;
 
     void batchUpsert(const QVector<Channel> &channels);
     bool deleteByServer(int64_t serverId);

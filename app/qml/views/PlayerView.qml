@@ -232,9 +232,15 @@ Item {
                                     String(now.getHours()).padStart(2,'0') +
                                     String(now.getMinutes()).padStart(2,'0') +
                                     String(now.getSeconds()).padStart(2,'0')
-                                var name = (appViewModel.player.channelName || "recording").replace(/[^a-zA-Z0-9_-]/g, "_")
+                                var name = (appViewModel.player.channelName || "recording").replace(/[^a-zA-Z0-9_. -]/g, "_").replace(/_{2,}/g, "_").trim() || "recording"
                                 var dir = appViewModel.recordingDirectory
-                                var outPath = dir + "/" + ts + "_" + name + ".mkv"
+                                var base = dir + "/" + ts + "_" + name
+                                var outPath = base + ".mkv"
+                                var counter = 1
+                                while (appViewModel.fileExists(outPath)) {
+                                    outPath = base + "_" + counter + ".mkv"
+                                    counter++
+                                }
                                 appViewModel.recordingList.startStreamRecording(
                                     appViewModel.player.channelId, outPath)
                                 appViewModel.player.startStreamRecord(outPath)

@@ -21,7 +21,7 @@ ApplicationWindow {
             window.hide()
             return
         }
-        var hasRecordings = appViewModel && appViewModel.recordingList.activeCount > 0
+        var hasRecordings = appViewModel && (appViewModel.recordingList.activeCount > 0 || appViewModel.player.recording)
         var hasUpload = appViewModel && appViewModel.gdrive.uploading
         if (hasRecordings || hasUpload) {
             close.accepted = false
@@ -34,6 +34,7 @@ ApplicationWindow {
         "channels": "TV Channels",
         "vod": "Video on Demand",
         "favorites": "Favorites",
+        "groups": "Channel Groups",
         "epg": "TV Guide",
         "recordings": "Recordings",
         "history": "Play History",
@@ -100,6 +101,8 @@ ApplicationWindow {
             return "views/VodView.qml"
         case "favorites":
             return "views/FavoritesView.qml"
+        case "groups":
+            return "views/GroupsView.qml"
         case "epg":
             return "views/EpgView.qml"
         case "recordings":
@@ -242,7 +245,7 @@ ApplicationWindow {
         }
     }
 
-    property var navItems: ["home", "servers", "channels", "vod", "favorites", "epg", "recordings", "history", "speedtest", "settings"]
+    property var navItems: ["home", "servers", "channels", "vod", "favorites", "groups", "epg", "recordings", "history", "speedtest", "settings"]
 
     Shortcut {
         sequences: ["F1"]

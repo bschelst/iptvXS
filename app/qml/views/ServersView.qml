@@ -224,7 +224,9 @@ Item {
                             onClicked: {
                                 addServerDialog.openForEdit(
                                     index, model.name, model.type,
-                                    model.url, model.username)
+                                    model.url, model.username,
+                                    appViewModel.serverList.passwordAt(index),
+                                    model.epgUrl)
                             }
                         }
                     }

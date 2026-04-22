@@ -55,6 +55,7 @@ public:
                                   const QString &url, const QString &username,
                                   const QString &password,
                                   const QString &epgUrl = {});
+    Q_INVOKABLE QString passwordAt(int index) const;
     Q_INVOKABLE void removeServer(int index);
     Q_INVOKABLE void syncServer(int index);
     Q_INVOKABLE void refresh();

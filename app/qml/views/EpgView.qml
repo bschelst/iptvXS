@@ -6,6 +6,11 @@ import app.iptvxs
 Item {
     id: epgView
 
+    Component.onDestruction: {
+        channelListView.model = null
+        guideListView.model = null
+    }
+
     readonly property int channelColumnWidth: 200
     readonly property real pixelsPerSecond: 0.08
     readonly property int rowHeight: 64

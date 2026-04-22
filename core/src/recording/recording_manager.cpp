@@ -231,8 +231,11 @@ QString RecordingManager::buildFilePath(const Recording &recording,
     auto timePart = dt.toString(QStringLiteral("HHmmss"));
 
     auto safeName = channel.name;
-    safeName.replace(QRegularExpression(QStringLiteral("[^a-zA-Z0-9_-]")),
+    safeName.replace(QRegularExpression(QStringLiteral("[^a-zA-Z0-9_. -]")),
                      QStringLiteral("_"));
+    safeName.replace(QRegularExpression(QStringLiteral("_{2,}")), QStringLiteral("_"));
+    safeName = safeName.trimmed();
+    if (safeName.isEmpty()) safeName = QStringLiteral("recording");
 
     QString progPart;
     if (progRepo_ && !channel.epgChannelId.isEmpty()) {
@@ -241,15 +244,26 @@ QString RecordingManager::buildFilePath(const Recording &recording,
                                                    recording.startTime + 1);
         if (!programmes.empty()) {
             progPart = programmes.front().title;
-            progPart.replace(QRegularExpression(QStringLiteral("[^a-zA-Z0-9_-]")),
+            progPart.replace(QRegularExpression(QStringLiteral("[^a-zA-Z0-9_. -]")),
                              QStringLiteral("_"));
+            progPart.replace(QRegularExpression(QStringLiteral("_{2,}")), QStringLiteral("_"));
+            progPart = progPart.trimmed();
         }
     }
 
+    QString base;
     if (progPart.isEmpty()) {
-        return QStringLiteral("%1/%2_%3_%4.mkv").arg(dir, datePart, timePart, safeName);
+        base = QStringLiteral("%1/%2_%3_%4").arg(dir, datePart, timePart, safeName);
+    } else {
+        base = QStringLiteral("%1/%2_%3_%4_%5").arg(dir, datePart, timePart, safeName, progPart);
     }
-    return QStringLiteral("%1/%2_%3_%4_%5.mkv").arg(dir, datePart, timePart, safeName, progPart);
+
+    QString path = base + QStringLiteral(".mkv");
+    int counter = 1;
+    while (QFileInfo::exists(path)) {
+        path = QStringLiteral("%1_%2.mkv").arg(base).arg(counter++);
+    }
+    return path;
 }
 
 QStringList RecordingManager::buildFfmpegArgs(const QString &streamUrl,

@@ -250,7 +250,10 @@ void MpvPlayer::processEvents() {
         case MPV_EVENT_LOG_MESSAGE: {
             auto *msg = static_cast<mpv_event_log_message *>(event->data);
             if (msg->log_level <= MPV_LOG_LEVEL_WARN) {
-                qWarning() << "mpv:" << msg->text;
+                QString text = QString::fromUtf8(msg->text).trimmed();
+                if (text.contains(QStringLiteral("experimental feature")))
+                    break;
+                qWarning("mpv: %s", qPrintable(text));
             }
             break;
         }

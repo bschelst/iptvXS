@@ -15,7 +15,7 @@ QVector<Favorite> FavoriteRepository::findAll() const {
         SELECT f.id, f.channel_id, f.position, f.added_at,
                c.id, c.server_id, c.category_id, c.external_id,
                c.name, c.stream_url, c.logo_url, c.epg_channel_id,
-               c.type, c.added_at
+               c.type, c.added_at, c.first_seen_at
         FROM favorites f
         JOIN channels c ON c.id = f.channel_id
         ORDER BY f.position ASC
@@ -42,6 +42,7 @@ QVector<Favorite> FavoriteRepository::findAll() const {
         fav.channel.epgChannelId = q.value(11).toString();
         fav.channel.type = q.value(12).toString();
         fav.channel.addedAt = q.value(13).toLongLong();
+        fav.channel.firstSeenAt = q.value(14).toLongLong();
 
         results.append(fav);
     }

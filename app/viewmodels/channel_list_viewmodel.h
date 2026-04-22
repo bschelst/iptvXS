@@ -18,6 +18,7 @@ class ChannelListViewModel : public QAbstractListModel {
     Q_PROPERTY(bool hasMore READ hasMore NOTIFY hasMoreChanged)
     Q_PROPERTY(bool loading READ loading NOTIFY loadingChanged)
     Q_PROPERTY(QString typeFilter READ typeFilter WRITE setTypeFilter NOTIFY typeFilterChanged)
+    Q_PROPERTY(bool recentlyAddedFilter READ recentlyAddedFilter WRITE setRecentlyAddedFilter NOTIFY recentlyAddedFilterChanged)
 
     Q_INVOKABLE QString streamUrlAt(int index) const;
     Q_INVOKABLE QString nameAt(int index) const;
@@ -60,6 +61,8 @@ public:
     bool loading() const;
     QString typeFilter() const;
     void setTypeFilter(const QString &type);
+    bool recentlyAddedFilter() const;
+    void setRecentlyAddedFilter(bool enabled);
 
     Q_INVOKABLE void loadMore();
     Q_INVOKABLE void refresh();
@@ -75,6 +78,7 @@ signals:
     void hasMoreChanged();
     void loadingChanged();
     void typeFilterChanged();
+    void recentlyAddedFilterChanged();
 
 private:
     void loadChannels(bool append = false);
@@ -88,6 +92,7 @@ private:
     QString typeFilter_;
     int totalCount_{0};
     bool loading_{false};
+    bool recentlyAddedFilter_{false};
 
     static constexpr int kPageSize = 200;
 };

@@ -398,18 +398,25 @@ Item {
                         }
 
                         Rectangle {
-                            visible: model.status === "completed" && appViewModel && appViewModel.gdrive.authenticated
-                            Layout.preferredWidth: 32
+                            visible: (model.status === "completed" || model.status === "failed") && appViewModel && appViewModel.gdrive.authenticated
+                            Layout.preferredWidth: model.status === "failed" ? retryLabel.implicitWidth + 20 : 32
                             Layout.preferredHeight: 32
-                            radius: 16
-                            color: uploadBtnHovered ? Theme.accent + "30" : "transparent"
+                            radius: model.status === "failed" ? Theme.borderRadius : 16
+                            color: uploadBtnHovered
+                                ? (model.status === "failed" ? Theme.warning : Theme.accent + "30")
+                                : (model.status === "failed" ? Theme.warning + "20" : "transparent")
 
                             property bool uploadBtnHovered: false
 
                             Text {
+                                id: retryLabel
                                 anchors.centerIn: parent
-                                text: "☁"
-                                font.pixelSize: Theme.fontSizeMd
+                                text: model.status === "failed" ? "↻ Retry Upload" : "☁"
+                                font.pixelSize: model.status === "failed" ? Theme.fontSizeXs : Theme.fontSizeMd
+                                font.bold: model.status === "failed"
+                                color: model.status === "failed"
+                                    ? (parent.uploadBtnHovered ? "#ffffff" : Theme.warning)
+                                    : Theme.textSecondary
                             }
 
                             MouseArea {

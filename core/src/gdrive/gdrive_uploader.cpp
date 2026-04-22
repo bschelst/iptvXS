@@ -1,5 +1,6 @@
 #include "iptvxs/gdrive/gdrive_uploader.h"
 
+#include <QBuffer>
 #include <QFileInfo>
 #include <QJsonArray>
 #include <QJsonDocument>
@@ -216,8 +217,9 @@ void GDriveUploader::initiateResumableUpload(int64_t recordingId, const QString 
     auto body = QJsonDocument(metadata).toJson(QJsonDocument::Compact);
     auto *reply = nam_.post(request, body);
 
+    auto declaredSize = fileInfo.size();
     connect(reply, &QNetworkReply::finished, this,
-            [this, reply, recordingId, filePath, contentType]() {
+            [this, reply, recordingId, filePath, contentType, declaredSize]() {
                 reply->deleteLater();
 
                 auto initStatus = reply->attribute(
@@ -244,13 +246,13 @@ void GDriveUploader::initiateResumableUpload(int64_t recordingId, const QString 
                       static_cast<long long>(recordingId), qPrintable(location));
                 emit uploadSessionCreated(recordingId, location);
                 emit uploadStarted(recordingId);
-                uploadChunk(recordingId, location, filePath, 0, contentType);
+                uploadChunk(recordingId, location, filePath, 0, contentType, declaredSize);
             });
 }
 
 void GDriveUploader::uploadChunk(int64_t recordingId, const QString &uploadUrl,
                                  const QString &filePath, int64_t offset,
-                                 const QByteArray &contentType) {
+                                 const QByteArray &contentType, int64_t declaredSize) {
     QFile file(filePath);
     if (!file.open(QIODevice::ReadOnly)) {
         emit uploadFailed(recordingId,
@@ -258,7 +260,7 @@ void GDriveUploader::uploadChunk(int64_t recordingId, const QString &uploadUrl,
         return;
     }
 
-    auto fileSize = file.size();
+    auto fileSize = declaredSize > 0 ? declaredSize : file.size();
     file.seek(offset);
 
     auto chunkSize = qMin(kChunkSize, fileSize - offset);
@@ -267,7 +269,19 @@ void GDriveUploader::uploadChunk(int64_t recordingId, const QString &uploadUrl,
 
     auto endByte = offset + chunk.size() - 1;
 
-    QNetworkRequest request{QUrl{uploadUrl}};
+    QUrl url{uploadUrl.trimmed()};
+    qInfo("GDrive chunk: offset=%lld size=%lld url_scheme=%s url_valid=%d url_len=%d",
+          static_cast<long long>(offset), static_cast<long long>(chunkSize),
+          qPrintable(url.scheme()), url.isValid(), uploadUrl.length());
+    if (!url.isValid() || url.scheme().isEmpty()) {
+        emit uploadFailed(recordingId,
+                          QStringLiteral("Invalid upload URL: %1").arg(uploadUrl.left(100)));
+        return;
+    }
+    QNetworkRequest request{url};
+    request.setAttribute(QNetworkRequest::Http2AllowedAttribute, false);
+    request.setRawHeader("Authorization",
+                         QStringLiteral("Bearer %1").arg(auth_->accessToken()).toUtf8());
     request.setRawHeader("Content-Range",
                          QStringLiteral("bytes %1-%2/%3")
                              .arg(offset)
@@ -277,7 +291,11 @@ void GDriveUploader::uploadChunk(int64_t recordingId, const QString &uploadUrl,
     request.setHeader(QNetworkRequest::ContentLengthHeader, chunk.size());
     request.setHeader(QNetworkRequest::ContentTypeHeader, contentType);
 
-    QNetworkReply *chunkReply = nam_.put(request, chunk);
+    auto *buf = new QBuffer();
+    buf->setData(chunk);
+    buf->open(QIODevice::ReadOnly);
+    QNetworkReply *chunkReply = nam_.sendCustomRequest(request, "PUT", buf);
+    buf->setParent(chunkReply);
     activeUploads_.insert(recordingId, chunkReply);
 
     connect(chunkReply, &QNetworkReply::uploadProgress, this,
@@ -287,7 +305,7 @@ void GDriveUploader::uploadChunk(int64_t recordingId, const QString &uploadUrl,
 
     connect(chunkReply, &QNetworkReply::finished, this,
             [this, chunkReply, recordingId, uploadUrl, filePath, fileSize, endByte,
-             contentType]() {
+             contentType, declaredSize]() {
                 activeUploads_.remove(recordingId);
                 chunkReply->deleteLater();
 
@@ -307,7 +325,7 @@ void GDriveUploader::uploadChunk(int64_t recordingId, const QString &uploadUrl,
                     auto nextOffset = endByte + 1;
                     emit uploadProgress(recordingId, nextOffset, fileSize);
                     uploadChunk(recordingId, uploadUrl, filePath, nextOffset,
-                                contentType);
+                                contentType, declaredSize);
                     return;
                 }
 

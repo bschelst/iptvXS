@@ -22,7 +22,8 @@ AppViewModel::AppViewModel(QObject *parent)
       recordingListVm_(new RecordingListViewModel(this)),
       gdriveVm_(new GDriveViewModel(this)),
       speedTestVm_(new SpeedTestViewModel(this)),
-      historyVm_(new HistoryViewModel(this)) {}
+      historyVm_(new HistoryViewModel(this)),
+      groupListVm_(new GroupListViewModel(this)) {}
 
 AppViewModel::~AppViewModel() = default;
 
@@ -47,6 +48,13 @@ bool AppViewModel::initialize(const QString &dbPath) {
     recordingRepo_ = std::make_unique<iptvxs::RecordingRepository>(db, this);
     historyRepo_ = std::make_unique<iptvxs::HistoryRepository>(db, this);
     historyVm_->setRepository(historyRepo_.get());
+    groupRepo_ = std::make_unique<iptvxs::ChannelGroupRepository>(db, this);
+    groupListVm_->setRepository(groupRepo_.get());
+    groupListVm_->setChannelRepository(channelRepo_.get());
+    logoCache_ = std::make_unique<iptvxs::LogoCache>(this);
+    logoCache_->setCacheDir(
+        QStandardPaths::writableLocation(QStandardPaths::AppDataLocation)
+        + QStringLiteral("/logos"));
     recordingMgr_ = std::make_unique<iptvxs::RecordingManager>(this);
     httpClient_ = std::make_unique<iptvxs::HttpClient>(this);
     speedTestRunner_ = std::make_unique<iptvxs::SpeedTestRunner>(this);
@@ -91,6 +99,24 @@ bool AppViewModel::initialize(const QString &dbPath) {
     connect(autoSyncEpgTimer_, &QTimer::timeout, this,
             [this]() { runAutoSyncEpg(); });
 
+    autoSyncWatchdog_ = new QTimer(this);
+    autoSyncWatchdog_->setSingleShot(true);
+    connect(autoSyncWatchdog_, &QTimer::timeout, this, [this]() {
+        if (!autoSyncInProgress_) return;
+        qWarning("Auto channel sync watchdog: sync timed out, resetting");
+        autoSyncInProgress_ = false;
+        rescheduleAutoSyncChannels();
+    });
+
+    autoSyncEpgWatchdog_ = new QTimer(this);
+    autoSyncEpgWatchdog_->setSingleShot(true);
+    connect(autoSyncEpgWatchdog_, &QTimer::timeout, this, [this]() {
+        if (!autoSyncEpgInProgress_) return;
+        qWarning("Auto EPG sync watchdog: sync timed out, resetting");
+        autoSyncEpgInProgress_ = false;
+        rescheduleAutoSyncEpg();
+    });
+
     connect(serverListVm_, &ServerListViewModel::syncFinished, this,
             [this](int64_t) {
                 if (!autoSyncInProgress_) return;
@@ -98,9 +124,11 @@ bool AppViewModel::initialize(const QString &dbPath) {
                 if (autoSyncServerCursor_ < serverListVm_->count()) {
                     qInfo("Auto channel sync: next server (%d/%d)",
                           autoSyncServerCursor_ + 1, serverListVm_->count());
+                    autoSyncWatchdog_->start(120 * 1000);
                     serverListVm_->syncServer(autoSyncServerCursor_);
                     return;
                 }
+                autoSyncWatchdog_->stop();
                 autoSyncInProgress_ = false;
                 if (settingsRepo_) {
                     settingsRepo_->set(
@@ -123,9 +151,11 @@ bool AppViewModel::initialize(const QString &dbPath) {
         if (next >= 0) {
             autoSyncEpgCursor_ = next;
             qInfo("Auto EPG sync: next server (index %d)", next);
+            autoSyncEpgWatchdog_->start(300 * 1000);
             epgVm_->syncEpg(serverListVm_->epgUrlAt(next));
             return;
         }
+        autoSyncEpgWatchdog_->stop();
         autoSyncEpgInProgress_ = false;
         if (settingsRepo_) {
             settingsRepo_->set(
@@ -266,6 +296,29 @@ bool AppViewModel::initialize(const QString &dbPath) {
                 qWarning("Subtitle error: %s", qPrintable(msg));
             });
 
+    auto hwdec = hwdecMode();
+    if (!hwdec.isEmpty()) {
+        playerVm_->mpvPlayer()->setProperty(QStringLiteral("hwdec"), QVariant(hwdec));
+    }
+    if (deinterlace()) {
+        playerVm_->mpvPlayer()->setProperty(QStringLiteral("deinterlace"), QVariant(QStringLiteral("yes")));
+    }
+
+    // Clean up stale recordings left in "recording" state from a previous crash/shutdown
+    auto staleRecordings = recordingRepo_->findByStatus(QStringLiteral("recording"));
+    for (const auto &rec : staleRecordings) {
+        qWarning("Cleaning up stale recording %lld (was still marked 'recording' from previous session)",
+                 static_cast<long long>(rec.id));
+        if (!rec.filePath.isEmpty() && QFileInfo::exists(rec.filePath)) {
+            recordingRepo_->updateStatus(rec.id, QStringLiteral("completed"));
+            recordingRepo_->updateEndTime(rec.id, rec.startTime);
+            auto fi = QFileInfo(rec.filePath);
+            recordingRepo_->updateFileSize(rec.id, fi.size());
+        } else {
+            recordingRepo_->updateStatus(rec.id, QStringLiteral("failed"));
+        }
+    }
+
     databaseReady_ = true;
     emit databaseReadyChanged();
 
@@ -352,6 +405,14 @@ LogViewModel *AppViewModel::log() const {
     return logVm_;
 }
 
+GroupListViewModel *AppViewModel::groupList() const {
+    return groupListVm_;
+}
+
+iptvxs::LogoCache *AppViewModel::logoCache() const {
+    return logoCache_.get();
+}
+
 int AppViewModel::autoSyncInterval() const {
     return settingsRepo_ ? settingsRepo_->getInt(QStringLiteral("auto_sync_hours"), 0) : 0;
 }
@@ -433,6 +494,7 @@ void AppViewModel::runAutoSyncChannels() {
     autoSyncInProgress_ = true;
     autoSyncServerCursor_ = 0;
     qInfo("Auto channel sync starting for %d server(s)", n);
+    autoSyncWatchdog_->start(120 * 1000);
     serverListVm_->syncServer(autoSyncServerCursor_);
 }
 
@@ -468,6 +530,7 @@ void AppViewModel::runAutoSyncEpg() {
         return;
     }
     qInfo("Auto EPG sync starting (server index %d)", autoSyncEpgCursor_);
+    autoSyncEpgWatchdog_->start(300 * 1000);
     epgVm_->syncEpg(serverListVm_->epgUrlAt(autoSyncEpgCursor_));
 }
 
@@ -666,7 +729,7 @@ void AppViewModel::setVideoEnhancement(const QString &preset) {
         mpv->setProperty(QStringLiteral("cscale"), QVariant(QStringLiteral("ewa_lanczossharp")));
         mpv->setProperty(QStringLiteral("sigmoid-upscaling"), QVariant(true));
         mpv->command(QStringList{QStringLiteral("vf"), QStringLiteral("set"),
-                                  QStringLiteral("lavfi=[hqdn3d=1.2:1.2:4:4]")});
+                                  QStringLiteral("lavfi=\"hqdn3d=luma_spatial=1.2:chroma_spatial=1.2:luma_tmp=4:chroma_tmp=4\"")});
     } else if (preset == QStringLiteral("strong")) {
         mpv->setProperty(QStringLiteral("deband"), QVariant(true));
         mpv->setProperty(QStringLiteral("deband-iterations"), QVariant(2));
@@ -676,10 +739,32 @@ void AppViewModel::setVideoEnhancement(const QString &preset) {
         mpv->setProperty(QStringLiteral("cscale"), QVariant(QStringLiteral("ewa_lanczossharp")));
         mpv->setProperty(QStringLiteral("sigmoid-upscaling"), QVariant(true));
         mpv->command(QStringList{QStringLiteral("vf"), QStringLiteral("set"),
-                                  QStringLiteral("lavfi=[hqdn3d=1.8:1.8:6:6]")});
+                                  QStringLiteral("lavfi=\"hqdn3d=luma_spatial=1.8:chroma_spatial=1.8:luma_tmp=6:chroma_tmp=6\"")});
     }
 
     emit videoEnhancementChanged();
+}
+
+QString AppViewModel::hwdecMode() const {
+    return settingsRepo_ ? settingsRepo_->getString(QStringLiteral("hwdec_mode"), QStringLiteral("auto-safe")) : QStringLiteral("auto-safe");
+}
+
+void AppViewModel::setHwdecMode(const QString &mode) {
+    if (!settingsRepo_) return;
+    settingsRepo_->set(QStringLiteral("hwdec_mode"), mode);
+    if (playerVm_) playerVm_->mpvPlayer()->setProperty(QStringLiteral("hwdec"), QVariant(mode));
+    emit hwdecModeChanged();
+}
+
+bool AppViewModel::deinterlace() const {
+    return settingsRepo_ ? settingsRepo_->getBool(QStringLiteral("deinterlace"), false) : false;
+}
+
+void AppViewModel::setDeinterlace(bool enabled) {
+    if (!settingsRepo_) return;
+    settingsRepo_->set(QStringLiteral("deinterlace"), enabled ? QStringLiteral("true") : QStringLiteral("false"));
+    if (playerVm_) playerVm_->mpvPlayer()->setProperty(QStringLiteral("deinterlace"), QVariant(enabled ? QStringLiteral("yes") : QStringLiteral("no")));
+    emit deinterlaceChanged();
 }
 
 void AppViewModel::searchSubtitles(const QString &query) {
@@ -796,6 +881,10 @@ void AppViewModel::playSeriesEpisode(const QString &episodeId, const QString &ex
                    .arg(seriesServerUrl_, seriesUsername_, seriesPassword_, episodeId, ext);
     playerVm_->play(url, title, logoUrl, 0);
     setCurrentView(QStringLiteral("player"));
+}
+
+bool AppViewModel::fileExists(const QString &path) const {
+    return QFileInfo::exists(path);
 }
 
 void AppViewModel::resetDatabase() {

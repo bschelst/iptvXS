@@ -16,6 +16,7 @@ struct Channel {
     QString epgChannelId;
     QString type; // "live", "vod", "series"
     int64_t addedAt{0};
+    int64_t firstSeenAt{0};
 
     // Transient — used during M3U parsing, not persisted to DB
     QString groupTitle;

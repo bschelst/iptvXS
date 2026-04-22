@@ -285,16 +285,74 @@ Item {
                     color: Theme.surfaceBorder
                 }
 
-                Text {
-                    anchors.left: parent.left
+                RowLayout {
+                    anchors.fill: parent
                     anchors.leftMargin: Theme.spacingMd
-                    anchors.verticalCenter: parent.verticalCenter
-                    text: {
-                        var total = appViewModel ? appViewModel.channelList.totalCount : 0
-                        return total + " TV channels"
+                    anchors.rightMargin: Theme.spacingMd
+                    spacing: Theme.spacingSm
+
+                    Text {
+                        text: {
+                            var total = appViewModel ? appViewModel.channelList.totalCount : 0
+                            return total + " TV channels"
+                        }
+                        font.pixelSize: Theme.fontSizeSm
+                        color: Theme.textSecondary
+                        Layout.alignment: Qt.AlignVCenter
                     }
-                    font.pixelSize: Theme.fontSizeSm
-                    color: Theme.textSecondary
+
+                    Item { Layout.fillWidth: true }
+
+                    Rectangle {
+                        Layout.preferredWidth: newFilterLabel.implicitWidth + 20
+                        Layout.preferredHeight: 28
+                        radius: 14
+                        color: {
+                            var active = appViewModel && appViewModel.channelList.recentlyAddedFilter
+                            return active ? Theme.accent : newFilterHov ? Theme.surfaceHover : Theme.surface
+                        }
+                        border.width: 1
+                        border.color: {
+                            var active = appViewModel && appViewModel.channelList.recentlyAddedFilter
+                            return active ? Theme.accent : Theme.surfaceBorder
+                        }
+                        property bool newFilterHov: false
+
+                        Row {
+                            anchors.centerIn: parent
+                            spacing: 4
+
+                            Text {
+                                text: "\u2728"
+                                font.pixelSize: 11
+                                anchors.verticalCenter: parent.verticalCenter
+                            }
+
+                            Text {
+                                id: newFilterLabel
+                                text: "New"
+                                font.pixelSize: Theme.fontSizeXs
+                                font.bold: appViewModel && appViewModel.channelList.recentlyAddedFilter
+                                color: appViewModel && appViewModel.channelList.recentlyAddedFilter
+                                    ? "#ffffff" : Theme.textSecondary
+                                anchors.verticalCenter: parent.verticalCenter
+                            }
+                        }
+
+                        MouseArea {
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onEntered: parent.newFilterHov = true
+                            onExited: parent.newFilterHov = false
+                            onClicked: {
+                                if (appViewModel) {
+                                    appViewModel.channelList.recentlyAddedFilter =
+                                        !appViewModel.channelList.recentlyAddedFilter
+                                }
+                            }
+                        }
+                    }
                 }
             }
 
@@ -445,6 +503,39 @@ Item {
                             }
 
                             Rectangle {
+                                width: 26
+                                height: 26
+                                radius: 13
+                                color: grpBtnHov ? Theme.accent : Theme.surfaceHover
+                                property bool grpBtnHov: false
+
+                                ToolTip.visible: grpBtnHov
+                                ToolTip.text: "Add to group"
+                                ToolTip.delay: 400
+
+                                Text {
+                                    anchors.centerIn: parent
+                                    text: "+"
+                                    font.pixelSize: 16
+                                    font.bold: true
+                                    color: parent.grpBtnHov ? "#ffffff" : Theme.textSecondary
+                                }
+
+                                MouseArea {
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    cursorShape: Qt.PointingHandCursor
+                                    onEntered: parent.grpBtnHov = true
+                                    onExited: parent.grpBtnHov = false
+                                    onClicked: {
+                                        addToGroupPopup.channelId = model.channelId
+                                        addToGroupPopup.channelName = model.name
+                                        addToGroupPopup.open()
+                                    }
+                                }
+                            }
+
+                            Rectangle {
                                 width: 22
                                 height: 22
                                 radius: 11
@@ -558,6 +649,171 @@ Item {
     Component.onDestruction: {
         if (appViewModel) {
             appViewModel.channelList.typeFilter = ""
+            appViewModel.channelList.recentlyAddedFilter = false
+        }
+    }
+
+    // Add-to-Group popup
+    Rectangle {
+        id: addToGroupPopup
+        visible: false
+        anchors.fill: parent
+        color: "#C0000000"
+        z: 100
+
+        property var channelId: 0
+        property string channelName: ""
+
+        function open() { visible = true; refreshGroupOptions() }
+        function close() { visible = false }
+
+        MouseArea { anchors.fill: parent; onClicked: addToGroupPopup.close() }
+
+        ListModel { id: groupOptionsModel }
+
+        function refreshGroupOptions() {
+            groupOptionsModel.clear()
+            if (!appViewModel) return
+            var gl = appViewModel.groupList
+            var saved = gl.activeGroupId
+            gl.activeGroupId = 0
+            for (var i = 0; i < gl.count; i++) {
+                groupOptionsModel.append({
+                    gid: gl.groupIdAt(i),
+                    gname: gl.groupNameAt(i),
+                    inGroup: gl.isInGroup(gl.groupIdAt(i), addToGroupPopup.channelId)
+                })
+            }
+            gl.activeGroupId = saved
+        }
+
+        Rectangle {
+            anchors.centerIn: parent
+            width: 320
+            height: addGrpCol.implicitHeight + Theme.spacingLg * 2
+            radius: Theme.borderRadiusLarge
+            color: Theme.surfaceElevated
+            border.color: Theme.accent
+            border.width: 1
+
+            MouseArea { anchors.fill: parent }
+
+            ColumnLayout {
+                id: addGrpCol
+                anchors.fill: parent
+                anchors.margins: Theme.spacingLg
+                spacing: Theme.spacingMd
+
+                Text {
+                    text: "Add to Group"
+                    font.pixelSize: Theme.fontSizeLg
+                    font.bold: true
+                    color: Theme.textPrimary
+                }
+
+                Text {
+                    text: addToGroupPopup.channelName
+                    font.pixelSize: Theme.fontSizeSm
+                    color: Theme.textSecondary
+                    elide: Text.ElideRight
+                    Layout.fillWidth: true
+                }
+
+                Rectangle {
+                    Layout.fillWidth: true
+                    height: 1
+                    color: Theme.surfaceBorder
+                }
+
+                ListView {
+                    id: groupOptionsList
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: Math.min(contentHeight, 200)
+                    clip: true
+                    model: groupOptionsModel
+
+                    delegate: Rectangle {
+                        width: groupOptionsList.width
+                        height: 40
+                        radius: Theme.borderRadiusSmall
+                        color: grpOptHov ? Theme.surfaceHover : "transparent"
+                        property bool grpOptHov: false
+
+                        RowLayout {
+                            anchors.fill: parent
+                            anchors.leftMargin: Theme.spacingSm
+                            anchors.rightMargin: Theme.spacingSm
+                            spacing: Theme.spacingSm
+
+                            Text {
+                                text: model.gname
+                                font.pixelSize: Theme.fontSizeSm
+                                color: Theme.textPrimary
+                                elide: Text.ElideRight
+                                Layout.fillWidth: true
+                            }
+
+                            Rectangle {
+                                Layout.preferredWidth: addRemLabel.implicitWidth + 16
+                                Layout.preferredHeight: 24
+                                radius: 12
+                                color: model.inGroup ? Theme.error + "30" : Theme.accent + "30"
+                                border.color: model.inGroup ? Theme.error : Theme.accent
+                                border.width: 1
+
+                                Text {
+                                    id: addRemLabel
+                                    anchors.centerIn: parent
+                                    text: model.inGroup ? "Remove" : "Add"
+                                    font.pixelSize: 10
+                                    font.bold: true
+                                    color: model.inGroup ? Theme.error : Theme.accent
+                                }
+                            }
+                        }
+
+                        MouseArea {
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onEntered: parent.grpOptHov = true
+                            onExited: parent.grpOptHov = false
+                            onClicked: {
+                                if (!appViewModel) return
+                                if (model.inGroup) {
+                                    appViewModel.groupList.removeChannel(model.gid, addToGroupPopup.channelId)
+                                } else {
+                                    appViewModel.groupList.addChannel(model.gid, addToGroupPopup.channelId)
+                                }
+                                addToGroupPopup.refreshGroupOptions()
+                            }
+                        }
+                    }
+                }
+
+                Text {
+                    visible: groupOptionsModel.count === 0
+                    text: "No groups yet. Create one in the Groups view."
+                    font.pixelSize: Theme.fontSizeSm
+                    color: Theme.textMuted
+                    Layout.fillWidth: true
+                    wrapMode: Text.WordWrap
+                }
+
+                Rectangle {
+                    Layout.alignment: Qt.AlignRight
+                    width: doneLabel.implicitWidth + 24
+                    height: 32
+                    radius: Theme.borderRadius
+                    color: doneHov ? Theme.surfaceHover : Theme.surface
+                    border.color: Theme.surfaceBorder
+                    border.width: 1
+                    property bool doneHov: false
+
+                    Text { id: doneLabel; anchors.centerIn: parent; text: "Done"; font.pixelSize: Theme.fontSizeSm; color: Theme.textSecondary }
+                    MouseArea { anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onEntered: parent.doneHov = true; onExited: parent.doneHov = false; onClicked: addToGroupPopup.close() }
+                }
+            }
         }
     }
 }

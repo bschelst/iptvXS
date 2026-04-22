@@ -5,7 +5,7 @@
 <h1 align="center">iptvXS</h1>
 
 <p align="center">
-  <strong>A modern, cross-platform IPTV viewer built with Qt6 and libmpv</strong>
+  <strong>Live TV, VOD & recordings — all in one</strong>
 </p>
 
 <p align="center">
@@ -25,6 +25,8 @@
 - **Xtream Codes API** and **M3U playlist** support
 - High-quality playback via **libmpv** with hardware-accelerated decoding
 - Channel categories with search and filtering
+- **Channel Groups** — create custom playlists, add channels via built-in search picker
+- **Recently Added** filter — highlights channels added in the last 7 days
 - VOD movie playback with automatic subtitle fetching
 - Series support with season/episode picker
 - **Audio track selection** for multi-language VOD content
@@ -40,11 +42,16 @@
 ### Recording
 
 - Live and scheduled recording via FFmpeg
+- **In-player stream recording** — record directly from the video player
 - **Schedule recordings** with custom start time (day, hour, minute picker)
 - Recordings saved to `~/Videos/iptvxs/` (configurable)
 - **Storage quota** with visual usage bar
+- **Safe filenames** — channel names are sanitized with unique naming to prevent overwrites
 - Delete recordings with confirmation and file cleanup
-- Upload recordings directly to **Google Drive**
+- **Google Drive upload** with resumable chunked uploads and cross-session resume
+- **Retry failed uploads** directly from the Recordings view
+- **Auto-delete** local files after successful Google Drive upload
+- **Stale recording cleanup** — orphaned "recording" states are resolved on app restart
 
 ### Subtitles
 
@@ -53,16 +60,19 @@
 - Configurable subtitle language, size, text color, and background
 - Subtitle timing adjustment in the player
 
-### Video Enhancement
+### Video Enhancement & Player Tuning
 
 - GPU-accelerated video processing presets (Off / Light / Medium / Strong)
 - **Debanding** to remove color banding artifacts
 - **High-quality scaling** via ewa_lanczossharp with sigmoid upscaling
 - **Denoising** via hqdn3d filter for cleaner picture on noisy IPTV streams
+- **Hardware decoding** modes (Auto Safe / Auto / Software)
+- **Deinterlace** toggle for interlaced content
 
 ### Theming
 
-- 6 built-in themes: Midnight, Ocean, Forest, Sunset, Nord, Light
+- 7 built-in themes: Midnight, Ocean, Forest, Sunset, Nord, Light, **High Contrast**
+- High Contrast theme with yellow accent on black for maximum readability
 - Theme persists across sessions
 
 ### Play History
@@ -80,15 +90,22 @@
 - Available as a **Flatpak** for easy installation
 - Works in both Desktop Mode and Game Mode
 
+### Channel Logo Caching
+
+- Automatic background download and local caching of channel logos
+- SHA1-based filenames with concurrent downloads (4 parallel)
+- Reduces bandwidth and improves UI responsiveness
+
 ### Other Features
 
 - Favorites system with easy add/remove
 - Stream speed testing
 - System tray integration with minimize-to-tray option
-- **Close confirmation** when recordings are active
-- Per-server channel synchronization
+- **Close confirmation** when recordings or uploads are active
+- Per-server channel synchronization with **auto-sync watchdog** (recovers from stalled syncs)
 - Configurable stream buffer time
 - Automatic stream reconnection on network drops
+- **Application logging** with in-app log viewer
 
 ---
 
@@ -193,7 +210,9 @@ iptvxs/
 │   └── viewmodels/         # C++ ViewModels (MVVM pattern)
 ├── core/                   # Core library (no UI dependency)
 │   ├── api/                # Xtream Codes & OpenSubtitles clients
+│   ├── cache/              # Logo cache manager
 │   ├── db/                 # SQLite repositories
+│   ├── gdrive/             # Google Drive OAuth & resumable upload
 │   ├── models/             # Data models
 │   ├── net/                # HTTP client & speed test
 │   ├── parser/             # M3U & XMLTV parsers

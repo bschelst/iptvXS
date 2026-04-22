@@ -47,15 +47,30 @@ static QMap<QString, QString> parseStructMembers(QXmlStreamReader &xml) {
             QString value;
             while (!xml.atEnd()) {
                 xml.readNext();
-                if (xml.isStartElement() && xml.name() == QStringLiteral("name"))
+                if (xml.isStartElement() && xml.name() == QStringLiteral("name")) {
                     name = xml.readElementText();
-                else if (xml.isStartElement() &&
+                } else if (xml.isStartElement() &&
                          (xml.name() == QStringLiteral("string") ||
                           xml.name() == QStringLiteral("int") ||
-                          xml.name() == QStringLiteral("double")))
+                          xml.name() == QStringLiteral("double"))) {
                     value = xml.readElementText();
-                else if (xml.isEndElement() && xml.name() == QStringLiteral("member"))
+                } else if (xml.isStartElement() && xml.name() == QStringLiteral("value")) {
+                    while (!xml.atEnd()) {
+                        xml.readNext();
+                        if (xml.isStartElement() &&
+                            (xml.name() == QStringLiteral("string") ||
+                             xml.name() == QStringLiteral("int") ||
+                             xml.name() == QStringLiteral("double"))) {
+                            value = xml.readElementText();
+                        } else if (xml.isCharacters() && !xml.isWhitespace() && value.isEmpty()) {
+                            value = xml.text().toString();
+                        } else if (xml.isEndElement() && xml.name() == QStringLiteral("value")) {
+                            break;
+                        }
+                    }
+                } else if (xml.isEndElement() && xml.name() == QStringLiteral("member")) {
                     break;
+                }
             }
             if (!name.isEmpty()) members[name] = value;
         }

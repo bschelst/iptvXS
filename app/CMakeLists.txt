@@ -39,6 +39,7 @@ qt_add_qml_module(iptvXS
         qml/views/VodView.qml
         qml/views/LogView.qml
         qml/views/HistoryView.qml
+        qml/views/GroupsView.qml
         qml/components/Sidebar.qml
         qml/components/TopBar.qml
         qml/components/AddServerDialog.qml
@@ -55,6 +56,8 @@ qt_add_qml_module(iptvXS
         viewmodels/channel_list_viewmodel.cpp
         viewmodels/favorite_list_viewmodel.h
         viewmodels/favorite_list_viewmodel.cpp
+        viewmodels/group_list_viewmodel.h
+        viewmodels/group_list_viewmodel.cpp
         viewmodels/epg_viewmodel.h
         viewmodels/epg_viewmodel.cpp
         viewmodels/recording_list_viewmodel.h

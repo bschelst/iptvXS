@@ -54,7 +54,7 @@ QtObject {
 
     // Theme state
     property string currentTheme: "midnight"
-    property var themeNames: ["midnight", "ocean", "forest", "sunset", "nord", "light"]
+    property var themeNames: ["midnight", "ocean", "forest", "sunset", "nord", "light", "high-contrast"]
 
     function applyTheme(name) {
         currentTheme = name
@@ -174,6 +174,22 @@ QtObject {
             warning: "#d97706",
             error: "#dc2626",
             live: "#dc2626"
+        },
+        "high-contrast": {
+            background: "#000000",
+            surface: "#0a0a0a",
+            surfaceElevated: "#1a1a1a",
+            surfaceHover: "#2a2a2a",
+            surfaceBorder: "#ffffff",
+            textPrimary: "#ffffff",
+            textSecondary: "#e0e0e0",
+            textMuted: "#b0b0b0",
+            accent: "#ffcc00",
+            accentHover: "#ffdd44",
+            success: "#00ff88",
+            warning: "#ffdd00",
+            error: "#ff3333",
+            live: "#ff0040"
         }
     })
 }

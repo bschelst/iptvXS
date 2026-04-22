@@ -296,6 +296,99 @@ Item {
                         spacing: Theme.spacingXs
 
                         Text {
+                            text: "Hardware decoding"
+                            font.pixelSize: Theme.fontSizeSm
+                            color: Theme.textPrimary
+                        }
+
+                        Text {
+                            text: "GPU-accelerated video decoding for lower CPU usage"
+                            font.pixelSize: Theme.fontSizeXs
+                            color: Theme.textMuted
+                        }
+
+                        Flow {
+                            Layout.fillWidth: true
+                            spacing: Theme.spacingSm
+                            Layout.topMargin: Theme.spacingXs
+
+                            Repeater {
+                                model: [
+                                    { value: "auto-safe", label: "Auto Safe" },
+                                    { value: "auto", label: "Auto" },
+                                    { value: "no", label: "Software" }
+                                ]
+
+                                Rectangle {
+                                    width: 80
+                                    height: 32
+                                    radius: Theme.borderRadiusSmall
+                                    color: appViewModel && appViewModel.hwdecMode === modelData.value
+                                        ? Theme.accent : hwdecHov
+                                            ? Theme.surfaceHover : Theme.surface
+                                    border.width: 1
+                                    border.color: Theme.surfaceBorder
+
+                                    property bool hwdecHov: false
+
+                                    Text {
+                                        anchors.centerIn: parent
+                                        text: modelData.label
+                                        font.pixelSize: Theme.fontSizeXs
+                                        color: appViewModel && appViewModel.hwdecMode === modelData.value
+                                            ? Theme.textPrimary : Theme.textSecondary
+                                    }
+
+                                    MouseArea {
+                                        anchors.fill: parent
+                                        hoverEnabled: true
+                                        cursorShape: Qt.PointingHandCursor
+                                        onEntered: parent.hwdecHov = true
+                                        onExited: parent.hwdecHov = false
+                                        onClicked: {
+                                            if (appViewModel)
+                                                appViewModel.hwdecMode = modelData.value
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: Theme.spacingMd
+
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            spacing: Theme.spacingXs
+
+                            Text {
+                                text: "Deinterlace"
+                                font.pixelSize: Theme.fontSizeSm
+                                color: Theme.textPrimary
+                            }
+
+                            Text {
+                                text: "Enable deinterlacing for interlaced video streams"
+                                font.pixelSize: Theme.fontSizeXs
+                                color: Theme.textMuted
+                            }
+                        }
+
+                        Switch {
+                            checked: appViewModel ? appViewModel.deinterlace : false
+                            onToggled: {
+                                if (appViewModel) appViewModel.deinterlace = checked
+                            }
+                        }
+                    }
+
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        spacing: Theme.spacingXs
+
+                        Text {
                             text: "Grid columns"
                             font.pixelSize: Theme.fontSizeSm
                             color: Theme.textPrimary

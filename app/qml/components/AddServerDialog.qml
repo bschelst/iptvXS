@@ -247,14 +247,14 @@ Dialog {
     property bool editMode: false
     property int editIndex: -1
 
-    function openForEdit(index, name, type, url, username, epgUrl) {
+    function openForEdit(index, name, type, url, username, password, epgUrl) {
         editMode = true
         editIndex = index
         serverType = type
         nameField.text = name
         urlField.text = url
         usernameField.text = username
-        passwordField.text = ""
+        passwordField.text = password || ""
         epgUrlField.text = epgUrl || ""
         dialog.open()
     }
