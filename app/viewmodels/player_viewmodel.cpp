@@ -22,7 +22,13 @@ PlayerViewModel::PlayerViewModel(QObject *parent)
     connect(player_, &iptvxs::MpvPlayer::mutedChanged, this,
             [this](bool) { emit mutedChanged(); });
     connect(player_, &iptvxs::MpvPlayer::durationChanged, this,
-            [this](double) { emit durationChanged(); });
+            [this](double dur) {
+                emit durationChanged();
+                if (dur <= 0.0 && !isLive_) {
+                    isLive_ = true;
+                    emit isLiveChanged();
+                }
+            });
     connect(player_, &iptvxs::MpvPlayer::positionChanged, this,
             [this](double) { emit positionChanged(); });
     connect(player_, &iptvxs::MpvPlayer::errorOccurred, this,
@@ -146,7 +152,9 @@ void PlayerViewModel::play(const QString &url, const QString &name,
     channelName_ = name;
     channelLogo_ = logo;
     channelId_ = channelId;
-    isLive_ = url.contains(QStringLiteral("/live/")) || url.endsWith(QStringLiteral(".ts"));
+    isLive_ = url.contains(QStringLiteral("/live/"))
+              || url.endsWith(QStringLiteral(".ts"))
+              || url.endsWith(QStringLiteral(".m3u8"));
     subtitleTracks_.clear();
     audioTracks_.clear();
     emit channelNameChanged();

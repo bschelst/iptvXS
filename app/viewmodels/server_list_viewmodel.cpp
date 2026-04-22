@@ -49,6 +49,10 @@ QVariant ServerListViewModel::data(const QModelIndex &index, int role) const {
             : 0;
     case EpgUrlRole:
         return server.epgUrl;
+    case EnabledRole:
+        return server.enabled;
+    case IsPrimaryRole:
+        return server.isPrimary;
     default: return {};
     }
 }
@@ -65,6 +69,8 @@ QHash<int, QByteArray> ServerListViewModel::roleNames() const {
         {VodCountRole, "vodCount"},
         {SeriesCountRole, "seriesCount"},
         {EpgUrlRole, "epgUrl"},
+        {EnabledRole, "enabled"},
+        {IsPrimaryRole, "isPrimary"},
     };
 }
 
@@ -154,6 +160,10 @@ void ServerListViewModel::syncServer(int index) {
     if (index < 0 || index >= servers_.size() || syncing_) return;
 
     const auto &server = servers_.at(index);
+    if (!server.enabled) {
+        emit errorOccurred(QStringLiteral("Cannot sync a disabled server"));
+        return;
+    }
     if (server.type == QStringLiteral("xtream")) {
         syncXtreamServer(server);
     } else {
@@ -177,6 +187,49 @@ QString ServerListViewModel::epgUrlAt(int index) const {
             .arg(srv.url, srv.username, srv.password);
     }
     return {};
+}
+
+void ServerListViewModel::setEnabled(int index, bool enabled) {
+    if (!serverRepo_ || index < 0 || index >= servers_.size()) return;
+
+    auto serverId = servers_.at(index).id;
+    if (!serverRepo_->setEnabled(serverId, enabled)) {
+        emit errorOccurred(QStringLiteral("Failed to set server enabled state"));
+        return;
+    }
+
+    servers_[index].enabled = enabled;
+    auto idx = this->index(index);
+    emit dataChanged(idx, idx, {EnabledRole});
+}
+
+void ServerListViewModel::setPrimary(int index) {
+    if (!serverRepo_ || index < 0 || index >= servers_.size()) return;
+
+    auto serverId = servers_.at(index).id;
+    if (!serverRepo_->setPrimary(serverId)) {
+        emit errorOccurred(QStringLiteral("Failed to set primary server"));
+        return;
+    }
+
+    // Update local state: clear old primary, set new
+    for (int i = 0; i < servers_.size(); ++i) {
+        if (servers_[i].isPrimary) {
+            servers_[i].isPrimary = false;
+            auto oldIdx = this->index(i);
+            emit dataChanged(oldIdx, oldIdx, {IsPrimaryRole});
+        }
+    }
+    servers_[index].isPrimary = true;
+    auto idx = this->index(index);
+    emit dataChanged(idx, idx, {IsPrimaryRole});
+}
+
+int ServerListViewModel::primaryServerIndex() const {
+    for (int i = 0; i < servers_.size(); ++i) {
+        if (servers_.at(i).isPrimary && servers_.at(i).enabled) return i;
+    }
+    return -1;
 }
 
 void ServerListViewModel::loadServers() {

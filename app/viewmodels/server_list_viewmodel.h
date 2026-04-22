@@ -30,7 +30,9 @@ public:
         ChannelCountRole,
         VodCountRole,
         SeriesCountRole,
-        EpgUrlRole
+        EpgUrlRole,
+        EnabledRole,
+        IsPrimaryRole
     };
 
     explicit ServerListViewModel(QObject *parent = nullptr);
@@ -61,6 +63,9 @@ public:
     Q_INVOKABLE void refresh();
     Q_INVOKABLE int64_t serverIdAt(int index) const;
     Q_INVOKABLE QString epgUrlAt(int index) const;
+    Q_INVOKABLE void setEnabled(int index, bool enabled);
+    Q_INVOKABLE void setPrimary(int index);
+    Q_INVOKABLE int primaryServerIndex() const;
 
 signals:
     void countChanged();

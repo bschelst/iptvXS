@@ -271,6 +271,14 @@ std::vector<Database::Migration> Database::migrations() const {
 
              return true;
          }},
+        {8, "Add enabled and is_primary to servers", [](QSqlDatabase &db) -> bool {
+             QSqlQuery q(db);
+             if (!q.exec("ALTER TABLE servers ADD COLUMN enabled INTEGER NOT NULL DEFAULT 1"))
+                 return false;
+             if (!q.exec("ALTER TABLE servers ADD COLUMN is_primary INTEGER NOT NULL DEFAULT 0"))
+                 return false;
+             return true;
+         }},
     };
 }
 

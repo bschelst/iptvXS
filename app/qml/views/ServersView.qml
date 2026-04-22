@@ -111,9 +111,14 @@ Item {
                 width: serverListView.width
                 height: 100
                 radius: Theme.borderRadiusLarge
-                color: delegateHovered ? Theme.surfaceHover : Theme.surfaceElevated
-                border.color: delegateHovered ? Theme.accent + "40" : Theme.surfaceBorder
-                border.width: 1
+                color: model.enabled
+                    ? (delegateHovered ? Theme.surfaceHover : Theme.surfaceElevated)
+                    : Theme.surface
+                border.color: model.isPrimary
+                    ? Theme.accent
+                    : (delegateHovered ? Theme.accent + "40" : Theme.surfaceBorder)
+                border.width: model.isPrimary ? 2 : 1
+                opacity: model.enabled ? 1.0 : 0.5
 
                 property bool delegateHovered: false
 
@@ -196,6 +201,69 @@ Item {
                                 text: "Synced: " + model.lastSynced
                                 font.pixelSize: Theme.fontSizeXs
                                 color: Theme.textMuted
+                            }
+                        }
+                    }
+
+                    // Primary star button
+                    Rectangle {
+                        Layout.preferredWidth: 36
+                        Layout.preferredHeight: 36
+                        radius: Theme.borderRadius
+                        color: primaryBtnHovered ? Theme.surfaceHover : "transparent"
+
+                        property bool primaryBtnHovered: false
+
+                        Text {
+                            anchors.centerIn: parent
+                            text: model.isPrimary ? "\u2B50" : "\u2606"
+                            font.pixelSize: 18
+                            color: model.isPrimary ? Theme.warning : Theme.textMuted
+                        }
+
+                        MouseArea {
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onEntered: parent.primaryBtnHovered = true
+                            onExited: parent.primaryBtnHovered = false
+                            onClicked: {
+                                if (appViewModel)
+                                    appViewModel.serverList.setPrimary(index)
+                            }
+                        }
+                    }
+
+                    // Enable/disable toggle
+                    Rectangle {
+                        Layout.preferredWidth: 48
+                        Layout.preferredHeight: 26
+                        radius: 13
+                        color: model.enabled ? Theme.accent : Theme.surfaceBorder
+
+                        Behavior on color {
+                            ColorAnimation { duration: Theme.animFast }
+                        }
+
+                        Rectangle {
+                            width: 20
+                            height: 20
+                            radius: 10
+                            anchors.verticalCenter: parent.verticalCenter
+                            x: model.enabled ? parent.width - width - 3 : 3
+                            color: "#ffffff"
+
+                            Behavior on x {
+                                NumberAnimation { duration: Theme.animFast }
+                            }
+                        }
+
+                        MouseArea {
+                            anchors.fill: parent
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: {
+                                if (appViewModel)
+                                    appViewModel.serverList.setEnabled(index, !model.enabled)
                             }
                         }
                     }

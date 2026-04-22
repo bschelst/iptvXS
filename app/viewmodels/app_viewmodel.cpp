@@ -332,7 +332,7 @@ void AppViewModel::setLogViewModel(LogViewModel *logVm) { logVm_ = logVm; }
 
 QString AppViewModel::appName() const { return QStringLiteral("iptvXS"); }
 
-QString AppViewModel::appVersion() const { return QStringLiteral("0.1.0"); }
+QString AppViewModel::appVersion() const { return QStringLiteral(IPTVXS_VERSION); }
 
 bool AppViewModel::databaseReady() const { return databaseReady_; }
 

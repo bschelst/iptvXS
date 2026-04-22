@@ -57,7 +57,9 @@ Item {
 
                     delegate: Rectangle {
                         width: serverPicker.width
-                        height: 36
+                        height: model.enabled ? 36 : 0
+                        visible: model.enabled
+                        clip: true
                         color: activeServerId === model.serverId
                             ? Theme.accent + "25" : srvHovered ? Theme.surfaceHover : "transparent"
 
@@ -631,7 +633,19 @@ Item {
             appViewModel.channelList.typeFilter = "live"
         }
         if (appViewModel && appViewModel.serverList.count > 0) {
-            selectServer(appViewModel.serverList.serverIdAt(0))
+            var primaryIdx = appViewModel.serverList.primaryServerIndex()
+            if (primaryIdx >= 0) {
+                selectServer(appViewModel.serverList.serverIdAt(primaryIdx))
+            } else {
+                // Fall back to first enabled server
+                for (var i = 0; i < appViewModel.serverList.count; i++) {
+                    var sid = appViewModel.serverList.serverIdAt(i)
+                    if (sid > 0) {
+                        selectServer(sid)
+                        break
+                    }
+                }
+            }
         }
     }
 

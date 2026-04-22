@@ -16,6 +16,8 @@ struct Server {
     QString epgUrl;
     int64_t lastSyncedAt{0};
     int64_t createdAt{0};
+    bool enabled{true};
+    bool isPrimary{false};
 };
 
 } // namespace iptvxs
