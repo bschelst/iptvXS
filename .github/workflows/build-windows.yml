@@ -6,6 +6,9 @@ on:
     tags:
       - 'v*'
 
+env:
+  MPV_VERSION: "0.39.0"
+
 jobs:
   build:
     runs-on: windows-latest
@@ -27,26 +30,37 @@ jobs:
         with:
           arch: x64
 
-      - name: Cache vcpkg
+      - name: Cache mpv dev
+        id: cache-mpv
         uses: actions/cache@v4
         with:
-          path: C:\vcpkg\installed
-          key: vcpkg-windows-x64-${{ hashFiles('.github/workflows/build-windows.yml') }}
-          restore-keys: vcpkg-windows-x64-
+          path: mpv-dev
+          key: mpv-dev-x86_64-v2-${{ env.MPV_VERSION }}
 
-      - name: Install mpv via vcpkg
+      - name: Download mpv dev libraries
+        if: steps.cache-mpv.outputs.cache-hit != 'true'
         run: |
-          vcpkg install mpv:x64-windows
+          Invoke-WebRequest -Uri "https://sourceforge.net/projects/mpv-player-windows/files/libmpv/mpv-dev-x86_64-v3-20241013-git-c4c4b28.7z/download" -OutFile mpv-dev.7z
+          7z x mpv-dev.7z -ompv-dev
+          dir mpv-dev
+
+      - name: Prepare mpv import library
+        run: |
+          cd mpv-dev
+          if (Test-Path "libmpv-2.dll") {
+            lib /def:mpv.def /out:mpv.lib /machine:x64
+          } elseif (Test-Path "mpv-2.dll") {
+            lib /def:mpv.def /out:mpv.lib /machine:x64
+          }
+          dir
 
       - name: Configure CMake
-        env:
-          QT_DIR: ${{ env.Qt6_DIR }}
         run: |
           cmake -B build -G "Ninja" `
             -DCMAKE_BUILD_TYPE=Release `
-            -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake `
             -DIPTVXS_BUILD_TESTS=OFF `
-            -DCMAKE_PREFIX_PATH="$env:QT_DIR"
+            -DMPV_INCLUDE_DIRS="${{ github.workspace }}/mpv-dev/include" `
+            -DMPV_LIBRARIES="${{ github.workspace }}/mpv-dev/mpv.lib"
 
       - name: Build
         run: cmake --build build --config Release
@@ -54,13 +68,11 @@ jobs:
       - name: Package
         run: |
           mkdir package
-          cp build/app/Release/iptvXS.exe package/ 2>$null; cp build/app/iptvXS.exe package/ 2>$null
+          $exe = Get-ChildItem -Path build -Recurse -Filter "iptvXS.exe" | Select-Object -First 1
+          Copy-Item $exe.FullName package/
           cd package
           windeployqt --qmldir ../app/qml iptvXS.exe
-          cp C:/vcpkg/installed/x64-windows/bin/mpv*.dll . 2>$null
-          cp C:/vcpkg/installed/x64-windows/bin/libmpv*.dll . 2>$null
-          cp C:/vcpkg/installed/x64-windows/bin/av*.dll . 2>$null
-          cp C:/vcpkg/installed/x64-windows/bin/sw*.dll . 2>$null
+          Copy-Item ../mpv-dev/*.dll .
 
       - name: Create ZIP
         run: |
