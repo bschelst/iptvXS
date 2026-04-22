@@ -95,6 +95,8 @@ if(NOT WIN32)
     pkg_check_modules(MPV REQUIRED mpv)
 endif()
 
+target_compile_definitions(iptvXS PRIVATE IPTVXS_VERSION="${PROJECT_VERSION}")
+
 target_include_directories(iptvXS
     PRIVATE
         ${MPV_INCLUDE_DIRS}

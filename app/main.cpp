@@ -75,7 +75,7 @@ int main(int argc, char *argv[]) {
     QApplication app(argc, argv);
     std::setlocale(LC_NUMERIC, "C");
     app.setApplicationName("iptvXS");
-    app.setApplicationVersion("0.1.0");
+    app.setApplicationVersion(QStringLiteral(IPTVXS_VERSION));
     app.setOrganizationName("iptvXS");
     // Tied to closeToTray setting below, once viewModel is available.
     app.setQuitOnLastWindowClosed(true);
