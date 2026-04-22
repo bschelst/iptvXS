@@ -507,39 +507,39 @@ Item {
                     Row {
                         id: chBtnRow
                         anchors.right: parent.right
-                        anchors.rightMargin: 8
+                        anchors.rightMargin: 10
                         anchors.verticalCenter: parent.verticalCenter
-                        spacing: 4
+                        spacing: 6
 
                         // Record
                         Rectangle {
-                            width: 24; height: 24; radius: 12
+                            width: 32; height: 32; radius: 16
                             anchors.verticalCenter: parent.verticalCenter
-                            color: isRec ? Theme.error + "40" : recHov ? Theme.error + "30" : "transparent"
+                            color: isRec ? Theme.error + "40" : recHov ? Theme.error + "20" : "transparent"
                             property bool recHov: false
                             property bool isRec: appViewModel ? appViewModel.recordingList.isChannelRecording(model.channelId) : false
-                            Text { anchors.centerIn: parent; text: parent.isRec ? "\u23F9" : "\u23FA"; font.pixelSize: 11; color: parent.isRec ? Theme.error : parent.recHov ? Theme.error : Theme.textMuted }
+                            Text { anchors.centerIn: parent; text: parent.isRec ? "\u23F9" : "\u23FA"; font.pixelSize: 16; color: parent.isRec ? Theme.error : parent.recHov ? Theme.error : Theme.textMuted }
                             MouseArea { anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onEntered: parent.recHov = true; onExited: parent.recHov = false; onClicked: { if (!appViewModel) return; if (parent.isRec) { appViewModel.recordingList.stopChannelRecording(model.channelId); parent.isRec = false } else { appViewModel.recordingList.startNow(model.channelId); parent.isRec = true } } }
                         }
 
                         // Add to group
                         Rectangle {
-                            width: 24; height: 24; radius: 12
+                            width: 32; height: 32; radius: 16
                             anchors.verticalCenter: parent.verticalCenter
-                            color: grpHov ? Theme.accent + "30" : "transparent"
+                            color: grpHov ? Theme.accent + "20" : "transparent"
                             property bool grpHov: false
-                            Text { anchors.centerIn: parent; text: "+"; font.pixelSize: 14; font.bold: true; color: parent.grpHov ? Theme.accent : Theme.textMuted }
+                            Text { anchors.centerIn: parent; text: "+"; font.pixelSize: 20; font.bold: true; color: parent.grpHov ? Theme.accent : Theme.textMuted }
                             MouseArea { anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onEntered: parent.grpHov = true; onExited: parent.grpHov = false; onClicked: { addToGroupPopup.channelId = model.channelId; addToGroupPopup.channelName = model.name; addToGroupPopup.open() } }
                         }
 
                         // Favorite
                         Rectangle {
-                            width: 24; height: 24; radius: 12
+                            width: 32; height: 32; radius: 16
                             anchors.verticalCenter: parent.verticalCenter
                             color: starHov ? Theme.surfaceHover : "transparent"
                             property bool starHov: false
                             property bool isFav: appViewModel ? appViewModel.favoriteList.isFavorite(model.channelId) : false
-                            Text { anchors.centerIn: parent; text: parent.isFav ? "\u2B50" : "\u2606"; font.pixelSize: 12; color: parent.isFav ? Theme.warning : Theme.textMuted }
+                            Text { anchors.centerIn: parent; text: parent.isFav ? "\u2B50" : "\u2606"; font.pixelSize: 18; color: parent.isFav ? Theme.warning : Theme.textMuted }
                             MouseArea { anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onEntered: parent.starHov = true; onExited: parent.starHov = false; onClicked: { if (appViewModel) { appViewModel.favoriteList.toggleFavorite(model.channelId); parent.isFav = !parent.isFav } } }
                         }
                     }
