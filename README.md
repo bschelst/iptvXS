@@ -9,12 +9,19 @@
 </p>
 
 <p align="center">
+  <img src="https://img.shields.io/badge/status-unstable%20%2F%20alpha-orange?style=for-the-badge" alt="Unstable" />
+</p>
+
+<p align="center">
   <img src="https://img.shields.io/badge/platform-Linux-blue?logo=linux&logoColor=white" alt="Linux" />
   <img src="https://img.shields.io/badge/platform-Steam%20Deck-1a9fff?logo=steam&logoColor=white" alt="Steam Deck" />
+  <img src="https://img.shields.io/badge/platform-Windows-0078D4?logo=windows&logoColor=white" alt="Windows" />
   <img src="https://img.shields.io/badge/license-MIT-green" alt="MIT License" />
   <img src="https://img.shields.io/badge/Qt-6.5+-41cd52?logo=qt&logoColor=white" alt="Qt 6.5+" />
   <img src="https://img.shields.io/badge/C++-20-00599C?logo=c%2B%2B&logoColor=white" alt="C++20" />
 </p>
+
+> **Warning:** This project is in **early alpha** and under heavy active development. Expect breaking changes, incomplete features, and bugs. Not recommended for production use. Contributions and bug reports are welcome!
 
 ---
 
