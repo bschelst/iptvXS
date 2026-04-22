@@ -62,6 +62,6 @@ set(CPACK_DEBIAN_PACKAGE_SECTION "video")
 
 set(CPACK_RPM_PACKAGE_REQUIRES
     "qt6-qtbase, qt6-qtdeclarative, mpv-libs, ffmpeg-free")
-set(CPACK_RPM_PACKAGE_LICENSE "MIT")
+set(CPACK_RPM_PACKAGE_LICENSE "GPL-3.0")
 
 include(CPack)
