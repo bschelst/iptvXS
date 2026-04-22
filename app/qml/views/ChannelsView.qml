@@ -219,6 +219,19 @@ Item {
                     highlightFollowsCurrentItem: true
                     model: appViewModel ? appViewModel.categoryList : null
 
+                    ScrollBar.vertical: ScrollBar {
+                        active: true
+                        policy: ScrollBar.AsNeeded
+                        contentItem: Rectangle {
+                            implicitWidth: 4
+                            radius: 2
+                            color: Theme.accent
+                            opacity: parent.active ? 0.6 : 0.0
+                            Behavior on opacity { NumberAnimation { duration: Theme.animNormal } }
+                        }
+                        background: Rectangle { implicitWidth: 4; color: "transparent" }
+                    }
+
                     Keys.onReturnPressed: if (currentIndex >= 0) selectCategory(appViewModel.categoryList.categoryIdAt(currentIndex))
                     Keys.onEnterPressed: Keys.onReturnPressed(event)
                     Keys.onRightPressed: channelGrid.forceActiveFocus()
