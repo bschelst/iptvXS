@@ -69,6 +69,9 @@ static void showMainWindow(QQmlApplicationEngine &engine) {
 
 int main(int argc, char *argv[]) {
     std::setlocale(LC_NUMERIC, "C");
+#if defined(Q_OS_WIN) || defined(_WIN32)
+    QQuickWindow::setGraphicsApi(QSGRendererInterface::OpenGL);
+#endif
     QApplication app(argc, argv);
     std::setlocale(LC_NUMERIC, "C");
     app.setApplicationName("iptvXS");

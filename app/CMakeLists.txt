@@ -1,8 +1,15 @@
 qt_policy(SET QTP0004 OLD)
 
-qt_add_executable(iptvXS
-    main.cpp
-)
+if(WIN32)
+    qt_add_executable(iptvXS
+        main.cpp
+        iptvxs.rc
+    )
+else()
+    qt_add_executable(iptvXS
+        main.cpp
+    )
+endif()
 
 qt_add_resources(iptvXS "app_resources"
     PREFIX "/"
