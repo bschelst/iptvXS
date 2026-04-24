@@ -352,14 +352,25 @@ Item {
                                     color: Theme.textPrimary
                                 }
 
-                                Text {
+                                Rectangle {
                                     anchors.right: parent.right
-                                    anchors.rightMargin: Theme.spacingMd
+                                    anchors.rightMargin: Theme.spacingSm
                                     anchors.verticalCenter: parent.verticalCenter
-                                    text: "\u203A"
-                                    font.pixelSize: 22
-                                    font.bold: true
-                                    color: Theme.textMuted
+                                    width: 28; height: 28; radius: 14
+                                    color: vodScrollHov ? Theme.surfaceHover : "transparent"
+                                    property bool vodScrollHov: false
+
+                                    Text {
+                                        anchors.centerIn: parent
+                                        text: "\u203A"
+                                        font.pixelSize: 22; font.bold: true
+                                        color: parent.vodScrollHov ? Theme.textPrimary : Theme.textMuted
+                                    }
+                                    MouseArea {
+                                        anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                                        onEntered: parent.vodScrollHov = true; onExited: parent.vodScrollHov = false
+                                        onClicked: rowListView.contentX = Math.min(rowListView.contentX + 600, rowListView.contentWidth - rowListView.width)
+                                    }
                                 }
                             }
 
@@ -1071,8 +1082,9 @@ Item {
         if (!appViewModel) return
         appViewModel.channelList.typeFilter = activeType
         appViewModel.channelList.serverId = activeServerId
+        appViewModel.categoryList.setFilterType(activeType)
+        appViewModel.categoryList.setServerId(activeServerId)
         appViewModel.channelList.refresh()
-        reloadVodRows()
     }
 
     Connections {

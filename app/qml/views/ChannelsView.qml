@@ -501,19 +501,36 @@ Item {
                                     color: Theme.textPrimary
                                 }
 
-                                Text {
+                                Rectangle {
                                     anchors.right: parent.right
-                                    anchors.rightMargin: Theme.spacingMd
+                                    anchors.rightMargin: Theme.spacingSm
                                     anchors.verticalCenter: parent.verticalCenter
-                                    text: "\u203A"
-                                    font.pixelSize: 22
-                                    font.bold: true
-                                    color: Theme.textMuted
+                                    width: 28; height: 28; radius: 14
+                                    color: chScrollHov ? Theme.surfaceHover : "transparent"
+                                    property bool chScrollHov: false
+
+                                    Text {
+                                        anchors.centerIn: parent
+                                        text: "\u203A"
+                                        font.pixelSize: 22
+                                        font.bold: true
+                                        color: parent.chScrollHov ? Theme.textPrimary : Theme.textMuted
+                                    }
+
+                                    MouseArea {
+                                        anchors.fill: parent
+                                        hoverEnabled: true
+                                        cursorShape: Qt.PointingHandCursor
+                                        onEntered: parent.chScrollHov = true
+                                        onExited: parent.chScrollHov = false
+                                        onClicked: chRowListView.contentX = Math.min(chRowListView.contentX + 500, chRowListView.contentWidth - chRowListView.width)
+                                    }
                                 }
                             }
 
                             // Horizontal channel row
                             ListView {
+                                id: chRowListView
                                 width: parent.width
                                 height: 130
                                 orientation: ListView.Horizontal
@@ -552,6 +569,7 @@ Item {
                                             color: "transparent"
 
                                             Image {
+                                                id: chNetLogoImg
                                                 anchors.centerIn: parent
                                                 width: parent.width - 24
                                                 height: parent.height - 16
@@ -567,7 +585,7 @@ Item {
                                                 source: "qrc:/images/iptvxs_tray.png"
                                                 fillMode: Image.PreserveAspectFit
                                                 opacity: 0.4
-                                                visible: !model.logoUrl
+                                                visible: chNetLogoImg.status !== Image.Ready
                                             }
                                         }
 
