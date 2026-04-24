@@ -532,7 +532,7 @@ Item {
                             ListView {
                                 id: chRowListView
                                 width: parent.width
-                                height: 180
+                                height: 190
                                 orientation: ListView.Horizontal
                                 spacing: Theme.spacingSm
                                 clip: true
@@ -542,12 +542,13 @@ Item {
                                 model: chRowModel
 
                                 delegate: Item {
-                                    width: 200
-                                    height: 170
+                                    width: 208
+                                    height: 182
 
                                     Rectangle {
                                         id: chNetCard
                                         anchors.fill: parent
+                                        anchors.margins: 6
                                         radius: 10
                                         color: Theme.surfaceElevated
                                         clip: true
@@ -590,20 +591,24 @@ Item {
                                         }
 
                                         // Channel name below logo
-                                        Text {
+                                        Item {
                                             anchors.top: chNetLogoArea.bottom
+                                            anchors.bottom: parent.bottom
                                             anchors.left: parent.left
                                             anchors.right: parent.right
-                                            anchors.leftMargin: 8
-                                            anchors.rightMargin: 8
-                                            text: model.name
-                                            font.pixelSize: Theme.fontSizeXs
-                                            font.bold: true
-                                            color: Theme.textPrimary
-                                            elide: Text.ElideRight
-                                            maximumLineCount: 2
-                                            wrapMode: Text.Wrap
-                                            horizontalAlignment: Text.AlignHCenter
+
+                                            Text {
+                                                anchors.centerIn: parent
+                                                width: parent.width - 16
+                                                text: model.name
+                                                font.pixelSize: Theme.fontSizeXs
+                                                font.bold: true
+                                                color: Theme.textPrimary
+                                                elide: Text.ElideRight
+                                                maximumLineCount: 2
+                                                wrapMode: Text.Wrap
+                                                horizontalAlignment: Text.AlignHCenter
+                                            }
                                         }
 
                                         // Favorite indicator
