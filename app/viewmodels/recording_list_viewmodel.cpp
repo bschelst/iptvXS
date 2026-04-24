@@ -72,6 +72,8 @@ QVariant RecordingListViewModel::data(const QModelIndex &index, int role) const 
         return manager_ ? manager_->isRecording(rec.id) : false;
     case PinnedRole:
         return rec.pinned;
+    case ThumbnailUrlRole:
+        return rec.thumbnailUrl;
     default:
         return {};
     }
@@ -92,6 +94,7 @@ QHash<int, QByteArray> RecordingListViewModel::roleNames() const {
         {CreatedAtRole, "createdAt"},
         {IsActiveRole, "isActive"},
         {PinnedRole, "pinned"},
+        {ThumbnailUrlRole, "thumbnailUrl"},
     };
 }
 
@@ -171,6 +174,8 @@ void RecordingListViewModel::deleteRecording(int64_t recordingId) {
         manager_->stopRecording(recordingId);
     }
     if (recordingRepo_) {
+        qInfo("Manual deletion of recording %lld (DB entry only)",
+              static_cast<long long>(recordingId));
         recordingRepo_->remove(recordingId);
     }
 }
@@ -188,7 +193,8 @@ void RecordingListViewModel::deleteRecordingWithFile(int64_t recordingId) {
                 && !fi.fileName().contains(QStringLiteral("*"))
                 && !fi.fileName().contains(QStringLiteral("?"))) {
                 QFile::remove(fi.absoluteFilePath());
-                qInfo("Deleted recording file: %s", qPrintable(fi.absoluteFilePath()));
+                qInfo("Manual deletion of recording %lld with file: %s",
+                      static_cast<long long>(recordingId), qPrintable(fi.absoluteFilePath()));
             }
         }
         recordingRepo_->remove(recordingId);
@@ -240,6 +246,12 @@ int64_t RecordingListViewModel::startStreamRecording(int64_t channelId,
     rec.filePath = filePath;
 
     auto id = recordingRepo_->create(rec);
+    if (id > 0 && channelRepo_) {
+        auto ch = channelRepo_->findById(channelId);
+        if (ch && !ch->logoUrl.isEmpty()) {
+            recordingRepo_->updateThumbnailUrl(id, ch->logoUrl);
+        }
+    }
     loadRecordings();
     emit activeCountChanged();
     return id;

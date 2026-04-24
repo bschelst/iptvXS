@@ -66,9 +66,8 @@ void LogViewModel::appendLog(const QString &level, const QString &timestamp,
 
     bool matchesFilter = filterLevel_.isEmpty() || level == filterLevel_;
     if (matchesFilter) {
-        int row = filteredIndices_.size();
-        beginInsertRows({}, row, row);
-        filteredIndices_.append(newIdx);
+        beginInsertRows({}, 0, 0);
+        filteredIndices_.prepend(newIdx);
         endInsertRows();
     }
 
@@ -79,7 +78,7 @@ void LogViewModel::appendLog(const QString &level, const QString &timestamp,
 void LogViewModel::rebuildFiltered() {
     beginResetModel();
     filteredIndices_.clear();
-    for (int i = 0; i < allEntries_.size(); ++i) {
+    for (int i = allEntries_.size() - 1; i >= 0; --i) {
         if (filterLevel_.isEmpty() || allEntries_.at(i).level == filterLevel_) {
             filteredIndices_.append(i);
         }

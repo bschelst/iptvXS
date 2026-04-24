@@ -795,7 +795,10 @@ Item {
 
         MouseArea {
             anchors.fill: parent
-            onClicked: episodeDialog.visible = false
+            onClicked: {
+                episodeDialog.visible = false
+                if (appViewModel) appViewModel.clearActiveSeriesDialog()
+            }
         }
 
         Rectangle {
@@ -847,7 +850,10 @@ Item {
                             cursorShape: Qt.PointingHandCursor
                             onEntered: parent.closeBtnHov = true
                             onExited: parent.closeBtnHov = false
-                            onClicked: episodeDialog.visible = false
+                            onClicked: {
+                                episodeDialog.visible = false
+                                if (appViewModel) appViewModel.clearActiveSeriesDialog()
+                            }
                         }
                     }
                 }
@@ -908,7 +914,10 @@ Item {
 
                     Keys.onReturnPressed: playEpisode(currentIndex)
                     Keys.onEnterPressed: playEpisode(currentIndex)
-                    Keys.onEscapePressed: episodeDialog.visible = false
+                    Keys.onEscapePressed: {
+                        episodeDialog.visible = false
+                        if (appViewModel) appViewModel.clearActiveSeriesDialog()
+                    }
                     Keys.onLeftPressed: {
                         if (episodeDialog.selectedSeason > 0) episodeDialog.selectedSeason--
                     }
@@ -1132,6 +1141,15 @@ Item {
         }
         if (appViewModel && appViewModel.serverList.count > 0) {
             selectServer(appViewModel.serverList.serverIdAt(0))
+        }
+
+        // Restore series episode dialog when returning from player
+        if (appViewModel && appViewModel.hasActiveSeriesDialog()) {
+            appViewModel.fetchSeriesEpisodes(
+                appViewModel.activeSeriesServerId(),
+                appViewModel.activeSeriesId(),
+                appViewModel.activeSeriesName(),
+                appViewModel.activeSeriesLogo())
         }
     }
 

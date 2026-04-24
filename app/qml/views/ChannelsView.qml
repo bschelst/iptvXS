@@ -738,7 +738,7 @@ Item {
                                             onExited: chNetCard.chNetHov = false
                                             onClicked: {
                                                 if (appViewModel) {
-                                                    appViewModel.player.play(model.streamUrl, model.name, model.logoUrl, model.channelId)
+                                                    appViewModel.player.play(model.streamUrl, model.name, model.logoUrl, model.channelId, model.epgChannelId || "")
                                                     appViewModel.currentView = "player"
                                                 }
                                             }
@@ -801,7 +801,8 @@ Item {
                     appViewModel.player.play(cl.streamUrlAt(currentIndex),
                                              cl.nameAt(currentIndex),
                                              cl.logoUrlAt(currentIndex),
-                                             cl.channelIdAt(currentIndex))
+                                             cl.channelIdAt(currentIndex),
+                                             cl.epgChannelIdAt(currentIndex))
                     appViewModel.currentView = "player"
                 }
 
@@ -953,7 +954,7 @@ Item {
                             onExited: chCard.chHovered = false
                             onClicked: {
                                 if (appViewModel) {
-                                    appViewModel.player.play(model.streamUrl, model.name, model.logoUrl, model.channelId)
+                                    appViewModel.player.play(model.streamUrl, model.name, model.logoUrl, model.channelId, model.epgChannelId || "")
                                     appViewModel.currentView = "player"
                                 }
                             }

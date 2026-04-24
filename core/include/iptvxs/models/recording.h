@@ -20,6 +20,7 @@ struct Recording {
     QString errorMessage;
     int64_t createdAt{0};
     bool pinned{false};
+    QString thumbnailUrl;
 };
 
 } // namespace iptvxs

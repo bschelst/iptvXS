@@ -149,6 +149,11 @@ int64_t ChannelListViewModel::serverIdAt(int index) const {
     return channels_[index].serverId;
 }
 
+QString ChannelListViewModel::epgChannelIdAt(int index) const {
+    if (index < 0 || index >= channels_.size()) return {};
+    return channels_[index].epgChannelId;
+}
+
 QString ChannelListViewModel::channelUrlAt(int index) const {
     if (index < 0 || index >= channels_.size()) return {};
     return channels_.at(index).streamUrl;

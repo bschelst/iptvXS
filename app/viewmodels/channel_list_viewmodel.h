@@ -27,6 +27,7 @@ class ChannelListViewModel : public QAbstractListModel {
     Q_INVOKABLE QString typeAt(int index) const;
     Q_INVOKABLE QString externalIdAt(int index) const;
     Q_INVOKABLE int64_t serverIdAt(int index) const;
+    Q_INVOKABLE QString epgChannelIdAt(int index) const;
 
 public:
     enum Roles {

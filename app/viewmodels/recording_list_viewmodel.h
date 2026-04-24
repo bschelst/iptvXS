@@ -30,7 +30,8 @@ public:
         ErrorMessageRole,
         CreatedAtRole,
         IsActiveRole,
-        PinnedRole
+        PinnedRole,
+        ThumbnailUrlRole
     };
 
     explicit RecordingListViewModel(QObject *parent = nullptr);

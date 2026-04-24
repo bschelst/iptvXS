@@ -817,6 +817,9 @@ void AppViewModel::fetchSeriesEpisodes(int64_t serverId, const QString &seriesId
         return;
     }
 
+    // Store active series dialog state for restoration after returning from player
+    setActiveSeriesDialog(seriesName, serverId, seriesId, logoUrl);
+
     auto srv = serverRepo_->findById(serverId);
     if (!srv) return;
 
@@ -879,7 +882,7 @@ void AppViewModel::playChannelById(int64_t channelId) {
     if (!channelRepo_ || channelId <= 0) return;
     auto ch = channelRepo_->findById(channelId);
     if (!ch) return;
-    playerVm_->play(ch->streamUrl, ch->name, ch->logoUrl, ch->id);
+    playerVm_->play(ch->streamUrl, ch->name, ch->logoUrl, ch->id, ch->epgChannelId);
     setCurrentView(QStringLiteral("player"));
 }
 
@@ -890,7 +893,7 @@ void AppViewModel::playChannelByName(const QString &name) {
         auto results = channelRepo_->search(srv.id, name, 1, 0);
         if (!results.isEmpty()) {
             const auto &ch = results.first();
-            playerVm_->play(ch.streamUrl, ch.name, ch.logoUrl, ch.id);
+            playerVm_->play(ch.streamUrl, ch.name, ch.logoUrl, ch.id, ch.epgChannelId);
             setCurrentView(QStringLiteral("player"));
             return;
         }
@@ -952,6 +955,35 @@ QString AppViewModel::buildSeriesEpisodeUrl(const QString &episodeId, const QStr
     if (seriesServerUrl_.isEmpty()) return {};
     return QStringLiteral("%1/series/%2/%3/%4.%5")
                .arg(seriesServerUrl_, seriesUsername_, seriesPassword_, episodeId, ext);
+}
+
+QString AppViewModel::currentProgrammeTitle(const QString &epgChannelId) const {
+    if (!progRepo_ || epgChannelId.isEmpty()) return {};
+    auto current = progRepo_->findCurrent(epgChannelId);
+    if (current.isEmpty()) return {};
+    return current.first().title;
+}
+
+QString AppViewModel::nextProgrammeTitle(const QString &epgChannelId) const {
+    if (!progRepo_ || epgChannelId.isEmpty()) return {};
+    auto current = progRepo_->findCurrent(epgChannelId);
+    if (current.isEmpty()) return {};
+    // Find programmes starting after the current one ends
+    auto nextStart = current.first().endTime;
+    auto programmes = progRepo_->findByChannel(epgChannelId, nextStart, nextStart + 7200);
+    if (programmes.isEmpty()) return {};
+    return programmes.first().title;
+}
+
+QString AppViewModel::nextProgrammeTime(const QString &epgChannelId) const {
+    if (!progRepo_ || epgChannelId.isEmpty()) return {};
+    auto current = progRepo_->findCurrent(epgChannelId);
+    if (current.isEmpty()) return {};
+    auto nextStart = current.first().endTime;
+    auto programmes = progRepo_->findByChannel(epgChannelId, nextStart, nextStart + 7200);
+    if (programmes.isEmpty()) return {};
+    auto dt = QDateTime::fromSecsSinceEpoch(programmes.first().startTime);
+    return dt.toString(QStringLiteral("HH:mm"));
 }
 
 bool AppViewModel::fileExists(const QString &path) const {

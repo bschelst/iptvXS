@@ -176,6 +176,9 @@ public:
     Q_INVOKABLE bool hasWatched(int64_t channelId) const;
     Q_INVOKABLE bool hasWatchedUrl(const QString &url) const;
     Q_INVOKABLE QString buildSeriesEpisodeUrl(const QString &episodeId, const QString &ext) const;
+    Q_INVOKABLE QString currentProgrammeTitle(const QString &epgChannelId) const;
+    Q_INVOKABLE QString nextProgrammeTitle(const QString &epgChannelId) const;
+    Q_INVOKABLE QString nextProgrammeTime(const QString &epgChannelId) const;
 
 signals:
     void databaseReadyChanged();

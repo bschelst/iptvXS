@@ -412,15 +412,51 @@ Item {
             }
         }
 
-        // --- Top overlay with back button, title, and clock ---
+        // --- Top overlay with back button, title, EPG info, and clock ---
         Rectangle {
             id: topOverlay
             anchors.left: parent.left
             anchors.right: parent.right
             anchors.top: parent.top
-            height: 56
+            height: epgInfoVisible ? 72 : 56
             visible: controlsOverlay.visible
             opacity: controlsOverlay.opacity
+
+            property bool epgInfoVisible: {
+                if (!appViewModel) return false
+                return appViewModel.player.isLive
+                    && appViewModel.player.epgChannelId.length > 0
+                    && epgNowText.length > 0
+            }
+            property string epgNowText: ""
+            property string epgNextText: ""
+            property string epgNextTime: ""
+            property bool epgShowNext: false
+
+            function refreshEpg() {
+                if (!appViewModel || !appViewModel.player.isLive) return
+                var epgId = appViewModel.player.epgChannelId
+                if (!epgId) return
+                epgNowText = appViewModel.currentProgrammeTitle(epgId)
+                epgNextText = appViewModel.nextProgrammeTitle(epgId)
+                epgNextTime = appViewModel.nextProgrammeTime(epgId)
+            }
+
+            Timer {
+                id: epgRefreshTimer
+                interval: 60000
+                running: topOverlay.epgInfoVisible
+                repeat: true
+                onTriggered: topOverlay.refreshEpg()
+            }
+
+            Timer {
+                id: epgRotateTimer
+                interval: 5000
+                running: topOverlay.epgInfoVisible && topOverlay.epgNextText.length > 0
+                repeat: true
+                onTriggered: topOverlay.epgShowNext = !topOverlay.epgShowNext
+            }
 
             gradient: Gradient {
                 GradientStop { position: 0.0; color: "#cc000000" }
@@ -428,55 +464,105 @@ Item {
                 GradientStop { position: 1.0; color: "transparent" }
             }
 
-            RowLayout {
+            Behavior on height {
+                NumberAnimation { duration: Theme.animFast }
+            }
+
+            ColumnLayout {
                 anchors.fill: parent
                 anchors.margins: Theme.spacingMd
+                spacing: 2
 
-                PlayerButton {
-                    text: "←"
-                    onClicked: goBack()
-                }
-
-                Text {
-                    text: appViewModel ? appViewModel.player.channelName : ""
-                    font.pixelSize: Theme.fontSizeMd
-                    font.bold: true
-                    color: "#ffffff"
-                    elide: Text.ElideRight
+                RowLayout {
                     Layout.fillWidth: true
-                }
 
-                Rectangle {
-                    Layout.preferredWidth: 120
-                    Layout.preferredHeight: 3
-                    radius: 2
-                    color: "#30ffffff"
-                    visible: appViewModel ? (appViewModel.player.position <= 0 && !appViewModel.player.stopped) : false
+                    PlayerButton {
+                        text: "\u2190"
+                        onClicked: goBack()
+                    }
+
+                    Text {
+                        text: appViewModel ? appViewModel.player.channelName : ""
+                        font.pixelSize: Theme.fontSizeMd
+                        font.bold: true
+                        color: "#ffffff"
+                        elide: Text.ElideRight
+                        Layout.fillWidth: true
+                    }
 
                     Rectangle {
-                        anchors.left: parent.left
-                        height: parent.height
+                        Layout.preferredWidth: 120
+                        Layout.preferredHeight: 3
                         radius: 2
-                        width: parent.width * bufferAnim.value
-                        color: Theme.accent
+                        color: "#30ffffff"
+                        visible: appViewModel ? (appViewModel.player.position <= 0 && !appViewModel.player.stopped) : false
+
+                        Rectangle {
+                            anchors.left: parent.left
+                            height: parent.height
+                            radius: 2
+                            width: parent.width * bufferAnim.value
+                            color: Theme.accent
+                        }
+
+                        SequentialAnimation {
+                            id: bufferAnim
+                            property real value: 0
+                            running: parent.visible
+                            loops: Animation.Infinite
+                            NumberAnimation { target: bufferAnim; property: "value"; from: 0; to: 0.7; duration: 600 }
+                            NumberAnimation { target: bufferAnim; property: "value"; from: 0.7; to: 1.0; duration: 300 }
+                            NumberAnimation { target: bufferAnim; property: "value"; from: 1.0; to: 0; duration: 300 }
+                        }
                     }
 
-                    SequentialAnimation {
-                        id: bufferAnim
-                        property real value: 0
-                        running: parent.visible
-                        loops: Animation.Infinite
-                        NumberAnimation { target: bufferAnim; property: "value"; from: 0; to: 0.7; duration: 600 }
-                        NumberAnimation { target: bufferAnim; property: "value"; from: 0.7; to: 1.0; duration: 300 }
-                        NumberAnimation { target: bufferAnim; property: "value"; from: 1.0; to: 0; duration: 300 }
+                    Text {
+                        id: clockText
+                        text: Qt.formatTime(new Date(), "HH:mm")
+                        font.pixelSize: Theme.fontSizeMd
+                        color: "#ccffffff"
                     }
                 }
 
-                Text {
-                    id: clockText
-                    text: Qt.formatTime(new Date(), "HH:mm")
-                    font.pixelSize: Theme.fontSizeMd
-                    color: "#ccffffff"
+                // EPG Now/Next programme info
+                Item {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 18
+                    visible: topOverlay.epgInfoVisible
+                    Layout.leftMargin: 52
+
+                    Text {
+                        id: epgNowLabel
+                        anchors.fill: parent
+                        text: "Now: " + topOverlay.epgNowText
+                        font.pixelSize: Theme.fontSizeXs
+                        color: "#ccffffff"
+                        elide: Text.ElideRight
+                        opacity: topOverlay.epgShowNext ? 0.0 : 1.0
+
+                        Behavior on opacity {
+                            NumberAnimation { duration: 400; easing.type: Easing.InOutQuad }
+                        }
+                    }
+
+                    Text {
+                        id: epgNextLabel
+                        anchors.fill: parent
+                        text: {
+                            if (!topOverlay.epgNextText) return ""
+                            var t = "Next: " + topOverlay.epgNextText
+                            if (topOverlay.epgNextTime) t += " (" + topOverlay.epgNextTime + ")"
+                            return t
+                        }
+                        font.pixelSize: Theme.fontSizeXs
+                        color: "#aaffffff"
+                        elide: Text.ElideRight
+                        opacity: topOverlay.epgShowNext ? 1.0 : 0.0
+
+                        Behavior on opacity {
+                            NumberAnimation { duration: 400; easing.type: Easing.InOutQuad }
+                        }
+                    }
                 }
             }
         }
@@ -1048,6 +1134,23 @@ Item {
 
         if (appViewModel && !appViewModel.player.isLive) {
             subSearchTimer.start()
+        }
+
+        // Refresh EPG info for live channels
+        if (appViewModel && appViewModel.player.isLive) {
+            topOverlay.refreshEpg()
+        }
+    }
+
+    Connections {
+        target: appViewModel ? appViewModel.player : null
+        function onEpgChannelIdChanged() {
+            topOverlay.refreshEpg()
+        }
+        function onIsLiveChanged() {
+            if (appViewModel && appViewModel.player.isLive) {
+                topOverlay.refreshEpg()
+            }
         }
     }
 

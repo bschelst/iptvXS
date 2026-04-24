@@ -296,6 +296,10 @@ std::vector<Database::Migration> Database::migrations() const {
                  return false;
              return true;
          }},
+        {11, "Add thumbnail_url to recordings", [](QSqlDatabase &db) -> bool {
+             QSqlQuery q(db);
+             return q.exec("ALTER TABLE recordings ADD COLUMN thumbnail_url TEXT DEFAULT ''");
+         }},
     };
 }
 

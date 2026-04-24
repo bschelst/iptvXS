@@ -115,7 +115,8 @@ void PlayerViewModel::uninhibitScreenSaver() {
 }
 
 void PlayerViewModel::play(const QString &url, const QString &name,
-                           const QString &logo, int64_t channelId) {
+                           const QString &logo, int64_t channelId,
+                           const QString &epgChannelId) {
     // Idempotent: if the same URL is already loaded and playing, do not reload.
     // Reloading would issue `loadfile` in mpv, which resets file-local
     // properties including `stream-record` — stopping any active recording.
@@ -170,6 +171,10 @@ void PlayerViewModel::play(const QString &url, const QString &name,
     channelName_ = name;
     channelLogo_ = logo;
     channelId_ = channelId;
+    if (epgChannelId_ != epgChannelId) {
+        epgChannelId_ = epgChannelId;
+        emit epgChannelIdChanged();
+    }
     isLive_ = url.contains(QStringLiteral("/live/"))
               || url.endsWith(QStringLiteral(".ts"))
               || url.endsWith(QStringLiteral(".m3u8"));
@@ -197,6 +202,10 @@ void PlayerViewModel::stop() {
     channelName_.clear();
     channelLogo_.clear();
     channelId_ = 0;
+    if (!epgChannelId_.isEmpty()) {
+        epgChannelId_.clear();
+        emit epgChannelIdChanged();
+    }
     emit channelNameChanged();
     emit channelLogoChanged();
     emit channelIdChanged();
@@ -421,6 +430,15 @@ void PlayerViewModel::checkAutoNext() {
             });
         }
         autoNextTimer_->start();
+    }
+}
+
+QString PlayerViewModel::epgChannelId() const { return epgChannelId_; }
+
+void PlayerViewModel::setEpgChannelId(const QString &id) {
+    if (epgChannelId_ != id) {
+        epgChannelId_ = id;
+        emit epgChannelIdChanged();
     }
 }
 

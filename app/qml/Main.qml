@@ -31,7 +31,7 @@ ApplicationWindow {
 
     property var viewTitles: ({
         "home": "Home",
-        "channels": "TV Channels",
+        "channels": "Live TV",
         "vod": "Video on Demand",
         "favorites": "Favorites",
         "groups": "Channel Groups",
@@ -245,7 +245,7 @@ ApplicationWindow {
         }
     }
 
-    property var navItems: ["home", "servers", "channels", "vod", "favorites", "groups", "epg", "recordings", "history", "speedtest", "settings"]
+    property var navItems: ["home", "servers", "channels", "epg", "vod", "favorites", "groups", "recordings", "history", "speedtest", "settings"]
 
     Shortcut {
         sequences: ["F1"]

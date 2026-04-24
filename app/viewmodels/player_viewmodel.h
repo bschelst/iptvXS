@@ -33,6 +33,7 @@ class PlayerViewModel : public QObject {
     Q_PROPERTY(bool autoNextEnabled READ autoNextEnabled NOTIFY autoNextEnabledChanged)
     Q_PROPERTY(int autoNextCountdown READ autoNextCountdown NOTIFY autoNextCountdownChanged)
     Q_PROPERTY(QString nextEpisodeName READ nextEpisodeName NOTIFY nextEpisodeNameChanged)
+    Q_PROPERTY(QString epgChannelId READ epgChannelId NOTIFY epgChannelIdChanged)
 
 public:
     explicit PlayerViewModel(QObject *parent = nullptr);
@@ -55,7 +56,8 @@ public:
     QString currentUrl() const;
 
     Q_INVOKABLE void play(const QString &url, const QString &name = {},
-                          const QString &logo = {}, int64_t channelId = 0);
+                          const QString &logo = {}, int64_t channelId = 0,
+                          const QString &epgChannelId = {});
     Q_INVOKABLE void togglePause();
     Q_INVOKABLE void stop();
     Q_INVOKABLE void seek(double seconds);
@@ -91,6 +93,8 @@ public:
     bool autoNextEnabled() const;
     int autoNextCountdown() const;
     QString nextEpisodeName() const;
+    QString epgChannelId() const;
+    void setEpgChannelId(const QString &id);
 
     Q_INVOKABLE QString formatTime(double seconds) const;
 
@@ -114,6 +118,7 @@ signals:
     void autoNextCountdownChanged();
     void nextEpisodeNameChanged();
     void autoNextTriggered();
+    void epgChannelIdChanged();
 
 private:
     iptvxs::MpvPlayer *player_;
@@ -121,6 +126,7 @@ private:
     QString channelName_;
     QString channelLogo_;
     int64_t channelId_{0};
+    QString epgChannelId_;
     bool isLive_{false};
     QVariantList subtitleTracks_;
     QVariantList audioTracks_;

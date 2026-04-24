@@ -176,6 +176,66 @@ Item {
                 policy: ScrollBar.AsNeeded
             }
 
+            section.property: "status"
+            section.delegate: Rectangle {
+                required property string section
+                width: recordingsList.width
+                height: 32
+                color: Theme.surface
+
+                RowLayout {
+                    anchors.fill: parent
+                    anchors.leftMargin: Theme.spacingMd
+                    anchors.rightMargin: Theme.spacingMd
+
+                    Rectangle {
+                        width: 8
+                        height: 8
+                        radius: 4
+                        color: {
+                            switch (parent.parent.section) {
+                            case "recording": return Theme.error
+                            case "scheduled": return Theme.accent
+                            case "completed": return Theme.success
+                            case "uploading": return Theme.accent
+                            case "uploaded": return Theme.success
+                            case "failed": return Theme.error
+                            default: return Theme.textMuted
+                            }
+                        }
+                    }
+
+                    Text {
+                        text: {
+                            switch (parent.parent.section) {
+                            case "recording": return "Recording"
+                            case "scheduled": return "Scheduled"
+                            case "completed": return "Completed"
+                            case "uploading": return "Uploading"
+                            case "uploaded": return "Uploaded"
+                            case "failed": return "Failed"
+                            default: return parent.parent.section
+                            }
+                        }
+                        font.pixelSize: Theme.fontSizeXs
+                        font.bold: true
+                        font.capitalization: Font.AllUppercase
+                        color: Theme.textSecondary
+                        letterSpacing: 1
+                    }
+
+                    Item { Layout.fillWidth: true }
+                }
+
+                Rectangle {
+                    anchors.bottom: parent.bottom
+                    width: parent.width
+                    height: 1
+                    color: Theme.surfaceBorder
+                    opacity: 0.5
+                }
+            }
+
             delegate: Rectangle {
                 width: recordingsList.width - Theme.spacingMd * 2
                 readonly property bool isUploading:
@@ -224,9 +284,10 @@ Item {
                     spacing: Theme.spacingMd
 
                     Rectangle {
-                        Layout.preferredWidth: 44
-                        Layout.preferredHeight: 44
+                        Layout.preferredWidth: 56
+                        Layout.preferredHeight: 56
                         radius: Theme.borderRadiusSmall
+                        clip: true
                         color: {
                             switch (model.status) {
                             case "recording": return Theme.error + "20"
@@ -239,8 +300,18 @@ Item {
                             }
                         }
 
+                        Image {
+                            id: recThumb
+                            anchors.fill: parent
+                            source: model.thumbnailUrl && model.thumbnailUrl.indexOf("http") === 0
+                                ? model.thumbnailUrl : ""
+                            fillMode: Image.PreserveAspectFit
+                            visible: status === Image.Ready
+                        }
+
                         Text {
                             anchors.centerIn: parent
+                            visible: !recThumb.visible
                             text: {
                                 switch (model.status) {
                                 case "recording": return "●"
@@ -264,6 +335,46 @@ Item {
                                 case "failed": return Theme.error
                                 default: return Theme.textSecondary
                                 }
+                            }
+                        }
+
+                        // Status badge overlay
+                        Rectangle {
+                            visible: recThumb.visible
+                            anchors.right: parent.right
+                            anchors.bottom: parent.bottom
+                            anchors.margins: 2
+                            width: 16
+                            height: 16
+                            radius: 8
+                            color: {
+                                switch (model.status) {
+                                case "recording": return Theme.error
+                                case "scheduled": return Theme.accent
+                                case "completed": return Theme.success
+                                case "uploading": return Theme.accent
+                                case "uploaded": return Theme.success
+                                case "failed": return Theme.error
+                                default: return Theme.surface
+                                }
+                            }
+
+                            Text {
+                                anchors.centerIn: parent
+                                text: {
+                                    switch (model.status) {
+                                    case "recording": return "●"
+                                    case "scheduled": return "◷"
+                                    case "completed": return "✓"
+                                    case "failed": return "✕"
+                                    case "uploading": return "↑"
+                                    case "uploaded": return "☁"
+                                    default: return ""
+                                    }
+                                }
+                                font.pixelSize: 9
+                                font.bold: true
+                                color: "#ffffff"
                             }
                         }
 

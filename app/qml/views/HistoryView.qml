@@ -87,6 +87,37 @@ Item {
                 policy: ScrollBar.AsNeeded
             }
 
+            section.property: "channelType"
+            section.delegate: Rectangle {
+                required property string section
+                width: historyList.width
+                height: 32
+                color: Theme.surface
+
+                Text {
+                    anchors.left: parent.left
+                    anchors.leftMargin: Theme.spacingMd
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: parent.section === "live" ? "Live TV"
+                        : parent.section === "vod" ? "Movies"
+                        : parent.section === "series" ? "Series"
+                        : "Other"
+                    font.pixelSize: Theme.fontSizeXs
+                    font.bold: true
+                    font.capitalization: Font.AllUppercase
+                    color: Theme.accent
+                    font.letterSpacing: 1
+                }
+
+                Rectangle {
+                    anchors.bottom: parent.bottom
+                    width: parent.width
+                    height: 1
+                    color: Theme.accent
+                    opacity: 0.3
+                }
+            }
+
             delegate: Rectangle {
                 width: historyList.width
                 height: 64

@@ -78,10 +78,10 @@ Rectangle {
                 { name: "home", icon: "🏠", label: "Home" },
                 { name: "servers", icon: "🔗", label: "Servers" },
                 { name: "channels", icon: "📺", label: "TV Channels" },
+                { name: "epg", icon: "📅", label: "TV Guide" },
                 { name: "vod", icon: "🎬", label: "VOD" },
                 { name: "favorites", icon: "★", label: "Favorites" },
                 { name: "groups", icon: "📁", label: "Groups" },
-                { name: "epg", icon: "📅", label: "TV Guide" },
                 { name: "recordings", icon: "⏺", label: "Recordings" },
                 { name: "history", icon: "🕐", label: "Play History" }
             ]
