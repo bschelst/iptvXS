@@ -20,6 +20,7 @@
 #include "iptvxs/gdrive/gdrive_auth.h"
 #include "iptvxs/gdrive/gdrive_uploader.h"
 #include "iptvxs/net/speed_test_runner.h"
+#include "iptvxs/db/category_settings_repository.h"
 #include "iptvxs/db/channel_group_repository.h"
 #include "iptvxs/cache/logo_cache.h"
 
@@ -164,6 +165,7 @@ public:
     Q_INVOKABLE void playChannelByName(const QString &name);
     Q_INVOKABLE void playSeriesEpisode(const QString &episodeId, const QString &ext,
                                         const QString &title, const QString &logoUrl);
+    Q_INVOKABLE bool isCategoryHidden(int64_t categoryId) const;
     Q_INVOKABLE bool hasWatched(int64_t channelId) const;
     Q_INVOKABLE bool hasWatchedUrl(const QString &url) const;
     Q_INVOKABLE QString buildSeriesEpisodeUrl(const QString &episodeId, const QString &ext) const;
@@ -245,6 +247,7 @@ private:
     bool videoFullscreen_{false};
     QString pendingPlayUrl_;
     QString pendingPlayName_;
+    std::unique_ptr<iptvxs::CategorySettingsRepository> categorySettingsRepo_;
     std::unique_ptr<iptvxs::HistoryRepository> historyRepo_;
     std::unique_ptr<iptvxs::ChannelGroupRepository> groupRepo_;
     std::unique_ptr<iptvxs::LogoCache> logoCache_;

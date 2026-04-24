@@ -253,30 +253,144 @@ Item {
                             ? Theme.accentGlow : catHovered ? Theme.surfaceHover : "transparent"
 
                         property bool catHovered: false
+                        opacity: model.hidden ? 0.5 : 1.0
 
                         Behavior on color {
                             ColorAnimation { duration: Theme.animFast }
                         }
 
+                        // Favorite star
                         Text {
+                            id: catStarIcon
                             anchors.left: parent.left
-                            anchors.leftMargin: Theme.spacingLg
+                            anchors.leftMargin: 6
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: "\u2605"
+                            font.pixelSize: 10
+                            color: Theme.warning
+                            visible: model.favorite
+                        }
+
+                        Text {
+                            anchors.left: model.favorite ? catStarIcon.right : parent.left
+                            anchors.leftMargin: model.favorite ? 4 : Theme.spacingLg
                             anchors.verticalCenter: parent.verticalCenter
                             text: model.name
                             font.pixelSize: Theme.fontSizeSm
+                            font.strikeout: model.hidden
                             color: selectedCategoryId === model.categoryId
                                 ? Theme.textPrimary : Theme.textSecondary
                             elide: Text.ElideRight
-                            width: parent.width - Theme.spacingXl
+                            width: parent.width - (model.favorite ? Theme.spacingLg + 14 : Theme.spacingXl) - catActionRow.width
+                        }
+
+                        // Action icons (visible on hover)
+                        Row {
+                            id: catActionRow
+                            anchors.right: parent.right
+                            anchors.rightMargin: 4
+                            anchors.verticalCenter: parent.verticalCenter
+                            spacing: 2
+                            visible: catHovered
+
+                            // Rename (pencil)
+                            Rectangle {
+                                width: 22; height: 22; radius: 11
+                                color: catRenameHov ? Theme.surfaceHover : "transparent"
+                                property bool catRenameHov: false
+
+                                Text {
+                                    anchors.centerIn: parent
+                                    text: "\u270E"
+                                    font.pixelSize: 11
+                                    color: parent.catRenameHov ? Theme.textPrimary : Theme.textMuted
+                                }
+
+                                MouseArea {
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    cursorShape: Qt.PointingHandCursor
+                                    onEntered: parent.catRenameHov = true
+                                    onExited: parent.catRenameHov = false
+                                    onClicked: {
+                                        renameDialog.categoryId = model.categoryId
+                                        renameDialog.originalName = model.name
+                                        renameDialog.open()
+                                    }
+                                }
+                            }
+
+                            // Favorite toggle (star)
+                            Rectangle {
+                                width: 22; height: 22; radius: 11
+                                color: catFavHov ? Theme.surfaceHover : "transparent"
+                                property bool catFavHov: false
+
+                                Text {
+                                    anchors.centerIn: parent
+                                    text: model.favorite ? "\u2605" : "\u2606"
+                                    font.pixelSize: 12
+                                    color: model.favorite ? Theme.warning : (parent.catFavHov ? Theme.textPrimary : Theme.textMuted)
+                                }
+
+                                MouseArea {
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    cursorShape: Qt.PointingHandCursor
+                                    onEntered: parent.catFavHov = true
+                                    onExited: parent.catFavHov = false
+                                    onClicked: {
+                                        if (appViewModel) appViewModel.categoryList.toggleFavorite(model.categoryId)
+                                    }
+                                }
+                            }
+
+                            // Visibility toggle (eye)
+                            Rectangle {
+                                width: 22; height: 22; radius: 11
+                                color: catVisHov ? Theme.surfaceHover : "transparent"
+                                property bool catVisHov: false
+
+                                Text {
+                                    anchors.centerIn: parent
+                                    text: model.hidden ? "\uD83D\uDE48" : "\uD83D\uDC41"
+                                    font.pixelSize: 11
+                                    color: parent.catVisHov ? Theme.textPrimary : Theme.textMuted
+                                }
+
+                                MouseArea {
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    cursorShape: Qt.PointingHandCursor
+                                    onEntered: parent.catVisHov = true
+                                    onExited: parent.catVisHov = false
+                                    onClicked: {
+                                        if (appViewModel) appViewModel.categoryList.toggleHidden(model.categoryId)
+                                    }
+                                }
+                            }
                         }
 
                         MouseArea {
-                            anchors.fill: parent
+                            anchors.left: parent.left
+                            anchors.right: catActionRow.left
+                            anchors.top: parent.top
+                            anchors.bottom: parent.bottom
                             hoverEnabled: true
                             cursorShape: Qt.PointingHandCursor
                             onEntered: parent.catHovered = true
                             onExited: parent.catHovered = false
                             onClicked: selectCategory(model.categoryId)
+                        }
+
+                        // Separate hover exit area for the full delegate
+                        MouseArea {
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            acceptedButtons: Qt.NoButton
+                            onExited: parent.catHovered = false
+                            onEntered: parent.catHovered = true
+                            z: -1
                         }
                     }
                 }
@@ -891,6 +1005,8 @@ Item {
             var catId = catList.categoryIdAt(i)
             // Skip "All Channels" (categoryId = 0) — too many items
             if (catId === 0) continue
+            // Skip hidden categories
+            if (catList.isCategoryHidden(catId)) continue
             chCategoryModel.append({
                 catId: catId,
                 catName: catList.categoryNameAt(i)
@@ -947,6 +1063,155 @@ Item {
         if (appViewModel) {
             appViewModel.channelList.typeFilter = ""
             appViewModel.channelList.recentlyAddedFilter = false
+        }
+    }
+
+    // Rename Category dialog
+    Rectangle {
+        id: renameDialog
+        visible: false
+        anchors.fill: parent
+        color: "#C0000000"
+        z: 100
+
+        property int categoryId: 0
+        property string originalName: ""
+
+        function open() {
+            renameInput.text = originalName
+            visible = true
+            renameInput.forceActiveFocus()
+            renameInput.selectAll()
+        }
+        function close() { visible = false }
+
+        MouseArea { anchors.fill: parent; onClicked: renameDialog.close() }
+
+        Rectangle {
+            anchors.centerIn: parent
+            width: 340
+            height: renameCol.implicitHeight + Theme.spacingLg * 2
+            radius: Theme.borderRadiusLarge
+            color: Theme.surfaceElevated
+            border.color: Theme.accent
+            border.width: 1
+
+            MouseArea { anchors.fill: parent }
+
+            ColumnLayout {
+                id: renameCol
+                anchors.fill: parent
+                anchors.margins: Theme.spacingLg
+                spacing: Theme.spacingMd
+
+                Text {
+                    text: "Rename Category"
+                    font.pixelSize: Theme.fontSizeLg
+                    font.bold: true
+                    color: Theme.textPrimary
+                }
+
+                Text {
+                    text: "Original: " + renameDialog.originalName
+                    font.pixelSize: Theme.fontSizeXs
+                    color: Theme.textMuted
+                    elide: Text.ElideRight
+                    Layout.fillWidth: true
+                }
+
+                Rectangle {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 36
+                    radius: Theme.borderRadius
+                    color: Theme.surface
+                    border.color: renameInput.activeFocus ? Theme.accent : Theme.surfaceBorder
+                    border.width: 1
+
+                    TextInput {
+                        id: renameInput
+                        anchors.fill: parent
+                        anchors.margins: Theme.spacingSm
+                        font.pixelSize: Theme.fontSizeSm
+                        color: Theme.textPrimary
+                        clip: true
+                        selectByMouse: true
+
+                        Keys.onReturnPressed: {
+                            if (appViewModel && renameDialog.categoryId > 0) {
+                                appViewModel.categoryList.renameCategory(renameDialog.categoryId, renameInput.text)
+                                renameDialog.close()
+                                reloadChannelRows()
+                            }
+                        }
+                        Keys.onEscapePressed: renameDialog.close()
+                    }
+                }
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: Theme.spacingSm
+
+                    // Reset to original button
+                    Rectangle {
+                        width: resetLabel.implicitWidth + 20
+                        height: 32
+                        radius: Theme.borderRadius
+                        color: resetHov ? Theme.surfaceHover : Theme.surface
+                        border.color: Theme.surfaceBorder
+                        border.width: 1
+                        property bool resetHov: false
+
+                        Text { id: resetLabel; anchors.centerIn: parent; text: "Reset"; font.pixelSize: Theme.fontSizeSm; color: Theme.textSecondary }
+                        MouseArea {
+                            anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                            onEntered: parent.resetHov = true; onExited: parent.resetHov = false
+                            onClicked: {
+                                if (appViewModel && renameDialog.categoryId > 0) {
+                                    appViewModel.categoryList.renameCategory(renameDialog.categoryId, "")
+                                    renameDialog.close()
+                                    reloadChannelRows()
+                                }
+                            }
+                        }
+                    }
+
+                    Item { Layout.fillWidth: true }
+
+                    Rectangle {
+                        width: cancelLabel.implicitWidth + 20
+                        height: 32
+                        radius: Theme.borderRadius
+                        color: cancelHov ? Theme.surfaceHover : Theme.surface
+                        border.color: Theme.surfaceBorder
+                        border.width: 1
+                        property bool cancelHov: false
+
+                        Text { id: cancelLabel; anchors.centerIn: parent; text: "Cancel"; font.pixelSize: Theme.fontSizeSm; color: Theme.textSecondary }
+                        MouseArea { anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onEntered: parent.cancelHov = true; onExited: parent.cancelHov = false; onClicked: renameDialog.close() }
+                    }
+
+                    Rectangle {
+                        width: saveLabel.implicitWidth + 20
+                        height: 32
+                        radius: Theme.borderRadius
+                        color: saveHov ? Theme.accent : Theme.accent + "CC"
+                        property bool saveHov: false
+
+                        Text { id: saveLabel; anchors.centerIn: parent; text: "Save"; font.pixelSize: Theme.fontSizeSm; font.bold: true; color: "#FFFFFF" }
+                        MouseArea {
+                            anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                            onEntered: parent.saveHov = true; onExited: parent.saveHov = false
+                            onClicked: {
+                                if (appViewModel && renameDialog.categoryId > 0) {
+                                    appViewModel.categoryList.renameCategory(renameDialog.categoryId, renameInput.text)
+                                    renameDialog.close()
+                                    reloadChannelRows()
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 

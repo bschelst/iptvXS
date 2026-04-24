@@ -285,6 +285,17 @@ std::vector<Database::Migration> Database::migrations() const {
                  return false;
              return true;
          }},
+        {10, "Category settings (hidden, favorite, custom name)", [](QSqlDatabase &db) -> bool {
+             QSqlQuery q(db);
+             if (!q.exec(R"(CREATE TABLE IF NOT EXISTS category_settings (
+                     category_id INTEGER PRIMARY KEY REFERENCES categories(id) ON DELETE CASCADE,
+                     hidden INTEGER NOT NULL DEFAULT 0,
+                     favorite INTEGER NOT NULL DEFAULT 0,
+                     custom_name TEXT DEFAULT ''
+                 ))"))
+                 return false;
+             return true;
+         }},
     };
 }
 

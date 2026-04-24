@@ -67,7 +67,9 @@ bool AppViewModel::initialize(const QString &dbPath) {
     connect(favoriteListVm_, &FavoriteListViewModel::favoriteToggled,
             epgVm_, [this](int64_t, bool) { epgVm_->refresh(); });
     epgVm_->setHttpClient(httpClient_.get());
+    categorySettingsRepo_ = std::make_unique<iptvxs::CategorySettingsRepository>(db, this);
     categoryListVm_->setRepository(categoryRepo_.get());
+    categoryListVm_->setCategorySettingsRepository(categorySettingsRepo_.get());
     channelListVm_->setRepository(channelRepo_.get());
     recordingMgr_->setRepositories(recordingRepo_.get(), channelRepo_.get(),
                                    settingsRepo_.get(), progRepo_.get());
@@ -901,6 +903,11 @@ void AppViewModel::playSeriesEpisode(const QString &episodeId, const QString &ex
                    .arg(seriesServerUrl_, seriesUsername_, seriesPassword_, episodeId, ext);
     playerVm_->play(url, title, logoUrl, 0);
     setCurrentView(QStringLiteral("player"));
+}
+
+bool AppViewModel::isCategoryHidden(int64_t categoryId) const {
+    if (!categorySettingsRepo_) return false;
+    return categorySettingsRepo_->isHidden(categoryId);
 }
 
 bool AppViewModel::hasWatched(int64_t channelId) const {

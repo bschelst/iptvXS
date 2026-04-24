@@ -418,7 +418,11 @@ Item {
                                         // Fallback icon when no image
                                         Text {
                                             anchors.centerIn: parent
-                                            text: model.name ? model.name.charAt(0).toUpperCase() : "?"
+                                            text: {
+                                                if (!model.name) return "?"
+                                                var clean = model.name.replace(/^\[.*?\]\s*/, "")
+                                                return clean.length > 0 ? clean.charAt(0).toUpperCase() : model.name.charAt(0)
+                                            }
                                             font.pixelSize: 48
                                             font.bold: true
                                             color: Theme.accent
@@ -1072,8 +1076,11 @@ Item {
         if (!catList) return
         var end = Math.min(vodRowsLoaded + vodRowsBatchSize, catList.count)
         for (var i = vodRowsLoaded; i < end; i++) {
+            var catId = catList.categoryIdAt(i)
+            // Skip hidden categories
+            if (catList.isCategoryHidden(catId)) continue
             vodCategoryModel.append({
-                catId: catList.categoryIdAt(i),
+                catId: catId,
                 catName: catList.categoryNameAt(i)
             })
         }

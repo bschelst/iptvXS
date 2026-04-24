@@ -1,11 +1,21 @@
 #include "category_list_viewmodel.h"
 
+#include <algorithm>
+
 CategoryListViewModel::CategoryListViewModel(QObject *parent)
     : QAbstractListModel(parent) {}
 
 void CategoryListViewModel::setRepository(iptvxs::CategoryRepository *repo) {
     repo_ = repo;
     if (serverId_ > 0) loadCategories();
+}
+
+void CategoryListViewModel::setCategorySettingsRepository(iptvxs::CategorySettingsRepository *repo) {
+    settingsRepo_ = repo;
+    if (settingsRepo_) {
+        connect(settingsRepo_, &iptvxs::CategorySettingsRepository::settingsChanged,
+                this, &CategoryListViewModel::refresh);
+    }
 }
 
 int CategoryListViewModel::rowCount(const QModelIndex &parent) const {
@@ -19,9 +29,18 @@ QVariant CategoryListViewModel::data(const QModelIndex &index, int role) const {
     const auto &cat = categories_.at(index.row());
     switch (role) {
     case IdRole: return QVariant::fromValue(cat.id);
-    case NameRole: return cat.name;
+    case NameRole: {
+        if (settingsRepo_) {
+            auto custom = settingsRepo_->customName(cat.id);
+            if (!custom.isEmpty()) return custom;
+        }
+        return cat.name;
+    }
     case ExternalIdRole: return cat.externalId;
     case TypeRole: return cat.type;
+    case HiddenRole: return settingsRepo_ ? settingsRepo_->isHidden(cat.id) : false;
+    case FavoriteRole: return settingsRepo_ ? settingsRepo_->isFavorite(cat.id) : false;
+    case CustomNameRole: return settingsRepo_ ? settingsRepo_->customName(cat.id) : QString();
     default: return {};
     }
 }
@@ -32,6 +51,9 @@ QHash<int, QByteArray> CategoryListViewModel::roleNames() const {
         {NameRole, "name"},
         {ExternalIdRole, "externalId"},
         {TypeRole, "type"},
+        {HiddenRole, "hidden"},
+        {FavoriteRole, "favorite"},
+        {CustomNameRole, "customName"},
     };
 }
 
@@ -71,11 +93,51 @@ QString CategoryListViewModel::categoryNameAt(int index) const {
 
 void CategoryListViewModel::refresh() { loadCategories(); }
 
+void CategoryListViewModel::toggleHidden(int64_t categoryId) {
+    if (!settingsRepo_) return;
+    settingsRepo_->setHidden(categoryId, !settingsRepo_->isHidden(categoryId));
+}
+
+void CategoryListViewModel::toggleFavorite(int64_t categoryId) {
+    if (!settingsRepo_) return;
+    settingsRepo_->setFavorite(categoryId, !settingsRepo_->isFavorite(categoryId));
+}
+
+void CategoryListViewModel::renameCategory(int64_t categoryId, const QString &name) {
+    if (!settingsRepo_) return;
+    settingsRepo_->setCustomName(categoryId, name);
+}
+
+bool CategoryListViewModel::isCategoryHidden(int64_t categoryId) const {
+    if (!settingsRepo_) return false;
+    return settingsRepo_->isHidden(categoryId);
+}
+
+bool CategoryListViewModel::isCategoryFavorite(int64_t categoryId) const {
+    if (!settingsRepo_) return false;
+    return settingsRepo_->isFavorite(categoryId);
+}
+
 void CategoryListViewModel::loadCategories() {
     if (!repo_ || serverId_ <= 0) return;
 
     beginResetModel();
     categories_ = repo_->findByServer(serverId_, filterType_);
+
+    // Sort favorites to the top while preserving alphabetical order within groups
+    if (settingsRepo_) {
+        auto favIds = settingsRepo_->favoriteCategoryIds();
+        if (!favIds.isEmpty()) {
+            std::stable_sort(categories_.begin(), categories_.end(),
+                             [&favIds](const iptvxs::Category &a, const iptvxs::Category &b) {
+                                 bool aFav = favIds.contains(a.id);
+                                 bool bFav = favIds.contains(b.id);
+                                 if (aFav != bFav) return aFav;
+                                 return false; // preserve existing order within same group
+                             });
+        }
+    }
+
     endResetModel();
     emit countChanged();
 }

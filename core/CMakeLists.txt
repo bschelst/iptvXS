@@ -31,6 +31,7 @@ add_library(iptvxs-core STATIC
     src/api/opensubtitles_client.cpp
     src/db/history_repository.cpp
     src/db/channel_group_repository.cpp
+    src/db/category_settings_repository.cpp
     src/cache/logo_cache.cpp
     include/iptvxs/db/database.h
     include/iptvxs/db/settings_repository.h
@@ -52,6 +53,7 @@ add_library(iptvxs-core STATIC
     include/iptvxs/api/opensubtitles_client.h
     include/iptvxs/db/history_repository.h
     include/iptvxs/db/channel_group_repository.h
+    include/iptvxs/db/category_settings_repository.h
     include/iptvxs/models/channel_group.h
     include/iptvxs/cache/logo_cache.h
 )
