@@ -341,7 +341,10 @@ Item {
                                     onEntered: parent.catFavHov = true
                                     onExited: parent.catFavHov = false
                                     onClicked: {
-                                        if (appViewModel) appViewModel.categoryList.toggleFavorite(model.categoryId)
+                                        if (appViewModel) {
+                                            appViewModel.categoryList.toggleFavorite(model.categoryId)
+                                            Qt.callLater(reloadChannelRows)
+                                        }
                                     }
                                 }
                             }
@@ -366,7 +369,10 @@ Item {
                                     onEntered: parent.catVisHov = true
                                     onExited: parent.catVisHov = false
                                     onClicked: {
-                                        if (appViewModel) appViewModel.categoryList.toggleHidden(model.categoryId)
+                                        if (appViewModel) {
+                                            appViewModel.categoryList.toggleHidden(model.categoryId)
+                                            Qt.callLater(reloadChannelRows)
+                                        }
                                     }
                                 }
                             }
@@ -624,7 +630,7 @@ Item {
                                         cursorShape: Qt.PointingHandCursor
                                         onEntered: parent.chScrollHov = true
                                         onExited: parent.chScrollHov = false
-                                        onClicked: chRowListView.contentX = Math.min(chRowListView.contentX + 500, chRowListView.contentWidth - chRowListView.width)
+                                        onClicked: chRowListView.contentX = Math.min(chRowListView.contentX + 216, chRowListView.contentWidth - chRowListView.width)
                                     }
                                 }
                             }
@@ -683,10 +689,10 @@ Item {
 
                                             Image {
                                                 anchors.centerIn: parent
-                                                width: 48; height: 48
+                                                width: 72; height: 72
                                                 source: "qrc:/images/iptvxs_tray.png"
                                                 fillMode: Image.PreserveAspectFit
-                                                opacity: 0.4
+                                                opacity: 0.25
                                                 visible: chNetLogoImg.status !== Image.Ready
                                             }
                                         }

@@ -369,7 +369,7 @@ Item {
                                     MouseArea {
                                         anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
                                         onEntered: parent.vodScrollHov = true; onExited: parent.vodScrollHov = false
-                                        onClicked: rowListView.contentX = Math.min(rowListView.contentX + 600, rowListView.contentWidth - rowListView.width)
+                                        onClicked: rowListView.contentX = Math.min(rowListView.contentX + 210, rowListView.contentWidth - rowListView.width)
                                     }
                                 }
                             }
