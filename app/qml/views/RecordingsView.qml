@@ -193,7 +193,7 @@ Item {
                         height: 8
                         radius: 4
                         color: {
-                            switch (parent.parent.section) {
+                            switch (section) {
                             case "recording": return Theme.error
                             case "scheduled": return Theme.accent
                             case "completed": return Theme.success
@@ -207,14 +207,14 @@ Item {
 
                     Text {
                         text: {
-                            switch (parent.parent.section) {
+                            switch (section) {
                             case "recording": return "Recording"
                             case "scheduled": return "Scheduled"
                             case "completed": return "Completed"
                             case "uploading": return "Uploading"
                             case "uploaded": return "Uploaded"
                             case "failed": return "Failed"
-                            default: return parent.parent.section
+                            default: return section
                             }
                         }
                         font.pixelSize: Theme.fontSizeXs
