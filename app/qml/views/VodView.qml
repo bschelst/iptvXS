@@ -407,6 +407,7 @@ Item {
 
                                         // Poster image
                                         Image {
+                                            id: posterImg
                                             anchors.fill: parent
                                             source: model.logoUrl && model.logoUrl.indexOf("http") === 0 ? model.logoUrl : ""
                                             fillMode: Image.PreserveAspectCrop
@@ -415,13 +416,14 @@ Item {
                                         }
 
                                         // Fallback icon when no image
-                                        Image {
+                                        Text {
                                             anchors.centerIn: parent
-                                            width: 48; height: 48
-                                            source: "qrc:/images/iptvxs_tray.png"
-                                            fillMode: Image.PreserveAspectFit
-                                            opacity: 0.3
-                                            visible: !model.logoUrl || model.logoUrl.indexOf("http") !== 0
+                                            text: model.name ? model.name.charAt(0).toUpperCase() : "?"
+                                            font.pixelSize: 48
+                                            font.bold: true
+                                            color: Theme.accent
+                                            opacity: 0.5
+                                            visible: posterImg.status !== Image.Ready
                                         }
 
                                         // Dark gradient overlay at bottom
