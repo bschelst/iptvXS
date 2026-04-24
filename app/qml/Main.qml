@@ -68,8 +68,13 @@ ApplicationWindow {
             TopBar {
                 id: topBar
                 Layout.fillWidth: true
-                title: viewTitles[sidebar.activeItem] || "Home"
-                visible: !appViewModel || !appViewModel.videoFullscreen
+                title: {
+                    if (appViewModel && appViewModel.currentView === "player") {
+                        return appViewModel.player.channelName || "Player"
+                    }
+                    return viewTitles[sidebar.activeItem] || viewTitles[appViewModel ? appViewModel.currentView : "home"] || "Home"
+                }
+                visible: (!appViewModel || !appViewModel.videoFullscreen) && (!appViewModel || appViewModel.currentView !== "player")
 
                 onToggleSidebar: sidebar.collapsed = !sidebar.collapsed
             }
