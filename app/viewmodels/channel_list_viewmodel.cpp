@@ -159,6 +159,24 @@ QString ChannelListViewModel::channelNameAt(int index) const {
     return channels_.at(index).name;
 }
 
+QVariantList ChannelListViewModel::channelsForCategory(int64_t categoryId, int limit) const {
+    QVariantList result;
+    if (!repo_) return result;
+    auto channels = repo_->findByCategory(categoryId, limit, 0);
+    for (const auto &ch : channels) {
+        QVariantMap item;
+        item[QStringLiteral("channelId")] = QVariant::fromValue(ch.id);
+        item[QStringLiteral("name")] = ch.name;
+        item[QStringLiteral("streamUrl")] = ch.streamUrl;
+        item[QStringLiteral("logoUrl")] = ch.logoUrl;
+        item[QStringLiteral("type")] = ch.type;
+        item[QStringLiteral("externalId")] = ch.externalId;
+        item[QStringLiteral("serverId")] = QVariant::fromValue(ch.serverId);
+        result.append(item);
+    }
+    return result;
+}
+
 void ChannelListViewModel::loadChannels(bool append) {
     if (!repo_ || serverId_ <= 0) return;
 

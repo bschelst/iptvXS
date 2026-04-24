@@ -268,15 +268,279 @@ Item {
                 }
             }
 
+            // --- Netflix-style category rows ---
+            ListModel {
+                id: vodCategoryModel
+                // Each element: { catId: int, catName: string }
+            }
+
+            Flickable {
+                id: netflixFlickable
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                clip: true
+                contentWidth: width
+                contentHeight: netflixColumn.implicitHeight
+                visible: vodSearch.text.length === 0
+                boundsBehavior: Flickable.StopAtBounds
+                flickableDirection: Flickable.VerticalFlick
+
+                ScrollBar.vertical: ScrollBar {
+                    active: true
+                    policy: ScrollBar.AsNeeded
+                    contentItem: Rectangle {
+                        implicitWidth: 6
+                        radius: 3
+                        color: Theme.accent
+                        opacity: parent.active ? 0.8 : 0.0
+                        Behavior on opacity { NumberAnimation { duration: Theme.animNormal } }
+                    }
+                    background: Rectangle {
+                        implicitWidth: 6
+                        color: "transparent"
+                    }
+                }
+
+                Column {
+                    id: netflixColumn
+                    width: parent.width
+                    spacing: Theme.spacingMd
+
+                    Repeater {
+                        id: categoryRepeater
+                        model: vodCategoryModel
+
+                        delegate: Column {
+                            id: categoryDelegate
+                            width: netflixColumn.width
+                            spacing: Theme.spacingSm
+                            visible: rowModel.count > 0
+
+                            property int catIdValue: model.catId
+                            property string catNameValue: model.catName
+
+                            ListModel {
+                                id: rowModel
+                            }
+
+                            Component.onCompleted: {
+                                if (!appViewModel) return
+                                var items = appViewModel.channelList.channelsForCategory(catIdValue, 30)
+                                for (var i = 0; i < items.length; i++) {
+                                    rowModel.append(items[i])
+                                }
+                            }
+
+                            // Category header
+                            Item {
+                                width: parent.width
+                                height: 36
+
+                                Text {
+                                    anchors.left: parent.left
+                                    anchors.leftMargin: Theme.spacingMd
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    text: catNameValue
+                                    font.pixelSize: Theme.fontSizeMd
+                                    font.bold: true
+                                    color: Theme.textPrimary
+                                }
+
+                                Text {
+                                    anchors.right: parent.right
+                                    anchors.rightMargin: Theme.spacingMd
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    text: "\u203A"
+                                    font.pixelSize: 22
+                                    font.bold: true
+                                    color: Theme.textMuted
+                                }
+                            }
+
+                            // Horizontal poster row
+                            ListView {
+                                id: rowListView
+                                width: parent.width
+                                height: 170
+                                orientation: ListView.Horizontal
+                                spacing: Theme.spacingSm
+                                clip: true
+                                leftMargin: Theme.spacingMd
+                                rightMargin: Theme.spacingMd
+                                boundsBehavior: Flickable.StopAtBounds
+                                model: rowModel
+
+                                delegate: Item {
+                                    width: 200
+                                    height: 170
+
+                                    Rectangle {
+                                        id: posterCard
+                                        anchors.fill: parent
+                                        radius: 8
+                                        color: Theme.surfaceElevated
+                                        clip: true
+                                        border.color: posterHov ? Theme.accent : "transparent"
+                                        border.width: posterHov ? 2 : 0
+
+                                        scale: posterHov ? 1.04 : 1.0
+                                        Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
+
+                                        property bool posterHov: false
+
+                                        // Poster image
+                                        Image {
+                                            anchors.fill: parent
+                                            source: model.logoUrl && model.logoUrl.indexOf("http") === 0 ? model.logoUrl : ""
+                                            fillMode: Image.PreserveAspectCrop
+                                            asynchronous: true
+                                            visible: status === Image.Ready
+                                        }
+
+                                        // Fallback icon when no image
+                                        Text {
+                                            anchors.centerIn: parent
+                                            text: "\uD83C\uDFAC"
+                                            font.pixelSize: 36
+                                            visible: !model.logoUrl || model.logoUrl.indexOf("http") !== 0
+                                            color: Theme.textMuted
+                                        }
+
+                                        // Dark gradient overlay at bottom
+                                        Rectangle {
+                                            anchors.left: parent.left
+                                            anchors.right: parent.right
+                                            anchors.bottom: parent.bottom
+                                            height: 60
+                                            radius: 8
+
+                                            gradient: Gradient {
+                                                GradientStop { position: 0.0; color: "transparent" }
+                                                GradientStop { position: 0.4; color: "#90000000" }
+                                                GradientStop { position: 1.0; color: "#DD000000" }
+                                            }
+
+                                            // Fix top corners showing rounded
+                                            Rectangle {
+                                                anchors.top: parent.top
+                                                anchors.left: parent.left
+                                                anchors.right: parent.right
+                                                height: parent.radius
+                                                color: "transparent"
+                                            }
+                                        }
+
+                                        // Title text
+                                        Text {
+                                            anchors.left: parent.left
+                                            anchors.right: parent.right
+                                            anchors.bottom: parent.bottom
+                                            anchors.leftMargin: 8
+                                            anchors.rightMargin: 30
+                                            anchors.bottomMargin: 8
+                                            text: model.name
+                                            font.pixelSize: Theme.fontSizeSm
+                                            font.bold: true
+                                            color: "#FFFFFF"
+                                            elide: Text.ElideRight
+                                            maximumLineCount: 2
+                                            wrapMode: Text.Wrap
+                                        }
+
+                                        // Favorite heart button (top-right)
+                                        Rectangle {
+                                            id: favBtn
+                                            anchors.top: parent.top
+                                            anchors.right: parent.right
+                                            anchors.topMargin: 6
+                                            anchors.rightMargin: 6
+                                            width: 26
+                                            height: 26
+                                            radius: 13
+                                            color: favHov ? "#80000000" : "#50000000"
+                                            property bool favHov: false
+                                            property bool isFav: appViewModel ? appViewModel.favoriteList.isFavorite(model.channelId) : false
+
+                                            Text {
+                                                anchors.centerIn: parent
+                                                text: parent.isFav ? "\u2764" : "\u2661"
+                                                font.pixelSize: 13
+                                                color: parent.isFav ? Theme.error : "#FFFFFF"
+                                            }
+
+                                            MouseArea {
+                                                anchors.fill: parent
+                                                hoverEnabled: true
+                                                cursorShape: Qt.PointingHandCursor
+                                                onEntered: parent.favHov = true
+                                                onExited: parent.favHov = false
+                                                onClicked: {
+                                                    if (appViewModel) {
+                                                        appViewModel.favoriteList.toggleFavorite(model.channelId)
+                                                        parent.isFav = !parent.isFav
+                                                    }
+                                                }
+                                            }
+                                        }
+
+                                        // Click area for play / series picker
+                                        MouseArea {
+                                            anchors.fill: parent
+                                            anchors.rightMargin: 30
+                                            hoverEnabled: true
+                                            cursorShape: Qt.PointingHandCursor
+                                            onEntered: posterCard.posterHov = true
+                                            onExited: posterCard.posterHov = false
+                                            onClicked: {
+                                                if (!appViewModel) return
+                                                if (model.type === "series") {
+                                                    appViewModel.fetchSeriesEpisodes(model.serverId, model.externalId, model.name, model.logoUrl)
+                                                } else {
+                                                    appViewModel.player.play(model.streamUrl, model.name, model.logoUrl, model.channelId)
+                                                    appViewModel.currentView = "player"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Empty state
+                    Text {
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        visible: vodCategoryModel.count === 0 && activeServerId > 0
+                        topPadding: 80
+                        text: "No VOD content found.\nSync the server first."
+                        font.pixelSize: Theme.fontSizeMd
+                        color: Theme.textMuted
+                        horizontalAlignment: Text.AlignHCenter
+                        lineHeight: 1.5
+                    }
+
+                    Text {
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        visible: activeServerId === 0
+                        topPadding: 80
+                        text: "Select a server to browse VOD content."
+                        font.pixelSize: Theme.fontSizeMd
+                        color: Theme.textMuted
+                    }
+                }
+            }
+
+            // --- Search results grid (shown when search is active) ---
             GridView {
                 id: vodGrid
                 Layout.fillWidth: true
                 Layout.fillHeight: true
+                visible: vodSearch.text.length > 0
                 property int cols: appViewModel ? appViewModel.gridColumns : 2
                 cellWidth: Math.floor(width / cols)
                 cellHeight: 72
                 clip: true
-                focus: true
+                focus: visible
                 keyNavigationEnabled: true
                 highlight: Rectangle {
                     color: Theme.accent + "30"
@@ -323,126 +587,124 @@ Item {
                 }
 
                 delegate: Item {
-                    id: vodCardWrapper
                     width: vodGrid.cellWidth - Theme.spacingSm
                     height: vodGrid.cellHeight - Theme.spacingSm
 
                     Rectangle {
-                    id: vodCard
-                    anchors.fill: parent
-                    anchors.margins: 2
-                    radius: Theme.borderRadiusLarge
-                    color: vodItemHov ? Theme.surfaceHover : Theme.surfaceElevated
-                    border.color: vodItemHov ? Theme.accent + "60" : "transparent"
-                    border.width: vodItemHov ? 2 : 1
-
-                    scale: vodItemHov ? 1.02 : 1.0
-                    Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
-                    Behavior on color { ColorAnimation { duration: 150 } }
-
-                    property bool vodItemHov: false
-
-                    RowLayout {
+                        id: searchCard
                         anchors.fill: parent
-                        anchors.margins: Theme.spacingSm
-                        spacing: Theme.spacingSm
+                        anchors.margins: 2
+                        radius: Theme.borderRadiusLarge
+                        color: searchItemHov ? Theme.surfaceHover : Theme.surfaceElevated
+                        border.color: searchItemHov ? Theme.accent + "60" : "transparent"
+                        border.width: searchItemHov ? 2 : 1
 
-                        Rectangle {
-                            Layout.preferredWidth: 48
-                            Layout.preferredHeight: 48
-                            radius: Theme.borderRadiusSmall
-                            color: Theme.surface
-                            clip: true
+                        scale: searchItemHov ? 1.02 : 1.0
+                        Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
+                        Behavior on color { ColorAnimation { duration: 150 } }
 
-                            Image {
-                                anchors.fill: parent
-                                anchors.margins: 4
-                                source: model.logoUrl && model.logoUrl.indexOf("http") === 0 ? model.logoUrl : ""
-                                fillMode: Image.PreserveAspectFit
-                                asynchronous: true
-                                visible: status === Image.Ready
+                        property bool searchItemHov: false
+
+                        RowLayout {
+                            anchors.fill: parent
+                            anchors.margins: Theme.spacingSm
+                            spacing: Theme.spacingSm
+
+                            Rectangle {
+                                Layout.preferredWidth: 48
+                                Layout.preferredHeight: 48
+                                radius: Theme.borderRadiusSmall
+                                color: Theme.surface
+                                clip: true
+
+                                Image {
+                                    anchors.fill: parent
+                                    anchors.margins: 4
+                                    source: model.logoUrl && model.logoUrl.indexOf("http") === 0 ? model.logoUrl : ""
+                                    fillMode: Image.PreserveAspectFit
+                                    asynchronous: true
+                                    visible: status === Image.Ready
+                                }
+
+                                Text {
+                                    anchors.centerIn: parent
+                                    text: "\uD83C\uDFAC"
+                                    font.pixelSize: Theme.fontSizeMd
+                                    visible: !model.logoUrl
+                                }
                             }
 
-                            Text {
-                                anchors.centerIn: parent
-                                text: "\uD83C\uDFAC"
-                                font.pixelSize: Theme.fontSizeMd
-                                visible: !model.logoUrl
-                            }
-                        }
-
-                        ColumnLayout {
-                            Layout.fillWidth: true
-                            spacing: 2
-
-                            Text {
-                                text: model.name
-                                font.pixelSize: Theme.fontSizeSm
-                                color: Theme.textPrimary
-                                elide: Text.ElideRight
+                            ColumnLayout {
                                 Layout.fillWidth: true
+                                spacing: 2
+
+                                Text {
+                                    text: model.name
+                                    font.pixelSize: Theme.fontSizeSm
+                                    color: Theme.textPrimary
+                                    elide: Text.ElideRight
+                                    Layout.fillWidth: true
+                                }
+
+                                Text {
+                                    text: model.type === "vod" ? "Movie" : "Series"
+                                    font.pixelSize: Theme.fontSizeXs
+                                    color: Theme.textMuted
+                                }
                             }
 
-                            Text {
-                                text: model.type === "vod" ? "Movie" : "Series"
-                                font.pixelSize: Theme.fontSizeXs
-                                color: Theme.textMuted
-                            }
-                        }
+                            Rectangle {
+                                Layout.preferredWidth: 28
+                                Layout.preferredHeight: 28
+                                radius: 14
+                                color: searchFavHov ? Theme.surfaceHover : "transparent"
+                                property bool searchFavHov: false
+                                property bool isFav: appViewModel ? appViewModel.favoriteList.isFavorite(model.channelId) : false
 
-                        // Favorite button
-                        Rectangle {
-                            Layout.preferredWidth: 28
-                            Layout.preferredHeight: 28
-                            radius: 14
-                            color: vodFavHov ? Theme.surfaceHover : "transparent"
-                            property bool vodFavHov: false
-                            property bool isFav: appViewModel ? appViewModel.favoriteList.isFavorite(model.channelId) : false
+                                Text {
+                                    anchors.centerIn: parent
+                                    text: parent.isFav ? "\u2764" : "\u2661"
+                                    font.pixelSize: 14
+                                    color: parent.isFav ? Theme.error : Theme.textMuted
+                                }
 
-                            Text {
-                                anchors.centerIn: parent
-                                text: parent.isFav ? "\u2764" : "\u2661"
-                                font.pixelSize: 14
-                                color: parent.isFav ? Theme.error : Theme.textMuted
-                            }
-
-                            MouseArea {
-                                anchors.fill: parent
-                                hoverEnabled: true
-                                cursorShape: Qt.PointingHandCursor
-                                onEntered: parent.vodFavHov = true
-                                onExited: parent.vodFavHov = false
-                                onClicked: {
-                                    if (appViewModel) {
-                                        appViewModel.favoriteList.toggleFavorite(model.channelId)
-                                        parent.isFav = !parent.isFav
+                                MouseArea {
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    cursorShape: Qt.PointingHandCursor
+                                    onEntered: parent.searchFavHov = true
+                                    onExited: parent.searchFavHov = false
+                                    onClicked: {
+                                        if (appViewModel) {
+                                            appViewModel.favoriteList.toggleFavorite(model.channelId)
+                                            parent.isFav = !parent.isFav
+                                        }
                                     }
                                 }
                             }
                         }
-                    }
 
-                    MouseArea {
-                        anchors.left: parent.left
-                        anchors.right: parent.right
-                        anchors.top: parent.top
-                        anchors.bottom: parent.bottom
-                        anchors.rightMargin: 36
-                        hoverEnabled: true
-                        cursorShape: Qt.PointingHandCursor
-                        onEntered: vodCard.vodItemHov = true
-                        onExited: vodCard.vodItemHov = false
-                        onClicked: {
-                            if (appViewModel) {
-                                if (model.type === "series") {
-                                    appViewModel.fetchSeriesEpisodes(model.serverId, model.externalId, model.name, model.logoUrl)
-                                } else {
-                                    appViewModel.player.play(model.streamUrl, model.name, model.logoUrl, model.channelId)
-                                    appViewModel.currentView = "player"
+                        MouseArea {
+                            anchors.left: parent.left
+                            anchors.right: parent.right
+                            anchors.top: parent.top
+                            anchors.bottom: parent.bottom
+                            anchors.rightMargin: 36
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onEntered: searchCard.searchItemHov = true
+                            onExited: searchCard.searchItemHov = false
+                            onClicked: {
+                                if (appViewModel) {
+                                    if (model.type === "series") {
+                                        appViewModel.fetchSeriesEpisodes(model.serverId, model.externalId, model.name, model.logoUrl)
+                                    } else {
+                                        appViewModel.player.play(model.streamUrl, model.name, model.logoUrl, model.channelId)
+                                        appViewModel.currentView = "player"
+                                    }
                                 }
                             }
                         }
-                    }
                     }
                 }
 
@@ -454,18 +716,8 @@ Item {
 
                 Text {
                     anchors.centerIn: parent
-                    visible: vodGrid.count === 0 && activeServerId > 0
-                    text: "No VOD content found.\nSync the server first."
-                    font.pixelSize: Theme.fontSizeMd
-                    color: Theme.textMuted
-                    horizontalAlignment: Text.AlignHCenter
-                    lineHeight: 1.5
-                }
-
-                Text {
-                    anchors.centerIn: parent
-                    visible: activeServerId === 0
-                    text: "Select a server to browse VOD content."
+                    visible: vodGrid.count === 0
+                    text: "No results found."
                     font.pixelSize: Theme.fontSizeMd
                     color: Theme.textMuted
                 }
@@ -785,15 +1037,28 @@ Item {
         return appViewModel.buildSeriesEpisodeUrl(episodeId, ext)
     }
 
+    function reloadVodRows() {
+        vodCategoryModel.clear()
+        if (!appViewModel) return
+        var catList = appViewModel.categoryList
+        if (!catList) return
+        for (var i = 0; i < catList.count; i++) {
+            vodCategoryModel.append({
+                catId: catList.categoryIdAt(i),
+                catName: catList.categoryNameAt(i)
+            })
+        }
+    }
+
     function reloadVod() {
         if (!appViewModel) return
         appViewModel.channelList.typeFilter = activeType
         appViewModel.channelList.serverId = activeServerId
         appViewModel.channelList.refresh()
+        reloadVodRows()
     }
 
     Component.onCompleted: {
-        vodGrid.forceActiveFocus()
         if (appViewModel) {
             appViewModel.channelList.searchQuery = ""
             appViewModel.channelList.categoryId = 0
@@ -801,6 +1066,7 @@ Item {
         if (appViewModel && appViewModel.serverList.count > 0) {
             selectServer(appViewModel.serverList.serverIdAt(0))
         }
+        reloadVodRows()
     }
 
     Component.onDestruction: {
