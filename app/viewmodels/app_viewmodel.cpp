@@ -250,9 +250,13 @@ bool AppViewModel::initialize(const QString &dbPath) {
             if (playerVm_->channelId() > 0) {
                 historyRepo_->addEntry(playerVm_->channelId());
             } else if (!playerVm_->channelName().isEmpty()) {
-                auto type = playerVm_->isLive() ? QStringLiteral("live") : QStringLiteral("vod");
+                auto url = playerVm_->currentUrl();
+                QString type;
+                if (playerVm_->isLive()) type = QStringLiteral("live");
+                else if (url.contains(QStringLiteral("/series/"))) type = QStringLiteral("series");
+                else type = QStringLiteral("vod");
                 historyRepo_->addEntry(playerVm_->channelName(), playerVm_->channelLogo(),
-                                        type, playerVm_->currentUrl());
+                                        type, url);
             }
         }
     });

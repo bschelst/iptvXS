@@ -179,6 +179,7 @@ QVariantList ChannelListViewModel::channelsForCategory(int64_t categoryId, int l
         item[QStringLiteral("type")] = ch.type;
         item[QStringLiteral("externalId")] = ch.externalId;
         item[QStringLiteral("serverId")] = QVariant::fromValue(ch.serverId);
+        item[QStringLiteral("epgChannelId")] = ch.epgChannelId;
         result.append(item);
         if (result.size() >= limit) break;
     }
