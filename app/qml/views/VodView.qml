@@ -285,6 +285,12 @@ Item {
                 boundsBehavior: Flickable.StopAtBounds
                 flickableDirection: Flickable.VerticalFlick
 
+                onContentYChanged: {
+                    if (contentY + height > contentHeight - 400) {
+                        loadMoreVodRows()
+                    }
+                }
+
                 ScrollBar.vertical: ScrollBar {
                     active: true
                     policy: ScrollBar.AsNeeded
@@ -1037,17 +1043,27 @@ Item {
         return appViewModel.buildSeriesEpisodeUrl(episodeId, ext)
     }
 
+    property int vodRowsLoaded: 0
+    property int vodRowsBatchSize: 8
+
     function reloadVodRows() {
         vodCategoryModel.clear()
+        vodRowsLoaded = 0
+        loadMoreVodRows()
+    }
+
+    function loadMoreVodRows() {
         if (!appViewModel) return
         var catList = appViewModel.categoryList
         if (!catList) return
-        for (var i = 0; i < catList.count; i++) {
+        var end = Math.min(vodRowsLoaded + vodRowsBatchSize, catList.count)
+        for (var i = vodRowsLoaded; i < end; i++) {
             vodCategoryModel.append({
                 catId: catList.categoryIdAt(i),
                 catName: catList.categoryNameAt(i)
             })
         }
+        vodRowsLoaded = end
     }
 
     function reloadVod() {
