@@ -166,6 +166,13 @@ public:
     Q_INVOKABLE void playSeriesEpisode(const QString &episodeId, const QString &ext,
                                         const QString &title, const QString &logoUrl);
     Q_INVOKABLE bool isCategoryHidden(int64_t categoryId) const;
+    Q_INVOKABLE void setActiveSeriesDialog(const QString &name, int64_t serverId, const QString &seriesId, const QString &logoUrl);
+    Q_INVOKABLE void clearActiveSeriesDialog();
+    Q_INVOKABLE bool hasActiveSeriesDialog() const;
+    Q_INVOKABLE QString activeSeriesName() const;
+    Q_INVOKABLE int64_t activeSeriesServerId() const;
+    Q_INVOKABLE QString activeSeriesId() const;
+    Q_INVOKABLE QString activeSeriesLogo() const;
     Q_INVOKABLE bool hasWatched(int64_t channelId) const;
     Q_INVOKABLE bool hasWatchedUrl(const QString &url) const;
     Q_INVOKABLE QString buildSeriesEpisodeUrl(const QString &episodeId, const QString &ext) const;
@@ -256,6 +263,10 @@ private:
     QString seriesServerUrl_;
     QString seriesUsername_;
     QString seriesPassword_;
+    QString activeSeriesName_;
+    int64_t activeSeriesServerId_{0};
+    QString activeSeriesId_;
+    QString activeSeriesLogo_;
 
 public:
     bool videoFullscreen() const;

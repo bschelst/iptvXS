@@ -910,6 +910,26 @@ bool AppViewModel::isCategoryHidden(int64_t categoryId) const {
     return categorySettingsRepo_->isHidden(categoryId);
 }
 
+void AppViewModel::setActiveSeriesDialog(const QString &name, int64_t serverId, const QString &seriesId, const QString &logoUrl) {
+    activeSeriesName_ = name;
+    activeSeriesServerId_ = serverId;
+    activeSeriesId_ = seriesId;
+    activeSeriesLogo_ = logoUrl;
+}
+
+void AppViewModel::clearActiveSeriesDialog() {
+    activeSeriesName_.clear();
+    activeSeriesServerId_ = 0;
+    activeSeriesId_.clear();
+    activeSeriesLogo_.clear();
+}
+
+bool AppViewModel::hasActiveSeriesDialog() const { return !activeSeriesId_.isEmpty(); }
+QString AppViewModel::activeSeriesName() const { return activeSeriesName_; }
+int64_t AppViewModel::activeSeriesServerId() const { return activeSeriesServerId_; }
+QString AppViewModel::activeSeriesId() const { return activeSeriesId_; }
+QString AppViewModel::activeSeriesLogo() const { return activeSeriesLogo_; }
+
 bool AppViewModel::hasWatched(int64_t channelId) const {
     if (!historyRepo_ || channelId <= 0) return false;
     auto entries = historyRepo_->findRecent(500);
