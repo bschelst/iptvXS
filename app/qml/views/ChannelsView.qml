@@ -372,14 +372,12 @@ Item {
                             }
                         }
 
-                        MouseArea {
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
-                            onEntered: parent.catHovered = true
-                            onExited: parent.catHovered = false
-                            onClicked: selectCategory(model.categoryId)
-                            z: -1
+                        HoverHandler {
+                            onHoveredChanged: catHovered = hovered
+                        }
+
+                        TapHandler {
+                            onTapped: selectCategory(model.categoryId)
                         }
                     }
                 }
