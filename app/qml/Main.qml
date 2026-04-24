@@ -69,12 +69,14 @@ ApplicationWindow {
                 id: topBar
                 Layout.fillWidth: true
                 title: {
-                    if (appViewModel && appViewModel.currentView === "player") {
-                        return appViewModel.player.channelName || "Player"
+                    var view = appViewModel ? appViewModel.currentView : "home"
+                    if (view === "player") {
+                        if (appViewModel && appViewModel.player.isLive) return "Live TV"
+                        return "Now Playing"
                     }
-                    return viewTitles[sidebar.activeItem] || viewTitles[appViewModel ? appViewModel.currentView : "home"] || "Home"
+                    return viewTitles[view] || "Home"
                 }
-                visible: (!appViewModel || !appViewModel.videoFullscreen) && (!appViewModel || appViewModel.currentView !== "player")
+                visible: !appViewModel || !appViewModel.videoFullscreen
 
                 onToggleSidebar: sidebar.collapsed = !sidebar.collapsed
             }
