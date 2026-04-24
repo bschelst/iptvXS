@@ -96,6 +96,9 @@ bool RecordingManager::startRecording(int64_t recordingId) {
     activeProcesses_.insert(recordingId, process);
     recordingRepo_->updateStatus(recordingId, QStringLiteral("recording"));
     recordingRepo_->updateFilePath(recordingId, filePath);
+    if (!channel->logoUrl.isEmpty()) {
+        recordingRepo_->updateThumbnailUrl(recordingId, channel->logoUrl);
+    }
 
     connect(process, &QProcess::started, this, [this, recordingId]() {
         emit recordingStarted(recordingId);
@@ -188,6 +191,8 @@ void RecordingManager::checkScheduledRecordings() {
             }
         }
     }
+
+    enforceStorageLimit();
 }
 
 void RecordingManager::onProcessFinished(int64_t recordingId, int exitCode,
@@ -297,6 +302,9 @@ void RecordingManager::enforceStorageLimit() {
 
     if (totalBytes <= maxBytes) return;
 
+    qWarning("Storage limit exceeded (%lld / %lld bytes), enforcing limit by removing oldest recordings",
+             static_cast<long long>(totalBytes), static_cast<long long>(maxBytes));
+
     std::sort(recordings.begin(), recordings.end(),
               [](const Recording &a, const Recording &b) { return a.createdAt < b.createdAt; });
 
@@ -312,8 +320,12 @@ void RecordingManager::enforceStorageLimit() {
             qint64 fileSize = fi.size();
             QFile::remove(fi.absoluteFilePath());
             totalBytes -= fileSize;
-            qInfo("Auto-deleted old recording: %s (%lld bytes)",
-                  qPrintable(fi.fileName()), static_cast<long long>(fileSize));
+            qWarning("Storage limit: auto-deleted recording %lld (%s, %lld bytes)",
+                     static_cast<long long>(r.id),
+                     qPrintable(fi.fileName()), static_cast<long long>(fileSize));
+        } else {
+            qWarning("Storage limit: removing recording %lld from database (file missing or invalid)",
+                     static_cast<long long>(r.id));
         }
         recordingRepo_->remove(r.id);
     }
