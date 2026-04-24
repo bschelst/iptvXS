@@ -965,7 +965,15 @@ Item {
                             }
 
                             Text {
-                                text: modelData.title || ("Episode " + (index + 1))
+                                text: {
+                                    var t = modelData.title || ("Episode " + (index + 1))
+                                    var series = episodeDialog.seriesTitle
+                                    if (series && t.indexOf(series) === 0) {
+                                        t = t.substring(series.length).replace(/^\s*-\s*/, "")
+                                    }
+                                    t = t.replace(/^S\d+E\d+\s*-?\s*/i, "")
+                                    return t || ("Episode " + (index + 1))
+                                }
                                 font.pixelSize: Theme.fontSizeSm
                                 color: Theme.textPrimary
                                 elide: Text.ElideRight

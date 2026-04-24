@@ -271,12 +271,47 @@ Item {
                         color: favEpHov ? Theme.surfaceHover : Theme.surface
                         property bool favEpHov: false
 
-                        Text {
-                            anchors.left: parent.left; anchors.leftMargin: Theme.spacingMd
-                            anchors.verticalCenter: parent.verticalCenter
-                            text: (modelData.episodeNum || (index + 1)) + ". " + (modelData.title || "Episode " + (index + 1))
-                            font.pixelSize: Theme.fontSizeSm; color: Theme.textPrimary
-                            elide: Text.ElideRight; width: parent.width - Theme.spacingLg * 2
+                        Row {
+                            anchors.fill: parent
+                            anchors.leftMargin: Theme.spacingMd
+                            anchors.rightMargin: Theme.spacingMd
+                            spacing: Theme.spacingSm
+
+                            Text {
+                                anchors.verticalCenter: parent.verticalCenter
+                                text: "E" + (modelData.episodeNum || (index + 1))
+                                font.pixelSize: Theme.fontSizeSm
+                                font.bold: true
+                                color: Theme.accent
+                                width: 36
+                            }
+
+                            Text {
+                                anchors.verticalCenter: parent.verticalCenter
+                                text: {
+                                    var t = modelData.title || ("Episode " + (index + 1))
+                                    // Strip series name prefix if present
+                                    var series = favEpDialog.seriesTitle
+                                    if (series && t.indexOf(series) === 0) {
+                                        t = t.substring(series.length).replace(/^\s*-\s*/, "")
+                                    }
+                                    // Strip SxxExx prefix
+                                    t = t.replace(/^S\d+E\d+\s*-?\s*/i, "")
+                                    return t || ("Episode " + (index + 1))
+                                }
+                                font.pixelSize: Theme.fontSizeSm
+                                color: Theme.textPrimary
+                                elide: Text.ElideRight
+                                width: parent.width - 60
+
+                            }
+
+                            Text {
+                                anchors.verticalCenter: parent.verticalCenter
+                                text: "\u25B6"
+                                font.pixelSize: 12
+                                color: Theme.accent
+                            }
                         }
 
                         MouseArea {
@@ -285,11 +320,11 @@ Item {
                             onClicked: {
                                 if (!appViewModel) return
                                 var ep = favEpDialog.seasonsData[favEpDialog.selectedSeason].episodes[index]
-                                var url = ep.directSource || ep.containerExtension
-                                    ? appViewModel.buildSeriesEpisodeUrl(ep.id, ep.containerExtension)
-                                    : ""
+                                var ext = ep.containerExtension || ep.ext || "mkv"
+                                var url = appViewModel.buildSeriesEpisodeUrl(ep.id, ext)
                                 if (url) {
-                                    appViewModel.player.play(url, ep.title || favEpDialog.seriesTitle, "", 0)
+                                    var title = ep.title || favEpDialog.seriesTitle
+                                    appViewModel.player.play(url, title, "", 0)
                                     appViewModel.currentView = "player"
                                     favEpDialog.visible = false
                                 }
