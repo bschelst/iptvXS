@@ -532,7 +532,7 @@ Item {
                             ListView {
                                 id: chRowListView
                                 width: parent.width
-                                height: 130
+                                height: 180
                                 orientation: ListView.Horizontal
                                 spacing: Theme.spacingSm
                                 clip: true
@@ -542,8 +542,8 @@ Item {
                                 model: chRowModel
 
                                 delegate: Item {
-                                    width: 160
-                                    height: 130
+                                    width: 200
+                                    height: 170
 
                                     Rectangle {
                                         id: chNetCard
@@ -565,7 +565,7 @@ Item {
                                             anchors.top: parent.top
                                             anchors.left: parent.left
                                             anchors.right: parent.right
-                                            height: 80
+                                            height: 110
                                             color: "transparent"
 
                                             Image {
