@@ -1127,7 +1127,7 @@ Item {
                             if (appViewModel && renameDialog.categoryId > 0) {
                                 appViewModel.categoryList.renameCategory(renameDialog.categoryId, renameInput.text)
                                 renameDialog.close()
-                                reloadChannelRows()
+                                Qt.callLater(reloadChannelRows)
                             }
                         }
                         Keys.onEscapePressed: renameDialog.close()
@@ -1156,7 +1156,7 @@ Item {
                                 if (appViewModel && renameDialog.categoryId > 0) {
                                     appViewModel.categoryList.renameCategory(renameDialog.categoryId, "")
                                     renameDialog.close()
-                                    reloadChannelRows()
+                                    Qt.callLater(reloadChannelRows)
                                 }
                             }
                         }
@@ -1192,7 +1192,7 @@ Item {
                                 if (appViewModel && renameDialog.categoryId > 0) {
                                     appViewModel.categoryList.renameCategory(renameDialog.categoryId, renameInput.text)
                                     renameDialog.close()
-                                    reloadChannelRows()
+                                    Qt.callLater(reloadChannelRows)
                                 }
                             }
                         }
