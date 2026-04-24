@@ -372,24 +372,12 @@ Item {
                         }
 
                         MouseArea {
-                            anchors.left: parent.left
-                            anchors.right: catActionRow.left
-                            anchors.top: parent.top
-                            anchors.bottom: parent.bottom
+                            anchors.fill: parent
                             hoverEnabled: true
                             cursorShape: Qt.PointingHandCursor
                             onEntered: parent.catHovered = true
                             onExited: parent.catHovered = false
                             onClicked: selectCategory(model.categoryId)
-                        }
-
-                        // Separate hover exit area for the full delegate
-                        MouseArea {
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            acceptedButtons: Qt.NoButton
-                            onExited: parent.catHovered = false
-                            onEntered: parent.catHovered = true
                             z: -1
                         }
                     }
