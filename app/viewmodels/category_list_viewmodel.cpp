@@ -88,6 +88,10 @@ int64_t CategoryListViewModel::categoryIdAt(int index) const {
 
 QString CategoryListViewModel::categoryNameAt(int index) const {
     if (index < 0 || index >= categories_.size()) return {};
+    if (settingsRepo_) {
+        auto custom = settingsRepo_->customName(categories_.at(index).id);
+        if (!custom.isEmpty()) return custom;
+    }
     return categories_.at(index).name;
 }
 
