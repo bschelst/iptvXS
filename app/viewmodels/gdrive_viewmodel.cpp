@@ -72,7 +72,8 @@ void GDriveViewModel::setUploader(iptvxs::GDriveUploader *uploader) {
                             updated.gdriveFileId = gdriveFileId;
                             updated.gdriveUploadUrl.clear();
 
-                            if (deleteLocalAfterUpload_ && !rec->filePath.isEmpty()) {
+                            if (deleteLocalAfterUpload_ && !rec->filePath.isEmpty()
+                                && !rec->pinned) {
                                 QFileInfo fi(rec->filePath);
                                 if (fi.exists() && fi.isFile() && !fi.isSymLink()
                                     && fi.absoluteFilePath().contains(

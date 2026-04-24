@@ -87,4 +87,16 @@ void HistoryRepository::clear() {
     query.exec("DELETE FROM history");
 }
 
+bool HistoryRepository::hasWatched(int64_t channelId) const {
+    QSqlQuery query(db_);
+    query.prepare("SELECT 1 FROM history WHERE channel_id = ? LIMIT 1");
+    query.addBindValue(QVariant::fromValue(channelId));
+
+    if (!query.exec()) {
+        return false;
+    }
+
+    return query.next();
+}
+
 } // namespace iptvxs

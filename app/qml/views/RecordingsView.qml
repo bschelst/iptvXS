@@ -188,6 +188,7 @@ Item {
                 radius: Theme.borderRadius
                 color: recHovered ? Theme.surfaceHover : Theme.surfaceElevated
                 border.color: {
+                    if (model.pinned) return Theme.accent + "80"
                     if (model.status === "recording") return Theme.error + "60"
                     return recHovered ? Theme.accent + "40" : "transparent"
                 }
@@ -364,6 +365,36 @@ Item {
 
                     RowLayout {
                         spacing: Theme.spacingXs
+
+                        // Pin button
+                        Rectangle {
+                            Layout.preferredWidth: 32
+                            Layout.preferredHeight: 32
+                            radius: 16
+                            color: model.pinned ? Theme.accent + "30" : pinBtnHov ? Theme.accent + "15" : "transparent"
+                            border.color: model.pinned ? Theme.accent : "transparent"
+                            border.width: model.pinned ? 1 : 0
+                            property bool pinBtnHov: false
+
+                            Text {
+                                anchors.centerIn: parent
+                                text: "\uD83D\uDCCC"
+                                font.pixelSize: 14
+                                opacity: model.pinned ? 1.0 : (parent.pinBtnHov ? 0.8 : 0.4)
+                            }
+
+                            MouseArea {
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onEntered: parent.pinBtnHov = true
+                                onExited: parent.pinBtnHov = false
+                                onClicked: {
+                                    if (appViewModel)
+                                        appViewModel.recordingList.togglePin(model.recordingId)
+                                }
+                            }
+                        }
 
                         Rectangle {
                             visible: model.status === "recording" || model.status === "scheduled"

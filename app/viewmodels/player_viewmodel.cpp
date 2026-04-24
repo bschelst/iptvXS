@@ -10,6 +10,7 @@
 #include <QDateTime>
 #include <QDir>
 #include <QFileInfo>
+#include <QTimer>
 
 PlayerViewModel::PlayerViewModel(QObject *parent)
     : QObject(parent), player_(new iptvxs::MpvPlayer(this)) {
@@ -30,7 +31,10 @@ PlayerViewModel::PlayerViewModel(QObject *parent)
                 }
             });
     connect(player_, &iptvxs::MpvPlayer::positionChanged, this,
-            [this](double) { emit positionChanged(); });
+            [this](double) {
+                emit positionChanged();
+                checkAutoNext();
+            });
     connect(player_, &iptvxs::MpvPlayer::errorOccurred, this,
             &PlayerViewModel::errorOccurred);
 }
@@ -146,6 +150,20 @@ void PlayerViewModel::play(const QString &url, const QString &name,
         recordingPath_.clear();
         recordingStartTime_ = 0;
         emit recordingChanged();
+    }
+
+    // Reset auto-next and stretch when switching streams
+    resetAutoNext();
+    nextEpisodeUrl_.clear();
+    nextEpisodeName_.clear();
+    nextEpisodeLogo_.clear();
+    nextEpisodeChannelId_ = 0;
+    emit nextEpisodeNameChanged();
+    if (stretched_) {
+        stretched_ = false;
+        player_->setProperty(QStringLiteral("video-aspect-override"),
+                             QVariant(QStringLiteral("-1")));
+        emit stretchedChanged();
     }
 
     currentUrl_ = url;
@@ -330,4 +348,90 @@ void PlayerViewModel::refreshAudioTracks() {
 void PlayerViewModel::selectAudioTrack(int trackId) {
     player_->setProperty(QStringLiteral("aid"), QVariant(trackId));
     refreshAudioTracks();
+}
+
+bool PlayerViewModel::stretched() const { return stretched_; }
+
+void PlayerViewModel::toggleStretch() {
+    stretched_ = !stretched_;
+    if (stretched_) {
+        player_->setProperty(QStringLiteral("video-aspect-override"),
+                             QVariant(QStringLiteral("16:9")));
+    } else {
+        player_->setProperty(QStringLiteral("video-aspect-override"),
+                             QVariant(QStringLiteral("-1")));
+    }
+    emit stretchedChanged();
+}
+
+bool PlayerViewModel::autoNextEnabled() const { return autoNextEnabled_; }
+
+int PlayerViewModel::autoNextCountdown() const { return autoNextCountdown_; }
+
+QString PlayerViewModel::nextEpisodeName() const { return nextEpisodeName_; }
+
+void PlayerViewModel::setNextEpisode(const QString &url, const QString &name,
+                                      const QString &logo, int64_t channelId) {
+    nextEpisodeUrl_ = url;
+    nextEpisodeLogo_ = logo;
+    nextEpisodeChannelId_ = channelId;
+    if (nextEpisodeName_ != name) {
+        nextEpisodeName_ = name;
+        emit nextEpisodeNameChanged();
+    }
+}
+
+void PlayerViewModel::cancelAutoNext() {
+    resetAutoNext();
+}
+
+void PlayerViewModel::checkAutoNext() {
+    if (nextEpisodeUrl_.isEmpty()) return;
+    auto dur = player_->duration();
+    auto pos = player_->position();
+    if (dur <= 0.0 || pos <= 0.0) return;
+
+    auto remaining = dur - pos;
+    if (remaining <= 15.0 && remaining > 0.0 && !autoNextEnabled_) {
+        // Start the countdown
+        autoNextEnabled_ = true;
+        autoNextCountdown_ = static_cast<int>(remaining);
+        emit autoNextEnabledChanged();
+        emit autoNextCountdownChanged();
+
+        if (!autoNextTimer_) {
+            autoNextTimer_ = new QTimer(this);
+            autoNextTimer_->setInterval(1000);
+            connect(autoNextTimer_, &QTimer::timeout, this, [this]() {
+                if (autoNextCountdown_ > 0) {
+                    --autoNextCountdown_;
+                    emit autoNextCountdownChanged();
+                }
+                if (autoNextCountdown_ <= 0) {
+                    autoNextTimer_->stop();
+                    // Play next episode
+                    auto url = nextEpisodeUrl_;
+                    auto name = nextEpisodeName_;
+                    auto logo = nextEpisodeLogo_;
+                    auto chId = nextEpisodeChannelId_;
+                    resetAutoNext();
+                    play(url, name, logo, chId);
+                    emit autoNextTriggered();
+                }
+            });
+        }
+        autoNextTimer_->start();
+    }
+}
+
+void PlayerViewModel::resetAutoNext() {
+    if (autoNextTimer_) {
+        autoNextTimer_->stop();
+    }
+    if (autoNextEnabled_) {
+        autoNextEnabled_ = false;
+        autoNextCountdown_ = 0;
+        emit autoNextEnabledChanged();
+        emit autoNextCountdownChanged();
+    }
 }

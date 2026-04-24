@@ -392,6 +392,18 @@ Item {
                     }
 
                     PlayerButton {
+                        id: stretchBtn
+                        text: appViewModel && appViewModel.player.stretched ? "⇤⇥" : "⇔"
+                        iconSize: 16
+                        ToolTip.visible: stretchBtn.btnHovered
+                        ToolTip.text: appViewModel && appViewModel.player.stretched ? "Original aspect" : "Stretch 16:9"
+                        ToolTip.delay: 500
+                        onClicked: {
+                            if (appViewModel) appViewModel.player.toggleStretch()
+                        }
+                    }
+
+                    PlayerButton {
                         text: videoFullscreen ? "⤢" : "⛶\uFE0E"
                         iconSize: 20
                         onClicked: toggleVideoFullscreen()
@@ -867,6 +879,108 @@ Item {
             running: visible
             width: 48
             height: 48
+        }
+
+        // --- Auto-next episode OSD ---
+        Rectangle {
+            id: autoNextOsd
+            visible: appViewModel ? appViewModel.player.autoNextEnabled : false
+            anchors.bottom: controlsOverlay.top
+            anchors.horizontalCenter: parent.horizontalCenter
+            anchors.bottomMargin: Theme.spacingMd
+            width: autoNextContent.implicitWidth + Theme.spacingLg * 2
+            height: autoNextContent.implicitHeight + Theme.spacingMd * 2
+            radius: Theme.borderRadiusLarge
+            color: "#dd1a1a2e"
+            border.color: Theme.accent + "60"
+            border.width: 1
+            z: 30
+
+            ColumnLayout {
+                id: autoNextContent
+                anchors.centerIn: parent
+                spacing: Theme.spacingSm
+
+                Text {
+                    text: "Up Next"
+                    font.pixelSize: Theme.fontSizeXs
+                    font.bold: true
+                    font.letterSpacing: 1.5
+                    color: Theme.accent
+                    Layout.alignment: Qt.AlignHCenter
+                }
+
+                Text {
+                    text: appViewModel ? appViewModel.player.nextEpisodeName : ""
+                    font.pixelSize: Theme.fontSizeSm
+                    font.bold: true
+                    color: "#ffffff"
+                    elide: Text.ElideRight
+                    Layout.maximumWidth: 400
+                    Layout.alignment: Qt.AlignHCenter
+                }
+
+                Rectangle {
+                    Layout.preferredWidth: 200
+                    Layout.preferredHeight: 4
+                    radius: 2
+                    color: "#30ffffff"
+                    Layout.alignment: Qt.AlignHCenter
+
+                    Rectangle {
+                        width: {
+                            var cd = appViewModel ? appViewModel.player.autoNextCountdown : 15
+                            return Math.max(0, (1.0 - cd / 15.0)) * parent.width
+                        }
+                        height: parent.height
+                        radius: 2
+                        color: Theme.accent
+
+                        Behavior on width {
+                            NumberAnimation { duration: 900 }
+                        }
+                    }
+                }
+
+                Text {
+                    text: {
+                        var cd = appViewModel ? appViewModel.player.autoNextCountdown : 0
+                        return "Playing in " + cd + "..."
+                    }
+                    font.pixelSize: Theme.fontSizeXs
+                    color: "#ccffffff"
+                    Layout.alignment: Qt.AlignHCenter
+                }
+
+                Rectangle {
+                    Layout.preferredWidth: cancelAutoNextText.implicitWidth + Theme.spacingLg
+                    Layout.preferredHeight: 28
+                    radius: 14
+                    color: cancelAutoNextHov ? "#40ffffff" : "#20ffffff"
+                    Layout.alignment: Qt.AlignHCenter
+                    property bool cancelAutoNextHov: false
+
+                    Text {
+                        id: cancelAutoNextText
+                        anchors.centerIn: parent
+                        text: "Cancel"
+                        font.pixelSize: Theme.fontSizeXs
+                        font.bold: true
+                        color: "#ffffff"
+                    }
+
+                    MouseArea {
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onEntered: parent.cancelAutoNextHov = true
+                        onExited: parent.cancelAutoNextHov = false
+                        onClicked: {
+                            if (appViewModel) appViewModel.player.cancelAutoNext()
+                        }
+                    }
+                }
+            }
         }
     }
 

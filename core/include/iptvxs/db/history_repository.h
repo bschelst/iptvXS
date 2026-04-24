@@ -31,6 +31,7 @@ public:
     int count() const;
     void removeEntry(int64_t id);
     void clear();
+    bool hasWatched(int64_t channelId) const;
 
 private:
     QSqlDatabase db_;

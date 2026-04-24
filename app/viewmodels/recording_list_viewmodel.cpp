@@ -70,6 +70,8 @@ QVariant RecordingListViewModel::data(const QModelIndex &index, int role) const 
         return QVariant::fromValue(rec.createdAt);
     case IsActiveRole:
         return manager_ ? manager_->isRecording(rec.id) : false;
+    case PinnedRole:
+        return rec.pinned;
     default:
         return {};
     }
@@ -89,6 +91,7 @@ QHash<int, QByteArray> RecordingListViewModel::roleNames() const {
         {ErrorMessageRole, "errorMessage"},
         {CreatedAtRole, "createdAt"},
         {IsActiveRole, "isActive"},
+        {PinnedRole, "pinned"},
     };
 }
 
@@ -352,6 +355,14 @@ void RecordingListViewModel::loadRecordings() {
 
     endResetModel();
     emit countChanged();
+}
+
+void RecordingListViewModel::togglePin(int64_t recordingId) {
+    if (!recordingRepo_) return;
+    auto rec = recordingRepo_->findById(recordingId);
+    if (!rec) return;
+    recordingRepo_->setPinned(recordingId, !rec->pinned);
+    loadRecordings();
 }
 
 QString RecordingListViewModel::channelNameForId(int64_t channelId) const {

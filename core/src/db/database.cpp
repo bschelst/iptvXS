@@ -279,6 +279,12 @@ std::vector<Database::Migration> Database::migrations() const {
                  return false;
              return true;
          }},
+        {9, "Add pinned column to recordings", [](QSqlDatabase &db) -> bool {
+             QSqlQuery q(db);
+             if (!q.exec("ALTER TABLE recordings ADD COLUMN pinned INTEGER NOT NULL DEFAULT 0"))
+                 return false;
+             return true;
+         }},
     };
 }
 

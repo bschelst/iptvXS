@@ -164,6 +164,9 @@ public:
     Q_INVOKABLE void playChannelByName(const QString &name);
     Q_INVOKABLE void playSeriesEpisode(const QString &episodeId, const QString &ext,
                                         const QString &title, const QString &logoUrl);
+    Q_INVOKABLE bool hasWatched(int64_t channelId) const;
+    Q_INVOKABLE bool hasWatchedUrl(const QString &url) const;
+    Q_INVOKABLE QString buildSeriesEpisodeUrl(const QString &episodeId, const QString &ext) const;
 
 signals:
     void databaseReadyChanged();

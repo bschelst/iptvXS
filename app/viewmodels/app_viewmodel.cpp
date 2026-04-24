@@ -903,6 +903,30 @@ void AppViewModel::playSeriesEpisode(const QString &episodeId, const QString &ex
     setCurrentView(QStringLiteral("player"));
 }
 
+bool AppViewModel::hasWatched(int64_t channelId) const {
+    if (!historyRepo_ || channelId <= 0) return false;
+    auto entries = historyRepo_->findRecent(500);
+    for (const auto &e : entries) {
+        if (e.channelId == channelId) return true;
+    }
+    return false;
+}
+
+bool AppViewModel::hasWatchedUrl(const QString &url) const {
+    if (!historyRepo_ || url.isEmpty()) return false;
+    auto entries = historyRepo_->findRecent(500);
+    for (const auto &e : entries) {
+        if (e.streamUrl == url) return true;
+    }
+    return false;
+}
+
+QString AppViewModel::buildSeriesEpisodeUrl(const QString &episodeId, const QString &ext) const {
+    if (seriesServerUrl_.isEmpty()) return {};
+    return QStringLiteral("%1/series/%2/%3/%4.%5")
+               .arg(seriesServerUrl_, seriesUsername_, seriesPassword_, episodeId, ext);
+}
+
 bool AppViewModel::fileExists(const QString &path) const {
     return QFileInfo::exists(path);
 }

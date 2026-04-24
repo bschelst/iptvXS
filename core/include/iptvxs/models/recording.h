@@ -19,6 +19,7 @@ struct Recording {
     QString gdriveUploadUrl;
     QString errorMessage;
     int64_t createdAt{0};
+    bool pinned{false};
 };
 
 } // namespace iptvxs

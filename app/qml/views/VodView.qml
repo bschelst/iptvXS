@@ -322,13 +322,23 @@ Item {
                     }
                 }
 
-                delegate: Rectangle {
+                delegate: Item {
+                    id: vodCardWrapper
                     width: vodGrid.cellWidth - Theme.spacingSm
                     height: vodGrid.cellHeight - Theme.spacingSm
-                    radius: Theme.borderRadius
+
+                    Rectangle {
+                    id: vodCard
+                    anchors.fill: parent
+                    anchors.margins: 2
+                    radius: Theme.borderRadiusLarge
                     color: vodItemHov ? Theme.surfaceHover : Theme.surfaceElevated
-                    border.color: vodItemHov ? Theme.accent + "40" : "transparent"
-                    border.width: 1
+                    border.color: vodItemHov ? Theme.accent + "60" : "transparent"
+                    border.width: vodItemHov ? 2 : 1
+
+                    scale: vodItemHov ? 1.02 : 1.0
+                    Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
+                    Behavior on color { ColorAnimation { duration: 150 } }
 
                     property bool vodItemHov: false
 
@@ -355,7 +365,7 @@ Item {
 
                             Text {
                                 anchors.centerIn: parent
-                                text: "🎬"
+                                text: "\uD83C\uDFAC"
                                 font.pixelSize: Theme.fontSizeMd
                                 visible: !model.logoUrl
                             }
@@ -379,14 +389,49 @@ Item {
                                 color: Theme.textMuted
                             }
                         }
+
+                        // Favorite button
+                        Rectangle {
+                            Layout.preferredWidth: 28
+                            Layout.preferredHeight: 28
+                            radius: 14
+                            color: vodFavHov ? Theme.surfaceHover : "transparent"
+                            property bool vodFavHov: false
+                            property bool isFav: appViewModel ? appViewModel.favoriteList.isFavorite(model.channelId) : false
+
+                            Text {
+                                anchors.centerIn: parent
+                                text: parent.isFav ? "\u2764" : "\u2661"
+                                font.pixelSize: 14
+                                color: parent.isFav ? Theme.error : Theme.textMuted
+                            }
+
+                            MouseArea {
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onEntered: parent.vodFavHov = true
+                                onExited: parent.vodFavHov = false
+                                onClicked: {
+                                    if (appViewModel) {
+                                        appViewModel.favoriteList.toggleFavorite(model.channelId)
+                                        parent.isFav = !parent.isFav
+                                    }
+                                }
+                            }
+                        }
                     }
 
                     MouseArea {
-                        anchors.fill: parent
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        anchors.top: parent.top
+                        anchors.bottom: parent.bottom
+                        anchors.rightMargin: 36
                         hoverEnabled: true
                         cursorShape: Qt.PointingHandCursor
-                        onEntered: parent.vodItemHov = true
-                        onExited: parent.vodItemHov = false
+                        onEntered: vodCard.vodItemHov = true
+                        onExited: vodCard.vodItemHov = false
                         onClicked: {
                             if (appViewModel) {
                                 if (model.type === "series") {
@@ -397,6 +442,7 @@ Item {
                                 }
                             }
                         }
+                    }
                     }
                 }
 
@@ -585,11 +631,23 @@ Item {
 
                     function playEpisode(idx) {
                         if (idx < 0 || !appViewModel) return
-                        var ep = episodeDialog.seasonsData[episodeDialog.selectedSeason].episodes[idx]
+                        var episodes = episodeDialog.seasonsData[episodeDialog.selectedSeason].episodes
+                        var ep = episodes[idx]
                         var seasonNum = episodeDialog.seasonsData[episodeDialog.selectedSeason].season
                         var displayTitle = episodeDialog.seriesTitle + " - S" + seasonNum + "E" + (ep.episodeNum || (idx + 1))
                         if (ep.title) displayTitle += " - " + ep.title
                         appViewModel.playSeriesEpisode(ep.id, ep.ext, displayTitle, ep.logoUrl)
+
+                        // Set up auto-next episode
+                        if (idx + 1 < episodes.length) {
+                            var nextEp = episodes[idx + 1]
+                            var nextNum = nextEp.episodeNum || (idx + 2)
+                            var nextTitle = episodeDialog.seriesTitle + " - S" + seasonNum + "E" + nextNum
+                            if (nextEp.title) nextTitle += " - " + nextEp.title
+                            var nextUrl = vodView.buildEpisodeUrl(nextEp.id, nextEp.ext)
+                            appViewModel.player.setNextEpisode(nextUrl, nextTitle, nextEp.logoUrl || "", 0)
+                        }
+
                         episodeDialog.visible = false
                     }
 
@@ -627,8 +685,22 @@ Item {
                                 Layout.fillWidth: true
                             }
 
+                            // Watched indicator
                             Text {
-                                text: "▶"
+                                visible: {
+                                    if (!appViewModel) return false
+                                    // Build the episode URL to check history
+                                    var url = vodView.buildEpisodeUrl(modelData.id, modelData.ext)
+                                    return appViewModel.hasWatchedUrl(url)
+                                }
+                                text: "\u2713"
+                                font.pixelSize: 14
+                                font.bold: true
+                                color: Theme.success
+                            }
+
+                            Text {
+                                text: "\u25B6"
                                 font.pixelSize: 14
                                 color: Theme.textMuted
                             }
@@ -646,6 +718,18 @@ Item {
                                     var displayTitle = episodeDialog.seriesTitle + " - S" + seasonNum + "E" + (modelData.episodeNum || (index + 1))
                                     if (modelData.title) displayTitle += " - " + modelData.title
                                     appViewModel.playSeriesEpisode(modelData.id, modelData.ext, displayTitle, modelData.logoUrl)
+
+                                    // Set up auto-next episode
+                                    var episodes = episodeDialog.seasonsData[episodeDialog.selectedSeason].episodes
+                                    if (index + 1 < episodes.length) {
+                                        var nextEp = episodes[index + 1]
+                                        var nextNum = nextEp.episodeNum || (index + 2)
+                                        var nextTitle = episodeDialog.seriesTitle + " - S" + seasonNum + "E" + nextNum
+                                        if (nextEp.title) nextTitle += " - " + nextEp.title
+                                        var nextUrl = vodView.buildEpisodeUrl(nextEp.id, nextEp.ext)
+                                        appViewModel.player.setNextEpisode(nextUrl, nextTitle, nextEp.logoUrl || "", 0)
+                                    }
+
                                     episodeDialog.visible = false
                                 }
                             }
@@ -694,6 +778,11 @@ Item {
     function selectServer(serverId) {
         activeServerId = serverId
         reloadVod()
+    }
+
+    function buildEpisodeUrl(episodeId, ext) {
+        if (!appViewModel) return ""
+        return appViewModel.buildSeriesEpisodeUrl(episodeId, ext)
     }
 
     function reloadVod() {

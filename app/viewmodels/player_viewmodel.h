@@ -3,6 +3,7 @@
 #include <QObject>
 #include <QQmlEngine>
 #include <QString>
+#include <QTimer>
 
 #include "iptvxs/player/mpv_player.h"
 
@@ -28,6 +29,10 @@ class PlayerViewModel : public QObject {
     Q_PROPERTY(bool recording READ recording NOTIFY recordingChanged)
     Q_PROPERTY(QString recordingPath READ recordingPath NOTIFY recordingChanged)
     Q_PROPERTY(qint64 recordingStartTime READ recordingStartTime NOTIFY recordingChanged)
+    Q_PROPERTY(bool stretched READ stretched NOTIFY stretchedChanged)
+    Q_PROPERTY(bool autoNextEnabled READ autoNextEnabled NOTIFY autoNextEnabledChanged)
+    Q_PROPERTY(int autoNextCountdown READ autoNextCountdown NOTIFY autoNextCountdownChanged)
+    Q_PROPERTY(QString nextEpisodeName READ nextEpisodeName NOTIFY nextEpisodeNameChanged)
 
 public:
     explicit PlayerViewModel(QObject *parent = nullptr);
@@ -71,6 +76,10 @@ public:
     Q_INVOKABLE void refreshSubtitleTracks();
     Q_INVOKABLE void selectAudioTrack(int trackId);
     Q_INVOKABLE void refreshAudioTracks();
+    Q_INVOKABLE void toggleStretch();
+    Q_INVOKABLE void cancelAutoNext();
+    Q_INVOKABLE void setNextEpisode(const QString &url, const QString &name,
+                                     const QString &logo, int64_t channelId);
 
     bool isLive() const;
     QVariantList subtitleTracks() const;
@@ -78,6 +87,10 @@ public:
     bool recording() const;
     QString recordingPath() const;
     qint64 recordingStartTime() const;
+    bool stretched() const;
+    bool autoNextEnabled() const;
+    int autoNextCountdown() const;
+    QString nextEpisodeName() const;
 
     Q_INVOKABLE QString formatTime(double seconds) const;
 
@@ -96,6 +109,11 @@ signals:
     void recordingChanged();
     void streamRecordingStopped(const QString &filePath, qint64 startTime);
     void errorOccurred(const QString &message);
+    void stretchedChanged();
+    void autoNextEnabledChanged();
+    void autoNextCountdownChanged();
+    void nextEpisodeNameChanged();
+    void autoNextTriggered();
 
 private:
     iptvxs::MpvPlayer *player_;
@@ -110,6 +128,19 @@ private:
     QString recordingPath_;
     qint64 recordingStartTime_{0};
     uint32_t screenSaverCookie_{0};
+    bool stretched_{false};
+
+    // Auto-next episode
+    QString nextEpisodeUrl_;
+    QString nextEpisodeName_;
+    QString nextEpisodeLogo_;
+    int64_t nextEpisodeChannelId_{0};
+    bool autoNextEnabled_{false};
+    int autoNextCountdown_{0};
+    QTimer *autoNextTimer_{nullptr};
+    void checkAutoNext();
+    void resetAutoNext();
+
     void inhibitScreenSaver();
     void uninhibitScreenSaver();
 };

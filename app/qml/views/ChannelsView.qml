@@ -464,114 +464,138 @@ Item {
                     }
                 }
 
-                delegate: Rectangle {
+                delegate: Item {
+                    id: chCardWrapper
                     width: channelGrid.cellWidth - Theme.spacingSm
                     height: channelGrid.cellHeight - Theme.spacingSm
-                    radius: Theme.borderRadius
-                    color: chHovered ? Theme.surfaceHover : Theme.surfaceElevated
-                    border.color: chHovered ? Theme.accent + "40" : "transparent"
-                    border.width: 1
-                    property bool chHovered: false
 
-                    // Logo
                     Rectangle {
-                        id: chLogo
-                        anchors.left: parent.left
-                        anchors.leftMargin: 10
-                        anchors.verticalCenter: parent.verticalCenter
-                        width: 52; height: 52
-                        radius: 6; color: Theme.surface; clip: true
+                        id: chCard
+                        anchors.fill: parent
+                        anchors.margins: 2
+                        radius: Theme.borderRadiusLarge
+                        color: chHovered ? Theme.surfaceHover : Theme.surfaceElevated
+                        border.color: chHovered ? Theme.accent + "60" : "transparent"
+                        border.width: chHovered ? 2 : 1
+                        property bool chHovered: false
 
-                        Image {
-                            anchors.fill: parent; anchors.margins: 4
-                            source: model.logoUrl || ""
-                            fillMode: Image.PreserveAspectFit
-                            asynchronous: true; visible: status === Image.Ready
-                        }
-                        Text {
-                            anchors.centerIn: parent
-                            text: "\uD83D\uDCFA"; font.pixelSize: 14
-                            visible: !model.logoUrl
-                        }
-                    }
+                        scale: chHovered ? 1.02 : 1.0
+                        Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
+                        Behavior on color { ColorAnimation { duration: 150 } }
 
-                    // Name + type
-                    Column {
-                        anchors.left: chLogo.right
-                        anchors.leftMargin: 10
-                        anchors.right: chBtnRow.left
-                        anchors.rightMargin: 6
-                        anchors.verticalCenter: parent.verticalCenter
-                        spacing: 2
-
-                        Text {
-                            text: model.name
-                            font.pixelSize: Theme.fontSizeSm
-                            color: Theme.textPrimary
-                            elide: Text.ElideRight
-                            width: parent.width
-                        }
-                        Text {
-                            text: model.type
-                            font.pixelSize: Theme.fontSizeXs
-                            color: Theme.textMuted
-                        }
-                    }
-
-                    // Action buttons (horizontal row)
-                    Row {
-                        id: chBtnRow
-                        anchors.right: parent.right
-                        anchors.rightMargin: 10
-                        anchors.verticalCenter: parent.verticalCenter
-                        spacing: 6
-
-                        // Record
+                        // Logo
                         Rectangle {
-                            width: 32; height: 32; radius: 16
+                            id: chLogo
+                            anchors.left: parent.left
+                            anchors.leftMargin: 12
                             anchors.verticalCenter: parent.verticalCenter
-                            color: isRec ? Theme.error + "40" : recHov ? Theme.error + "20" : "transparent"
-                            property bool recHov: false
-                            property bool isRec: appViewModel ? appViewModel.recordingList.isChannelRecording(model.channelId) : false
-                            Text { anchors.centerIn: parent; text: parent.isRec ? "\u23F9" : "\u23FA"; font.pixelSize: 16; color: parent.isRec ? Theme.error : parent.recHov ? Theme.error : Theme.textMuted }
-                            MouseArea { anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onEntered: parent.recHov = true; onExited: parent.recHov = false; onClicked: { if (!appViewModel) return; if (parent.isRec) { appViewModel.recordingList.stopChannelRecording(model.channelId); parent.isRec = false } else { appViewModel.recordingList.startNow(model.channelId); parent.isRec = true } } }
+                            width: 56; height: 56
+                            radius: 10; color: Theme.surface; clip: true
+
+                            Image {
+                                anchors.fill: parent; anchors.margins: 4
+                                source: model.logoUrl || ""
+                                fillMode: Image.PreserveAspectFit
+                                asynchronous: true; visible: status === Image.Ready
+                            }
+                            Text {
+                                anchors.centerIn: parent
+                                text: "\uD83D\uDCFA"; font.pixelSize: 16
+                                visible: !model.logoUrl
+                            }
                         }
 
-                        // Add to group
-                        Rectangle {
-                            width: 32; height: 32; radius: 16
+                        // Name + type
+                        Column {
+                            anchors.left: chLogo.right
+                            anchors.leftMargin: 12
+                            anchors.right: chBtnRow.left
+                            anchors.rightMargin: 6
                             anchors.verticalCenter: parent.verticalCenter
-                            color: grpHov ? Theme.accent + "20" : "transparent"
-                            property bool grpHov: false
-                            Text { anchors.centerIn: parent; text: "+"; font.pixelSize: 20; font.bold: true; color: parent.grpHov ? Theme.accent : Theme.textMuted }
-                            MouseArea { anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onEntered: parent.grpHov = true; onExited: parent.grpHov = false; onClicked: { addToGroupPopup.channelId = model.channelId; addToGroupPopup.channelName = model.name; addToGroupPopup.open() } }
+                            spacing: 3
+
+                            Text {
+                                text: model.name
+                                font.pixelSize: Theme.fontSizeSm
+                                font.bold: true
+                                color: Theme.textPrimary
+                                elide: Text.ElideRight
+                                width: parent.width
+                            }
+                            Text {
+                                text: model.type
+                                font.pixelSize: Theme.fontSizeXs
+                                color: Theme.textMuted
+                            }
                         }
 
-                        // Favorite
-                        Rectangle {
-                            width: 32; height: 32; radius: 16
+                        // Action buttons (horizontal row)
+                        Row {
+                            id: chBtnRow
+                            anchors.right: parent.right
+                            anchors.rightMargin: 10
                             anchors.verticalCenter: parent.verticalCenter
-                            color: starHov ? Theme.surfaceHover : "transparent"
-                            property bool starHov: false
-                            property bool isFav: appViewModel ? appViewModel.favoriteList.isFavorite(model.channelId) : false
-                            Text { anchors.centerIn: parent; text: parent.isFav ? "\u2B50" : "\u2606"; font.pixelSize: 18; color: parent.isFav ? Theme.warning : Theme.textMuted }
-                            MouseArea { anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onEntered: parent.starHov = true; onExited: parent.starHov = false; onClicked: { if (appViewModel) { appViewModel.favoriteList.toggleFavorite(model.channelId); parent.isFav = !parent.isFav } } }
-                        }
-                    }
+                            spacing: 4
+                            visible: chCard.chHovered
 
-                    MouseArea {
-                        anchors.left: chLogo.left
-                        anchors.right: chBtnRow.left
-                        anchors.top: parent.top
-                        anchors.bottom: parent.bottom
-                        hoverEnabled: true
-                        cursorShape: Qt.PointingHandCursor
-                        onEntered: parent.chHovered = true
-                        onExited: parent.chHovered = false
-                        onClicked: {
-                            if (appViewModel) {
-                                appViewModel.player.play(model.streamUrl, model.name, model.logoUrl, model.channelId)
-                                appViewModel.currentView = "player"
+                            // Record
+                            Rectangle {
+                                width: 30; height: 30; radius: 15
+                                anchors.verticalCenter: parent.verticalCenter
+                                color: isRec ? Theme.error + "40" : recHov ? Theme.error + "20" : "#15ffffff"
+                                property bool recHov: false
+                                property bool isRec: appViewModel ? appViewModel.recordingList.isChannelRecording(model.channelId) : false
+                                Text { anchors.centerIn: parent; text: parent.isRec ? "\u23F9" : "\u23FA"; font.pixelSize: 14; color: parent.isRec ? Theme.error : parent.recHov ? Theme.error : Theme.textMuted }
+                                MouseArea { anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onEntered: parent.recHov = true; onExited: parent.recHov = false; onClicked: { if (!appViewModel) return; if (parent.isRec) { appViewModel.recordingList.stopChannelRecording(model.channelId); parent.isRec = false } else { appViewModel.recordingList.startNow(model.channelId); parent.isRec = true } } }
+                            }
+
+                            // Add to group
+                            Rectangle {
+                                width: 30; height: 30; radius: 15
+                                anchors.verticalCenter: parent.verticalCenter
+                                color: grpHov ? Theme.accent + "20" : "#15ffffff"
+                                property bool grpHov: false
+                                Text { anchors.centerIn: parent; text: "+"; font.pixelSize: 18; font.bold: true; color: parent.grpHov ? Theme.accent : Theme.textMuted }
+                                MouseArea { anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onEntered: parent.grpHov = true; onExited: parent.grpHov = false; onClicked: { addToGroupPopup.channelId = model.channelId; addToGroupPopup.channelName = model.name; addToGroupPopup.open() } }
+                            }
+
+                            // Favorite
+                            Rectangle {
+                                width: 30; height: 30; radius: 15
+                                anchors.verticalCenter: parent.verticalCenter
+                                color: starHov ? Theme.surfaceHover : "#15ffffff"
+                                property bool starHov: false
+                                property bool isFav: appViewModel ? appViewModel.favoriteList.isFavorite(model.channelId) : false
+                                Text { anchors.centerIn: parent; text: parent.isFav ? "\u2B50" : "\u2606"; font.pixelSize: 16; color: parent.isFav ? Theme.warning : Theme.textMuted }
+                                MouseArea { anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onEntered: parent.starHov = true; onExited: parent.starHov = false; onClicked: { if (appViewModel) { appViewModel.favoriteList.toggleFavorite(model.channelId); parent.isFav = !parent.isFav } } }
+                            }
+                        }
+
+                        // Favorite indicator (always visible when favorited)
+                        Text {
+                            visible: !chCard.chHovered && appViewModel && appViewModel.favoriteList.isFavorite(model.channelId)
+                            anchors.right: parent.right
+                            anchors.rightMargin: 10
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: "\u2B50"
+                            font.pixelSize: 14
+                            opacity: 0.6
+                        }
+
+                        MouseArea {
+                            anchors.left: chLogo.left
+                            anchors.right: chBtnRow.visible ? chBtnRow.left : parent.right
+                            anchors.top: parent.top
+                            anchors.bottom: parent.bottom
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onEntered: chCard.chHovered = true
+                            onExited: chCard.chHovered = false
+                            onClicked: {
+                                if (appViewModel) {
+                                    appViewModel.player.play(model.streamUrl, model.name, model.logoUrl, model.channelId)
+                                    appViewModel.currentView = "player"
+                                }
                             }
                         }
                     }

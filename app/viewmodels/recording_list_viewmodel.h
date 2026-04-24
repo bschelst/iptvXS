@@ -29,7 +29,8 @@ public:
         FileSizeRole,
         ErrorMessageRole,
         CreatedAtRole,
-        IsActiveRole
+        IsActiveRole,
+        PinnedRole
     };
 
     explicit RecordingListViewModel(QObject *parent = nullptr);
@@ -68,6 +69,7 @@ public:
     Q_INVOKABLE QString formatFileSize(int64_t bytes) const;
     Q_INVOKABLE QString formatDateTime(int64_t timestamp) const;
     Q_INVOKABLE QString formatDuration(int64_t startTime, int64_t endTime) const;
+    Q_INVOKABLE void togglePin(int64_t recordingId);
 
 signals:
     void countChanged();

@@ -302,6 +302,7 @@ void RecordingManager::enforceStorageLimit() {
 
     for (const auto &r : recordings) {
         if (totalBytes <= maxBytes) break;
+        if (r.pinned) continue;
         if (r.status == QStringLiteral("recording")) continue;
         if (r.filePath.isEmpty()) continue;
 

@@ -30,6 +30,7 @@ public:
     bool updateFilePath(int64_t id, const QString &filePath);
     bool updateEndTime(int64_t id, int64_t endTime);
     bool updateUploadUrl(int64_t id, const QString &uploadUrl);
+    bool setPinned(int64_t id, bool pinned);
 
     int count() const;
     int countByStatus(const QString &status) const;
