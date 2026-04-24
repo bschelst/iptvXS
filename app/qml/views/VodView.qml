@@ -413,9 +413,20 @@ Item {
                                             fillMode: Image.PreserveAspectCrop
                                             asynchronous: true
                                             visible: status === Image.Ready
+                                            cache: true
                                         }
 
-                                        // Fallback icon when no image
+                                        // Fallback: app logo for failed/missing images
+                                        Image {
+                                            anchors.centerIn: parent
+                                            width: 48; height: 48
+                                            source: "qrc:/images/iptvxs_tray.png"
+                                            fillMode: Image.PreserveAspectFit
+                                            opacity: 0.3
+                                            visible: posterImg.status === Image.Error || posterImg.status === Image.Null
+                                        }
+
+                                        // Fallback: initial letter only when no URL at all
                                         Text {
                                             anchors.centerIn: parent
                                             text: {
@@ -427,7 +438,7 @@ Item {
                                             font.bold: true
                                             color: Theme.accent
                                             opacity: 0.5
-                                            visible: posterImg.status !== Image.Ready
+                                            visible: !model.logoUrl || model.logoUrl.indexOf("http") !== 0
                                         }
 
                                         // Dark gradient overlay at bottom
