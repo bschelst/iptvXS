@@ -1,5 +1,6 @@
 #include "iptvxs/db/channel_repository.h"
 
+#include <QCoreApplication>
 #include <QSqlError>
 #include <QSqlQuery>
 #include <QVariant>
@@ -213,6 +214,7 @@ void ChannelRepository::batchUpsert(const QVector<Channel> &channels) {
                 emit errorOccurred(QStringLiteral("Failed to commit channel batch at %1").arg(processed));
                 return;
             }
+            QCoreApplication::processEvents();
             db_.transaction();
         }
     }

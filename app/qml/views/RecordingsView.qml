@@ -659,6 +659,40 @@ Item {
                 displayText: currentIndex >= 0 ? currentText : "Select a server..."
                 background: Rectangle { radius: Theme.borderRadiusSmall; color: Theme.surface; border.color: Theme.surfaceBorder; border.width: 1 }
                 contentItem: Text { leftPadding: Theme.spacingSm; text: serverCombo.displayText; font.pixelSize: Theme.fontSizeSm; color: serverCombo.currentIndex >= 0 ? Theme.textPrimary : Theme.textMuted; verticalAlignment: Text.AlignVCenter; elide: Text.ElideRight }
+                delegate: ItemDelegate {
+                    width: serverCombo.width
+                    height: model.enabled ? 36 : 0
+                    visible: model.enabled
+                    contentItem: Text {
+                        text: model.name
+                        font.pixelSize: Theme.fontSizeSm
+                        font.bold: model.isPrimary
+                        color: highlighted ? "#ffffff" : Theme.textPrimary
+                        verticalAlignment: Text.AlignVCenter
+                    }
+                    highlighted: serverCombo.highlightedIndex === index
+                    background: Rectangle {
+                        color: highlighted ? Theme.accent : (hovered ? Theme.surfaceHover : Theme.surfaceElevated)
+                    }
+                }
+                popup: Popup {
+                    y: serverCombo.height
+                    width: serverCombo.width
+                    implicitHeight: contentItem.implicitHeight + 2
+                    padding: 1
+                    contentItem: ListView {
+                        clip: true
+                        implicitHeight: Math.min(contentHeight, 250)
+                        model: serverCombo.popup.visible ? serverCombo.delegateModel : null
+                        ScrollBar.vertical: ScrollBar { active: true }
+                    }
+                    background: Rectangle {
+                        color: Theme.surfaceElevated
+                        border.color: Theme.surfaceBorder
+                        border.width: 1
+                        radius: Theme.borderRadiusSmall
+                    }
+                }
                 onCurrentIndexChanged: {
                     if (currentIndex >= 0 && appViewModel) {
                         var srvId = appViewModel.serverList.serverIdAt(currentIndex)
@@ -682,6 +716,38 @@ Item {
                 displayText: currentIndex >= 0 ? currentText : "Select a channel..."
                 background: Rectangle { radius: Theme.borderRadiusSmall; color: Theme.surface; border.color: Theme.surfaceBorder; border.width: 1 }
                 contentItem: Text { leftPadding: Theme.spacingSm; text: channelCombo.displayText; font.pixelSize: Theme.fontSizeSm; color: channelCombo.currentIndex >= 0 ? Theme.textPrimary : Theme.textMuted; verticalAlignment: Text.AlignVCenter; elide: Text.ElideRight }
+                delegate: ItemDelegate {
+                    width: channelCombo.width
+                    contentItem: Text {
+                        text: model.name
+                        font.pixelSize: Theme.fontSizeSm
+                        color: highlighted ? "#ffffff" : Theme.textPrimary
+                        verticalAlignment: Text.AlignVCenter
+                        elide: Text.ElideRight
+                    }
+                    highlighted: channelCombo.highlightedIndex === index
+                    background: Rectangle {
+                        color: highlighted ? Theme.accent : (hovered ? Theme.surfaceHover : Theme.surfaceElevated)
+                    }
+                }
+                popup: Popup {
+                    y: channelCombo.height
+                    width: channelCombo.width
+                    implicitHeight: contentItem.implicitHeight + 2
+                    padding: 1
+                    contentItem: ListView {
+                        clip: true
+                        implicitHeight: Math.min(contentHeight, 300)
+                        model: channelCombo.popup.visible ? channelCombo.delegateModel : null
+                        ScrollBar.vertical: ScrollBar { active: true }
+                    }
+                    background: Rectangle {
+                        color: Theme.surfaceElevated
+                        border.color: Theme.surfaceBorder
+                        border.width: 1
+                        radius: Theme.borderRadiusSmall
+                    }
+                }
                 onCurrentIndexChanged: {
                     if (currentIndex >= 0 && appViewModel) {
                         manualRecordDialog.selectedChannelId = appViewModel.channelList.data(
@@ -907,10 +973,12 @@ Item {
             var now = new Date()
             startHour = now.getHours()
             startMinute = now.getMinutes()
-            serverCombo.currentIndex = -1
             channelCombo.currentIndex = -1
-            if (appViewModel)
+            if (appViewModel) {
                 appViewModel.channelList.typeFilter = "live"
+                var primary = appViewModel.serverList.primaryServerIndex()
+                serverCombo.currentIndex = primary >= 0 ? primary : 0
+            }
         }
 
         onClosed: {

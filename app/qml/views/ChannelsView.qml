@@ -561,12 +561,13 @@ Item {
                                                 visible: status === Image.Ready
                                             }
 
-                                            Text {
+                                            Image {
                                                 anchors.centerIn: parent
-                                                text: "\uD83D\uDCFA"
-                                                font.pixelSize: 28
+                                                width: 48; height: 48
+                                                source: "qrc:/images/iptvxs_tray.png"
+                                                fillMode: Image.PreserveAspectFit
+                                                opacity: 0.4
                                                 visible: !model.logoUrl
-                                                color: Theme.textMuted
                                             }
                                         }
 
@@ -724,9 +725,12 @@ Item {
                                 fillMode: Image.PreserveAspectFit
                                 asynchronous: true; visible: status === Image.Ready
                             }
-                            Text {
+                            Image {
                                 anchors.centerIn: parent
-                                text: "\uD83D\uDCFA"; font.pixelSize: 16
+                                width: 28; height: 28
+                                source: "qrc:/images/iptvxs_tray.png"
+                                fillMode: Image.PreserveAspectFit
+                                opacity: 0.4
                                 visible: !model.logoUrl
                             }
                         }

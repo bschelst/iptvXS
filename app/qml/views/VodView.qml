@@ -404,12 +404,13 @@ Item {
                                         }
 
                                         // Fallback icon when no image
-                                        Text {
+                                        Image {
                                             anchors.centerIn: parent
-                                            text: "\uD83C\uDFAC"
-                                            font.pixelSize: 36
+                                            width: 48; height: 48
+                                            source: "qrc:/images/iptvxs_tray.png"
+                                            fillMode: Image.PreserveAspectFit
+                                            opacity: 0.3
                                             visible: !model.logoUrl || model.logoUrl.indexOf("http") !== 0
-                                            color: Theme.textMuted
                                         }
 
                                         // Dark gradient overlay at bottom
@@ -1074,6 +1075,13 @@ Item {
         reloadVodRows()
     }
 
+    Connections {
+        target: appViewModel ? appViewModel.categoryList : null
+        function onCountChanged() {
+            reloadVodRows()
+        }
+    }
+
     Component.onCompleted: {
         if (appViewModel) {
             appViewModel.channelList.searchQuery = ""
@@ -1082,7 +1090,6 @@ Item {
         if (appViewModel && appViewModel.serverList.count > 0) {
             selectServer(appViewModel.serverList.serverIdAt(0))
         }
-        reloadVodRows()
     }
 
     Component.onDestruction: {
