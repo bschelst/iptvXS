@@ -19,7 +19,9 @@ public:
         StreamUrlRole,
         LogoUrlRole,
         TypeRole,
-        PositionRole
+        PositionRole,
+        ExternalIdRole,
+        ServerIdRole
     };
 
     explicit FavoriteListViewModel(QObject *parent = nullptr);

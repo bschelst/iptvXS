@@ -164,8 +164,13 @@ Item {
                     onExited: parent.favHovered = false
                     onClicked: {
                         if (appViewModel) {
-                            appViewModel.player.play(model.streamUrl, model.name, model.logoUrl, model.channelId)
-                            appViewModel.currentView = "player"
+                            if (model.type === "series") {
+                                appViewModel.currentView = "vod"
+                                appViewModel.fetchSeriesEpisodes(model.serverId, model.externalId, model.name, model.logoUrl)
+                            } else {
+                                appViewModel.player.play(model.streamUrl, model.name, model.logoUrl, model.channelId)
+                                appViewModel.currentView = "player"
+                            }
                         }
                     }
 

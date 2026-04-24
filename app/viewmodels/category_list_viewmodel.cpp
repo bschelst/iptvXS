@@ -106,6 +106,7 @@ void CategoryListViewModel::toggleFavorite(int64_t categoryId) {
 void CategoryListViewModel::renameCategory(int64_t categoryId, const QString &name) {
     if (!settingsRepo_) return;
     settingsRepo_->setCustomName(categoryId, name);
+    loadCategories();
 }
 
 bool CategoryListViewModel::isCategoryHidden(int64_t categoryId) const {

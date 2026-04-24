@@ -39,6 +39,10 @@ QVariant FavoriteListViewModel::data(const QModelIndex &index, int role) const {
         return fav.channel.type;
     case PositionRole:
         return fav.position;
+    case ExternalIdRole:
+        return fav.channel.externalId;
+    case ServerIdRole:
+        return QVariant::fromValue(fav.channel.serverId);
     default:
         return {};
     }
@@ -52,6 +56,8 @@ QHash<int, QByteArray> FavoriteListViewModel::roleNames() const {
         {LogoUrlRole, "logoUrl"},
         {TypeRole, "type"},
         {PositionRole, "position"},
+        {ExternalIdRole, "externalId"},
+        {ServerIdRole, "serverId"},
     };
 }
 
