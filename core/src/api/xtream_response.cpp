@@ -60,6 +60,9 @@ XtreamStream XtreamStream::fromJson(const QJsonObject &obj) {
               qPrintable(obj.keys().join(", ")));
     }
     stream.streamIcon = obj.value("stream_icon").toString();
+    if (stream.streamIcon.isEmpty()) {
+        stream.streamIcon = obj.value("cover").toString();
+    }
     stream.epgChannelId = obj.value("epg_channel_id").toString();
     stream.added = obj.value("added").toVariant().toLongLong();
     stream.categoryId = obj.value("category_id").toVariant().toString();

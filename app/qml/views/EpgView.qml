@@ -119,10 +119,37 @@ Item {
 
                     delegate: ItemDelegate {
                         width: serverPicker.width
-                        height: model.enabled ? implicitHeight : 0
+                        height: model.enabled ? 36 : 0
                         visible: model.enabled
-                        text: model.name
+                        contentItem: Text {
+                            text: model.name
+                            font.pixelSize: Theme.fontSizeSm
+                            color: highlighted ? "#ffffff" : Theme.textPrimary
+                            verticalAlignment: Text.AlignVCenter
+                        }
                         highlighted: serverPicker.highlightedIndex === index
+                        background: Rectangle {
+                            color: highlighted ? Theme.accent : (hovered ? Theme.surfaceHover : Theme.surfaceElevated)
+                        }
+                    }
+
+                    popup: Popup {
+                        y: serverPicker.height
+                        width: serverPicker.width
+                        implicitHeight: contentItem.implicitHeight + 2
+                        padding: 1
+                        contentItem: ListView {
+                            clip: true
+                            implicitHeight: Math.min(contentHeight, 250)
+                            model: serverPicker.popup.visible ? serverPicker.delegateModel : null
+                            ScrollBar.vertical: ScrollBar { active: true }
+                        }
+                        background: Rectangle {
+                            color: Theme.surfaceElevated
+                            border.color: Theme.surfaceBorder
+                            border.width: 1
+                            radius: Theme.borderRadiusSmall
+                        }
                     }
 
                     onCurrentValueChanged: {

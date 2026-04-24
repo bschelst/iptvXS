@@ -281,7 +281,7 @@ Item {
                             color: selectedCategoryId === model.categoryId
                                 ? Theme.textPrimary : Theme.textSecondary
                             elide: Text.ElideRight
-                            width: parent.width - (model.favorite ? Theme.spacingLg + 14 : Theme.spacingXl) - catActionRow.width
+                            width: parent.width - (model.favorite ? Theme.spacingLg + 14 : Theme.spacingXl) - 60
                         }
 
                         // Action icons (visible on hover)
@@ -291,7 +291,8 @@ Item {
                             anchors.rightMargin: 4
                             anchors.verticalCenter: parent.verticalCenter
                             spacing: 2
-                            visible: catHovered
+                            opacity: catHovered ? 1.0 : 0.0
+                            enabled: catHovered
 
                             // Rename (pencil)
                             Rectangle {
