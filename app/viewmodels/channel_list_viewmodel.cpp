@@ -162,8 +162,10 @@ QString ChannelListViewModel::channelNameAt(int index) const {
 QVariantList ChannelListViewModel::channelsForCategory(int64_t categoryId, int limit) const {
     QVariantList result;
     if (!repo_) return result;
-    auto channels = repo_->findByCategory(categoryId, limit, 0);
+    auto channels = repo_->findByCategory(categoryId, limit * 2, 0);
     for (const auto &ch : channels) {
+        if (serverId_ > 0 && ch.serverId != serverId_) continue;
+        if (!typeFilter_.isEmpty() && ch.type != typeFilter_) continue;
         QVariantMap item;
         item[QStringLiteral("channelId")] = QVariant::fromValue(ch.id);
         item[QStringLiteral("name")] = ch.name;
@@ -173,6 +175,7 @@ QVariantList ChannelListViewModel::channelsForCategory(int64_t categoryId, int l
         item[QStringLiteral("externalId")] = ch.externalId;
         item[QStringLiteral("serverId")] = QVariant::fromValue(ch.serverId);
         result.append(item);
+        if (result.size() >= limit) break;
     }
     return result;
 }

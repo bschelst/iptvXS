@@ -383,7 +383,7 @@ Item {
                                     Rectangle {
                                         id: posterCard
                                         anchors.fill: parent
-                                        radius: 8
+                                        radius: 10
                                         color: Theme.surfaceElevated
                                         clip: true
                                         border.color: posterHov ? Theme.accent : "transparent"
@@ -418,7 +418,7 @@ Item {
                                             anchors.right: parent.right
                                             anchors.bottom: parent.bottom
                                             height: 60
-                                            radius: 8
+                                            radius: 10
 
                                             gradient: Gradient {
                                                 GradientStop { position: 0.0; color: "transparent" }

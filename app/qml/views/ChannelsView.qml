@@ -417,15 +417,241 @@ Item {
                 }
             }
 
+            // --- Netflix-style category rows ---
+            ListModel {
+                id: chCategoryModel
+                // Each element: { catId: int, catName: string }
+            }
+
+            Flickable {
+                id: netflixFlickable
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                clip: true
+                contentWidth: width
+                contentHeight: netflixColumn.implicitHeight
+                visible: chSearchInput.text.length === 0 && selectedCategoryId === 0
+                boundsBehavior: Flickable.StopAtBounds
+                flickableDirection: Flickable.VerticalFlick
+
+                onContentYChanged: {
+                    if (contentY + height > contentHeight - 400) {
+                        loadMoreChannelRows()
+                    }
+                }
+
+                ScrollBar.vertical: ScrollBar {
+                    active: true
+                    policy: ScrollBar.AsNeeded
+                    contentItem: Rectangle {
+                        implicitWidth: 6
+                        radius: 3
+                        color: Theme.accent
+                        opacity: parent.active ? 0.8 : 0.0
+                        Behavior on opacity { NumberAnimation { duration: Theme.animNormal } }
+                    }
+                    background: Rectangle {
+                        implicitWidth: 6
+                        color: "transparent"
+                    }
+                }
+
+                Column {
+                    id: netflixColumn
+                    width: parent.width
+                    spacing: Theme.spacingMd
+
+                    Repeater {
+                        id: chCategoryRepeater
+                        model: chCategoryModel
+
+                        delegate: Column {
+                            id: chCatDelegate
+                            width: netflixColumn.width
+                            spacing: Theme.spacingSm
+                            visible: chRowModel.count > 0
+
+                            property int catIdValue: model.catId
+                            property string catNameValue: model.catName
+
+                            ListModel {
+                                id: chRowModel
+                            }
+
+                            Component.onCompleted: {
+                                if (!appViewModel) return
+                                var items = appViewModel.channelList.channelsForCategory(catIdValue, 30)
+                                for (var i = 0; i < items.length; i++) {
+                                    chRowModel.append(items[i])
+                                }
+                            }
+
+                            // Category header
+                            Item {
+                                width: parent.width
+                                height: 36
+
+                                Text {
+                                    anchors.left: parent.left
+                                    anchors.leftMargin: Theme.spacingMd
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    text: catNameValue
+                                    font.pixelSize: Theme.fontSizeMd
+                                    font.bold: true
+                                    color: Theme.textPrimary
+                                }
+
+                                Text {
+                                    anchors.right: parent.right
+                                    anchors.rightMargin: Theme.spacingMd
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    text: "\u203A"
+                                    font.pixelSize: 22
+                                    font.bold: true
+                                    color: Theme.textMuted
+                                }
+                            }
+
+                            // Horizontal channel row
+                            ListView {
+                                width: parent.width
+                                height: 130
+                                orientation: ListView.Horizontal
+                                spacing: Theme.spacingSm
+                                clip: true
+                                leftMargin: Theme.spacingMd
+                                rightMargin: Theme.spacingMd
+                                boundsBehavior: Flickable.StopAtBounds
+                                model: chRowModel
+
+                                delegate: Item {
+                                    width: 160
+                                    height: 130
+
+                                    Rectangle {
+                                        id: chNetCard
+                                        anchors.fill: parent
+                                        radius: 10
+                                        color: Theme.surfaceElevated
+                                        clip: true
+                                        border.color: chNetHov ? Theme.accent : "transparent"
+                                        border.width: chNetHov ? 2 : 0
+
+                                        scale: chNetHov ? 1.04 : 1.0
+                                        Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
+
+                                        property bool chNetHov: false
+
+                                        // Logo area (centered, not cropped)
+                                        Rectangle {
+                                            id: chNetLogoArea
+                                            anchors.top: parent.top
+                                            anchors.left: parent.left
+                                            anchors.right: parent.right
+                                            height: 80
+                                            color: "transparent"
+
+                                            Image {
+                                                anchors.centerIn: parent
+                                                width: parent.width - 24
+                                                height: parent.height - 16
+                                                source: model.logoUrl || ""
+                                                fillMode: Image.PreserveAspectFit
+                                                asynchronous: true
+                                                visible: status === Image.Ready
+                                            }
+
+                                            Text {
+                                                anchors.centerIn: parent
+                                                text: "\uD83D\uDCFA"
+                                                font.pixelSize: 28
+                                                visible: !model.logoUrl
+                                                color: Theme.textMuted
+                                            }
+                                        }
+
+                                        // Channel name below logo
+                                        Text {
+                                            anchors.top: chNetLogoArea.bottom
+                                            anchors.left: parent.left
+                                            anchors.right: parent.right
+                                            anchors.leftMargin: 8
+                                            anchors.rightMargin: 8
+                                            text: model.name
+                                            font.pixelSize: Theme.fontSizeXs
+                                            font.bold: true
+                                            color: Theme.textPrimary
+                                            elide: Text.ElideRight
+                                            maximumLineCount: 2
+                                            wrapMode: Text.Wrap
+                                            horizontalAlignment: Text.AlignHCenter
+                                        }
+
+                                        // Favorite indicator
+                                        Text {
+                                            visible: appViewModel && appViewModel.favoriteList.isFavorite(model.channelId)
+                                            anchors.top: parent.top
+                                            anchors.right: parent.right
+                                            anchors.topMargin: 4
+                                            anchors.rightMargin: 4
+                                            text: "\u2B50"
+                                            font.pixelSize: 10
+                                            opacity: 0.7
+                                        }
+
+                                        MouseArea {
+                                            anchors.fill: parent
+                                            hoverEnabled: true
+                                            cursorShape: Qt.PointingHandCursor
+                                            onEntered: chNetCard.chNetHov = true
+                                            onExited: chNetCard.chNetHov = false
+                                            onClicked: {
+                                                if (appViewModel) {
+                                                    appViewModel.player.play(model.streamUrl, model.name, model.logoUrl, model.channelId)
+                                                    appViewModel.currentView = "player"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Empty state
+                    Text {
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        visible: chCategoryModel.count === 0 && activeServerId > 0
+                        topPadding: 80
+                        text: "No channels found.\nSync the server first."
+                        font.pixelSize: Theme.fontSizeMd
+                        color: Theme.textMuted
+                        horizontalAlignment: Text.AlignHCenter
+                        lineHeight: 1.5
+                    }
+
+                    Text {
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        visible: activeServerId === 0
+                        topPadding: 80
+                        text: "Select a server to browse channels."
+                        font.pixelSize: Theme.fontSizeMd
+                        color: Theme.textMuted
+                    }
+                }
+            }
+
+            // --- Search results / single-category grid (shown when search is active or a specific category is selected) ---
             GridView {
                 id: channelGrid
                 Layout.fillWidth: true
                 Layout.fillHeight: true
+                visible: chSearchInput.text.length > 0 || selectedCategoryId !== 0
                 property int cols: appViewModel ? appViewModel.gridColumns : 2
                 cellWidth: Math.floor(width / cols)
                 cellHeight: 80
                 clip: true
-                focus: true
+                focus: visible
                 keyNavigationEnabled: true
                 highlight: Rectangle {
                     color: Theme.accent + "30"
@@ -609,18 +835,8 @@ Item {
 
                 Text {
                     anchors.centerIn: parent
-                    visible: channelGrid.count === 0 && activeServerId > 0
-                    text: "No channels found.\nSync the server first."
-                    font.pixelSize: Theme.fontSizeMd
-                    color: Theme.textMuted
-                    horizontalAlignment: Text.AlignHCenter
-                    lineHeight: 1.5
-                }
-
-                Text {
-                    anchors.centerIn: parent
-                    visible: activeServerId === 0
-                    text: "Select a server to browse channels."
+                    visible: channelGrid.count === 0
+                    text: "No results found."
                     font.pixelSize: Theme.fontSizeMd
                     color: Theme.textMuted
                     horizontalAlignment: Text.AlignHCenter
@@ -630,6 +846,31 @@ Item {
     }
 
     property var selectedCategoryId: 0
+    property int chRowsLoaded: 0
+    property int chRowsBatchSize: 8
+
+    function reloadChannelRows() {
+        chCategoryModel.clear()
+        chRowsLoaded = 0
+        loadMoreChannelRows()
+    }
+
+    function loadMoreChannelRows() {
+        if (!appViewModel) return
+        var catList = appViewModel.categoryList
+        if (!catList) return
+        var end = Math.min(chRowsLoaded + chRowsBatchSize, catList.count)
+        for (var i = chRowsLoaded; i < end; i++) {
+            var catId = catList.categoryIdAt(i)
+            // Skip "All Channels" (categoryId = 0) — too many items
+            if (catId === 0) continue
+            chCategoryModel.append({
+                catId: catId,
+                catName: catList.categoryNameAt(i)
+            })
+        }
+        chRowsLoaded = end
+    }
 
     function selectServer(serverId) {
         activeServerId = serverId
@@ -639,6 +880,9 @@ Item {
             appViewModel.categoryList.serverId = serverId
             appViewModel.channelList.typeFilter = "live"
             appViewModel.channelList.serverId = serverId
+            appViewModel.channelList.categoryId = 0
+            appViewModel.channelList.refresh()
+            reloadChannelRows()
         }
     }
 
@@ -650,7 +894,6 @@ Item {
     }
 
     Component.onCompleted: {
-        channelGrid.forceActiveFocus()
         if (appViewModel) {
             appViewModel.channelList.searchQuery = ""
             appViewModel.channelList.categoryId = 0
