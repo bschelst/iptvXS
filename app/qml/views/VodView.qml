@@ -1085,12 +1085,9 @@ Item {
         appViewModel.channelList.refresh()
         // Force category reload — shared categoryList may already have same serverId
         // from ChannelsView but with different filterType, causing no reload
-        appViewModel.categoryList.setFilterType(activeType)
-        if (appViewModel.categoryList.serverId === activeServerId) {
-            appViewModel.categoryList.refresh()
-        } else {
-            appViewModel.categoryList.setServerId(activeServerId)
-        }
+        appViewModel.categoryList.filterType = activeType
+        appViewModel.categoryList.serverId = activeServerId
+        appViewModel.categoryList.refresh()
     }
 
     Connections {
