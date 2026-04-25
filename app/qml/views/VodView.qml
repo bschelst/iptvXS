@@ -145,6 +145,10 @@ Item {
                         clip: true
                         color: activeServerId === model.serverId
                             ? Theme.accent + "25" : srvHov ? Theme.surfaceHover : "transparent"
+                        border.width: serverPicker.activeFocus && serverPicker.currentIndex === index ? 2 : 0
+                        border.color: serverPicker.activeFocus && serverPicker.currentIndex === index
+                            ? Theme.accent
+                            : "transparent"
 
                         property bool srvHov: false
 
@@ -341,6 +345,10 @@ Item {
 
                         color: selectedCategoryId === model.categoryId
                             ? Theme.accentGlow : vodCatHov ? Theme.surfaceHover : "transparent"
+                        border.width: vodCategoryList.activeFocus && vodCategoryList.currentIndex === index ? 2 : 0
+                        border.color: vodCategoryList.activeFocus && vodCategoryList.currentIndex === index
+                            ? Theme.accent
+                            : "transparent"
 
                         property bool vodCatHov: false
                         opacity: model.hidden ? 0.5 : 1.0
@@ -744,6 +752,10 @@ Item {
                                         anchors.fill: parent
                                         radius: 10
                                         color: Theme.surfaceElevated
+                                        border.width: rowListView.activeFocus && rowListView.currentIndex === index ? 2 : 0
+                                        border.color: rowListView.activeFocus && rowListView.currentIndex === index
+                                            ? Theme.accent
+                                            : "transparent"
                                         clip: true
                                         layer.enabled: true
                                         layer.effect: OpacityMask {
@@ -1072,7 +1084,7 @@ Item {
                             color: "transparent"
                             border.color: (catGridCard.catGridHov || (categoryGrid.activeFocus && categoryGrid.currentIndex === index))
                                 ? Theme.accent : "transparent"
-                            border.width: 2
+                            border.width: (catGridCard.catGridHov || (categoryGrid.activeFocus && categoryGrid.currentIndex === index)) ? 2 : 0
                             z: 100
                         }
                     }
@@ -1153,8 +1165,9 @@ Item {
                         anchors.margins: 2
                         radius: Theme.borderRadiusLarge
                         color: searchItemHov ? Theme.surfaceHover : Theme.surfaceElevated
-                        border.color: searchItemHov ? Theme.accent + "60" : "transparent"
-                        border.width: searchItemHov ? 2 : 1
+                        border.color: (searchItemHov || (vodGrid.activeFocus && vodGrid.currentIndex === index))
+                            ? Theme.accent + "80" : "transparent"
+                        border.width: (searchItemHov || (vodGrid.activeFocus && vodGrid.currentIndex === index)) ? 2 : 1
 
                         scale: searchItemHov ? 1.02 : 1.0
                         Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }

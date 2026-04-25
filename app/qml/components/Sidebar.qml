@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import QtQuick.Window
 import app.iptvxs
 
 Rectangle {
@@ -8,11 +9,35 @@ Rectangle {
 
     property bool collapsed: false
     property string activeItem: "home"
+    readonly property var navigationItems: [
+        "home", "servers", "channels", "epg", "vod_movies", "vod_series",
+        "favorites", "groups", "recordings", "history", "speedtest", "log", "settings"
+    ]
 
     signal itemClicked(string name)
 
     Layout.preferredWidth: collapsed ? Theme.sidebarCollapsedWidth : Theme.sidebarWidth
     color: Theme.surface
+    focus: true
+    activeFocusOnTab: true
+
+    function navigate(delta) {
+        var idx = navigationItems.indexOf(activeItem)
+        if (idx < 0) idx = 0
+        idx = Math.max(0, Math.min(navigationItems.length - 1, idx + delta))
+        activeItem = navigationItems[idx]
+        itemClicked(activeItem)
+    }
+
+    Keys.onUpPressed: navigate(-1)
+    Keys.onDownPressed: navigate(1)
+    Keys.onReturnPressed: itemClicked(activeItem)
+    Keys.onEnterPressed: itemClicked(activeItem)
+    Keys.onRightPressed: {
+        if (Window.window && Window.window.focusCurrentViewSecondary) {
+            Window.window.focusCurrentViewSecondary()
+        }
+    }
 
     Behavior on Layout.preferredWidth {
         NumberAnimation {
@@ -98,6 +123,10 @@ Rectangle {
                 color: sidebar.activeItem === modelData.name
                     ? Theme.accent
                     : hovered ? Theme.surfaceHover : "transparent"
+                border.width: sidebar.activeFocus && sidebar.activeItem === modelData.name ? 2 : 0
+                border.color: sidebar.activeFocus && sidebar.activeItem === modelData.name
+                    ? Theme.textOnAccent
+                    : "transparent"
 
                 property bool hovered: false
 
@@ -151,6 +180,7 @@ Rectangle {
                     onExited: parent.hovered = false
                     onClicked: {
                         sidebar.activeItem = modelData.name
+                        sidebar.forceActiveFocus()
                         sidebar.itemClicked(modelData.name)
                     }
                 }
@@ -199,6 +229,10 @@ Rectangle {
                 color: sidebar.activeItem === modelData.name
                     ? Theme.accent
                     : hovered ? Theme.surfaceHover : "transparent"
+                border.width: sidebar.activeFocus && sidebar.activeItem === modelData.name ? 2 : 0
+                border.color: sidebar.activeFocus && sidebar.activeItem === modelData.name
+                    ? Theme.textOnAccent
+                    : "transparent"
 
                 property bool hovered: false
 
@@ -248,6 +282,7 @@ Rectangle {
                     onExited: parent.hovered = false
                     onClicked: {
                         sidebar.activeItem = modelData.name
+                        sidebar.forceActiveFocus()
                         sidebar.itemClicked(modelData.name)
                     }
                 }

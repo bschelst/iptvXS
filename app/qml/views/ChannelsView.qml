@@ -123,6 +123,10 @@ Item {
                         clip: true
                         color: activeServerId === model.serverId
                             ? Theme.accent + "25" : srvHovered ? Theme.surfaceHover : "transparent"
+                        border.width: serverPicker.activeFocus && serverPicker.currentIndex === index ? 2 : 0
+                        border.color: serverPicker.activeFocus && serverPicker.currentIndex === index
+                            ? Theme.accent
+                            : "transparent"
 
                         property bool srvHovered: false
 
@@ -321,6 +325,10 @@ Item {
 
                         color: selectedCategoryId === model.categoryId
                             ? Theme.accentGlow : catHovered ? Theme.surfaceHover : "transparent"
+                        border.width: categoryList.activeFocus && categoryList.currentIndex === index ? 2 : 0
+                        border.color: categoryList.activeFocus && categoryList.currentIndex === index
+                            ? Theme.accent
+                            : "transparent"
 
                         property bool catHovered: false
                         opacity: model.hidden ? 0.5 : 1.0
@@ -768,6 +776,10 @@ Item {
                                         anchors.margins: 6
                                         radius: 10
                                         color: Theme.surfaceElevated
+                                        border.width: chRowListView.activeFocus && chRowListView.currentIndex === index ? 2 : 0
+                                        border.color: chRowListView.activeFocus && chRowListView.currentIndex === index
+                                            ? Theme.accent
+                                            : "transparent"
                                         clip: true
                                         layer.enabled: true
                                         layer.effect: OpacityMask {
@@ -963,8 +975,9 @@ Item {
                         anchors.margins: 2
                         radius: Theme.borderRadiusLarge
                         color: chHovered ? Theme.surfaceHover : Theme.surfaceElevated
-                        border.color: chHovered ? Theme.accent + "60" : "transparent"
-                        border.width: chHovered ? 2 : 1
+                        border.color: (chHovered || (channelGrid.activeFocus && channelGrid.currentIndex === index))
+                            ? Theme.accent + "80" : "transparent"
+                        border.width: (chHovered || (channelGrid.activeFocus && channelGrid.currentIndex === index)) ? 2 : 1
                         property bool chHovered: false
 
                         scale: chHovered ? 1.02 : 1.0
