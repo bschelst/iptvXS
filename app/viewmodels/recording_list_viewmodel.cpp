@@ -1,5 +1,6 @@
 #include "recording_list_viewmodel.h"
 
+#include <QDate>
 #include <QDateTime>
 #include <QFile>
 #include <QFileInfo>
@@ -80,6 +81,10 @@ QVariant RecordingListViewModel::data(const QModelIndex &index, int role) const 
         return entry.programmeTitle;
     case ChannelLogoRole:
         return entry.channelLogo;
+    case DateSectionRole:
+        return entry.dateSection;
+    case ShowDateHeaderRole:
+        return entry.showDateHeader;
     default:
         return {};
     }
@@ -103,6 +108,8 @@ QHash<int, QByteArray> RecordingListViewModel::roleNames() const {
         {ThumbnailUrlRole, "thumbnailUrl"},
         {ProgrammeTitleRole, "programmeTitle"},
         {ChannelLogoRole, "channelLogo"},
+        {DateSectionRole, "dateSection"},
+        {ShowDateHeaderRole, "showDateHeader"},
     };
 }
 
@@ -116,6 +123,10 @@ bool RecordingListViewModel::empty() const {
 
 int RecordingListViewModel::activeCount() const {
     return manager_ ? manager_->activeCount() : 0;
+}
+
+int RecordingListViewModel::modelRevision() const {
+    return modelRevision_;
 }
 
 QString RecordingListViewModel::filterStatus() const {
@@ -371,6 +382,24 @@ QString RecordingListViewModel::formatDateTime(int64_t timestamp) const {
     return QDateTime::fromSecsSinceEpoch(timestamp).toString(QStringLiteral("dd MMM yyyy HH:mm"));
 }
 
+namespace {
+QString recordingDateSection(int64_t timestamp) {
+    if (timestamp <= 0) {
+        return QStringLiteral("Unknown");
+    }
+
+    const auto date = QDateTime::fromSecsSinceEpoch(timestamp).date();
+    const auto today = QDate::currentDate();
+    if (date == today) {
+        return QStringLiteral("Today");
+    }
+    if (date == today.addDays(-1)) {
+        return QStringLiteral("Yesterday");
+    }
+    return date.toString(QStringLiteral("dd MMM yyyy"));
+}
+} // namespace
+
 QString RecordingListViewModel::formatDuration(int64_t startTime, int64_t endTime) const {
     if (startTime <= 0) {
         return QStringLiteral("—");
@@ -401,6 +430,7 @@ void RecordingListViewModel::loadRecordings() {
                     ? recordingRepo_->findAll()
                     : recordingRepo_->findByStatus(filterStatus_);
 
+    QString previousSection;
     for (const auto &rec : recs) {
         RecordingEntry entry;
         entry.recording = rec;
@@ -409,15 +439,35 @@ void RecordingListViewModel::loadRecordings() {
             auto ch = channelRepo_->findById(rec.channelId);
             if (ch) entry.channelLogo = ch->logoUrl;
         }
-        if (progRepo_ && rec.programmeId > 0) {
-            auto prog = progRepo_->findById(rec.programmeId);
-            if (prog) entry.programmeTitle = prog->title;
+        if (progRepo_) {
+            if (rec.programmeId > 0) {
+                auto prog = progRepo_->findById(rec.programmeId);
+                if (prog) {
+                    entry.programmeTitle = prog->title;
+                }
+            }
+            if (entry.programmeTitle.isEmpty() && channelRepo_) {
+                auto ch = channelRepo_->findById(rec.channelId);
+                if (ch && !ch->epgChannelId.isEmpty()) {
+                    auto fromTime = rec.startTime > 0 ? rec.startTime - 1800 : 0;
+                    auto toTime = rec.endTime > 0 ? rec.endTime + 1800 : rec.startTime + 7200;
+                    auto progs = progRepo_->findByChannel(ch->epgChannelId, fromTime, toTime);
+                    if (!progs.isEmpty()) {
+                        entry.programmeTitle = progs.first().title;
+                    }
+                }
+            }
         }
+        entry.dateSection = recordingDateSection(rec.startTime);
+        entry.showDateHeader = entry.dateSection != previousSection;
+        previousSection = entry.dateSection;
         recordings_.append(entry);
     }
 
     endResetModel();
     emit countChanged();
+    ++modelRevision_;
+    emit modelRevisionChanged();
 }
 
 void RecordingListViewModel::togglePin(int64_t recordingId) {
@@ -426,6 +476,49 @@ void RecordingListViewModel::togglePin(int64_t recordingId) {
     if (!rec) return;
     recordingRepo_->setPinned(recordingId, !rec->pinned);
     loadRecordings();
+}
+
+QVariantList RecordingListViewModel::recordingSections() const {
+    QVariantList sections;
+    QString lastSection;
+    for (const auto &entry : recordings_) {
+        if (entry.dateSection == lastSection) {
+            continue;
+        }
+        lastSection = entry.dateSection;
+        sections.append(entry.dateSection);
+    }
+    return sections;
+}
+
+QVariantList RecordingListViewModel::recordingsForSection(const QString &section) const {
+    QVariantList items;
+    if (section.isEmpty()) return items;
+
+    for (const auto &entry : recordings_) {
+        if (entry.dateSection != section) continue;
+        const auto &rec = entry.recording;
+        QVariantMap item;
+        item[QStringLiteral("recordingId")] = QVariant::fromValue(rec.id);
+        item[QStringLiteral("channelId")] = QVariant::fromValue(rec.channelId);
+        item[QStringLiteral("channelName")] = entry.channelName;
+        item[QStringLiteral("status")] = rec.status;
+        item[QStringLiteral("filePath")] = rec.filePath;
+        item[QStringLiteral("quality")] = rec.quality;
+        item[QStringLiteral("startTime")] = QVariant::fromValue(rec.startTime);
+        item[QStringLiteral("endTime")] = QVariant::fromValue(rec.endTime);
+        item[QStringLiteral("fileSize")] = QVariant::fromValue(rec.fileSizeBytes);
+        item[QStringLiteral("errorMessage")] = rec.errorMessage;
+        item[QStringLiteral("createdAt")] = QVariant::fromValue(rec.createdAt);
+        item[QStringLiteral("isActive")] = manager_ ? manager_->isRecording(rec.id) : false;
+        item[QStringLiteral("pinned")] = rec.pinned;
+        item[QStringLiteral("thumbnailUrl")] = rec.thumbnailUrl;
+        item[QStringLiteral("programmeTitle")] = entry.programmeTitle;
+        item[QStringLiteral("channelLogo")] = entry.channelLogo;
+        item[QStringLiteral("dateSection")] = entry.dateSection;
+        items.append(item);
+    }
+    return items;
 }
 
 QString RecordingListViewModel::channelNameForId(int64_t channelId) const {

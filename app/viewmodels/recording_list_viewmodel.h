@@ -16,6 +16,7 @@ class RecordingListViewModel : public QAbstractListModel {
     Q_PROPERTY(bool empty READ empty NOTIFY countChanged)
     Q_PROPERTY(int activeCount READ activeCount NOTIFY activeCountChanged)
     Q_PROPERTY(QString filterStatus READ filterStatus WRITE setFilterStatus NOTIFY filterStatusChanged)
+    Q_PROPERTY(int modelRevision READ modelRevision NOTIFY modelRevisionChanged)
 
 public:
     enum Roles {
@@ -34,7 +35,9 @@ public:
         PinnedRole,
         ThumbnailUrlRole,
         ProgrammeTitleRole,
-        ChannelLogoRole
+        ChannelLogoRole,
+        DateSectionRole,
+        ShowDateHeaderRole
     };
 
     explicit RecordingListViewModel(QObject *parent = nullptr);
@@ -51,6 +54,7 @@ public:
     int count() const;
     bool empty() const;
     int activeCount() const;
+    int modelRevision() const;
     QString filterStatus() const;
     void setFilterStatus(const QString &status);
 
@@ -76,11 +80,14 @@ public:
     Q_INVOKABLE QString formatDateTime(int64_t timestamp) const;
     Q_INVOKABLE QString formatDuration(int64_t startTime, int64_t endTime) const;
     Q_INVOKABLE void togglePin(int64_t recordingId);
+    Q_INVOKABLE QVariantList recordingSections() const;
+    Q_INVOKABLE QVariantList recordingsForSection(const QString &section) const;
 
 signals:
     void countChanged();
     void activeCountChanged();
     void filterStatusChanged();
+    void modelRevisionChanged();
     void recordingCreated(int64_t recordingId);
 
 private:
@@ -89,6 +96,8 @@ private:
         QString channelName;
         QString channelLogo;
         QString programmeTitle;
+        QString dateSection;
+        bool showDateHeader{false};
     };
 
     void loadRecordings();
@@ -100,4 +109,5 @@ private:
     iptvxs::RecordingManager *manager_{nullptr};
     QVector<RecordingEntry> recordings_;
     QString filterStatus_;
+    int modelRevision_{0};
 };

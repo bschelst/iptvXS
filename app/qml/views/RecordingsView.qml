@@ -163,621 +163,529 @@ Item {
             }
         }
 
-        ListView {
-            id: recordingsList
+        Flickable {
+            id: recordingsFlickable
             Layout.fillWidth: true
             Layout.fillHeight: true
             clip: true
-            model: appViewModel ? appViewModel.recordingList : null
-            spacing: Theme.spacingXs
+            contentWidth: width
+            contentHeight: recordingsColumn.implicitHeight
+            flickableDirection: Flickable.VerticalFlick
+            boundsBehavior: Flickable.StopAtBounds
 
             ScrollBar.vertical: ScrollBar {
                 active: true
                 policy: ScrollBar.AsNeeded
             }
 
-            section.property: "status"
-            section.delegate: Rectangle {
-                required property string section
-                width: recordingsList.width
-                height: 32
-                color: Theme.surface
+            Column {
+                id: recordingsColumn
+                width: parent.width
+                spacing: Theme.spacingMd
 
-                RowLayout {
-                    anchors.fill: parent
-                    anchors.leftMargin: Theme.spacingMd
-                    anchors.rightMargin: Theme.spacingMd
-
-                    Rectangle {
-                        width: 8
-                        height: 8
-                        radius: 4
-                        color: {
-                            switch (section) {
-                            case "recording": return Theme.error
-                            case "scheduled": return Theme.accent
-                            case "completed": return Theme.success
-                            case "uploading": return Theme.accent
-                            case "uploaded": return Theme.success
-                            case "failed": return Theme.error
-                            default: return Theme.textMuted
-                            }
-                        }
+                Repeater {
+                    id: recordingSectionRepeater
+                    model: {
+                        var rev = appViewModel ? appViewModel.recordingList.modelRevision : 0
+                        return appViewModel ? appViewModel.recordingList.recordingSections() : []
                     }
 
-                    Text {
-                        text: {
-                            switch (section) {
-                            case "recording": return "Recording"
-                            case "scheduled": return "Scheduled"
-                            case "completed": return "Completed"
-                            case "uploading": return "Uploading"
-                            case "uploaded": return "Uploaded"
-                            case "failed": return "Failed"
-                            default: return section
-                            }
-                        }
-                        font.pixelSize: Theme.fontSizeXs
-                        font.bold: true
-                        font.capitalization: Font.AllUppercase
-                        color: Theme.textSecondary
-                        font.letterSpacing: 1
-                    }
+                    delegate: Column {
+                        id: recordingSection
+                        width: recordingsColumn.width
+                        spacing: Theme.spacingSm
 
-                    Item { Layout.fillWidth: true }
-                }
+                        property string sectionName: modelData
+                        property var rowItems: appViewModel
+                            ? ((appViewModel.recordingList.modelRevision, appViewModel.recordingList.recordingsForSection(sectionName)))
+                            : []
+                        property int currentCardIndex: 0
 
-                Rectangle {
-                    anchors.bottom: parent.bottom
-                    width: parent.width
-                    height: 1
-                    color: Theme.surfaceBorder
-                    opacity: 0.5
-                }
-            }
-
-            delegate: Rectangle {
-                width: recordingsList.width - Theme.spacingMd * 2
-                readonly property bool isUploading:
-                    model.status === "uploading" && appViewModel &&
-                    appViewModel.gdrive.uploading
-                readonly property bool hasBottomBar:
-                    (model.status === "failed" && model.errorMessage) || isUploading
-                height: hasBottomBar ? 108 : 80
-                x: Theme.spacingMd
-                radius: Theme.borderRadius
-                color: recHovered ? Theme.surfaceHover : Theme.surfaceElevated
-                border.color: {
-                    if (model.pinned) return Theme.accent + "80"
-                    if (model.status === "recording") return Theme.error + "60"
-                    return recHovered ? Theme.accent + "40" : "transparent"
-                }
-                border.width: 1
-
-                property bool recHovered: false
-
-                Behavior on color {
-                    ColorAnimation { duration: Theme.animFast }
-                }
-
-                MouseArea {
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    onEntered: parent.recHovered = true
-                    onExited: parent.recHovered = false
-                    onClicked: {
-                        if ((model.status === "completed" || model.status === "uploaded") && appViewModel) {
-                            if (model.filePath && model.filePath.length > 0) {
-                                appViewModel.pendingPlayUrl = model.filePath
-                                appViewModel.pendingPlayName = model.channelName + " (Recording)"
-                                appViewModel.currentView = "player"
-                            } else {
-                                noFileToast.show()
-                            }
-                        }
-                    }
-                    cursorShape: (model.status === "completed" || model.status === "uploaded")
-                        ? Qt.PointingHandCursor : Qt.ArrowCursor
-                }
-
-                RowLayout {
-                    anchors.top: parent.top
-                    anchors.left: parent.left
-                    anchors.right: parent.right
-                    anchors.leftMargin: Theme.spacingSm
-                    anchors.rightMargin: Theme.spacingSm
-                    anchors.topMargin: Theme.spacingSm
-                    height: 72
-                    spacing: Theme.spacingSm
-
-                    Rectangle {
-                        Layout.preferredWidth: 56
-                        Layout.preferredHeight: 56
-                        Layout.alignment: Qt.AlignTop
-                        radius: Theme.borderRadiusSmall
-                        clip: true
-                        color: {
-                            switch (model.status) {
-                            case "recording": return Theme.error + "20"
-                            case "scheduled": return Theme.accent + "20"
-                            case "completed": return Theme.success + "20"
-                            case "uploading": return Theme.accent + "20"
-                            case "uploaded": return Theme.success + "20"
-                            case "failed": return Theme.error + "10"
-                            default: return Theme.surface
-                            }
+                        function focusCardAt(i) {
+                            if (!rowRepeater || rowItems.length <= 0) return
+                            currentCardIndex = Math.max(0, Math.min(i, rowItems.length - 1))
+                            var item = rowRepeater.itemAt(currentCardIndex)
+                            if (item) item.forceActiveFocus()
                         }
 
-                        Image {
-                            id: recThumb
-                            anchors.fill: parent
-                            source: model.thumbnailUrl && model.thumbnailUrl.indexOf("http") === 0
-                                ? model.thumbnailUrl : ""
-                            fillMode: Image.PreserveAspectFit
-                            visible: status === Image.Ready
-                        }
+                        Item {
+                            width: parent.width
+                            height: 36
 
                             Text {
-                                anchors.centerIn: parent
-                                visible: !recThumb.visible
-                                text: {
-                                    switch (model.status) {
-                                    case "recording": return "●"
-                                    case "scheduled": return "◷"
-                                    case "completed": return "✓"
-                                    case "failed": return "✕"
-                                    case "uploading": return "↑"
-                                    case "uploaded": return "☁"
-                                    default: return "▶"
-                                    }
-                                }
-                                font.pixelSize: 20
-                                font.bold: model.status === "completed" || model.status === "failed"
-                                color: {
-                                    switch (model.status) {
-                                    case "recording": return Theme.error
-                                    case "scheduled": return Theme.accent
-                                    case "completed": return Theme.success
-                                    case "uploading": return Theme.accent
-                                    case "uploaded": return Theme.success
-                                    case "failed": return Theme.error
-                                    default: return Theme.textSecondary
-                                    }
-                                }
-                            }
-
-                        Rectangle {
-                            visible: recThumb.visible
-                            anchors.right: parent.right
-                            anchors.bottom: parent.bottom
-                            anchors.rightMargin: 3
-                            anchors.bottomMargin: 3
-                            width: 14
-                            height: 14
-                            radius: 7
-                            z: 10
-                            color: {
-                                switch (model.status) {
-                                case "recording": return Theme.error
-                                case "scheduled": return Theme.accent
-                                case "completed": return Theme.success
-                                case "uploading": return Theme.accent
-                                case "uploaded": return Theme.success
-                                case "failed": return Theme.error
-                                default: return Theme.surface
-                                }
-                            }
-
-                            Text {
-                                anchors.centerIn: parent
-                                text: {
-                                    switch (model.status) {
-                                    case "recording": return "●"
-                                    case "scheduled": return "◷"
-                                    case "completed": return "✓"
-                                    case "failed": return "✕"
-                                    case "uploading": return "↑"
-                                    case "uploaded": return "☁"
-                                    default: return ""
-                                    }
-                                }
-                                font.pixelSize: 8
-                                font.bold: true
-                                color: "#ffffff"
-                            }
-                        }
-
-                        SequentialAnimation on opacity {
-                            running: model.status === "recording" || model.status === "uploading"
-                            loops: Animation.Infinite
-                            NumberAnimation { to: 0.4; duration: 800 }
-                            NumberAnimation { to: 1.0; duration: 800 }
-                        }
-                    }
-
-                    ColumnLayout {
-                        Layout.fillWidth: true
-                        Layout.alignment: Qt.AlignTop
-                        spacing: 4
-
-                        RowLayout {
-                            Layout.fillWidth: true
-                            spacing: Theme.spacingSm
-
-                            Text {
-                                text: model.channelName
-                                font.pixelSize: Theme.fontSizeSm
+                                anchors.left: parent.left
+                                anchors.leftMargin: Theme.spacingMd
+                                anchors.verticalCenter: parent.verticalCenter
+                                text: sectionName
+                                font.pixelSize: Theme.fontSizeMd
                                 font.bold: true
                                 color: Theme.textPrimary
-                                elide: Text.ElideRight
                             }
 
-                            Text {
-                                visible: model.programmeTitle && model.programmeTitle.length > 0
-                                text: model.programmeTitle || ""
-                                font.pixelSize: Theme.fontSizeSm
-                                color: Theme.textSecondary
-                                elide: Text.ElideRight
-                                Layout.fillWidth: true
-                            }
-                        }
+                            Row {
+                                anchors.right: parent.right
+                                anchors.rightMargin: Theme.spacingSm
+                                anchors.verticalCenter: parent.verticalCenter
+                                spacing: 4
 
-                        RowLayout {
-                            spacing: Theme.spacingSm
+                                Rectangle {
+                                    width: 28
+                                    height: 28
+                                    radius: 14
+                                    color: recScrollLeftHov ? Theme.surfaceHover : "transparent"
+                                    property bool recScrollLeftHov: false
 
-                            Text {
-                                text: appViewModel ? appViewModel.recordingList.formatDateTime(model.startTime) : ""
-                                font.pixelSize: Theme.fontSizeXs
-                                color: Theme.textMuted
-                            }
-
-                            Text {
-                                visible: model.endTime > 0
-                                text: "→ " + (appViewModel ? appViewModel.recordingList.formatDateTime(model.endTime) : "")
-                                font.pixelSize: Theme.fontSizeXs
-                                color: Theme.textMuted
-                            }
-
-                            Rectangle {
-                                width: 1
-                                height: 12
-                                color: Theme.surfaceBorder
-                            }
-
-                            Text {
-                                text: appViewModel ? appViewModel.recordingList.formatDuration(model.startTime, model.endTime) : ""
-                                font.pixelSize: Theme.fontSizeXs
-                                color: Theme.textSecondary
-                            }
-                        }
-
-                        RowLayout {
-                            spacing: Theme.spacingSm
-
-                            Rectangle {
-                                width: statusLabel.implicitWidth + 16
-                                height: 20
-                                radius: 10
-                                color: {
-                                    switch (model.status) {
-                                    case "recording": return Theme.error
-                                    case "scheduled": return Theme.accent
-                                    case "completed": return Theme.success
-                                    case "uploading": return Theme.accent
-                                    case "uploaded": return Theme.success
-                                    case "failed": return Theme.error + "cc"
-                                    default: return Theme.surface
+                                    Text {
+                                        anchors.centerIn: parent
+                                        text: "\u2039"
+                                        font.pixelSize: 22
+                                        font.bold: true
+                                        color: parent.recScrollLeftHov ? Theme.textPrimary : Theme.textMuted
                                     }
+
+                                        MouseArea {
+                                            anchors.fill: parent
+                                            hoverEnabled: true
+                                            cursorShape: Qt.PointingHandCursor
+                                            onEntered: parent.recScrollLeftHov = true
+                                            onExited: parent.recScrollLeftHov = false
+                                            onClicked: rowListView.contentX = Math.max(rowListView.contentX - 260, 0)
+                                        }
                                 }
 
-                                Text {
-                                    id: statusLabel
-                                    anchors.centerIn: parent
-                                    text: model.status
-                                    font.pixelSize: 10
-                                    font.capitalization: Font.AllUppercase
-                                    font.bold: true
-                                    color: Theme.textOnAccent
-                                }
-                            }
+                                Rectangle {
+                                    width: 28
+                                    height: 28
+                                    radius: 14
+                                    color: recScrollRightHov ? Theme.surfaceHover : "transparent"
+                                    property bool recScrollRightHov: false
 
-                            Text {
-                                visible: model.fileSize > 0
-                                text: appViewModel ? appViewModel.recordingList.formatFileSize(model.fileSize) : ""
-                                font.pixelSize: Theme.fontSizeXs
-                                color: Theme.textMuted
-                            }
-
-                            Text {
-                                visible: model.quality !== "original"
-                                text: model.quality
-                                font.pixelSize: Theme.fontSizeXs
-                                color: Theme.textMuted
-                            }
-                        }
-                    }
-
-                    RowLayout {
-                        Layout.alignment: Qt.AlignRight | Qt.AlignVCenter
-                        spacing: Theme.spacingXs
-
-                        // Pin button
-                        Rectangle {
-                            Layout.preferredWidth: 32
-                            Layout.preferredHeight: 32
-                            radius: 16
-                            color: model.pinned ? Theme.accent + "30" : pinBtnHov ? Theme.accent + "15" : "transparent"
-                            border.color: model.pinned ? Theme.accent : "transparent"
-                            border.width: model.pinned ? 1 : 0
-                            property bool pinBtnHov: false
-
-                            Text {
-                                anchors.centerIn: parent
-                                text: "\uD83D\uDCCC"
-                                font.pixelSize: 14
-                                opacity: model.pinned ? 1.0 : (parent.pinBtnHov ? 0.8 : 0.4)
-                            }
-
-                            MouseArea {
-                                anchors.fill: parent
-                                hoverEnabled: true
-                                cursorShape: Qt.PointingHandCursor
-                                onEntered: parent.pinBtnHov = true
-                                onExited: parent.pinBtnHov = false
-                                onClicked: {
-                                    if (appViewModel)
-                                        appViewModel.recordingList.togglePin(model.recordingId)
-                                }
-                            }
-                        }
-
-                        Rectangle {
-                            visible: model.status === "recording" || model.status === "scheduled"
-                            Layout.preferredWidth: 32
-                            Layout.preferredHeight: 32
-                            radius: 16
-                            color: stopBtnHovered ? Theme.error + "30" : "transparent"
-
-                            property bool stopBtnHovered: false
-
-                            Text {
-                                anchors.centerIn: parent
-                                text: model.status === "recording" ? "⏹" : "▶"
-                                font.pixelSize: Theme.fontSizeMd
-                            }
-
-                            MouseArea {
-                                anchors.fill: parent
-                                hoverEnabled: true
-                                cursorShape: Qt.PointingHandCursor
-                                onEntered: parent.stopBtnHovered = true
-                                onExited: parent.stopBtnHovered = false
-                                onClicked: {
-                                    if (!appViewModel) return
-                                    if (model.isActive) {
-                                        appViewModel.recordingList.stopRecording(model.recordingId)
-                                    } else if (model.status === "recording" && appViewModel.player.recording) {
-                                        appViewModel.player.stopStreamRecord()
+                                    Text {
+                                        anchors.centerIn: parent
+                                        text: "\u203A"
+                                        font.pixelSize: 22
+                                        font.bold: true
+                                        color: parent.recScrollRightHov ? Theme.textPrimary : Theme.textMuted
                                     }
+
+                                        MouseArea {
+                                            anchors.fill: parent
+                                            hoverEnabled: true
+                                            cursorShape: Qt.PointingHandCursor
+                                            onEntered: parent.recScrollRightHov = true
+                                            onExited: parent.recScrollRightHov = false
+                                            onClicked: rowListView.contentX = Math.min(
+                                                rowListView.contentX + 260,
+                                                Math.max(0, rowListView.contentWidth - rowListView.width))
+                                        }
                                 }
                             }
                         }
 
-                        Rectangle {
-                            visible: model.status === "uploaded" && model.filePath && model.filePath.length > 0
-                            Layout.preferredWidth: delLocalLabel.implicitWidth + 16
-                            Layout.preferredHeight: 28
-                            radius: Theme.borderRadius
-                            color: delLocalHov ? Theme.error + "30" : "transparent"
-                            border.color: delLocalHov ? Theme.error : Theme.surfaceBorder
-                            border.width: 1
-                            property bool delLocalHov: false
+                        Flickable {
+                            id: rowListView
+                            width: parent.width
+                            height: 286
+                            clip: true
+                            boundsBehavior: Flickable.StopAtBounds
+                            interactive: false
+                            contentWidth: rowContent.width + rowContent.x + Theme.spacingMd
+                            contentHeight: height
 
-                            Text {
-                                id: delLocalLabel
-                                anchors.centerIn: parent
-                                text: "\u2716 Local"
-                                font.pixelSize: 10
-                                color: parent.delLocalHov ? Theme.error : Theme.textMuted
-                            }
+                            Row {
+                                id: rowContent
+                                x: Theme.spacingMd
+                                spacing: Theme.spacingSm
 
-                            MouseArea {
-                                anchors.fill: parent
-                                hoverEnabled: true
-                                cursorShape: Qt.PointingHandCursor
-                                onEntered: parent.delLocalHov = true
-                                onExited: parent.delLocalHov = false
-                                onClicked: {
-                                    deleteLocalDialog.recordingId = model.recordingId
-                                    deleteLocalDialog.recordingName = model.channelName || "Recording"
-                                    deleteLocalDialog.visible = true
-                                }
-                            }
-                        }
+                                Repeater {
+                                    id: rowRepeater
+                                    model: rowItems
 
-                        Rectangle {
-                            visible: (model.status === "completed" || model.status === "failed") && appViewModel && appViewModel.gdrive.authenticated
-                            Layout.preferredWidth: model.status === "failed" ? retryLabel.implicitWidth + 20 : 32
-                            Layout.preferredHeight: 32
-                            radius: model.status === "failed" ? Theme.borderRadius : 16
-                            color: uploadBtnHovered
-                                ? (model.status === "failed" ? Theme.warning : Theme.accent + "30")
-                                : (model.status === "failed" ? Theme.warning + "20" : "transparent")
+                                    delegate: FocusScope {
+                                        id: recordingCard
+                                        width: 220
+                                        height: 272
+                                        focus: recordingSection.currentCardIndex === cardIndex
 
-                            property bool uploadBtnHovered: false
+                                        property int cardIndex: index
 
-                            Text {
-                                id: retryLabel
-                                anchors.centerIn: parent
-                                text: model.status === "failed" ? "↻ Retry Upload" : "☁"
-                                font.pixelSize: model.status === "failed" ? Theme.fontSizeXs : Theme.fontSizeMd
-                                font.bold: model.status === "failed"
-                                color: model.status === "failed"
-                                    ? (parent.uploadBtnHovered ? Theme.textOnAccent : Theme.warning)
-                                    : Theme.textSecondary
-                            }
+                                        readonly property bool playable:
+                                            (modelData.status === "completed" || modelData.status === "uploaded")
+                                            && modelData.filePath && modelData.filePath.length > 0
+                                        readonly property bool isUploading:
+                                            modelData.status === "uploading" && appViewModel && appViewModel.gdrive.uploading
 
-                            MouseArea {
-                                anchors.fill: parent
-                                hoverEnabled: true
-                                cursorShape: Qt.PointingHandCursor
-                                onEntered: parent.uploadBtnHovered = true
-                                onExited: parent.uploadBtnHovered = false
-                                onClicked: {
-                                    if (appViewModel) {
-                                        appViewModel.gdrive.uploadRecording(model.recordingId)
+                                        function openRecording() {
+                                            if (!appViewModel) return
+                                            if (playable) {
+                                                appViewModel.pendingPlayUrl = modelData.filePath
+                                                appViewModel.pendingPlayName = modelData.programmeTitle && modelData.programmeTitle.length > 0
+                                                    ? modelData.programmeTitle
+                                                    : modelData.channelName
+                                                appViewModel.currentView = "player"
+                                            } else if (modelData.status === "recording" && appViewModel.player.recording) {
+                                                appViewModel.player.stopStreamRecord()
+                                            }
+                                        }
+
+                                        function requestDelete() {
+                                            if (!appViewModel) return
+                                            if (modelData.status === "uploaded" && modelData.filePath && modelData.filePath.length > 0) {
+                                                deleteLocalDialog.recordingId = modelData.recordingId
+                                                deleteLocalDialog.recordingName = modelData.programmeTitle && modelData.programmeTitle.length > 0
+                                                    ? modelData.programmeTitle
+                                                    : modelData.channelName
+                                                deleteLocalDialog.visible = true
+                                            } else {
+                                                deleteConfirmDialog.recordingId = modelData.recordingId
+                                                deleteConfirmDialog.recordingName = modelData.programmeTitle && modelData.programmeTitle.length > 0
+                                                    ? modelData.programmeTitle
+                                                    : modelData.channelName
+                                                deleteConfirmDialog.visible = true
+                                            }
+                                        }
+
+                                        function togglePinned() {
+                                            if (!appViewModel || !appViewModel.recordingList) return
+                                            appViewModel.recordingList.togglePin(modelData.recordingId)
+                                        }
+
+                                        Keys.onPressed: {
+                                            if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter || event.key === Qt.Key_Space) {
+                                                openRecording()
+                                                event.accepted = true
+                                            } else if (event.key === Qt.Key_Delete || event.key === Qt.Key_Backspace) {
+                                                requestDelete()
+                                                event.accepted = true
+                                            } else if (event.key === Qt.Key_Left) {
+                                                if (cardIndex > 0) {
+                                                    recordingSection.focusCardAt(cardIndex - 1)
+                                                }
+                                                event.accepted = true
+                                            } else if (event.key === Qt.Key_Right) {
+                                                if (cardIndex < rowItems.length - 1) {
+                                                    recordingSection.focusCardAt(cardIndex + 1)
+                                                }
+                                                event.accepted = true
+                                            } else if (event.key === Qt.Key_Up) {
+                                                if (recordingSectionRepeater && recordingSectionRepeater.count > 0) {
+                                                    var prev = Math.max(0, sectionRepeaterIndex - 1)
+                                                    var prevItem = recordingSectionRepeater.itemAt(prev)
+                                                    if (prevItem && prevItem.focusCardAt) {
+                                                        prevItem.focusCardAt(cardIndex)
+                                                    }
+                                                }
+                                                event.accepted = true
+                                            } else if (event.key === Qt.Key_Down) {
+                                                if (recordingSectionRepeater && recordingSectionRepeater.count > 0) {
+                                                    var next = Math.min(recordingSectionRepeater.count - 1, sectionRepeaterIndex + 1)
+                                                    var nextItem = recordingSectionRepeater.itemAt(next)
+                                                    if (nextItem && nextItem.focusCardAt) {
+                                                        nextItem.focusCardAt(cardIndex)
+                                                    }
+                                                }
+                                                event.accepted = true
+                                            }
+                                        }
+
+                                        property int sectionRepeaterIndex: sectionIndex
+
+                                        MouseArea {
+                                            anchors.fill: parent
+                                            hoverEnabled: true
+                                            onEntered: {
+                                                recordingSection.currentCardIndex = cardIndex
+                                                recordingCard.forceActiveFocus()
+                                            }
+                                            onClicked: {
+                                                recordingSection.currentCardIndex = cardIndex
+                                                openRecording()
+                                            }
+                                            cursorShape: recordingCard.playable ? Qt.PointingHandCursor : Qt.ArrowCursor
+                                        }
+
+                                        Rectangle {
+                                            anchors.fill: parent
+                                            radius: Theme.borderRadiusLarge
+                                            color: recordingCard.activeFocus || recordingSection.currentCardIndex === cardIndex
+                                                ? Theme.surfaceHover : Theme.surfaceElevated
+                                            border.width: 1
+                                            border.color: {
+                                                if (recordingSection.currentCardIndex === cardIndex || recordingCard.activeFocus) return Theme.accent
+                                                if (modelData.pinned) return Theme.accent + "80"
+                                                if (modelData.status === "recording") return Theme.error + "60"
+                                                return Theme.surfaceBorder
+                                            }
+
+                                            ColumnLayout {
+                                                anchors.fill: parent
+                                                anchors.margins: Theme.spacingSm
+                                                spacing: Theme.spacingSm
+
+                                                Rectangle {
+                                                    Layout.fillWidth: true
+                                                    Layout.preferredHeight: 110
+                                                    radius: Theme.borderRadius
+                                                    clip: true
+                                                    color: {
+                                                        switch (modelData.status) {
+                                                        case "recording": return Theme.error + "18"
+                                                        case "scheduled": return Theme.accent + "18"
+                                                        case "completed": return Theme.success + "18"
+                                                        case "uploading": return Theme.accent + "18"
+                                                        case "uploaded": return Theme.success + "18"
+                                                        case "failed": return Theme.error + "10"
+                                                        default: return Theme.surface
+                                                        }
+                                                    }
+
+                                                    Image {
+                                                        id: recThumb
+                                                        anchors.fill: parent
+                                                        source: modelData.thumbnailUrl && modelData.thumbnailUrl.indexOf("http") === 0
+                                                            ? modelData.thumbnailUrl : ""
+                                                        fillMode: Image.PreserveAspectCrop
+                                                        visible: status === Image.Ready
+                                                        cache: true
+                                                    }
+
+                                                    Rectangle {
+                                                        anchors.fill: parent
+                                                        visible: !recThumb.visible
+                                                        color: "transparent"
+                                                        Text {
+                                                            anchors.centerIn: parent
+                                                            text: "REC"
+                                                            font.pixelSize: Theme.fontSizeSm
+                                                            font.bold: true
+                                                            color: Theme.textSecondary
+                                                        }
+                                                    }
+
+                                                    Rectangle {
+                                                        anchors.left: parent.left
+                                                        anchors.top: parent.top
+                                                        anchors.margins: 8
+                                                        radius: 10
+                                                        height: 20
+                                                        width: statusTag.implicitWidth + 16
+                                                        color: (modelData.status === "uploaded" || modelData.status === "completed")
+                                                            ? Theme.success
+                                                            : (modelData.status === "failed" ? Theme.error : Theme.accent)
+
+                                                        Text {
+                                                            id: statusTag
+                                                            anchors.centerIn: parent
+                                                            text: modelData.status
+                                                            font.pixelSize: 10
+                                                            font.bold: true
+                                                            font.capitalization: Font.AllUppercase
+                                                            color: (modelData.status === "uploaded" || modelData.status === "completed")
+                                                                ? "#000000"
+                                                                : Theme.textOnAccent
+                                                        }
+                                                    }
+
+                                                    Rectangle {
+                                                        visible: modelData.pinned
+                                                        anchors.right: parent.right
+                                                        anchors.top: parent.top
+                                                        anchors.margins: 8
+                                                        radius: 10
+                                                        height: 20
+                                                        width: pinText.implicitWidth + 16
+                                                        color: Theme.accent
+                                                        Text {
+                                                            id: pinText
+                                                            anchors.centerIn: parent
+                                                            text: "📌"
+                                                            font.pixelSize: 10
+                                                            font.bold: true
+                                                            color: Theme.textOnAccent
+                                                        }
+                                                    }
+                                                }
+
+                                                ColumnLayout {
+                                                    Layout.fillWidth: true
+                                                    spacing: 0
+
+                                                    Text {
+                                                        Layout.fillWidth: true
+                                                        text: modelData.programmeTitle && modelData.programmeTitle.length > 0
+                                                            ? modelData.programmeTitle
+                                                            : modelData.channelName
+                                                        font.pixelSize: Theme.fontSizeSm
+                                                        font.bold: true
+                                                        color: Theme.textPrimary
+                                                        elide: Text.ElideRight
+                                                    }
+
+                                                    Text {
+                                                        Layout.fillWidth: true
+                                                        visible: modelData.programmeTitle && modelData.programmeTitle.length > 0
+                                                        text: modelData.channelName
+                                                        font.pixelSize: Theme.fontSizeXs
+                                                        color: Theme.textSecondary
+                                                        elide: Text.ElideRight
+                                                    }
+
+                                                    Text {
+                                                        Layout.fillWidth: true
+                                                        text: appViewModel ? appViewModel.recordingList.formatDateTime(modelData.startTime) : ""
+                                                        font.pixelSize: Theme.fontSizeXs
+                                                        color: Theme.textMuted
+                                                        elide: Text.ElideRight
+                                                    }
+                                                }
+
+                                                Rectangle {
+                                                    Layout.fillWidth: true
+                                                    Layout.preferredHeight: modelData.status === "uploaded" && modelData.filePath && modelData.filePath.length > 0 ? 78 : 50
+                                                    radius: 12
+                                                    color: Theme.surfaceElevated
+                                                    border.width: 1
+                                                    border.color: Theme.surfaceBorder
+                                                    clip: true
+
+                                                    ColumnLayout {
+                                                        anchors.fill: parent
+                                                        anchors.margins: Theme.spacingSm
+                                                        spacing: Theme.spacingXs
+
+                                                        RowLayout {
+                                                            Layout.fillWidth: true
+                                                            spacing: Theme.spacingXs
+
+                                                            Rectangle {
+                                                                visible: recordingCard.playable
+                                                                Layout.preferredWidth: 58
+                                                                Layout.preferredHeight: 28
+                                                                radius: 14
+                                                                color: openHov ? Theme.accentHover : Theme.accent
+                                                                property bool openHov: false
+                                                                Text {
+                                                                    anchors.centerIn: parent
+                                                                    text: "Open"
+                                                                    font.pixelSize: Theme.fontSizeXs
+                                                                    font.bold: true
+                                                                    color: Theme.textOnAccent
+                                                                }
+                                                                MouseArea {
+                                                                    anchors.fill: parent
+                                                                    hoverEnabled: true
+                                                                    cursorShape: Qt.PointingHandCursor
+                                                                    onEntered: parent.openHov = true
+                                                                    onExited: parent.openHov = false
+                                                                    onClicked: recordingCard.openRecording()
+                                                                }
+                                                            }
+
+                                                            Rectangle {
+                                                                Layout.preferredWidth: 52
+                                                                Layout.preferredHeight: 28
+                                                                radius: 14
+                                                                color: modelData.pinned ? Theme.accent : (pinHov ? Theme.surfaceHover : Theme.surfaceElevated)
+                                                                border.width: 1
+                                                                border.color: modelData.pinned ? Theme.accent : Theme.surfaceBorder
+                                                                property bool pinHov: false
+                                                                Text {
+                                                                    anchors.centerIn: parent
+                                                                    text: modelData.pinned ? "Pinned" : "Pin"
+                                                                    font.pixelSize: Theme.fontSizeXs
+                                                                    font.bold: true
+                                                                    color: modelData.pinned ? Theme.textOnAccent : Theme.textPrimary
+                                                                }
+                                                                MouseArea {
+                                                                    anchors.fill: parent
+                                                                    hoverEnabled: true
+                                                                    cursorShape: Qt.PointingHandCursor
+                                                                    onEntered: parent.pinHov = true
+                                                                    onExited: parent.pinHov = false
+                                                                    onClicked: recordingCard.togglePinned()
+                                                                }
+                                                            }
+
+                                                            Rectangle {
+                                                                Layout.preferredWidth: 54
+                                                                Layout.preferredHeight: 28
+                                                                radius: 14
+                                                                color: deleteHov ? Theme.error : Theme.error
+                                                                border.width: 1
+                                                                border.color: Theme.error
+                                                                property bool deleteHov: false
+                                                                Text {
+                                                                    anchors.centerIn: parent
+                                                                    text: "Delete"
+                                                                    font.pixelSize: Theme.fontSizeXs
+                                                                    font.bold: true
+                                                                    color: Theme.textOnAccent
+                                                                }
+                                                                MouseArea {
+                                                                    anchors.fill: parent
+                                                                    hoverEnabled: true
+                                                                    cursorShape: Qt.PointingHandCursor
+                                                                    onEntered: parent.deleteHov = true
+                                                                    onExited: parent.deleteHov = false
+                                                                    onClicked: recordingCard.requestDelete()
+                                                                }
+                                                            }
+                                                        }
+
+                                                        Rectangle {
+                                                            visible: modelData.status === "uploaded" && modelData.filePath && modelData.filePath.length > 0
+                                                            Layout.fillWidth: true
+                                                            Layout.preferredHeight: 26
+                                                            Layout.bottomMargin: Theme.spacingSm
+                                                            radius: 14
+                                                            color: localDeleteHov ? Theme.surfaceHover : Theme.surfaceElevated
+                                                            border.width: 1
+                                                            border.color: Theme.surfaceBorder
+                                                            property bool localDeleteHov: false
+
+                                                            Text {
+                                                                anchors.centerIn: parent
+                                                                text: "Delete File"
+                                                                font.pixelSize: Theme.fontSizeXs
+                                                                font.bold: true
+                                                                color: Theme.textPrimary
+                                                            }
+
+                                                            MouseArea {
+                                                                anchors.fill: parent
+                                                                hoverEnabled: true
+                                                                cursorShape: Qt.PointingHandCursor
+                                                                onEntered: parent.localDeleteHov = true
+                                                                onExited: parent.localDeleteHov = false
+                                                                onClicked: {
+                                                                    deleteLocalDialog.recordingId = modelData.recordingId
+                                                                    deleteLocalDialog.recordingName = modelData.programmeTitle && modelData.programmeTitle.length > 0
+                                                                        ? modelData.programmeTitle
+                                                                        : modelData.channelName
+                                                                    deleteLocalDialog.visible = true
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
                                     }
-                                }
-                            }
-                        }
-
-                        Rectangle {
-                            Layout.preferredWidth: 32
-                            Layout.preferredHeight: 32
-                            radius: 16
-                            color: deleteBtnHovered ? Theme.error + "30" : "transparent"
-
-                            property bool deleteBtnHovered: false
-
-                            Text {
-                                anchors.centerIn: parent
-                                text: "✕"
-                                font.pixelSize: Theme.fontSizeMd
-                                font.bold: true
-                                color: parent.deleteBtnHovered ? Theme.error : Theme.textMuted
-                            }
-
-                            MouseArea {
-                                anchors.fill: parent
-                                hoverEnabled: true
-                                cursorShape: Qt.PointingHandCursor
-                                onEntered: parent.deleteBtnHovered = true
-                                onExited: parent.deleteBtnHovered = false
-                                onClicked: {
-                                    deleteConfirmDialog.recordingId = model.recordingId
-                                    deleteConfirmDialog.recordingName = model.channelName || "Recording"
-                                    deleteConfirmDialog.visible = true
                                 }
                             }
                         }
                     }
                 }
 
-                Rectangle {
-                    visible: model.status === "failed" && model.errorMessage
-                    anchors.bottom: parent.bottom
-                    anchors.left: parent.left
-                    anchors.right: parent.right
-                    anchors.bottomMargin: 4
-                    anchors.leftMargin: Theme.spacingSm + 44 + Theme.spacingMd
-                    anchors.rightMargin: Theme.spacingSm
-                    height: visible ? 22 : 0
-                    radius: 4
-                    color: Theme.error + "30"
-
-                    Text {
-                        anchors.verticalCenter: parent.verticalCenter
-                        anchors.left: parent.left
-                        anchors.right: dismissBtn.left
-                        anchors.leftMargin: 8
-                        anchors.rightMargin: 4
-                        text: {
-                            var msg = model.errorMessage || ""
-                            var lines = msg.split("\n")
-                            for (var i = 0; i < lines.length; i++) {
-                                var l = lines[i].trim()
-                                if (l.startsWith("Error opening") || l.startsWith("Error ")) {
-                                    return l
-                                }
-                            }
-                            return lines[lines.length - 1] || msg
-                        }
-                        font.pixelSize: 11
-                        color: "#ff6b6b"
-                        elide: Text.ElideRight
-                    }
-
-                    Text {
-                        id: dismissBtn
-                        anchors.right: parent.right
-                        anchors.rightMargin: 8
-                        anchors.verticalCenter: parent.verticalCenter
-                        text: "✕"
-                        font.pixelSize: 12
-                        color: Theme.error
-                        opacity: dismissHov ? 1.0 : 0.6
-
-                        property bool dismissHov: false
-
-                        MouseArea {
-                            anchors.fill: parent
-                            anchors.margins: -4
-                            hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
-                            onEntered: parent.dismissHov = true
-                            onExited: parent.dismissHov = false
-                            onClicked: {
-                                if (appViewModel)
-                                    appViewModel.recordingList.clearError(model.recordingId)
-                            }
-                        }
-                    }
+                Text {
+                    anchors.centerIn: parent
+                    visible: recordingsColumn.children.length <= 0 || (appViewModel && appViewModel.recordingList.count === 0)
+                    text: "No recordings yet.\nUse the record button on any channel\nor click '+ Record' to schedule one."
+                    font.pixelSize: Theme.fontSizeMd
+                    color: Theme.textMuted
+                    horizontalAlignment: Text.AlignHCenter
+                    lineHeight: 1.5
                 }
-
-                ColumnLayout {
-                    visible: isUploading
-                    anchors.bottom: parent.bottom
-                    anchors.left: parent.left
-                    anchors.right: parent.right
-                    anchors.bottomMargin: 6
-                    anchors.leftMargin: Theme.spacingSm + 44 + Theme.spacingMd
-                    anchors.rightMargin: Theme.spacingSm
-                    spacing: 2
-
-                    Rectangle {
-                        Layout.fillWidth: true
-                        Layout.preferredHeight: 6
-                        radius: 3
-                        color: Theme.surface
-                        border.color: Theme.surfaceBorder
-                        border.width: 1
-
-                        Rectangle {
-                            width: {
-                                var p = appViewModel ? appViewModel.gdrive.uploadProgress : 0
-                                return Math.max(0, Math.min(1, p)) * parent.width
-                            }
-                            height: parent.height
-                            radius: 3
-                            color: Theme.accent
-
-                            Behavior on width {
-                                NumberAnimation { duration: 200 }
-                            }
-                        }
-                    }
-
-                    Text {
-                        text: {
-                            var p = appViewModel ? appViewModel.gdrive.uploadProgress : 0
-                            var pct = Math.round(p * 100)
-                            var status = appViewModel ? appViewModel.gdrive.uploadStatus : ""
-                            return pct + "% — " + status
-                        }
-                        font.pixelSize: 10
-                        color: Theme.textMuted
-                    }
-                }
-            }
-
-            Text {
-                anchors.centerIn: parent
-                visible: recordingsList.count === 0
-                text: "No recordings yet.\nUse the record button on any channel\nor click '+ Record' to schedule one."
-                font.pixelSize: Theme.fontSizeMd
-                color: Theme.textMuted
-                horizontalAlignment: Text.AlignHCenter
-                lineHeight: 1.5
             }
         }
     }
@@ -796,6 +704,26 @@ Item {
         property int startHour: new Date().getHours()
         property int startMinute: new Date().getMinutes()
         property int startDay: 0
+        property var channelChoices: []
+
+        function refreshChannelChoices() {
+            if (!appViewModel) {
+                channelChoices = []
+                selectedChannelId = 0
+                return
+            }
+            if (serverCombo.currentIndex < 0) {
+                channelChoices = []
+                selectedChannelId = 0
+                return
+            }
+            var srvId = appViewModel.serverList.serverIdAt(serverCombo.currentIndex)
+            channelChoices = srvId > 0
+                ? appViewModel.channelList.channelsForServerAndType(srvId, "live")
+                : []
+            channelCombo.currentIndex = -1
+            selectedChannelId = 0
+        }
 
         background: Rectangle {
             color: Theme.surfaceElevated
@@ -861,13 +789,7 @@ Item {
                     }
                 }
                 onCurrentIndexChanged: {
-                    if (currentIndex >= 0 && appViewModel) {
-                        var srvId = appViewModel.serverList.serverIdAt(currentIndex)
-                        channelCombo.model = null
-                        appViewModel.channelList.typeFilter = "live"
-                        appViewModel.channelList.serverId = srvId
-                        channelCombo.model = appViewModel.channelList
-                    }
+                    manualRecordDialog.refreshChannelChoices()
                 }
             }
 
@@ -877,7 +799,7 @@ Item {
                 id: channelCombo
                 Layout.fillWidth: true
                 Layout.preferredHeight: 36
-                model: null
+                model: manualRecordDialog.channelChoices
                 textRole: "name"
                 currentIndex: -1
                 displayText: currentIndex >= 0 ? currentText : "Select a channel..."
@@ -886,8 +808,9 @@ Item {
                 delegate: ItemDelegate {
                     width: channelCombo.width
                     contentItem: Text {
-                        text: model.name
+                        text: modelData.isFavorite ? "★ " + modelData.name : modelData.name
                         font.pixelSize: Theme.fontSizeSm
+                        font.bold: modelData.isFavorite
                         color: highlighted ? Theme.textOnAccent : Theme.textPrimary
                         verticalAlignment: Text.AlignVCenter
                         elide: Text.ElideRight
@@ -916,9 +839,11 @@ Item {
                     }
                 }
                 onCurrentIndexChanged: {
-                    if (currentIndex >= 0 && appViewModel) {
-                        manualRecordDialog.selectedChannelId = appViewModel.channelList.data(
-                            appViewModel.channelList.index(currentIndex, 0), 257)
+                    if (currentIndex >= 0 && manualRecordDialog.channelChoices.length > currentIndex) {
+                        manualRecordDialog.selectedChannelId =
+                            manualRecordDialog.channelChoices[currentIndex].channelId
+                    } else {
+                        manualRecordDialog.selectedChannelId = 0
                     }
                 }
             }
@@ -934,33 +859,36 @@ Item {
                         { label: "Schedule", value: false }
                     ]
 
-                    Rectangle {
-                        width: startModeLabel.implicitWidth + Theme.spacingMd * 2
-                        height: 32
-                        radius: Theme.borderRadiusSmall
-                        color: manualRecordDialog.startNow === modelData.value ? Theme.accent : startModeHov ? Theme.surfaceHover : Theme.surface
-                        border.width: 1
-                        border.color: Theme.surfaceBorder
-                        property bool startModeHov: false
+                Rectangle {
+                    width: modeLabel.implicitWidth + Theme.spacingMd * 2
+                    height: 32
+                    radius: Theme.borderRadiusSmall
+                    color: manualRecordDialog.startNow === modelData.value
+                        ? Theme.accent
+                        : startModeHov ? Theme.surfaceHover : Theme.surface
+                    border.width: 1
+                    border.color: manualRecordDialog.startNow === modelData.value ? Theme.accent : Theme.surfaceBorder
+                    property bool startModeHov: false
 
-                        Text {
-                            id: startModeLabel
-                            anchors.centerIn: parent
-                            text: modelData.label
-                            font.pixelSize: Theme.fontSizeXs
-                            color: manualRecordDialog.startNow === modelData.value ? Theme.textOnAccent : Theme.textSecondary
-                        }
+                    Text {
+                        id: modeLabel
+                        anchors.centerIn: parent
+                        text: modelData.label
+                        font.pixelSize: Theme.fontSizeXs
+                        font.bold: manualRecordDialog.startNow === modelData.value
+                        color: manualRecordDialog.startNow === modelData.value ? Theme.textOnAccent : Theme.textSecondary
+                    }
 
-                        MouseArea {
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
-                            onEntered: parent.startModeHov = true
-                            onExited: parent.startModeHov = false
-                            onClicked: manualRecordDialog.startNow = modelData.value
-                        }
+                    MouseArea {
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onEntered: parent.startModeHov = true
+                        onExited: parent.startModeHov = false
+                        onClicked: manualRecordDialog.startNow = modelData.value
                     }
                 }
+            }
             }
 
             RowLayout {
@@ -1036,30 +964,31 @@ Item {
                     ]
 
                     Rectangle {
-                        width: durLabel.implicitWidth + Theme.spacingMd * 2
+                        width: durationLabel.implicitWidth + Theme.spacingMd * 2
                         height: 32
                         radius: Theme.borderRadiusSmall
                         color: manualRecordDialog.durationMinutes === modelData.value
-                            ? Theme.accent : durHov ? Theme.surfaceHover : Theme.surface
+                            ? Theme.accent
+                            : durationHov ? Theme.surfaceHover : Theme.surface
                         border.width: 1
-                        border.color: Theme.surfaceBorder
-                        property bool durHov: false
+                        border.color: manualRecordDialog.durationMinutes === modelData.value ? Theme.accent : Theme.surfaceBorder
+                        property bool durationHov: false
 
                         Text {
-                            id: durLabel
+                            id: durationLabel
                             anchors.centerIn: parent
                             text: modelData.label
                             font.pixelSize: Theme.fontSizeXs
-                            color: manualRecordDialog.durationMinutes === modelData.value
-                                ? Theme.textOnAccent : Theme.textSecondary
+                            font.bold: manualRecordDialog.durationMinutes === modelData.value
+                            color: manualRecordDialog.durationMinutes === modelData.value ? Theme.textOnAccent : Theme.textSecondary
                         }
 
                         MouseArea {
                             anchors.fill: parent
                             hoverEnabled: true
                             cursorShape: Qt.PointingHandCursor
-                            onEntered: parent.durHov = true
-                            onExited: parent.durHov = false
+                            onEntered: parent.durationHov = true
+                            onExited: parent.durationHov = false
                             onClicked: manualRecordDialog.durationMinutes = modelData.value
                         }
                     }
@@ -1073,35 +1002,57 @@ Item {
                 Item { Layout.fillWidth: true }
 
                 Rectangle {
-                    Layout.preferredWidth: cancelRecText.implicitWidth + Theme.spacingLg * 2
-                    Layout.preferredHeight: 36
+                    width: cancelRecordLabel.implicitWidth + Theme.spacingLg * 2
+                    height: 36
                     radius: Theme.borderRadius
-                    color: cancelRecHov ? Theme.surfaceHover : "transparent"
-                    border.color: Theme.surfaceBorder; border.width: 1
-                    property bool cancelRecHov: false
-                    Text { id: cancelRecText; anchors.centerIn: parent; text: "Cancel"; font.pixelSize: Theme.fontSizeSm; color: Theme.textSecondary }
-                    MouseArea { anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onEntered: parent.cancelRecHov = true; onExited: parent.cancelRecHov = false; onClicked: manualRecordDialog.close() }
+                    color: cancelRecordHov ? Theme.surfaceHover : Theme.surface
+                    border.color: Theme.surfaceBorder
+                    border.width: 1
+                    property bool cancelRecordHov: false
+
+                    Text {
+                        id: cancelRecordLabel
+                        anchors.centerIn: parent
+                        text: "Cancel"
+                        font.pixelSize: Theme.fontSizeSm
+                        color: Theme.textSecondary
+                    }
+
+                    MouseArea {
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onEntered: parent.cancelRecordHov = true
+                        onExited: parent.cancelRecordHov = false
+                        onClicked: manualRecordDialog.close()
+                    }
                 }
 
                 Rectangle {
-                    Layout.preferredWidth: startRecText.implicitWidth + Theme.spacingLg * 2
-                    Layout.preferredHeight: 36
+                    id: startRecordButton
+                    width: startRecordLabel.implicitWidth + Theme.spacingLg * 2
+                    height: 36
                     radius: Theme.borderRadius
-                    color: startRecHov ? Theme.accentHover : Theme.accent
-                    opacity: manualRecordDialog.selectedChannelId > 0 ? 1.0 : 0.4
-                    property bool startRecHov: false
+                    color: !enabled ? Theme.surfaceElevated : (startRecordHov ? Theme.accentHover : Theme.accent)
+                    opacity: enabled ? 1.0 : 0.4
+                    property bool startRecordHov: false
+                    property bool enabled: manualRecordDialog.selectedChannelId > 0
+
                     Text {
-                        id: startRecText
+                        id: startRecordLabel
                         anchors.centerIn: parent
                         text: manualRecordDialog.startNow ? "Start Recording" : "Schedule"
                         font.pixelSize: Theme.fontSizeSm
                         font.bold: true
-                        color: Theme.textOnAccent
+                        color: parent.enabled ? Theme.textOnAccent : Theme.textMuted
                     }
+
                     MouseArea {
-                        anchors.fill: parent; hoverEnabled: true
-                        cursorShape: manualRecordDialog.selectedChannelId > 0 ? Qt.PointingHandCursor : Qt.ForbiddenCursor
-                        onEntered: parent.startRecHov = true; onExited: parent.startRecHov = false
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: parent.enabled ? Qt.PointingHandCursor : Qt.ForbiddenCursor
+                        onEntered: parent.startRecordHov = true
+                        onExited: parent.startRecordHov = false
                         onClicked: {
                             if (manualRecordDialog.selectedChannelId > 0 && appViewModel) {
                                 var startEpoch
@@ -1142,17 +1093,17 @@ Item {
             startMinute = now.getMinutes()
             channelCombo.currentIndex = -1
             if (appViewModel) {
-                appViewModel.channelList.typeFilter = "live"
                 var primary = appViewModel.serverList.primaryServerIndex()
                 var idx = primary >= 0 ? primary : 0
                 serverCombo.currentIndex = -1
                 serverCombo.currentIndex = idx
             }
+            refreshChannelChoices()
+            serverCombo.forceActiveFocus()
         }
 
         onClosed: {
-            if (appViewModel)
-                appViewModel.channelList.typeFilter = ""
+            channelChoices = []
         }
     }
 
