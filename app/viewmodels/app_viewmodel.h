@@ -74,6 +74,8 @@ class AppViewModel : public QObject {
     Q_PROPERTY(QString subtitleColor READ subtitleColor WRITE setSubtitleColor NOTIFY subtitleColorChanged)
     Q_PROPERTY(QString subtitleBgColor READ subtitleBgColor WRITE setSubtitleBgColor NOTIFY subtitleBgColorChanged)
     Q_PROPERTY(qint64 maxRecordingSizeGb READ maxRecordingSizeGb WRITE setMaxRecordingSizeGb NOTIFY maxRecordingSizeGbChanged)
+    Q_PROPERTY(int epgRecordingLeadTime READ epgRecordingLeadTime WRITE setEpgRecordingLeadTime NOTIFY epgRecordingLeadTimeChanged)
+    Q_PROPERTY(int epgRecordingOverrun READ epgRecordingOverrun WRITE setEpgRecordingOverrun NOTIFY epgRecordingOverrunChanged)
     Q_PROPERTY(int gridColumns READ gridColumns WRITE setGridColumns NOTIFY gridColumnsChanged)
     Q_PROPERTY(bool closeToTray READ closeToTray WRITE setCloseToTray NOTIFY closeToTrayChanged)
     Q_PROPERTY(QString videoEnhancement READ videoEnhancement WRITE setVideoEnhancement NOTIFY videoEnhancementChanged)
@@ -147,6 +149,10 @@ public:
 
     qint64 maxRecordingSizeGb() const;
     void setMaxRecordingSizeGb(qint64 gb);
+    int epgRecordingLeadTime() const;
+    void setEpgRecordingLeadTime(int minutes);
+    int epgRecordingOverrun() const;
+    void setEpgRecordingOverrun(int minutes);
     int gridColumns() const;
     void setGridColumns(int cols);
     bool closeToTray() const;
@@ -209,6 +215,8 @@ signals:
     void subtitleColorChanged();
     void subtitleBgColorChanged();
     void maxRecordingSizeGbChanged();
+    void epgRecordingLeadTimeChanged();
+    void epgRecordingOverrunChanged();
     void gridColumnsChanged();
     void closeToTrayChanged();
     void videoEnhancementChanged();

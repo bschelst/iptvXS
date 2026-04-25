@@ -156,9 +156,9 @@ Item {
                     spacing: Theme.spacingSm
 
                     PlayerButton {
-                        text: appViewModel && appViewModel.player.paused ? "\u25B6" : "\u2016"
-                        btnSize: 48
-                        iconSize: 22
+                        text: appViewModel && appViewModel.player.paused ? "\u25B6" : "II"
+                        btnSize: 36
+                        iconSize: 16
                         onClicked: {
                             if (appViewModel) appViewModel.player.togglePause()
                         }
@@ -166,8 +166,8 @@ Item {
 
                     PlayerButton {
                         text: "\u25A0"
-                        btnSize: 48
-                        iconSize: 22
+                        btnSize: 36
+                        iconSize: 14
                         onClicked: goBack()
                     }
 
@@ -208,6 +208,8 @@ Item {
                     PlayerButton {
                         id: favBtn
                         text: isFav ? "\u2605" : "\u2606"
+                        btnSize: 36
+                        iconSize: 16
                         property bool isFav: false
                         visible: appViewModel ? appViewModel.player.channelId > 0 : false
                         onClicked: {
@@ -232,6 +234,8 @@ Item {
                         id: recBtn
                         readonly property bool recActive: appViewModel ? appViewModel.player.recording : false
                         text: recActive ? "\u25A0" : "\u25CF"
+                        btnSize: 36
+                        iconSize: 14
                         btnColor: recActive ? Theme.error : "transparent"
                         visible: appViewModel ? appViewModel.player.isLive : false
                         onClicked: {

@@ -859,7 +859,7 @@ Item {
                         width: recBtnLabel.implicitWidth + Theme.spacingLg * 2
                         height: 36
                         radius: 18
-                        color: recBtnHov ? Theme.error : Theme.error + "cc"
+                        color: recBtnHov ? Theme.accentHover : Theme.accent
 
                         property bool recBtnHov: false
 
@@ -869,7 +869,7 @@ Item {
                             text: "●  Record"
                             font.pixelSize: Theme.fontSizeSm
                             font.bold: true
-                            color: "#ffffff"
+                            color: Theme.textOnAccent
                         }
 
                         MouseArea {
@@ -879,21 +879,20 @@ Item {
                             onEntered: parent.recBtnHov = true
                             onExited: parent.recBtnHov = false
                             onClicked: {
-                                if (appViewModel) {
-                                    var startEpoch = Math.floor(progDetailPopup.progStart)
-                                    var endEpoch = Math.floor(progDetailPopup.progEnd)
-                                    var now = Math.floor(Date.now() / 1000)
-                                    if (progDetailPopup.isLive) {
-                                        var remaining = endEpoch > now ? endEpoch - now : 3600
-                                        appViewModel.recordingList.startNow(
-                                            progDetailPopup.channelId, remaining, "original")
-                                    } else {
-                                        appViewModel.recordingList.scheduleRecording(
-                                            progDetailPopup.channelId, startEpoch, endEpoch, "original")
-                                    }
-                                    appViewModel.recordingList.refresh()
-                                }
+                                if (!appViewModel) return
+                                var leadMin = appViewModel.epgRecordingLeadTime || 0
+                                var overMin = appViewModel.epgRecordingOverrun || 0
+                                recConfirm.channelName = progDetailPopup.channelName
+                                recConfirm.channelLogo = progDetailPopup.channelLogo
+                                recConfirm.channelId = progDetailPopup.channelId
+                                recConfirm.progTitle = progDetailPopup.progTitle
+                                recConfirm.isLive = progDetailPopup.isLive
+                                recConfirm.startEpoch = Math.floor(progDetailPopup.progStart) - leadMin * 60
+                                recConfirm.endEpoch = Math.floor(progDetailPopup.progEnd) + overMin * 60
+                                recConfirm.leadMin = leadMin
+                                recConfirm.overMin = overMin
                                 progDetailPopup.visible = false
+                                recConfirm.visible = true
                             }
                         }
                     }
@@ -931,6 +930,205 @@ Item {
                                     appViewModel.currentView = "player"
                                 }
                                 progDetailPopup.visible = false
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    Rectangle {
+        id: recConfirm
+        visible: false
+        anchors.fill: parent
+        color: "#C0000000"
+        z: 300
+
+        property string channelName: ""
+        property string channelLogo: ""
+        property var channelId: 0
+        property string progTitle: ""
+        property bool isLive: false
+        property real startEpoch: 0
+        property real endEpoch: 0
+        property int leadMin: 0
+        property int overMin: 0
+
+        MouseArea { anchors.fill: parent; onClicked: recConfirm.visible = false }
+
+        Rectangle {
+            anchors.centerIn: parent
+            width: 420
+            height: recConfirmCol.implicitHeight + Theme.spacingLg * 2
+            radius: Theme.borderRadiusLarge
+            color: Theme.surfaceElevated
+            border.color: Theme.accent
+            border.width: 1
+
+            MouseArea { anchors.fill: parent }
+
+            ColumnLayout {
+                id: recConfirmCol
+                anchors.fill: parent
+                anchors.margins: Theme.spacingLg
+                spacing: Theme.spacingMd
+
+                Text {
+                    text: "Schedule Recording"
+                    font.pixelSize: Theme.fontSizeLg
+                    font.bold: true
+                    color: Theme.textPrimary
+                }
+
+                RowLayout {
+                    spacing: Theme.spacingMd
+
+                    Image {
+                        Layout.preferredWidth: 48
+                        Layout.preferredHeight: 48
+                        source: recConfirm.channelLogo || ""
+                        fillMode: Image.PreserveAspectFit
+                        visible: status === Image.Ready
+                    }
+
+                    ColumnLayout {
+                        spacing: 2
+
+                        Text {
+                            text: recConfirm.channelName
+                            font.pixelSize: Theme.fontSizeMd
+                            font.bold: true
+                            color: Theme.textPrimary
+                        }
+
+                        Text {
+                            visible: recConfirm.progTitle.length > 0
+                            text: recConfirm.progTitle
+                            font.pixelSize: Theme.fontSizeSm
+                            color: Theme.textSecondary
+                        }
+                    }
+                }
+
+                Rectangle {
+                    Layout.fillWidth: true
+                    height: 1
+                    color: Theme.surfaceBorder
+                }
+
+                ColumnLayout {
+                    spacing: 4
+
+                    Text {
+                        text: recConfirm.isLive ? "Recording starts immediately" : "Scheduled recording"
+                        font.pixelSize: Theme.fontSizeSm
+                        font.bold: true
+                        color: Theme.accent
+                    }
+
+                    RowLayout {
+                        spacing: Theme.spacingMd
+
+                        Text {
+                            text: "Start:"
+                            font.pixelSize: Theme.fontSizeXs
+                            color: Theme.textMuted
+                        }
+                        Text {
+                            text: {
+                                var d = new Date(recConfirm.startEpoch * 1000)
+                                var s = Qt.formatDateTime(d, "ddd d MMM HH:mm")
+                                return recConfirm.leadMin > 0 ? s + "  (" + recConfirm.leadMin + " min early)" : s
+                            }
+                            font.pixelSize: Theme.fontSizeXs
+                            color: Theme.textPrimary
+                        }
+                    }
+
+                    RowLayout {
+                        spacing: Theme.spacingMd
+
+                        Text {
+                            text: "End:"
+                            font.pixelSize: Theme.fontSizeXs
+                            color: Theme.textMuted
+                        }
+                        Text {
+                            text: {
+                                var d = new Date(recConfirm.endEpoch * 1000)
+                                var s = Qt.formatDateTime(d, "ddd d MMM HH:mm")
+                                return recConfirm.overMin > 0 ? s + "  (+" + recConfirm.overMin + " min overrun)" : s
+                            }
+                            font.pixelSize: Theme.fontSizeXs
+                            color: Theme.textPrimary
+                        }
+                    }
+
+                    RowLayout {
+                        spacing: Theme.spacingMd
+
+                        Text {
+                            text: "Duration:"
+                            font.pixelSize: Theme.fontSizeXs
+                            color: Theme.textMuted
+                        }
+                        Text {
+                            text: {
+                                var mins = Math.round((recConfirm.endEpoch - recConfirm.startEpoch) / 60)
+                                if (mins >= 60) return Math.floor(mins / 60) + "h " + (mins % 60) + "min"
+                                return mins + " min"
+                            }
+                            font.pixelSize: Theme.fontSizeXs
+                            color: Theme.textPrimary
+                        }
+                    }
+                }
+
+                RowLayout {
+                    Layout.alignment: Qt.AlignRight
+                    spacing: Theme.spacingSm
+
+                    Rectangle {
+                        width: cancelRecLabel.implicitWidth + Theme.spacingLg
+                        height: 36
+                        radius: Theme.borderRadius
+                        color: cancelRecHov ? Theme.surfaceHover : Theme.surface
+                        border.color: Theme.surfaceBorder
+                        border.width: 1
+                        property bool cancelRecHov: false
+
+                        Text { id: cancelRecLabel; anchors.centerIn: parent; text: "Cancel"; font.pixelSize: Theme.fontSizeSm; color: Theme.textSecondary }
+                        MouseArea {
+                            anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                            onEntered: parent.cancelRecHov = true; onExited: parent.cancelRecHov = false
+                            onClicked: recConfirm.visible = false
+                        }
+                    }
+
+                    Rectangle {
+                        width: confirmRecLabel.implicitWidth + Theme.spacingLg * 2
+                        height: 36
+                        radius: Theme.borderRadius
+                        color: confirmRecHov ? Theme.accentHover : Theme.accent
+                        property bool confirmRecHov: false
+
+                        Text { id: confirmRecLabel; anchors.centerIn: parent; text: "Confirm Recording"; font.pixelSize: Theme.fontSizeSm; font.bold: true; color: Theme.textOnAccent }
+                        MouseArea {
+                            anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                            onEntered: parent.confirmRecHov = true; onExited: parent.confirmRecHov = false
+                            onClicked: {
+                                if (!appViewModel) return
+                                var now = Math.floor(Date.now() / 1000)
+                                if (recConfirm.isLive) {
+                                    var remaining = recConfirm.endEpoch > now ? recConfirm.endEpoch - now : 3600
+                                    appViewModel.recordingList.startNow(recConfirm.channelId, remaining, "original")
+                                } else {
+                                    appViewModel.recordingList.scheduleRecording(
+                                        recConfirm.channelId, recConfirm.startEpoch, recConfirm.endEpoch, "original")
+                                }
+                                appViewModel.recordingList.refresh()
+                                recConfirm.visible = false
                             }
                         }
                     }

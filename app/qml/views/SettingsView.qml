@@ -1497,6 +1497,89 @@ Item {
                             }
                         }
                     }
+
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        spacing: Theme.spacingXs
+
+                        Text {
+                            text: "EPG Recording Padding"
+                            font.pixelSize: Theme.fontSizeSm
+                            color: Theme.textPrimary
+                        }
+
+                        Text {
+                            text: "Start recording early and extend past the scheduled end time"
+                            font.pixelSize: Theme.fontSizeXs
+                            color: Theme.textMuted
+                        }
+
+                        RowLayout {
+                            spacing: Theme.spacingLg
+
+                            RowLayout {
+                                spacing: Theme.spacingSm
+
+                                Text { text: "Start early:"; font.pixelSize: Theme.fontSizeXs; color: Theme.textSecondary }
+
+                                Repeater {
+                                    model: [0, 1, 2, 3, 5]
+
+                                    Rectangle {
+                                        width: 44; height: 28; radius: Theme.borderRadiusSmall
+                                        color: appViewModel && appViewModel.epgRecordingLeadTime === modelData
+                                            ? Theme.accent : leadHov ? Theme.surfaceHover : Theme.surface
+                                        border.width: 1; border.color: Theme.surfaceBorder
+                                        property bool leadHov: false
+
+                                        Text {
+                                            anchors.centerIn: parent
+                                            text: modelData + " min"
+                                            font.pixelSize: 9
+                                            color: appViewModel && appViewModel.epgRecordingLeadTime === modelData
+                                                ? Theme.textOnAccent : Theme.textSecondary
+                                        }
+                                        MouseArea {
+                                            anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                                            onEntered: parent.leadHov = true; onExited: parent.leadHov = false
+                                            onClicked: { if (appViewModel) appViewModel.epgRecordingLeadTime = modelData }
+                                        }
+                                    }
+                                }
+                            }
+
+                            RowLayout {
+                                spacing: Theme.spacingSm
+
+                                Text { text: "End late:"; font.pixelSize: Theme.fontSizeXs; color: Theme.textSecondary }
+
+                                Repeater {
+                                    model: [0, 1, 2, 3, 5]
+
+                                    Rectangle {
+                                        width: 44; height: 28; radius: Theme.borderRadiusSmall
+                                        color: appViewModel && appViewModel.epgRecordingOverrun === modelData
+                                            ? Theme.accent : overHov ? Theme.surfaceHover : Theme.surface
+                                        border.width: 1; border.color: Theme.surfaceBorder
+                                        property bool overHov: false
+
+                                        Text {
+                                            anchors.centerIn: parent
+                                            text: modelData + " min"
+                                            font.pixelSize: 9
+                                            color: appViewModel && appViewModel.epgRecordingOverrun === modelData
+                                                ? Theme.textOnAccent : Theme.textSecondary
+                                        }
+                                        MouseArea {
+                                            anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                                            onEntered: parent.overHov = true; onExited: parent.overHov = false
+                                            onClicked: { if (appViewModel) appViewModel.epgRecordingOverrun = modelData }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
 

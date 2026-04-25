@@ -706,6 +706,26 @@ void AppViewModel::setMaxRecordingSizeGb(qint64 gb) {
     emit maxRecordingSizeGbChanged();
 }
 
+int AppViewModel::epgRecordingLeadTime() const {
+    return settingsRepo_ ? settingsRepo_->getInt(QStringLiteral("epg_recording_lead_time"), 0) : 0;
+}
+
+void AppViewModel::setEpgRecordingLeadTime(int minutes) {
+    if (!settingsRepo_) return;
+    settingsRepo_->set(QStringLiteral("epg_recording_lead_time"), qBound(0, minutes, 5));
+    emit epgRecordingLeadTimeChanged();
+}
+
+int AppViewModel::epgRecordingOverrun() const {
+    return settingsRepo_ ? settingsRepo_->getInt(QStringLiteral("epg_recording_overrun"), 0) : 0;
+}
+
+void AppViewModel::setEpgRecordingOverrun(int minutes) {
+    if (!settingsRepo_) return;
+    settingsRepo_->set(QStringLiteral("epg_recording_overrun"), qBound(0, minutes, 5));
+    emit epgRecordingOverrunChanged();
+}
+
 int AppViewModel::gridColumns() const {
     return settingsRepo_ ? settingsRepo_->getInt(QStringLiteral("grid_columns"), 2) : 2;
 }

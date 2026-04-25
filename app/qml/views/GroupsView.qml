@@ -28,6 +28,7 @@ Item {
 
             ColumnLayout {
                 anchors.fill: parent
+                anchors.rightMargin: 1
                 spacing: 0
 
                 Rectangle {

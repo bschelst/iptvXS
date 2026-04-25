@@ -57,6 +57,11 @@ bool RecordingManager::startRecording(int64_t recordingId) {
         return false;
     }
 
+    if (recording->status == QStringLiteral("failed") ||
+        recording->status == QStringLiteral("completed")) {
+        return false;
+    }
+
     auto channel = channelRepo_->findById(recording->channelId);
     if (!channel) {
         recordingRepo_->updateStatus(recordingId, QStringLiteral("failed"),
@@ -275,6 +280,7 @@ QStringList RecordingManager::buildFfmpegArgs(const QString &streamUrl,
                                               const QString &outputPath) const {
     return {
         QStringLiteral("-y"),
+        QStringLiteral("-user_agent"), QStringLiteral("IPTVXs/1.0"),
         QStringLiteral("-i"), streamUrl,
         QStringLiteral("-c"), QStringLiteral("copy"),
         QStringLiteral("-movflags"), QStringLiteral("+faststart"),

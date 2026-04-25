@@ -38,11 +38,13 @@ Rectangle {
                 ColorAnimation { duration: Theme.animFast }
             }
 
-            Text {
+            Column {
                 anchors.centerIn: parent
-                text: "☰"
-                font.pixelSize: Theme.fontSizeLg
-                color: Theme.textSecondary
+                spacing: 4
+                Repeater {
+                    model: 3
+                    Rectangle { width: 18; height: 2; radius: 1; color: Theme.textSecondary }
+                }
             }
 
             MouseArea {
@@ -63,5 +65,23 @@ Rectangle {
         }
 
         Item { Layout.fillWidth: true }
+
+        Text {
+            text: Qt.formatTime(clockTimer.currentTime, "HH:mm")
+            font.pixelSize: Theme.fontSizeLg
+            font.bold: true
+            color: Theme.textPrimary
+            Layout.rightMargin: Theme.spacingSm
+
+            Timer {
+                id: clockTimer
+                property date currentTime: new Date()
+                interval: 10000
+                running: true
+                repeat: true
+                triggeredOnStart: true
+                onTriggered: currentTime = new Date()
+            }
+        }
     }
 }
