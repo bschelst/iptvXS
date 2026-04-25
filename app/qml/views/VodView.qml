@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import QtQuick.Window
 import Qt5Compat.GraphicalEffects
 import app.iptvxs
 
@@ -18,6 +19,56 @@ Item {
         var _ = appViewModel.logoCache.revision
         var __ = appViewModel.logoCache.failedRevision
         return appViewModel.logoCache.resolve(url)
+    }
+
+    function firstVisibleVodRow() {
+        for (var i = 0; i < categoryRepeater.count; i++) {
+            var item = categoryRepeater.itemAt(i)
+            if (item && item.visible && item.rowView && item.rowView.count > 0) {
+                return item.rowView
+            }
+        }
+        return null
+    }
+
+    function focusPrimary() {
+        if (vodGrid.visible) {
+            if (vodGrid.count > 0 && vodGrid.currentIndex < 0) vodGrid.currentIndex = 0
+            vodGrid.forceActiveFocus()
+            return
+        }
+        if (categoryGrid.visible) {
+            if (categoryGrid.count > 0 && categoryGrid.currentIndex < 0) categoryGrid.currentIndex = 0
+            categoryGrid.forceActiveFocus()
+            return
+        }
+        var row = firstVisibleVodRow()
+        if (row) {
+            if (row.currentIndex < 0 && row.count > 0) row.currentIndex = 0
+            row.forceActiveFocus()
+            return
+        }
+        focusCategorySidebar()
+    }
+
+    function focusCategorySidebar() {
+        if (vodCategoryList.count > 0) {
+            if (vodCategoryList.currentIndex < 0) vodCategoryList.currentIndex = 0
+            vodCategoryList.forceActiveFocus()
+        } else if (Window.window && Window.window.focusSidebar) {
+            Window.window.focusSidebar()
+        }
+    }
+
+    function focusAdjacentVodRow(rowIndex, currentItemIndex, delta) {
+        for (var i = rowIndex + delta; i >= 0 && i < categoryRepeater.count; i += delta) {
+            var item = categoryRepeater.itemAt(i)
+            if (item && item.visible && item.rowView && item.rowView.count > 0) {
+                item.rowView.currentIndex = Math.min(currentItemIndex, item.rowView.count - 1)
+                item.rowView.forceActiveFocus()
+                return
+            }
+        }
     }
 
     onInitialTypeChanged: {
@@ -73,6 +124,19 @@ Item {
                     Layout.preferredHeight: Math.min(contentHeight, 150)
                     clip: true
                     model: appViewModel ? appViewModel.serverList : null
+
+                    function selectServerAt(index) {
+                        if (!appViewModel || !appViewModel.serverList || appViewModel.serverList.count <= 0) return
+                        index = Math.max(0, Math.min(appViewModel.serverList.count - 1, index))
+                        currentIndex = index
+                        selectServer(appViewModel.serverList.serverIdAt(index))
+                    }
+
+                    Keys.onUpPressed: selectServerAt(currentIndex - 1)
+                    Keys.onDownPressed: selectServerAt(currentIndex + 1)
+                    Keys.onReturnPressed: selectServerAt(currentIndex)
+                    Keys.onEnterPressed: Keys.onReturnPressed(event)
+                    Keys.onRightPressed: vodView.focusCategorySidebar()
 
                     delegate: Rectangle {
                         width: serverPicker.width
@@ -237,6 +301,13 @@ Item {
                     clip: true
                     model: appViewModel ? appViewModel.categoryList : null
 
+                    function selectCategoryAt(index) {
+                        if (!appViewModel || !appViewModel.categoryList || appViewModel.categoryList.count <= 0) return
+                        index = Math.max(0, Math.min(appViewModel.categoryList.count - 1, index))
+                        currentIndex = index
+                        selectCategory(appViewModel.categoryList.categoryIdAt(index))
+                    }
+
                     ScrollBar.vertical: ScrollBar {
                         active: true
                         policy: ScrollBar.AsNeeded
@@ -249,6 +320,13 @@ Item {
                         }
                         background: Rectangle { implicitWidth: 4; color: "transparent" }
                     }
+
+                    Keys.onUpPressed: selectCategoryAt(currentIndex - 1)
+                    Keys.onDownPressed: selectCategoryAt(currentIndex + 1)
+                    Keys.onReturnPressed: if (currentIndex >= 0) selectCategory(appViewModel.categoryList.categoryIdAt(currentIndex))
+                    Keys.onEnterPressed: Keys.onReturnPressed(event)
+                    Keys.onRightPressed: vodView.focusPrimary()
+                    Keys.onLeftPressed: if (Window.window && Window.window.focusSidebar) Window.window.focusSidebar()
 
                     delegate: Rectangle {
                         width: vodCategoryList.width
@@ -545,6 +623,7 @@ Item {
 
                             property int catIdValue: model.catId
                             property string catNameValue: model.catName
+                            property alias rowView: rowListView
 
                             ListModel {
                                 id: rowModel
@@ -630,6 +709,31 @@ Item {
                                 rightMargin: Theme.spacingMd
                                 boundsBehavior: Flickable.StopAtBounds
                                 model: rowModel
+                                keyNavigationEnabled: true
+                                property int rowIndex: index
+
+                                Keys.onReturnPressed: playCurrentItem()
+                                Keys.onEnterPressed: playCurrentItem()
+                                Keys.onLeftPressed: {
+                                    if (currentIndex > 0) currentIndex--
+                                    else vodView.focusCategorySidebar()
+                                }
+                                Keys.onRightPressed: {
+                                    if (currentIndex < count - 1) currentIndex++
+                                }
+                                Keys.onUpPressed: vodView.focusAdjacentVodRow(rowIndex, currentIndex, -1)
+                                Keys.onDownPressed: vodView.focusAdjacentVodRow(rowIndex, currentIndex, 1)
+
+                                function playCurrentItem() {
+                                    if (currentIndex < 0 || !appViewModel) return
+                                    var item = model.get(currentIndex)
+                                    if (item.type === "series") {
+                                        appViewModel.fetchSeriesEpisodes(item.serverId, item.externalId, item.name, item.logoUrl)
+                                    } else {
+                                        appViewModel.player.play(item.streamUrl, item.name, item.logoUrl, item.channelId)
+                                        appViewModel.currentView = "player"
+                                    }
+                                }
 
                                 delegate: Item {
                                     width: 200
@@ -787,7 +891,8 @@ Item {
                                             anchors.fill: parent
                                             radius: posterCard.radius
                                             color: "transparent"
-                                            border.color: posterCard.posterHov ? Theme.accent : "transparent"
+                                            border.color: (posterCard.posterHov || (rowListView.activeFocus && rowListView.currentIndex === index))
+                                                ? Theme.accent : "transparent"
                                             border.width: 2
                                             z: 100
                                         }
@@ -830,10 +935,41 @@ Item {
                 cellWidth: 210
                 cellHeight: 180
                 clip: true
+                focus: visible
+                keyNavigationEnabled: true
+                highlight: Rectangle {
+                    color: Theme.accent + "30"
+                    radius: Theme.borderRadius
+                }
+                highlightFollowsCurrentItem: true
                 model: visible ? (appViewModel ? appViewModel.channelList : null) : null
                 leftMargin: Theme.spacingMd
                 rightMargin: Theme.spacingMd
                 topMargin: Theme.spacingSm
+
+                Keys.onReturnPressed: playCurrentItem()
+                Keys.onEnterPressed: playCurrentItem()
+                Keys.onLeftPressed: vodView.focusCategorySidebar()
+                Keys.onPressed: function(event) {
+                    if (event.key === Qt.Key_Space || event.key === Qt.Key_Select) {
+                        playCurrentItem()
+                        event.accepted = true
+                    }
+                }
+
+                function playCurrentItem() {
+                    if (currentIndex < 0 || !appViewModel) return
+                    var cl = appViewModel.channelList
+                    var type = cl.typeAt(currentIndex)
+                    if (type === "series") {
+                        appViewModel.fetchSeriesEpisodes(cl.serverIdAt(currentIndex),
+                            cl.externalIdAt(currentIndex), cl.nameAt(currentIndex), cl.logoUrlAt(currentIndex))
+                    } else {
+                        appViewModel.player.play(cl.channelUrlAt(currentIndex),
+                            cl.nameAt(currentIndex), cl.logoUrlAt(currentIndex), cl.channelIdAt(currentIndex))
+                        appViewModel.currentView = "player"
+                    }
+                }
 
                 ScrollBar.vertical: ScrollBar {
                     active: true
@@ -934,7 +1070,8 @@ Item {
                             anchors.fill: parent
                             radius: catGridCard.radius
                             color: "transparent"
-                            border.color: catGridCard.catGridHov ? Theme.accent : "transparent"
+                            border.color: (catGridCard.catGridHov || (categoryGrid.activeFocus && categoryGrid.currentIndex === index))
+                                ? Theme.accent : "transparent"
                             border.width: 2
                             z: 100
                         }
@@ -964,6 +1101,13 @@ Item {
 
                 Keys.onReturnPressed: playCurrentItem()
                 Keys.onEnterPressed: playCurrentItem()
+                Keys.onLeftPressed: vodView.focusCategorySidebar()
+                Keys.onPressed: function(event) {
+                    if (event.key === Qt.Key_Space || event.key === Qt.Key_Select) {
+                        playCurrentItem()
+                        event.accepted = true
+                    }
+                }
 
                 function playCurrentItem() {
                     if (currentIndex < 0 || !appViewModel) return
@@ -975,7 +1119,7 @@ Item {
                                                          cl.nameAt(currentIndex),
                                                          cl.logoUrlAt(currentIndex))
                     } else {
-                        appViewModel.player.play(cl.streamUrlAt(currentIndex),
+                        appViewModel.player.play(cl.channelUrlAt(currentIndex),
                                                  cl.nameAt(currentIndex),
                                                  cl.logoUrlAt(currentIndex),
                                                  cl.channelIdAt(currentIndex))

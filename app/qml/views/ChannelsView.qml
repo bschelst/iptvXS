@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import QtQuick.Window
 import Qt5Compat.GraphicalEffects
 import app.iptvxs
 
@@ -8,6 +9,51 @@ Item {
     id: channelsView
 
     property var activeServerId: 0
+
+    function firstVisibleChannelRow() {
+        for (var i = 0; i < chCategoryRepeater.count; i++) {
+            var item = chCategoryRepeater.itemAt(i)
+            if (item && item.visible && item.rowView && item.rowView.count > 0) {
+                return item.rowView
+            }
+        }
+        return null
+    }
+
+    function focusPrimary() {
+        if (channelGrid.visible) {
+            if (channelGrid.count > 0 && channelGrid.currentIndex < 0) channelGrid.currentIndex = 0
+            channelGrid.forceActiveFocus()
+            return
+        }
+        var row = firstVisibleChannelRow()
+        if (row) {
+            if (row.currentIndex < 0 && row.count > 0) row.currentIndex = 0
+            row.forceActiveFocus()
+            return
+        }
+        focusCategorySidebar()
+    }
+
+    function focusCategorySidebar() {
+        if (categoryList.count > 0) {
+            if (categoryList.currentIndex < 0) categoryList.currentIndex = 0
+            categoryList.forceActiveFocus()
+        } else if (Window.window && Window.window.focusSidebar) {
+            Window.window.focusSidebar()
+        }
+    }
+
+    function focusAdjacentChannelRow(rowIndex, currentItemIndex, delta) {
+        for (var i = rowIndex + delta; i >= 0 && i < chCategoryRepeater.count; i += delta) {
+            var item = chCategoryRepeater.itemAt(i)
+            if (item && item.visible && item.rowView && item.rowView.count > 0) {
+                item.rowView.currentIndex = Math.min(currentItemIndex, item.rowView.count - 1)
+                item.rowView.forceActiveFocus()
+                return
+            }
+        }
+    }
 
     RowLayout {
         anchors.fill: parent
@@ -56,6 +102,19 @@ Item {
                     Layout.preferredHeight: Math.min(contentHeight, 150)
                     clip: true
                     model: appViewModel ? appViewModel.serverList : null
+
+                    function selectServerAt(index) {
+                        if (!appViewModel || !appViewModel.serverList || appViewModel.serverList.count <= 0) return
+                        index = Math.max(0, Math.min(appViewModel.serverList.count - 1, index))
+                        currentIndex = index
+                        selectServer(appViewModel.serverList.serverIdAt(index))
+                    }
+
+                    Keys.onUpPressed: selectServerAt(currentIndex - 1)
+                    Keys.onDownPressed: selectServerAt(currentIndex + 1)
+                    Keys.onReturnPressed: selectServerAt(currentIndex)
+                    Keys.onEnterPressed: Keys.onReturnPressed(event)
+                    Keys.onRightPressed: channelsView.focusCategorySidebar()
 
                     delegate: Rectangle {
                         width: serverPicker.width
@@ -222,6 +281,13 @@ Item {
                     highlight: null
                     model: appViewModel ? appViewModel.categoryList : null
 
+                    function selectCategoryAt(index) {
+                        if (!appViewModel || !appViewModel.categoryList || appViewModel.categoryList.count <= 0) return
+                        index = Math.max(0, Math.min(appViewModel.categoryList.count - 1, index))
+                        currentIndex = index
+                        selectCategory(appViewModel.categoryList.categoryIdAt(index))
+                    }
+
                     ScrollBar.vertical: ScrollBar {
                         active: true
                         policy: ScrollBar.AsNeeded
@@ -235,9 +301,12 @@ Item {
                         background: Rectangle { implicitWidth: 4; color: "transparent" }
                     }
 
+                    Keys.onUpPressed: selectCategoryAt(currentIndex - 1)
+                    Keys.onDownPressed: selectCategoryAt(currentIndex + 1)
                     Keys.onReturnPressed: if (currentIndex >= 0) selectCategory(appViewModel.categoryList.categoryIdAt(currentIndex))
                     Keys.onEnterPressed: Keys.onReturnPressed(event)
-                    Keys.onRightPressed: channelGrid.forceActiveFocus()
+                    Keys.onRightPressed: channelsView.focusPrimary()
+                    Keys.onLeftPressed: if (Window.window && Window.window.focusSidebar) Window.window.focusSidebar()
 
                     delegate: Rectangle {
                         width: categoryList.width
@@ -575,6 +644,7 @@ Item {
 
                             property int catIdValue: model.catId
                             property string catNameValue: model.catName
+                            property alias rowView: chRowListView
 
                             ListModel {
                                 id: chRowModel
@@ -660,6 +730,33 @@ Item {
                                 rightMargin: Theme.spacingMd
                                 boundsBehavior: Flickable.StopAtBounds
                                 model: chRowModel
+                                keyNavigationEnabled: true
+                                property int rowIndex: index
+
+                                Keys.onReturnPressed: playCurrentItem()
+                                Keys.onEnterPressed: playCurrentItem()
+                                Keys.onLeftPressed: {
+                                    if (currentIndex > 0) currentIndex--
+                                    else channelsView.focusCategorySidebar()
+                                }
+                                Keys.onRightPressed: {
+                                    if (currentIndex < count - 1) currentIndex++
+                                }
+                                Keys.onUpPressed: channelsView.focusAdjacentChannelRow(rowIndex, currentIndex, -1)
+                                Keys.onDownPressed: channelsView.focusAdjacentChannelRow(rowIndex, currentIndex, 1)
+                                Keys.onPressed: function(event) {
+                                    if (event.key === Qt.Key_Space || event.key === Qt.Key_Select) {
+                                        playCurrentItem()
+                                        event.accepted = true
+                                    }
+                                }
+
+                                function playCurrentItem() {
+                                    if (currentIndex < 0 || !appViewModel) return
+                                    var item = model.get(currentIndex)
+                                    appViewModel.player.play(item.streamUrl, item.name, item.logoUrl, item.channelId, item.epgChannelId || "")
+                                    appViewModel.currentView = "player"
+                                }
 
                                 delegate: Item {
                                     width: 208
@@ -763,7 +860,8 @@ Item {
                                             anchors.fill: parent
                                             radius: chNetCard.radius
                                             color: "transparent"
-                                            border.color: chNetCard.chNetHov ? Theme.accent : "transparent"
+                                            border.color: (chNetCard.chNetHov || (chRowListView.activeFocus && chRowListView.currentIndex === index))
+                                                ? Theme.accent : "transparent"
                                             border.width: 2
                                             z: 100
                                         }
@@ -819,12 +917,18 @@ Item {
 
                 Keys.onReturnPressed: playCurrentItem()
                 Keys.onEnterPressed: playCurrentItem()
-                Keys.onLeftPressed: categoryList.forceActiveFocus()
+                Keys.onLeftPressed: channelsView.focusCategorySidebar()
+                Keys.onPressed: function(event) {
+                    if (event.key === Qt.Key_Space || event.key === Qt.Key_Select) {
+                        playCurrentItem()
+                        event.accepted = true
+                    }
+                }
 
                 function playCurrentItem() {
                     if (currentIndex < 0 || !appViewModel) return
                     var cl = appViewModel.channelList
-                    appViewModel.player.play(cl.streamUrlAt(currentIndex),
+                    appViewModel.player.play(cl.channelUrlAt(currentIndex),
                                              cl.nameAt(currentIndex),
                                              cl.logoUrlAt(currentIndex),
                                              cl.channelIdAt(currentIndex),
