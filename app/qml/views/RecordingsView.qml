@@ -284,7 +284,7 @@ Item {
                     anchors.top: parent.top
                     anchors.left: parent.left
                     anchors.right: parent.right
-                    anchors.leftMargin: Theme.spacingMd
+                    anchors.leftMargin: Theme.spacingSm
                     anchors.rightMargin: Theme.spacingSm
                     anchors.topMargin: Theme.spacingSm
                     height: 72

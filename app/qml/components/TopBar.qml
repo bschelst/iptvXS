@@ -66,12 +66,40 @@ Rectangle {
 
         Item { Layout.fillWidth: true }
 
-        Text {
-            text: Qt.formatTime(clockTimer.currentTime, "HH:mm")
-            font.pixelSize: Theme.fontSizeLg
-            font.bold: true
-            color: Theme.textPrimary
+        Row {
             Layout.rightMargin: Theme.spacingSm
+            spacing: 0
+
+            Text {
+                text: Qt.formatTime(clockTimer.currentTime, "HH")
+                font.pixelSize: Theme.fontSizeLg
+                font.bold: true
+                color: Theme.textPrimary
+                anchors.verticalCenter: parent.verticalCenter
+            }
+
+            Text {
+                text: ":"
+                font.pixelSize: Theme.fontSizeLg
+                font.bold: true
+                color: Theme.textPrimary
+                anchors.verticalCenter: parent.verticalCenter
+
+                SequentialAnimation on opacity {
+                    loops: Animation.Infinite
+                    running: true
+                    NumberAnimation { to: 0.0; duration: 1000; easing.type: Easing.InOutSine }
+                    NumberAnimation { to: 1.0; duration: 1000; easing.type: Easing.InOutSine }
+                }
+            }
+
+            Text {
+                text: Qt.formatTime(clockTimer.currentTime, "mm")
+                font.pixelSize: Theme.fontSizeLg
+                font.bold: true
+                color: Theme.textPrimary
+                anchors.verticalCenter: parent.verticalCenter
+            }
 
             Timer {
                 id: clockTimer
