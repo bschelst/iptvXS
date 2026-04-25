@@ -23,6 +23,7 @@ QtObject {
     property color warning: "#fdcb6e"
     property color error: "#ff6b6b"
     property color live: "#ff4757"
+    property color textOnAccent: "#ffffff"
 
     // Dimensions
     readonly property int sidebarWidth: 240
@@ -76,6 +77,7 @@ QtObject {
         warning = t.warning
         error = t.error
         live = t.live
+        textOnAccent = t.textOnAccent || "#ffffff"
     }
 
     property var themes: ({
@@ -189,7 +191,8 @@ QtObject {
             success: "#00ff88",
             warning: "#ffdd00",
             error: "#ff3333",
-            live: "#ff0040"
+            live: "#ff0040",
+            textOnAccent: "#000000"
         }
     })
 }

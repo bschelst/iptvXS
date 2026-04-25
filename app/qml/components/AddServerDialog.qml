@@ -210,7 +210,7 @@ Dialog {
                     text: editMode ? "Save" : "Add Server"
                     font.pixelSize: Theme.fontSizeSm
                     font.bold: true
-                    color: "#ffffff"
+                    color: Theme.textOnAccent
                 }
 
                 MouseArea {

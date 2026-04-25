@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import Qt5Compat.GraphicalEffects
 import app.iptvxs
 
 Item {
@@ -8,6 +9,15 @@ Item {
 
     property var activeServerId: 0
     property string activeType: "vod"
+    property string initialType: "vod"
+    property var selectedCategoryId: 0
+
+    onInitialTypeChanged: {
+        if (initialType && initialType !== activeType) {
+            activeType = initialType
+            reloadVod()
+        }
+    }
 
     RowLayout {
         anchors.fill: parent
@@ -110,68 +120,270 @@ Item {
                     Layout.preferredHeight: 36
                     Layout.topMargin: Theme.spacingSm
 
-                    Text {
+                    RowLayout {
                         anchors.left: parent.left
+                        anchors.right: parent.right
                         anchors.leftMargin: Theme.spacingMd
+                        anchors.rightMargin: Theme.spacingMd
                         anchors.bottom: parent.bottom
                         anchors.bottomMargin: 8
-                        text: "TYPE"
-                        font.pixelSize: 10
-                        font.bold: true
-                        font.letterSpacing: 1.5
-                        color: Theme.textMuted
-                        opacity: 0.7
-                    }
-                }
 
-                Repeater {
-                    model: [
-                        { type: "vod", label: "Movies" },
-                        { type: "series", label: "Series" }
-                    ]
-
-                    Rectangle {
-                        Layout.fillWidth: true
-                        Layout.preferredHeight: 36
-                        color: activeType === modelData.type
-                            ? Theme.accent + "25" : typeHov ? Theme.surfaceHover : "transparent"
-
-                        property bool typeHov: false
-
-                        Rectangle {
-                            visible: activeType === modelData.type
-                            anchors.left: parent.left
-                            anchors.verticalCenter: parent.verticalCenter
-                            width: 3; height: 20; radius: 2
-                            color: Theme.accent
+                        Text {
+                            text: "CATEGORIES"
+                            font.pixelSize: 10
+                            font.bold: true
+                            font.letterSpacing: 1.5
+                            color: Theme.textMuted
+                            opacity: 0.7
+                            Layout.fillWidth: true
                         }
 
                         Text {
-                            anchors.left: parent.left
-                            anchors.leftMargin: Theme.spacingLg
+                            text: appViewModel ? appViewModel.categoryList.count : 0
+                            font.pixelSize: Theme.fontSizeXs
+                            color: Theme.textMuted
+                            opacity: 0.5
+                        }
+                    }
+                }
+
+                Rectangle {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 28
+                    Layout.leftMargin: Theme.spacingSm
+                    Layout.rightMargin: Theme.spacingSm
+                    Layout.topMargin: Theme.spacingSm
+                    Layout.bottomMargin: Theme.spacingMd
+                    radius: 14
+                    color: Theme.surfaceElevated
+                    border.color: vodCatFilterInput.activeFocus ? Theme.accent : Theme.surfaceBorder
+                    border.width: 1
+
+                    Row {
+                        anchors.fill: parent
+                        anchors.leftMargin: Theme.spacingSm
+                        anchors.rightMargin: Theme.spacingSm
+                        spacing: 4
+
+                        Text {
                             anchors.verticalCenter: parent.verticalCenter
-                            text: modelData.label
-                            font.pixelSize: Theme.fontSizeSm
-                            font.bold: activeType === modelData.type
-                            color: activeType === modelData.type
-                                ? Theme.textPrimary : Theme.textSecondary
+                            text: "🔍"
+                            font.pixelSize: 10
+                            opacity: 0.5
                         }
 
-                        MouseArea {
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
-                            onEntered: parent.typeHov = true
-                            onExited: parent.typeHov = false
-                            onClicked: {
-                                activeType = modelData.type
-                                reloadVod()
+                        TextInput {
+                            id: vodCatFilterInput
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: parent.width - 20
+                            font.pixelSize: Theme.fontSizeXs
+                            color: Theme.textPrimary
+                            clip: true
+                            selectByMouse: true
+
+                            Text {
+                                anchors.verticalCenter: parent.verticalCenter
+                                text: "Filter categories..."
+                                font.pixelSize: Theme.fontSizeXs
+                                color: Theme.textMuted
+                                visible: !vodCatFilterInput.text && !vodCatFilterInput.activeFocus
                             }
                         }
                     }
                 }
 
-                Item { Layout.fillHeight: true }
+                Rectangle {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 36
+                    color: selectedCategoryId === 0
+                        ? Theme.accentGlow : allVodCatHov ? Theme.surfaceHover : "transparent"
+
+                    property bool allVodCatHov: false
+
+                    Text {
+                        anchors.left: parent.left
+                        anchors.leftMargin: Theme.spacingMd
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: "All " + (activeType === "vod" ? "Movies" : "Series")
+                        font.pixelSize: Theme.fontSizeSm
+                        font.bold: selectedCategoryId === 0
+                        color: selectedCategoryId === 0
+                            ? Theme.textPrimary : Theme.textSecondary
+                    }
+
+                    MouseArea {
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onEntered: parent.allVodCatHov = true
+                        onExited: parent.allVodCatHov = false
+                        onClicked: selectCategory(0)
+                    }
+                }
+
+                ListView {
+                    id: vodCategoryList
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    clip: true
+                    model: appViewModel ? appViewModel.categoryList : null
+
+                    ScrollBar.vertical: ScrollBar {
+                        active: true
+                        policy: ScrollBar.AsNeeded
+                        contentItem: Rectangle {
+                            implicitWidth: 4
+                            radius: 2
+                            color: Theme.accent
+                            opacity: parent.active ? 0.6 : 0.0
+                            Behavior on opacity { NumberAnimation { duration: Theme.animNormal } }
+                        }
+                        background: Rectangle { implicitWidth: 4; color: "transparent" }
+                    }
+
+                    delegate: Rectangle {
+                        width: vodCategoryList.width
+                        height: vodCatVisible ? 36 : 0
+                        visible: vodCatVisible
+                        clip: true
+
+                        property bool vodCatVisible: {
+                            if (!vodCatFilterInput.text) return true
+                            return model.name.toLowerCase().indexOf(vodCatFilterInput.text.toLowerCase()) >= 0
+                        }
+
+                        color: selectedCategoryId === model.categoryId
+                            ? Theme.accentGlow : vodCatHov ? Theme.surfaceHover : "transparent"
+
+                        property bool vodCatHov: false
+                        opacity: model.hidden ? 0.5 : 1.0
+
+                        Behavior on color {
+                            ColorAnimation { duration: Theme.animFast }
+                        }
+
+                        Text {
+                            id: vodCatStarIcon
+                            anchors.left: parent.left
+                            anchors.leftMargin: 6
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: "\u2605"
+                            font.pixelSize: 10
+                            color: Theme.warning
+                            visible: model.favorite
+                        }
+
+                        Text {
+                            anchors.left: model.favorite ? vodCatStarIcon.right : parent.left
+                            anchors.leftMargin: model.favorite ? 4 : Theme.spacingLg
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: model.name
+                            font.pixelSize: Theme.fontSizeSm
+                            font.strikeout: model.hidden
+                            color: selectedCategoryId === model.categoryId
+                                ? Theme.textPrimary : Theme.textSecondary
+                            elide: Text.ElideRight
+                            width: parent.width - (model.favorite ? Theme.spacingLg + 14 : Theme.spacingXl) - 60
+                        }
+
+                        Row {
+                            anchors.right: parent.right
+                            anchors.rightMargin: 4
+                            anchors.verticalCenter: parent.verticalCenter
+                            spacing: 2
+                            opacity: vodCatHov ? 1.0 : 0.0
+                            enabled: vodCatHov
+
+                            Rectangle {
+                                width: 22; height: 22; radius: 11
+                                color: vodCatRenameHov ? Theme.surfaceHover : "transparent"
+                                property bool vodCatRenameHov: false
+
+                                Text {
+                                    anchors.centerIn: parent
+                                    text: "\u270E"
+                                    font.pixelSize: 11
+                                    color: parent.vodCatRenameHov ? Theme.textPrimary : Theme.textMuted
+                                }
+
+                                MouseArea {
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    cursorShape: Qt.PointingHandCursor
+                                    onEntered: parent.vodCatRenameHov = true
+                                    onExited: parent.vodCatRenameHov = false
+                                    onClicked: {
+                                        vodRenameDialog.categoryId = model.categoryId
+                                        vodRenameDialog.originalName = model.name
+                                        vodRenameDialog.open()
+                                    }
+                                }
+                            }
+
+                            Rectangle {
+                                width: 22; height: 22; radius: 11
+                                color: vodCatFavHov ? Theme.surfaceHover : "transparent"
+                                property bool vodCatFavHov: false
+
+                                Text {
+                                    anchors.centerIn: parent
+                                    text: model.favorite ? "\u2605" : "\u2606"
+                                    font.pixelSize: 12
+                                    color: model.favorite ? Theme.warning : (parent.vodCatFavHov ? Theme.textPrimary : Theme.textMuted)
+                                }
+
+                                MouseArea {
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    cursorShape: Qt.PointingHandCursor
+                                    onEntered: parent.vodCatFavHov = true
+                                    onExited: parent.vodCatFavHov = false
+                                    onClicked: {
+                                        if (appViewModel) {
+                                            appViewModel.categoryList.toggleFavorite(model.categoryId)
+                                            Qt.callLater(reloadVodRows)
+                                        }
+                                    }
+                                }
+                            }
+
+                            Rectangle {
+                                width: 22; height: 22; radius: 11
+                                color: vodCatVisHov ? Theme.surfaceHover : "transparent"
+                                property bool vodCatVisHov: false
+
+                                Text {
+                                    anchors.centerIn: parent
+                                    text: model.hidden ? "\uD83D\uDE48" : "\uD83D\uDC41"
+                                    font.pixelSize: 11
+                                    color: parent.vodCatVisHov ? Theme.textPrimary : Theme.textMuted
+                                }
+
+                                MouseArea {
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    cursorShape: Qt.PointingHandCursor
+                                    onEntered: parent.vodCatVisHov = true
+                                    onExited: parent.vodCatVisHov = false
+                                    onClicked: {
+                                        if (appViewModel) {
+                                            appViewModel.categoryList.toggleHidden(model.categoryId)
+                                            Qt.callLater(reloadVodRows)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        HoverHandler {
+                            onHoveredChanged: vodCatHov = hovered
+                        }
+
+                        TapHandler {
+                            onTapped: selectCategory(model.categoryId)
+                        }
+                    }
+                }
             }
         }
 
@@ -281,7 +493,7 @@ Item {
                 clip: true
                 contentWidth: width
                 contentHeight: netflixColumn.implicitHeight
-                visible: vodSearch.text.length === 0
+                visible: vodSearch.text.length === 0 && selectedCategoryId === 0
                 boundsBehavior: Flickable.StopAtBounds
                 flickableDirection: Flickable.VerticalFlick
 
@@ -352,24 +564,47 @@ Item {
                                     color: Theme.textPrimary
                                 }
 
-                                Rectangle {
+                                Row {
                                     anchors.right: parent.right
                                     anchors.rightMargin: Theme.spacingSm
                                     anchors.verticalCenter: parent.verticalCenter
-                                    width: 28; height: 28; radius: 14
-                                    color: vodScrollHov ? Theme.surfaceHover : "transparent"
-                                    property bool vodScrollHov: false
+                                    spacing: 4
+                                    visible: rowListView.contentWidth > rowListView.width - rowListView.leftMargin - rowListView.rightMargin
 
-                                    Text {
-                                        anchors.centerIn: parent
-                                        text: "\u203A"
-                                        font.pixelSize: 22; font.bold: true
-                                        color: parent.vodScrollHov ? Theme.textPrimary : Theme.textMuted
+                                    Rectangle {
+                                        width: 28; height: 28; radius: 14
+                                        color: vodScrollLeftHov ? Theme.surfaceHover : "transparent"
+                                        property bool vodScrollLeftHov: false
+
+                                        Text {
+                                            anchors.centerIn: parent
+                                            text: "\u2039"
+                                            font.pixelSize: 22; font.bold: true
+                                            color: parent.vodScrollLeftHov ? Theme.textPrimary : Theme.textMuted
+                                        }
+                                        MouseArea {
+                                            anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                                            onEntered: parent.vodScrollLeftHov = true; onExited: parent.vodScrollLeftHov = false
+                                            onClicked: rowListView.contentX = Math.max(rowListView.contentX - 210, -rowListView.leftMargin)
+                                        }
                                     }
-                                    MouseArea {
-                                        anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
-                                        onEntered: parent.vodScrollHov = true; onExited: parent.vodScrollHov = false
-                                        onClicked: rowListView.contentX = Math.min(rowListView.contentX + 210, rowListView.contentWidth - rowListView.width)
+
+                                    Rectangle {
+                                        width: 28; height: 28; radius: 14
+                                        color: vodScrollRightHov ? Theme.surfaceHover : "transparent"
+                                        property bool vodScrollRightHov: false
+
+                                        Text {
+                                            anchors.centerIn: parent
+                                            text: "\u203A"
+                                            font.pixelSize: 22; font.bold: true
+                                            color: parent.vodScrollRightHov ? Theme.textPrimary : Theme.textMuted
+                                        }
+                                        MouseArea {
+                                            anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                                            onEntered: parent.vodScrollRightHov = true; onExited: parent.vodScrollRightHov = false
+                                            onClicked: rowListView.contentX = Math.min(rowListView.contentX + 210, rowListView.contentWidth - rowListView.width + rowListView.rightMargin)
+                                        }
                                     }
                                 }
                             }
@@ -397,11 +632,14 @@ Item {
                                         radius: 10
                                         color: Theme.surfaceElevated
                                         clip: true
-                                        border.color: posterHov ? Theme.accent : "transparent"
-                                        border.width: posterHov ? 2 : 0
-
-                                        scale: posterHov ? 1.04 : 1.0
-                                        Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
+                                        layer.enabled: true
+                                        layer.effect: OpacityMask {
+                                            maskSource: Rectangle {
+                                                width: posterCard.width
+                                                height: posterCard.height
+                                                radius: posterCard.radius
+                                            }
+                                        }
 
                                         property bool posterHov: false
 
@@ -416,13 +654,12 @@ Item {
                                             cache: true
                                         }
 
-                                        // Fallback: app logo for failed/missing images
                                         Image {
                                             anchors.centerIn: parent
-                                            width: 48; height: 48
+                                            width: parent.width * 0.5; height: parent.width * 0.5
                                             source: "qrc:/images/iptvxs_tray.png"
                                             fillMode: Image.PreserveAspectFit
-                                            opacity: 0.3
+                                            opacity: 0.2
                                             visible: posterImg.status === Image.Error || posterImg.status === Image.Null
                                         }
 
@@ -536,7 +773,17 @@ Item {
                                                 }
                                             }
                                         }
+
+                                        Rectangle {
+                                            anchors.fill: parent
+                                            radius: posterCard.radius
+                                            color: "transparent"
+                                            border.color: posterCard.posterHov ? Theme.accent : "transparent"
+                                            border.width: 2
+                                            z: 100
+                                        }
                                     }
+
                                 }
                             }
                         }
@@ -562,6 +809,128 @@ Item {
                         font.pixelSize: Theme.fontSizeMd
                         color: Theme.textMuted
                     }
+                }
+            }
+
+            // --- Category grid (shown when a specific category is selected) ---
+            GridView {
+                id: categoryGrid
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                visible: vodSearch.text.length === 0 && selectedCategoryId !== 0
+                cellWidth: 210
+                cellHeight: 180
+                clip: true
+                model: visible ? (appViewModel ? appViewModel.channelList : null) : null
+                leftMargin: Theme.spacingMd
+                rightMargin: Theme.spacingMd
+                topMargin: Theme.spacingSm
+
+                ScrollBar.vertical: ScrollBar {
+                    active: true
+                    policy: ScrollBar.AsNeeded
+                    contentItem: Rectangle {
+                        implicitWidth: 6
+                        radius: 3
+                        color: Theme.accent
+                        opacity: parent.active ? 0.8 : 0.0
+                        Behavior on opacity { NumberAnimation { duration: Theme.animNormal } }
+                    }
+                    background: Rectangle { implicitWidth: 6; color: "transparent" }
+                }
+
+                delegate: Item {
+                    width: categoryGrid.cellWidth
+                    height: categoryGrid.cellHeight
+
+                    Rectangle {
+                        id: catGridCard
+                        anchors.fill: parent
+                        anchors.margins: 4
+                        radius: 10
+                        color: Theme.surfaceElevated
+                        clip: true
+                        layer.enabled: true
+                        layer.effect: OpacityMask {
+                            maskSource: Rectangle {
+                                width: catGridCard.width
+                                height: catGridCard.height
+                                radius: catGridCard.radius
+                            }
+                        }
+                        property bool catGridHov: false
+
+                        Image {
+                            id: catGridPoster
+                            anchors.fill: parent
+                            source: model.logoUrl && model.logoUrl.indexOf("http") === 0 ? model.logoUrl : ""
+                            fillMode: Image.PreserveAspectCrop
+                            asynchronous: true
+                            visible: status === Image.Ready
+                            cache: true
+                        }
+
+                        Image {
+                            anchors.centerIn: parent
+                            width: parent.width * 0.5; height: parent.width * 0.5
+                            source: "qrc:/images/iptvxs_tray.png"
+                            fillMode: Image.PreserveAspectFit
+                            opacity: 0.2
+                            visible: catGridPoster.status === Image.Error || catGridPoster.status === Image.Null
+                        }
+
+                        Rectangle {
+                            anchors.bottom: parent.bottom
+                            width: parent.width
+                            height: 40
+                            gradient: Gradient {
+                                GradientStop { position: 0.0; color: "transparent" }
+                                GradientStop { position: 0.4; color: "#CC000000" }
+                            }
+
+                            Text {
+                                anchors.left: parent.left
+                                anchors.right: parent.right
+                                anchors.bottom: parent.bottom
+                                anchors.margins: 6
+                                text: model.name
+                                font.pixelSize: Theme.fontSizeXs
+                                color: "#ffffff"
+                                elide: Text.ElideRight
+                                wrapMode: Text.Wrap
+                                maximumLineCount: 2
+                            }
+                        }
+
+                        MouseArea {
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onEntered: parent.catGridHov = true
+                            onExited: parent.catGridHov = false
+                            onClicked: {
+                                if (!appViewModel) return
+                                var cl = appViewModel.channelList
+                                if (model.type === "series") {
+                                    appViewModel.fetchSeriesEpisodes(cl.serverIdAt(index),
+                                        cl.externalIdAt(index), cl.nameAt(index), cl.logoUrlAt(index))
+                                } else {
+                                    appViewModel.player.play(model.streamUrl, model.name, model.logoUrl, model.channelId)
+                                    appViewModel.currentView = "player"
+                                }
+                            }
+                        }
+
+                        Rectangle {
+                            anchors.fill: parent
+                            radius: catGridCard.radius
+                            color: "transparent"
+                            border.color: catGridCard.catGridHov ? Theme.accent : "transparent"
+                            border.width: 2
+                            z: 100
+                        }
+                    }
+
                 }
             }
 
@@ -883,7 +1252,7 @@ Item {
                                 font.pixelSize: Theme.fontSizeSm
                                 font.bold: episodeDialog.selectedSeason === index
                                 color: episodeDialog.selectedSeason === index
-                                    ? "#FFFFFF" : Theme.textSecondary
+                                    ? Theme.textOnAccent : Theme.textSecondary
                             }
 
                             MouseArea {
@@ -1081,7 +1450,14 @@ Item {
 
     function selectServer(serverId) {
         activeServerId = serverId
+        selectedCategoryId = 0
         reloadVod()
+    }
+
+    function selectCategory(catId) {
+        selectedCategoryId = catId
+        appViewModel.channelList.categoryId = catId
+        reloadVodRows()
     }
 
     function buildEpisodeUrl(episodeId, ext) {
@@ -1105,8 +1481,8 @@ Item {
         var end = Math.min(vodRowsLoaded + vodRowsBatchSize, catList.count)
         for (var i = vodRowsLoaded; i < end; i++) {
             var catId = catList.categoryIdAt(i)
-            // Skip hidden categories
             if (catList.isCategoryHidden(catId)) continue
+            if (selectedCategoryId !== 0 && catId !== selectedCategoryId) continue
             vodCategoryModel.append({
                 catId: catId,
                 catName: catList.categoryNameAt(i)
@@ -1156,6 +1532,158 @@ Item {
     Component.onDestruction: {
         if (appViewModel) {
             appViewModel.channelList.typeFilter = ""
+        }
+    }
+
+    Rectangle {
+        id: vodRenameDialog
+        visible: false
+        anchors.fill: parent
+        color: "#C0000000"
+        z: 100
+
+        property int categoryId: 0
+        property string originalName: ""
+
+        function open() {
+            vodRenameInput.text = originalName
+            visible = true
+            vodRenameInput.forceActiveFocus()
+            vodRenameInput.selectAll()
+        }
+        function close() { visible = false }
+
+        MouseArea { anchors.fill: parent; onClicked: vodRenameDialog.close() }
+
+        Rectangle {
+            anchors.centerIn: parent
+            width: 340
+            height: vodRenameCol.implicitHeight + Theme.spacingLg * 2
+            radius: Theme.borderRadiusLarge
+            color: Theme.surfaceElevated
+            border.color: Theme.accent
+            border.width: 1
+
+            MouseArea { anchors.fill: parent }
+
+            ColumnLayout {
+                id: vodRenameCol
+                anchors.fill: parent
+                anchors.margins: Theme.spacingLg
+                spacing: Theme.spacingMd
+
+                Text {
+                    text: "Rename Category"
+                    font.pixelSize: Theme.fontSizeLg
+                    font.bold: true
+                    color: Theme.textPrimary
+                }
+
+                Text {
+                    text: "Original: " + vodRenameDialog.originalName
+                    font.pixelSize: Theme.fontSizeXs
+                    color: Theme.textMuted
+                    elide: Text.ElideRight
+                    Layout.fillWidth: true
+                }
+
+                Rectangle {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 36
+                    radius: Theme.borderRadius
+                    color: Theme.surface
+                    border.color: vodRenameInput.activeFocus ? Theme.accent : Theme.surfaceBorder
+                    border.width: 1
+
+                    TextInput {
+                        id: vodRenameInput
+                        anchors.fill: parent
+                        anchors.margins: Theme.spacingSm
+                        font.pixelSize: Theme.fontSizeSm
+                        color: Theme.textPrimary
+                        clip: true
+                        selectByMouse: true
+
+                        Keys.onReturnPressed: {
+                            if (appViewModel && vodRenameDialog.categoryId > 0) {
+                                appViewModel.categoryList.renameCategory(vodRenameDialog.categoryId, vodRenameInput.text)
+                                vodRenameDialog.close()
+                                Qt.callLater(reloadVodRows)
+                            }
+                        }
+                        Keys.onEscapePressed: vodRenameDialog.close()
+                    }
+                }
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: Theme.spacingSm
+
+                    Rectangle {
+                        width: vodResetLabel.implicitWidth + 20
+                        height: 32
+                        radius: Theme.borderRadius
+                        color: vodResetHov ? Theme.surfaceHover : Theme.surface
+                        border.color: Theme.surfaceBorder
+                        border.width: 1
+                        property bool vodResetHov: false
+
+                        Text { id: vodResetLabel; anchors.centerIn: parent; text: "Reset"; font.pixelSize: Theme.fontSizeSm; color: Theme.textSecondary }
+                        MouseArea {
+                            anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                            onEntered: parent.vodResetHov = true; onExited: parent.vodResetHov = false
+                            onClicked: {
+                                if (appViewModel && vodRenameDialog.categoryId > 0) {
+                                    appViewModel.categoryList.renameCategory(vodRenameDialog.categoryId, "")
+                                    vodRenameDialog.close()
+                                    Qt.callLater(reloadVodRows)
+                                }
+                            }
+                        }
+                    }
+
+                    Item { Layout.fillWidth: true }
+
+                    Rectangle {
+                        width: vodCancelLabel.implicitWidth + 20
+                        height: 32
+                        radius: Theme.borderRadius
+                        color: vodCancelHov ? Theme.surfaceHover : Theme.surface
+                        border.color: Theme.surfaceBorder
+                        border.width: 1
+                        property bool vodCancelHov: false
+
+                        Text { id: vodCancelLabel; anchors.centerIn: parent; text: "Cancel"; font.pixelSize: Theme.fontSizeSm; color: Theme.textSecondary }
+                        MouseArea {
+                            anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                            onEntered: parent.vodCancelHov = true; onExited: parent.vodCancelHov = false
+                            onClicked: vodRenameDialog.close()
+                        }
+                    }
+
+                    Rectangle {
+                        width: vodSaveLabel.implicitWidth + 20
+                        height: 32
+                        radius: Theme.borderRadius
+                        color: vodSaveHov ? Theme.accent : Theme.accentHover
+
+                        property bool vodSaveHov: false
+
+                        Text { id: vodSaveLabel; anchors.centerIn: parent; text: "Save"; font.pixelSize: Theme.fontSizeSm; font.bold: true; color: Theme.textOnAccent }
+                        MouseArea {
+                            anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                            onEntered: parent.vodSaveHov = true; onExited: parent.vodSaveHov = false
+                            onClicked: {
+                                if (appViewModel && vodRenameDialog.categoryId > 0) {
+                                    appViewModel.categoryList.renameCategory(vodRenameDialog.categoryId, vodRenameInput.text)
+                                    vodRenameDialog.close()
+                                    Qt.callLater(reloadVodRows)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 }

@@ -44,7 +44,7 @@ Item {
                         text: "+"
                         font.pixelSize: Theme.fontSizeLg
                         font.bold: true
-                        color: "#ffffff"
+                        color: Theme.textOnAccent
                         anchors.verticalCenter: parent.verticalCenter
                     }
 
@@ -52,7 +52,7 @@ Item {
                         text: "Add Server"
                         font.pixelSize: Theme.fontSizeSm
                         font.bold: true
-                        color: "#ffffff"
+                        color: Theme.textOnAccent
                         anchors.verticalCenter: parent.verticalCenter
                     }
                 }

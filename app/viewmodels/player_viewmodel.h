@@ -20,6 +20,7 @@ class PlayerViewModel : public QObject {
     Q_PROPERTY(bool muted READ muted WRITE setMuted NOTIFY mutedChanged)
     Q_PROPERTY(double duration READ duration NOTIFY durationChanged)
     Q_PROPERTY(double position READ position NOTIFY positionChanged)
+    Q_PROPERTY(double cacheDuration READ cacheDuration NOTIFY cacheDurationChanged)
     Q_PROPERTY(QString channelName READ channelName NOTIFY channelNameChanged)
     Q_PROPERTY(QString channelLogo READ channelLogo NOTIFY channelLogoChanged)
     Q_PROPERTY(iptvxs::MpvPlayer *mpvPlayer READ mpvPlayer CONSTANT)
@@ -50,6 +51,7 @@ public:
     void setMuted(bool m);
     double duration() const;
     double position() const;
+    double cacheDuration() const;
     QString channelName() const;
     QString channelLogo() const;
     iptvxs::MpvPlayer *mpvPlayer() const;
@@ -104,6 +106,7 @@ signals:
     void mutedChanged();
     void durationChanged();
     void positionChanged();
+    void cacheDurationChanged();
     void channelNameChanged();
     void channelLogoChanged();
     void channelIdChanged();

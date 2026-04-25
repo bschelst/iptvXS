@@ -272,7 +272,7 @@ Item {
                                         text: modelData.label
                                         font.pixelSize: Theme.fontSizeXs
                                         color: appViewModel && appViewModel.bufferSeconds === modelData.value
-                                            ? Theme.textPrimary : Theme.textSecondary
+                                            ? Theme.textOnAccent : Theme.textSecondary
                                     }
 
                                     MouseArea {
@@ -336,7 +336,7 @@ Item {
                                         text: modelData.label
                                         font.pixelSize: Theme.fontSizeXs
                                         color: appViewModel && appViewModel.hwdecMode === modelData.value
-                                            ? Theme.textPrimary : Theme.textSecondary
+                                            ? Theme.textOnAccent : Theme.textSecondary
                                     }
 
                                     MouseArea {
@@ -355,41 +355,12 @@ Item {
                         }
                     }
 
-                    RowLayout {
-                        Layout.fillWidth: true
-                        spacing: Theme.spacingMd
-
-                        ColumnLayout {
-                            Layout.fillWidth: true
-                            spacing: Theme.spacingXs
-
-                            Text {
-                                text: "Deinterlace"
-                                font.pixelSize: Theme.fontSizeSm
-                                color: Theme.textPrimary
-                            }
-
-                            Text {
-                                text: "Enable deinterlacing for interlaced video streams"
-                                font.pixelSize: Theme.fontSizeXs
-                                color: Theme.textMuted
-                            }
-                        }
-
-                        Switch {
-                            checked: appViewModel ? appViewModel.deinterlace : false
-                            onToggled: {
-                                if (appViewModel) appViewModel.deinterlace = checked
-                            }
-                        }
-                    }
-
                     ColumnLayout {
                         Layout.fillWidth: true
                         spacing: Theme.spacingXs
 
                         Text {
-                            text: "Grid columns"
+                            text: "Grid Detail Columns"
                             font.pixelSize: Theme.fontSizeSm
                             color: Theme.textPrimary
                         }
@@ -409,8 +380,7 @@ Item {
                                 model: [
                                     { value: 1, label: "1 column" },
                                     { value: 2, label: "2 columns" },
-                                    { value: 3, label: "3 columns" },
-                                    { value: 4, label: "4 columns" }
+                                    { value: 3, label: "3 columns" }
                                 ]
 
                                 Rectangle {
@@ -430,7 +400,7 @@ Item {
                                         text: modelData.label
                                         font.pixelSize: Theme.fontSizeXs
                                         color: appViewModel && appViewModel.gridColumns === modelData.value
-                                            ? Theme.textPrimary : Theme.textSecondary
+                                            ? Theme.textOnAccent : Theme.textSecondary
                                     }
 
                                     MouseArea {
@@ -545,7 +515,7 @@ Item {
                                         text: modelData.label
                                         font.pixelSize: Theme.fontSizeXs
                                         color: appViewModel && appViewModel.videoEnhancement === modelData.value
-                                            ? Theme.textPrimary : Theme.textSecondary
+                                            ? Theme.textOnAccent : Theme.textSecondary
                                     }
 
                                     MouseArea {
@@ -560,6 +530,35 @@ Item {
                                         }
                                     }
                                 }
+                            }
+                        }
+                    }
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: Theme.spacingMd
+
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            spacing: Theme.spacingXs
+
+                            Text {
+                                text: "Deinterlace"
+                                font.pixelSize: Theme.fontSizeSm
+                                color: Theme.textPrimary
+                            }
+
+                            Text {
+                                text: "Enable deinterlacing for interlaced video streams"
+                                font.pixelSize: Theme.fontSizeXs
+                                color: Theme.textMuted
+                            }
+                        }
+
+                        Switch {
+                            checked: appViewModel ? appViewModel.deinterlace : false
+                            onToggled: {
+                                if (appViewModel) appViewModel.deinterlace = checked
                             }
                         }
                     }
@@ -649,7 +648,7 @@ Item {
                                         text: modelData.label
                                         font.pixelSize: 11
                                         color: appViewModel && appViewModel.subtitleLanguage === modelData.value
-                                            ? Theme.textPrimary : Theme.textSecondary
+                                            ? Theme.textOnAccent : Theme.textSecondary
                                     }
 
                                     MouseArea {
@@ -697,7 +696,7 @@ Item {
                                 border.width: 1; border.color: Theme.surfaceBorder
                                 property bool noneHov: false
 
-                                Text { id: noneLbl; anchors.centerIn: parent; text: "None"; font.pixelSize: 11; color: appViewModel && !appViewModel.subtitleLanguageSecondary ? Theme.textPrimary : Theme.textSecondary }
+                                Text { id: noneLbl; anchors.centerIn: parent; text: "None"; font.pixelSize: 11; color: appViewModel && !appViewModel.subtitleLanguageSecondary ? Theme.textOnAccent : Theme.textSecondary }
                                 MouseArea { anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onEntered: parent.noneHov = true; onExited: parent.noneHov = false; onClicked: { if (appViewModel) appViewModel.subtitleLanguageSecondary = "" } }
                             }
 
@@ -713,7 +712,7 @@ Item {
                                     border.width: 1; border.color: Theme.surfaceBorder
                                     property bool secLangHov: false
 
-                                    Text { id: secLangLabel; anchors.centerIn: parent; text: modelData.label; font.pixelSize: 11; color: appViewModel && appViewModel.subtitleLanguageSecondary === modelData.value ? Theme.textPrimary : Theme.textSecondary }
+                                    Text { id: secLangLabel; anchors.centerIn: parent; text: modelData.label; font.pixelSize: 11; color: appViewModel && appViewModel.subtitleLanguageSecondary === modelData.value ? Theme.textOnAccent : Theme.textSecondary }
                                     MouseArea { anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onEntered: parent.secLangHov = true; onExited: parent.secLangHov = false; onClicked: { if (appViewModel) appViewModel.subtitleLanguageSecondary = modelData.value } }
                                 }
                             }
@@ -800,7 +799,7 @@ Item {
                                         }
                                         Text {
                                             text: modelData.label; font.pixelSize: 9
-                                            color: appViewModel && appViewModel.subtitleColor === modelData.value ? "#FFFFFF" : Theme.textPrimary
+                                            color: appViewModel && appViewModel.subtitleColor === modelData.value ? Theme.textOnAccent : Theme.textPrimary
                                             anchors.verticalCenter: parent.verticalCenter
                                         }
                                     }
@@ -846,7 +845,7 @@ Item {
 
                                     Text {
                                         anchors.centerIn: parent; text: modelData.label; font.pixelSize: 9
-                                        color: appViewModel && appViewModel.subtitleBgColor === modelData.value ? "#FFFFFF" : Theme.textPrimary
+                                        color: appViewModel && appViewModel.subtitleBgColor === modelData.value ? Theme.textOnAccent : Theme.textPrimary
                                     }
 
                                     MouseArea {
@@ -937,7 +936,7 @@ Item {
                                         text: modelData.label
                                         font.pixelSize: Theme.fontSizeXs
                                         color: appViewModel && appViewModel.autoSyncInterval === modelData.value
-                                            ? Theme.textPrimary : Theme.textSecondary
+                                            ? Theme.textOnAccent : Theme.textSecondary
                                     }
 
                                     MouseArea {
@@ -1010,7 +1009,7 @@ Item {
                                         text: modelData.label
                                         font.pixelSize: Theme.fontSizeXs
                                         color: appViewModel && appViewModel.autoSyncEpgInterval === modelData.value
-                                            ? Theme.textPrimary : Theme.textSecondary
+                                            ? Theme.textOnAccent : Theme.textSecondary
                                     }
 
                                     MouseArea {
@@ -1191,7 +1190,7 @@ Item {
                                     anchors.centerIn: parent
                                     text: "Save & create"
                                     font.pixelSize: Theme.fontSizeXs
-                                    color: "#ffffff"
+                                    color: Theme.textOnAccent
                                     font.bold: true
                                 }
 
@@ -1300,7 +1299,7 @@ Item {
                                         text: modelData.label +
                                             (gdriveLocked ? "  (connect Google Drive first)" : "")
                                         font.pixelSize: Theme.fontSizeSm
-                                        color: selected ? "#ffffff" : Theme.textSecondary
+                                        color: selected ? Theme.textOnAccent : Theme.textSecondary
                                         font.bold: selected
                                     }
 
@@ -1319,6 +1318,36 @@ Item {
                                         }
                                     }
                                 }
+                            }
+                        }
+                    }
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: Theme.spacingMd
+                        visible: appViewModel && appViewModel.recordingDestination === "gdrive"
+
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            spacing: Theme.spacingXs
+
+                            Text {
+                                text: "Keep local copy after upload"
+                                font.pixelSize: Theme.fontSizeSm
+                                color: Theme.textPrimary
+                            }
+
+                            Text {
+                                text: "Keep the local recording file after uploading to Google Drive"
+                                font.pixelSize: Theme.fontSizeXs
+                                color: Theme.textMuted
+                            }
+                        }
+
+                        Switch {
+                            checked: appViewModel ? appViewModel.keepLocalCopy : false
+                            onToggled: {
+                                if (appViewModel) appViewModel.keepLocalCopy = checked
                             }
                         }
                     }
@@ -1380,7 +1409,7 @@ Item {
                                     anchors.centerIn: parent
                                     text: "Browse..."
                                     font.pixelSize: Theme.fontSizeXs
-                                    color: Theme.textPrimary
+                                    color: Theme.textOnAccent
                                 }
 
                                 MouseArea {
@@ -1451,7 +1480,7 @@ Item {
                                         text: modelData.label
                                         font.pixelSize: 9
                                         color: appViewModel && appViewModel.maxRecordingSizeGb === modelData.value
-                                            ? "#FFFFFF" : Theme.textPrimary
+                                            ? Theme.textOnAccent : Theme.textPrimary
                                     }
 
                                     MouseArea {

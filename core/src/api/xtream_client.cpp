@@ -6,7 +6,20 @@
 #include <QNetworkReply>
 #include <QUrlQuery>
 
+#include <QRegularExpression>
+
 #include "iptvxs/net/http_client.h"
+
+namespace {
+QString sanitizeUrl(const QString &url) {
+    static const QRegularExpression re(
+        QStringLiteral("((?:username|password|user|pass)=)[^&]*"),
+        QRegularExpression::CaseInsensitiveOption);
+    QString masked = url;
+    masked.replace(re, QStringLiteral("\\1***"));
+    return masked;
+}
+}
 
 namespace iptvxs {
 
@@ -91,7 +104,7 @@ void XtreamClient::fetchSeriesInfo(const QString &seriesId) {
     query.addQueryItem(QStringLiteral("series_id"), seriesId);
     url.setQuery(query);
 
-    qInfo("Fetching series info: %s", qPrintable(url.toString()));
+    qInfo("Fetching series info: %s", qPrintable(sanitizeUrl(url.toString())));
     auto *reply = http_->get(url);
     connect(reply, &QNetworkReply::finished, this, [this, reply, seriesId]() {
         reply->deleteLater();

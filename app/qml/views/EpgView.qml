@@ -249,7 +249,7 @@ Item {
                         text: appViewModel && appViewModel.epg.syncing ? "Syncing..." : "Sync EPG"
                         font.pixelSize: Theme.fontSizeXs
                         font.bold: true
-                        color: Theme.textPrimary
+                        color: Theme.textOnAccent
                     }
 
                     MouseArea {
@@ -517,12 +517,20 @@ Item {
                                     MouseArea {
                                         anchors.fill: parent
                                         hoverEnabled: true
+                                        cursorShape: Qt.PointingHandCursor
                                         onEntered: parent.progHovered = true
                                         onExited: parent.progHovered = false
-
-                                        ToolTip.visible: parent.progHovered && (modelData.description || "").length > 0
-                                        ToolTip.text: modelData.description || ""
-                                        ToolTip.delay: 500
+                                        onClicked: {
+                                            progDetailPopup.channelName = channelName
+                                            progDetailPopup.channelLogo = channelLogo
+                                            progDetailPopup.streamUrl = streamUrl
+                                            progDetailPopup.channelId = channelId
+                                            progDetailPopup.progTitle = modelData.title || ""
+                                            progDetailPopup.progDescription = modelData.description || ""
+                                            progDetailPopup.progStart = modelData.startTime
+                                            progDetailPopup.progEnd = modelData.endTime
+                                            progDetailPopup.visible = true
+                                        }
                                     }
                                 }
                             }
@@ -609,6 +617,275 @@ Item {
                     color: Theme.textMuted
                     horizontalAlignment: Text.AlignHCenter
                     lineHeight: 1.5
+                }
+            }
+        }
+    }
+
+    Rectangle {
+        id: progDetailPopup
+        visible: false
+        anchors.fill: parent
+        color: "#C0000000"
+        z: 200
+
+        property string channelName: ""
+        property string channelLogo: ""
+        property string streamUrl: ""
+        property var channelId: 0
+        property string progTitle: ""
+        property string progDescription: ""
+        property real progStart: 0
+        property real progEnd: 0
+
+        readonly property bool isLive: {
+            if (!appViewModel) return false
+            var now = appViewModel.epg.currentTime
+            return now >= progStart && now < progEnd
+        }
+
+        readonly property real progress: {
+            if (!isLive || progEnd <= progStart) return 0
+            var now = appViewModel.epg.currentTime
+            return Math.min(1, Math.max(0, (now - progStart) / (progEnd - progStart)))
+        }
+
+        MouseArea { anchors.fill: parent; onClicked: progDetailPopup.visible = false }
+
+        Rectangle {
+            anchors.centerIn: parent
+            width: Math.min(520, parent.width - 80)
+            height: popupContent.implicitHeight + Theme.spacingLg * 2
+            radius: Theme.borderRadiusLarge
+            color: Theme.surfaceElevated
+            border.color: Theme.surfaceBorder
+            border.width: 1
+
+            MouseArea { anchors.fill: parent }
+
+            ColumnLayout {
+                id: popupContent
+                anchors.fill: parent
+                anchors.margins: Theme.spacingLg
+                spacing: Theme.spacingMd
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: Theme.spacingMd
+
+                    Rectangle {
+                        Layout.preferredWidth: 56
+                        Layout.preferredHeight: 56
+                        radius: Theme.borderRadius
+                        color: Theme.surface
+                        clip: true
+
+                        Image {
+                            id: popupLogo
+                            anchors.fill: parent
+                            anchors.margins: 4
+                            source: progDetailPopup.channelLogo || ""
+                            fillMode: Image.PreserveAspectFit
+                            asynchronous: true
+                            visible: status === Image.Ready
+                        }
+
+                        Text {
+                            anchors.centerIn: parent
+                            text: "📺"
+                            font.pixelSize: 20
+                            visible: !popupLogo.visible
+                        }
+                    }
+
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        spacing: 2
+
+                        Text {
+                            text: progDetailPopup.channelName
+                            font.pixelSize: Theme.fontSizeSm
+                            color: Theme.textSecondary
+                            elide: Text.ElideRight
+                            Layout.fillWidth: true
+                        }
+
+                        Text {
+                            text: progDetailPopup.progTitle
+                            font.pixelSize: Theme.fontSizeLg
+                            font.bold: true
+                            color: Theme.textPrimary
+                            wrapMode: Text.Wrap
+                            Layout.fillWidth: true
+                        }
+                    }
+
+                    Rectangle {
+                        Layout.preferredWidth: closePopupHov ? 30 : 28
+                        Layout.preferredHeight: closePopupHov ? 30 : 28
+                        Layout.alignment: Qt.AlignTop
+                        radius: width / 2
+                        color: closePopupHov ? Theme.surfaceHover : "transparent"
+                        property bool closePopupHov: false
+
+                        Text {
+                            anchors.centerIn: parent
+                            text: "✕"
+                            font.pixelSize: Theme.fontSizeMd
+                            color: parent.closePopupHov ? Theme.textPrimary : Theme.textMuted
+                        }
+
+                        MouseArea {
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onEntered: parent.closePopupHov = true
+                            onExited: parent.closePopupHov = false
+                            onClicked: progDetailPopup.visible = false
+                        }
+                    }
+                }
+
+                Rectangle {
+                    Layout.fillWidth: true
+                    height: 1
+                    color: Theme.surfaceBorder
+                }
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: Theme.spacingMd
+
+                    Text {
+                        text: {
+                            if (progDetailPopup.progStart <= 0) return ""
+                            var s = new Date(progDetailPopup.progStart * 1000)
+                            var e = new Date(progDetailPopup.progEnd * 1000)
+                            return Qt.formatTime(s, "HH:mm") + " – " + Qt.formatTime(e, "HH:mm")
+                        }
+                        font.pixelSize: Theme.fontSizeSm
+                        font.bold: true
+                        color: Theme.textPrimary
+                    }
+
+                    Text {
+                        text: {
+                            var dur = progDetailPopup.progEnd - progDetailPopup.progStart
+                            if (dur <= 0) return ""
+                            var mins = Math.round(dur / 60)
+                            if (mins >= 60) {
+                                var h = Math.floor(mins / 60)
+                                var m = mins % 60
+                                return h + "h " + (m > 0 ? m + "m" : "")
+                            }
+                            return mins + " min"
+                        }
+                        font.pixelSize: Theme.fontSizeSm
+                        color: Theme.textMuted
+                    }
+
+                    Rectangle {
+                        visible: progDetailPopup.isLive
+                        Layout.preferredWidth: liveLabel.implicitWidth + 12
+                        Layout.preferredHeight: 20
+                        radius: 10
+                        color: Theme.live
+
+                        Text {
+                            id: liveLabel
+                            anchors.centerIn: parent
+                            text: "LIVE"
+                            font.pixelSize: 10
+                            font.bold: true
+                            color: "#ffffff"
+                        }
+                    }
+
+                    Item { Layout.fillWidth: true }
+                }
+
+                Rectangle {
+                    visible: progDetailPopup.isLive
+                    Layout.fillWidth: true
+                    height: 4
+                    radius: 2
+                    color: Theme.surface
+
+                    Rectangle {
+                        width: parent.width * progDetailPopup.progress
+                        height: parent.height
+                        radius: 2
+                        color: Theme.live
+                    }
+                }
+
+                Text {
+                    visible: progDetailPopup.progDescription.length > 0
+                    text: progDetailPopup.progDescription
+                    font.pixelSize: Theme.fontSizeSm
+                    color: Theme.textSecondary
+                    wrapMode: Text.Wrap
+                    Layout.fillWidth: true
+                    lineHeight: 1.4
+                    maximumLineCount: 8
+                    elide: Text.ElideRight
+                }
+
+                Text {
+                    visible: progDetailPopup.progDescription.length === 0
+                    text: "No description available."
+                    font.pixelSize: Theme.fontSizeSm
+                    color: Theme.textMuted
+                    font.italic: true
+                }
+
+                Rectangle {
+                    Layout.fillWidth: true
+                    height: 1
+                    color: Theme.surfaceBorder
+                }
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: Theme.spacingSm
+
+                    Item { Layout.fillWidth: true }
+
+                    Rectangle {
+                        width: watchBtnLabel.implicitWidth + Theme.spacingLg * 2
+                        height: 36
+                        radius: 18
+                        color: watchBtnHov ? Theme.accentHover : Theme.accent
+
+                        property bool watchBtnHov: false
+
+                        Text {
+                            id: watchBtnLabel
+                            anchors.centerIn: parent
+                            text: progDetailPopup.isLive ? "▶  Watch Now" : "▶  Tune In"
+                            font.pixelSize: Theme.fontSizeSm
+                            font.bold: true
+                            color: Theme.textOnAccent
+                        }
+
+                        MouseArea {
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onEntered: parent.watchBtnHov = true
+                            onExited: parent.watchBtnHov = false
+                            onClicked: {
+                                if (appViewModel) {
+                                    appViewModel.player.play(progDetailPopup.streamUrl,
+                                        progDetailPopup.channelName,
+                                        progDetailPopup.channelLogo,
+                                        progDetailPopup.channelId)
+                                    appViewModel.currentView = "player"
+                                }
+                                progDetailPopup.visible = false
+                            }
+                        }
+                    }
                 }
             }
         }

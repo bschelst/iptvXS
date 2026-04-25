@@ -104,6 +104,9 @@ std::vector<Database::Migration> Database::migrations() const {
                      username TEXT,
                      password TEXT,
                      user_agent TEXT DEFAULT '',
+                     epg_url TEXT DEFAULT '',
+                     enabled INTEGER NOT NULL DEFAULT 1,
+                     is_primary INTEGER NOT NULL DEFAULT 0,
                      last_synced_at INTEGER,
                      created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
                  ))",
@@ -118,6 +121,13 @@ std::vector<Database::Migration> Database::migrations() const {
                  ))",
                  "CREATE INDEX IF NOT EXISTS idx_categories_server ON categories(server_id, type)",
 
+                 R"(CREATE TABLE IF NOT EXISTS category_settings (
+                     category_id INTEGER PRIMARY KEY REFERENCES categories(id) ON DELETE CASCADE,
+                     hidden INTEGER NOT NULL DEFAULT 0,
+                     favorite INTEGER NOT NULL DEFAULT 0,
+                     custom_name TEXT DEFAULT ''
+                 ))",
+
                  R"(CREATE TABLE IF NOT EXISTS channels (
                      id INTEGER PRIMARY KEY,
                      server_id INTEGER NOT NULL REFERENCES servers(id) ON DELETE CASCADE,
@@ -129,11 +139,28 @@ std::vector<Database::Migration> Database::migrations() const {
                      epg_channel_id TEXT DEFAULT '',
                      type TEXT NOT NULL CHECK(type IN ('live', 'vod', 'series')),
                      added_at INTEGER,
+                     first_seen_at INTEGER NOT NULL DEFAULT 0,
                      UNIQUE(server_id, external_id, type)
                  ))",
                  "CREATE INDEX IF NOT EXISTS idx_channels_server_cat ON channels(server_id, category_id)",
                  "CREATE INDEX IF NOT EXISTS idx_channels_name ON channels(name COLLATE NOCASE)",
                  "CREATE INDEX IF NOT EXISTS idx_channels_epg_id ON channels(epg_channel_id) WHERE epg_channel_id != ''",
+
+                 R"(CREATE TABLE IF NOT EXISTS channel_groups (
+                     id INTEGER PRIMARY KEY AUTOINCREMENT,
+                     name TEXT NOT NULL,
+                     position INTEGER NOT NULL DEFAULT 0,
+                     created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
+                 ))",
+
+                 R"(CREATE TABLE IF NOT EXISTS group_members (
+                     id INTEGER PRIMARY KEY AUTOINCREMENT,
+                     group_id INTEGER NOT NULL REFERENCES channel_groups(id) ON DELETE CASCADE,
+                     channel_id INTEGER NOT NULL REFERENCES channels(id) ON DELETE CASCADE,
+                     position INTEGER NOT NULL DEFAULT 0,
+                     UNIQUE(group_id, channel_id)
+                 ))",
+                 "CREATE INDEX IF NOT EXISTS idx_group_members_group ON group_members(group_id)",
 
                  R"(CREATE TABLE IF NOT EXISTS programmes (
                      id INTEGER PRIMARY KEY,
@@ -157,7 +184,11 @@ std::vector<Database::Migration> Database::migrations() const {
 
                  R"(CREATE TABLE IF NOT EXISTS history (
                      id INTEGER PRIMARY KEY,
-                     channel_id INTEGER NOT NULL REFERENCES channels(id) ON DELETE CASCADE,
+                     channel_id INTEGER DEFAULT 0,
+                     name TEXT DEFAULT '',
+                     logo_url TEXT DEFAULT '',
+                     type TEXT DEFAULT 'live',
+                     stream_url TEXT DEFAULT '',
                      watched_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
                      duration_secs INTEGER DEFAULT 0
                  ))",
@@ -175,7 +206,10 @@ std::vector<Database::Migration> Database::migrations() const {
                      end_time INTEGER,
                      file_size_bytes INTEGER DEFAULT 0,
                      gdrive_file_id TEXT DEFAULT '',
+                     gdrive_upload_url TEXT DEFAULT '',
                      error_message TEXT DEFAULT '',
+                     pinned INTEGER NOT NULL DEFAULT 0,
+                     thumbnail_url TEXT DEFAULT '',
                      created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
                  ))",
                  "CREATE INDEX IF NOT EXISTS idx_recordings_status ON recordings(status)",
@@ -193,112 +227,6 @@ std::vector<Database::Migration> Database::migrations() const {
                  }
              }
              return true;
-         }},
-        {2, "Add epg_url to servers", [](QSqlDatabase &db) -> bool {
-             QSqlQuery q(db);
-             return q.exec("ALTER TABLE servers ADD COLUMN epg_url TEXT DEFAULT ''");
-         }},
-        {3, "Add name/logo/type to history", [](QSqlDatabase &db) -> bool {
-             QSqlQuery q(db);
-             q.exec("ALTER TABLE history ADD COLUMN name TEXT DEFAULT ''");
-             q.exec("ALTER TABLE history ADD COLUMN logo_url TEXT DEFAULT ''");
-             q.exec("ALTER TABLE history ADD COLUMN type TEXT DEFAULT 'live'");
-             return true;
-         }},
-        {4, "Remove FK constraint from history for VOD support", [](QSqlDatabase &db) -> bool {
-             QSqlQuery q(db);
-             if (!q.exec("ALTER TABLE history RENAME TO history_old"))
-                 return false;
-             if (!q.exec(
-                     "CREATE TABLE history ("
-                     "id INTEGER PRIMARY KEY, "
-                     "channel_id INTEGER DEFAULT 0, "
-                     "name TEXT DEFAULT '', "
-                     "logo_url TEXT DEFAULT '', "
-                     "type TEXT DEFAULT 'live', "
-                     "watched_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now')), "
-                     "duration_secs INTEGER DEFAULT 0)"))
-                 return false;
-             if (!q.exec(
-                     "INSERT INTO history (id, channel_id, name, logo_url, type, watched_at, duration_secs) "
-                     "SELECT id, channel_id, name, logo_url, type, watched_at, duration_secs FROM history_old"))
-                 return false;
-             if (!q.exec("DROP TABLE history_old"))
-                 return false;
-             if (!q.exec("CREATE INDEX IF NOT EXISTS idx_history_channel ON history(channel_id)"))
-                 return false;
-             if (!q.exec("CREATE INDEX IF NOT EXISTS idx_history_time ON history(watched_at DESC)"))
-                 return false;
-             return true;
-         }},
-        {5, "Add stream_url to history", [](QSqlDatabase &db) -> bool {
-             QSqlQuery q(db);
-             return q.exec("ALTER TABLE history ADD COLUMN stream_url TEXT DEFAULT ''");
-         }},
-        {6, "Add gdrive_upload_url to recordings", [](QSqlDatabase &db) -> bool {
-             QSqlQuery q(db);
-             return q.exec("ALTER TABLE recordings ADD COLUMN gdrive_upload_url TEXT DEFAULT ''");
-         }},
-        {7, "Channel groups and first_seen_at", [](QSqlDatabase &db) -> bool {
-             QSqlQuery q(db);
-
-             if (!q.exec(R"(CREATE TABLE IF NOT EXISTS channel_groups (
-                     id INTEGER PRIMARY KEY AUTOINCREMENT,
-                     name TEXT NOT NULL,
-                     position INTEGER NOT NULL DEFAULT 0,
-                     created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
-                 ))"))
-                 return false;
-
-             if (!q.exec(R"(CREATE TABLE IF NOT EXISTS group_members (
-                     id INTEGER PRIMARY KEY AUTOINCREMENT,
-                     group_id INTEGER NOT NULL REFERENCES channel_groups(id) ON DELETE CASCADE,
-                     channel_id INTEGER NOT NULL REFERENCES channels(id) ON DELETE CASCADE,
-                     position INTEGER NOT NULL DEFAULT 0,
-                     UNIQUE(group_id, channel_id)
-                 ))"))
-                 return false;
-
-             if (!q.exec("CREATE INDEX IF NOT EXISTS idx_group_members_group ON group_members(group_id)"))
-                 return false;
-
-             if (!q.exec("ALTER TABLE channels ADD COLUMN first_seen_at INTEGER NOT NULL DEFAULT 0"))
-                 return false;
-
-             // Back-fill first_seen_at from added_at for existing rows.
-             if (!q.exec("UPDATE channels SET first_seen_at = COALESCE(added_at, 0) WHERE first_seen_at = 0"))
-                 return false;
-
-             return true;
-         }},
-        {8, "Add enabled and is_primary to servers", [](QSqlDatabase &db) -> bool {
-             QSqlQuery q(db);
-             if (!q.exec("ALTER TABLE servers ADD COLUMN enabled INTEGER NOT NULL DEFAULT 1"))
-                 return false;
-             if (!q.exec("ALTER TABLE servers ADD COLUMN is_primary INTEGER NOT NULL DEFAULT 0"))
-                 return false;
-             return true;
-         }},
-        {9, "Add pinned column to recordings", [](QSqlDatabase &db) -> bool {
-             QSqlQuery q(db);
-             if (!q.exec("ALTER TABLE recordings ADD COLUMN pinned INTEGER NOT NULL DEFAULT 0"))
-                 return false;
-             return true;
-         }},
-        {10, "Category settings (hidden, favorite, custom name)", [](QSqlDatabase &db) -> bool {
-             QSqlQuery q(db);
-             if (!q.exec(R"(CREATE TABLE IF NOT EXISTS category_settings (
-                     category_id INTEGER PRIMARY KEY REFERENCES categories(id) ON DELETE CASCADE,
-                     hidden INTEGER NOT NULL DEFAULT 0,
-                     favorite INTEGER NOT NULL DEFAULT 0,
-                     custom_name TEXT DEFAULT ''
-                 ))"))
-                 return false;
-             return true;
-         }},
-        {11, "Add thumbnail_url to recordings", [](QSqlDatabase &db) -> bool {
-             QSqlQuery q(db);
-             return q.exec("ALTER TABLE recordings ADD COLUMN thumbnail_url TEXT DEFAULT ''");
          }},
     };
 }

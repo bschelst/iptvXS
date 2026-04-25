@@ -71,7 +71,7 @@ Item {
                                 text: "+"
                                 font.pixelSize: 16
                                 font.bold: true
-                                color: "#ffffff"
+                                color: Theme.textOnAccent
                             }
 
                             MouseArea {
@@ -265,7 +265,7 @@ Item {
                             text: "+ Add Channels"
                             font.pixelSize: Theme.fontSizeSm
                             font.bold: true
-                            color: "#ffffff"
+                            color: Theme.textOnAccent
                         }
 
                         MouseArea {
@@ -541,7 +541,7 @@ Item {
                         width: 80; height: 36; radius: 6
                         color: createHov ? Theme.accent : Theme.accentHover
                         property bool createHov: false
-                        Text { anchors.centerIn: parent; text: "Create"; font.pixelSize: 13; font.bold: true; color: "#fff" }
+                        Text { anchors.centerIn: parent; text: "Create"; font.pixelSize: 13; font.bold: true; color: Theme.textOnAccent }
                         MouseArea { anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onEntered: parent.createHov = true; onExited: parent.createHov = false; onClicked: confirmCreateGroup() }
                     }
                 }

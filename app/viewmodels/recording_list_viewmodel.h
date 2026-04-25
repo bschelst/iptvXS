@@ -4,6 +4,7 @@
 #include <QQmlEngine>
 
 #include "iptvxs/db/channel_repository.h"
+#include "iptvxs/db/programme_repository.h"
 #include "iptvxs/db/recording_repository.h"
 #include "iptvxs/recording/recording_manager.h"
 
@@ -31,13 +32,16 @@ public:
         CreatedAtRole,
         IsActiveRole,
         PinnedRole,
-        ThumbnailUrlRole
+        ThumbnailUrlRole,
+        ProgrammeTitleRole,
+        ChannelLogoRole
     };
 
     explicit RecordingListViewModel(QObject *parent = nullptr);
 
     void setRepositories(iptvxs::RecordingRepository *recordingRepo,
-                         iptvxs::ChannelRepository *channelRepo);
+                         iptvxs::ChannelRepository *channelRepo,
+                         iptvxs::ProgrammeRepository *progRepo = nullptr);
     void setRecordingManager(iptvxs::RecordingManager *manager);
 
     int rowCount(const QModelIndex &parent = {}) const override;
@@ -61,6 +65,7 @@ public:
     Q_INVOKABLE void stopRecording(int64_t recordingId);
     Q_INVOKABLE void deleteRecording(int64_t recordingId);
     Q_INVOKABLE void deleteRecordingWithFile(int64_t recordingId);
+    Q_INVOKABLE void deleteLocalFile(int64_t recordingId);
     Q_INVOKABLE qint64 totalRecordingBytes() const;
     Q_INVOKABLE bool isChannelRecording(int64_t channelId) const;
     Q_INVOKABLE void stopChannelRecording(int64_t channelId);
@@ -82,6 +87,8 @@ private:
     struct RecordingEntry {
         iptvxs::Recording recording;
         QString channelName;
+        QString channelLogo;
+        QString programmeTitle;
     };
 
     void loadRecordings();
@@ -89,6 +96,7 @@ private:
 
     iptvxs::RecordingRepository *recordingRepo_{nullptr};
     iptvxs::ChannelRepository *channelRepo_{nullptr};
+    iptvxs::ProgrammeRepository *progRepo_{nullptr};
     iptvxs::RecordingManager *manager_{nullptr};
     QVector<RecordingEntry> recordings_;
     QString filterStatus_;

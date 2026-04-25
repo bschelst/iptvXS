@@ -104,10 +104,21 @@ Item {
                 Slider {
                     id: seekSlider
                     Layout.fillWidth: true
+                    visible: {
+                        if (!appViewModel) return false
+                        if (appViewModel.player.duration > 0) return true
+                        return appViewModel.player.paused && appViewModel.player.isLive
+                    }
                     from: 0
-                    to: appViewModel ? Math.max(appViewModel.player.duration, 1) : 1
+                    to: {
+                        if (!appViewModel) return 1
+                        if (appViewModel.player.duration > 0) return appViewModel.player.duration
+                        if (appViewModel.player.paused && appViewModel.player.isLive)
+                            return Math.max(appViewModel.player.position + appViewModel.player.cacheDuration, 1)
+                        return 1
+                    }
                     value: appViewModel ? appViewModel.player.position : 0
-                    enabled: appViewModel ? appViewModel.player.duration > 0 : false
+                    enabled: visible
 
                     onMoved: {
                         if (appViewModel) appViewModel.player.seek(value)
@@ -167,6 +178,10 @@ Item {
                             var dur = appViewModel.player.duration
                             if (dur > 0) {
                                 return appViewModel.player.formatTime(pos) + " / " + appViewModel.player.formatTime(dur)
+                            }
+                            if (appViewModel.player.paused && appViewModel.player.isLive && pos > 0) {
+                                var cache = appViewModel.player.cacheDuration
+                                return appViewModel.player.formatTime(pos) + " / " + appViewModel.player.formatTime(pos + cache) + "  ⏸ PAUSED"
                             }
                             if (pos > 0) return appViewModel.player.formatTime(pos)
                             return "● LIVE"
@@ -418,7 +433,7 @@ Item {
             anchors.left: parent.left
             anchors.right: parent.right
             anchors.top: parent.top
-            height: epgInfoVisible ? 72 : 56
+            height: 56
             visible: controlsOverlay.visible
             opacity: controlsOverlay.opacity
 
@@ -468,101 +483,97 @@ Item {
                 NumberAnimation { duration: Theme.animFast }
             }
 
-            ColumnLayout {
+            RowLayout {
                 anchors.fill: parent
                 anchors.margins: Theme.spacingMd
-                spacing: 2
 
-                RowLayout {
-                    Layout.fillWidth: true
+                PlayerButton {
+                    text: "\u2190"
+                    onClicked: goBack()
+                }
 
-                    PlayerButton {
-                        text: "\u2190"
-                        onClicked: goBack()
-                    }
+                Text {
+                    text: appViewModel ? appViewModel.player.channelName : ""
+                    font.pixelSize: Theme.fontSizeMd
+                    font.bold: true
+                    color: "#ffffff"
+                    elide: Text.ElideRight
+                    Layout.maximumWidth: parent.width * 0.35
+                }
 
-                    Text {
-                        text: appViewModel ? appViewModel.player.channelName : ""
-                        font.pixelSize: Theme.fontSizeMd
-                        font.bold: true
-                        color: "#ffffff"
-                        elide: Text.ElideRight
-                        Layout.fillWidth: true
-                    }
+                Rectangle {
+                    Layout.preferredWidth: 120
+                    Layout.preferredHeight: 3
+                    radius: 2
+                    color: "#30ffffff"
+                    visible: appViewModel ? (appViewModel.player.position <= 0 && !appViewModel.player.stopped) : false
 
                     Rectangle {
-                        Layout.preferredWidth: 120
-                        Layout.preferredHeight: 3
+                        anchors.left: parent.left
+                        height: parent.height
                         radius: 2
-                        color: "#30ffffff"
-                        visible: appViewModel ? (appViewModel.player.position <= 0 && !appViewModel.player.stopped) : false
-
-                        Rectangle {
-                            anchors.left: parent.left
-                            height: parent.height
-                            radius: 2
-                            width: parent.width * bufferAnim.value
-                            color: Theme.accent
-                        }
-
-                        SequentialAnimation {
-                            id: bufferAnim
-                            property real value: 0
-                            running: parent.visible
-                            loops: Animation.Infinite
-                            NumberAnimation { target: bufferAnim; property: "value"; from: 0; to: 0.7; duration: 600 }
-                            NumberAnimation { target: bufferAnim; property: "value"; from: 0.7; to: 1.0; duration: 300 }
-                            NumberAnimation { target: bufferAnim; property: "value"; from: 1.0; to: 0; duration: 300 }
-                        }
+                        width: parent.width * bufferAnim.value
+                        color: Theme.accent
                     }
 
-                    Text {
-                        id: clockText
-                        text: Qt.formatTime(new Date(), "HH:mm")
-                        font.pixelSize: Theme.fontSizeMd
-                        color: "#ccffffff"
+                    SequentialAnimation {
+                        id: bufferAnim
+                        property real value: 0
+                        running: parent.visible
+                        loops: Animation.Infinite
+                        NumberAnimation { target: bufferAnim; property: "value"; from: 0; to: 0.7; duration: 600 }
+                        NumberAnimation { target: bufferAnim; property: "value"; from: 0.7; to: 1.0; duration: 300 }
+                        NumberAnimation { target: bufferAnim; property: "value"; from: 1.0; to: 0; duration: 300 }
                     }
                 }
 
-                // EPG Now/Next programme info
                 Item {
                     Layout.fillWidth: true
-                    Layout.preferredHeight: 18
+                    Layout.fillHeight: true
                     visible: topOverlay.epgInfoVisible
-                    Layout.leftMargin: 52
 
                     Text {
                         id: epgNowLabel
-                        anchors.fill: parent
+                        anchors.centerIn: parent
+                        width: parent.width
                         text: "Now: " + topOverlay.epgNowText
-                        font.pixelSize: Theme.fontSizeXs
+                        font.pixelSize: Theme.fontSizeSm
                         color: "#ccffffff"
                         elide: Text.ElideRight
+                        horizontalAlignment: Text.AlignHCenter
                         opacity: topOverlay.epgShowNext ? 0.0 : 1.0
-
-                        Behavior on opacity {
-                            NumberAnimation { duration: 400; easing.type: Easing.InOutQuad }
-                        }
+                        Behavior on opacity { NumberAnimation { duration: 400; easing.type: Easing.InOutQuad } }
                     }
 
                     Text {
                         id: epgNextLabel
-                        anchors.fill: parent
+                        anchors.centerIn: parent
+                        width: parent.width
                         text: {
                             if (!topOverlay.epgNextText) return ""
                             var t = "Next: " + topOverlay.epgNextText
                             if (topOverlay.epgNextTime) t += " (" + topOverlay.epgNextTime + ")"
                             return t
                         }
-                        font.pixelSize: Theme.fontSizeXs
+                        font.pixelSize: Theme.fontSizeSm
                         color: "#aaffffff"
                         elide: Text.ElideRight
+                        horizontalAlignment: Text.AlignHCenter
                         opacity: topOverlay.epgShowNext ? 1.0 : 0.0
-
-                        Behavior on opacity {
-                            NumberAnimation { duration: 400; easing.type: Easing.InOutQuad }
-                        }
+                        Behavior on opacity { NumberAnimation { duration: 400; easing.type: Easing.InOutQuad } }
                     }
+                }
+
+                Item {
+                    Layout.fillWidth: true
+                    visible: !topOverlay.epgInfoVisible
+                }
+
+                Text {
+                    id: clockText
+                    text: Qt.formatTime(new Date(), "HH:mm")
+                    font.pixelSize: Theme.fontSizeMd
+                    color: "#ccffffff"
                 }
             }
         }
@@ -950,12 +961,13 @@ Item {
         }
 
         // --- Stopped placeholder ---
-        Text {
+        Image {
             anchors.centerIn: parent
             visible: appViewModel ? appViewModel.player.stopped : true
-            text: "Select a channel to start playing"
-            font.pixelSize: Theme.fontSizeLg
-            color: Theme.textMuted
+            width: 128; height: 128
+            source: "qrc:/images/iptvxs_tray.png"
+            fillMode: Image.PreserveAspectFit
+            opacity: 0.15
         }
 
         // --- Loading spinner (hidden once position starts updating) ---

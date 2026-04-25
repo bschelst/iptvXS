@@ -32,7 +32,8 @@ ApplicationWindow {
     property var viewTitles: ({
         "home": "Home",
         "channels": "Live TV",
-        "vod": "Video on Demand",
+        "vod_movies": "VOD Movies",
+        "vod_series": "VOD Series",
         "favorites": "Favorites",
         "groups": "Channel Groups",
         "epg": "TV Guide",
@@ -104,7 +105,8 @@ ApplicationWindow {
             return "views/ServersView.qml"
         case "channels":
             return "views/ChannelsView.qml"
-        case "vod":
+        case "vod_movies":
+        case "vod_series":
             return "views/VodView.qml"
         case "favorites":
             return "views/FavoritesView.qml"
@@ -134,7 +136,12 @@ ApplicationWindow {
         function onCurrentViewChanged() {
             var view = appViewModel.currentView
             sidebar.activeItem = view
-            viewLoader.setSource(viewForName(view))
+            var src = viewForName(view)
+            if (view === "vod_movies" || view === "vod_series") {
+                viewLoader.setSource(src, { "initialType": view === "vod_series" ? "series" : "vod" })
+            } else {
+                viewLoader.setSource(src)
+            }
         }
         function onDatabaseReadyChanged() {
             if (appViewModel.databaseReady) {
@@ -252,7 +259,7 @@ ApplicationWindow {
         }
     }
 
-    property var navItems: ["home", "servers", "channels", "epg", "vod", "favorites", "groups", "recordings", "history", "speedtest", "settings"]
+    property var navItems: ["home", "servers", "channels", "epg", "vod_movies", "vod_series", "favorites", "groups", "recordings", "history", "speedtest", "settings"]
 
     Shortcut {
         sequences: ["F1"]

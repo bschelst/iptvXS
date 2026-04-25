@@ -4,9 +4,21 @@
 #include <QJsonArray>
 #include <QJsonObject>
 #include <QNetworkReply>
+#include <QRegularExpression>
 #include <QSet>
 #include <QtConcurrent>
 #include <algorithm>
+
+namespace {
+QString sanitizeUrl(const QString &url) {
+    static const QRegularExpression re(
+        QStringLiteral("((?:username|password|user|pass)=)[^&]*"),
+        QRegularExpression::CaseInsensitiveOption);
+    QString masked = url;
+    masked.replace(re, QStringLiteral("\\1***"));
+    return masked;
+}
+}
 
 EpgViewModel::EpgViewModel(QObject *parent)
     : QAbstractListModel(parent) {
@@ -161,7 +173,7 @@ void EpgViewModel::syncEpg(const QString &epgUrl) {
 
     setSyncing(true);
     setSyncStatus("Downloading EPG data...");
-    qInfo("EPG sync started: %s", qPrintable(epgUrl));
+    qInfo("EPG sync started: %s", qPrintable(sanitizeUrl(epgUrl)));
 
     auto *reply = http_->get(QUrl(epgUrl));
     connect(reply, &QNetworkReply::finished, this, [this, reply]() {

@@ -38,6 +38,7 @@ public:
     State state() const;
     double duration() const;
     double position() const;
+    double cacheDuration() const;
     void seek(double seconds);
 
     mpv_handle *handle() const;
@@ -52,6 +53,7 @@ signals:
     void mutedChanged(bool muted);
     void durationChanged(double duration);
     void positionChanged(double position);
+    void cacheDurationChanged(double cacheDuration);
     void mediaLoaded();
     void endOfFile();
     void errorOccurred(const QString &message);
@@ -68,6 +70,7 @@ private:
     bool muted_{false};
     double duration_{0.0};
     double position_{0.0};
+    double cacheDuration_{0.0};
 };
 
 } // namespace iptvxs

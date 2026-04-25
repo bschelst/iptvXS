@@ -160,7 +160,7 @@ QString RecordingManager::recordingDirectory() const {
     }
 
     return QStandardPaths::writableLocation(QStandardPaths::MoviesLocation)
-           + QStringLiteral("/iptvxs");
+           + QStringLiteral("/iptvXS");
 }
 
 void RecordingManager::checkScheduledRecordings() {
@@ -316,7 +316,7 @@ void RecordingManager::enforceStorageLimit() {
 
         QFileInfo fi(r.filePath);
         if (fi.exists() && fi.isFile() && !fi.isSymLink()
-            && fi.absoluteFilePath().contains(QStringLiteral("iptvxs"))) {
+            && fi.absoluteFilePath().contains(QStringLiteral("iptvxs"), Qt::CaseInsensitive)) {
             qint64 fileSize = fi.size();
             QFile::remove(fi.absoluteFilePath());
             totalBytes -= fileSize;

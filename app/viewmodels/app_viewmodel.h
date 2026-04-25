@@ -79,6 +79,7 @@ class AppViewModel : public QObject {
     Q_PROPERTY(QString videoEnhancement READ videoEnhancement WRITE setVideoEnhancement NOTIFY videoEnhancementChanged)
     Q_PROPERTY(QString hwdecMode READ hwdecMode WRITE setHwdecMode NOTIFY hwdecModeChanged)
     Q_PROPERTY(bool deinterlace READ deinterlace WRITE setDeinterlace NOTIFY deinterlaceChanged)
+    Q_PROPERTY(bool keepLocalCopy READ keepLocalCopy WRITE setKeepLocalCopy NOTIFY keepLocalCopyChanged)
     Q_PROPERTY(GroupListViewModel *groupList READ groupList CONSTANT)
     Q_PROPERTY(iptvxs::LogoCache *logoCache READ logoCache CONSTANT)
 
@@ -154,6 +155,8 @@ public:
     void setHwdecMode(const QString &mode);
     bool deinterlace() const;
     void setDeinterlace(bool enabled);
+    bool keepLocalCopy() const;
+    void setKeepLocalCopy(bool keep);
 
     Q_INVOKABLE bool fileExists(const QString &path) const;
     Q_INVOKABLE void resetDatabase();
@@ -203,6 +206,7 @@ signals:
     void videoEnhancementChanged();
     void hwdecModeChanged();
     void deinterlaceChanged();
+    void keepLocalCopyChanged();
     void errorOccurred(const QString &message);
     void subtitlesFound(int count);
     void subtitleLoaded(const QString &filePath);

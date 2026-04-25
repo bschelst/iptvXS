@@ -8,9 +8,11 @@ RecordingListViewModel::RecordingListViewModel(QObject *parent)
     : QAbstractListModel(parent) {}
 
 void RecordingListViewModel::setRepositories(iptvxs::RecordingRepository *recordingRepo,
-                                             iptvxs::ChannelRepository *channelRepo) {
+                                             iptvxs::ChannelRepository *channelRepo,
+                                             iptvxs::ProgrammeRepository *progRepo) {
     recordingRepo_ = recordingRepo;
     channelRepo_ = channelRepo;
+    progRepo_ = progRepo;
     if (recordingRepo_) {
         connect(recordingRepo_, &iptvxs::RecordingRepository::recordingsChanged, this,
                 &RecordingListViewModel::loadRecordings);
@@ -74,6 +76,10 @@ QVariant RecordingListViewModel::data(const QModelIndex &index, int role) const 
         return rec.pinned;
     case ThumbnailUrlRole:
         return rec.thumbnailUrl;
+    case ProgrammeTitleRole:
+        return entry.programmeTitle;
+    case ChannelLogoRole:
+        return entry.channelLogo;
     default:
         return {};
     }
@@ -95,6 +101,8 @@ QHash<int, QByteArray> RecordingListViewModel::roleNames() const {
         {IsActiveRole, "isActive"},
         {PinnedRole, "pinned"},
         {ThumbnailUrlRole, "thumbnailUrl"},
+        {ProgrammeTitleRole, "programmeTitle"},
+        {ChannelLogoRole, "channelLogo"},
     };
 }
 
@@ -189,7 +197,7 @@ void RecordingListViewModel::deleteRecordingWithFile(int64_t recordingId) {
         if (rec && !rec->filePath.isEmpty()) {
             QFileInfo fi(rec->filePath);
             if (fi.exists() && fi.isFile() && !fi.isSymLink()
-                && fi.absoluteFilePath().contains(QStringLiteral("iptvxs"))
+                && fi.absoluteFilePath().contains(QStringLiteral("iptvxs"), Qt::CaseInsensitive)
                 && !fi.fileName().contains(QStringLiteral("*"))
                 && !fi.fileName().contains(QStringLiteral("?"))) {
                 QFile::remove(fi.absoluteFilePath());
@@ -201,15 +209,40 @@ void RecordingListViewModel::deleteRecordingWithFile(int64_t recordingId) {
     }
 }
 
+void RecordingListViewModel::deleteLocalFile(int64_t recordingId) {
+    if (!recordingRepo_) return;
+    auto rec = recordingRepo_->findById(recordingId);
+    if (!rec || rec->filePath.isEmpty()) return;
+
+    QFileInfo fi(rec->filePath);
+    if (fi.exists() && fi.isFile() && !fi.isSymLink()
+        && fi.absoluteFilePath().contains(QStringLiteral("iptvxs"), Qt::CaseInsensitive)) {
+        QFile::remove(fi.absoluteFilePath());
+        qInfo("Deleted local file for recording %lld: %s",
+              static_cast<long long>(recordingId), qPrintable(fi.absoluteFilePath()));
+    }
+
+    iptvxs::Recording updated = *rec;
+    updated.filePath.clear();
+    updated.fileSizeBytes = 0;
+    recordingRepo_->update(updated);
+    loadRecordings();
+}
+
 qint64 RecordingListViewModel::totalRecordingBytes() const {
     qint64 total = 0;
     for (const auto &entry : recordings_) {
         const auto &r = entry.recording;
-        if (r.fileSizeBytes > 0) {
-            total += r.fileSizeBytes;
-        } else if (!r.filePath.isEmpty()) {
+        if (r.status == QStringLiteral("uploaded") && !r.filePath.isEmpty()) {
             QFileInfo fi(r.filePath);
             if (fi.exists()) total += fi.size();
+        } else if (r.status != QStringLiteral("uploaded")) {
+            if (r.fileSizeBytes > 0) {
+                total += r.fileSizeBytes;
+            } else if (!r.filePath.isEmpty()) {
+                QFileInfo fi(r.filePath);
+                if (fi.exists()) total += fi.size();
+            }
         }
     }
     return total;
@@ -362,6 +395,14 @@ void RecordingListViewModel::loadRecordings() {
         RecordingEntry entry;
         entry.recording = rec;
         entry.channelName = channelNameForId(rec.channelId);
+        if (channelRepo_) {
+            auto ch = channelRepo_->findById(rec.channelId);
+            if (ch) entry.channelLogo = ch->logoUrl;
+        }
+        if (progRepo_ && rec.programmeId > 0) {
+            auto prog = progRepo_->findById(rec.programmeId);
+            if (prog) entry.programmeTitle = prog->title;
+        }
         recordings_.append(entry);
     }
 

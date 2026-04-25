@@ -254,7 +254,7 @@ Item {
                             width: favSeasonLbl.implicitWidth + 20; height: 28; radius: 14
                             color: favEpDialog.selectedSeason === index ? Theme.accent : "transparent"
                             border.color: favEpDialog.selectedSeason === index ? Theme.accent : Theme.surfaceBorder; border.width: 1
-                            Text { id: favSeasonLbl; anchors.centerIn: parent; text: modelData.name || ("Season " + (index + 1)); font.pixelSize: Theme.fontSizeXs; font.bold: favEpDialog.selectedSeason === index; color: favEpDialog.selectedSeason === index ? "#ffffff" : Theme.textSecondary }
+                            Text { id: favSeasonLbl; anchors.centerIn: parent; text: modelData.name || ("Season " + (index + 1)); font.pixelSize: Theme.fontSizeXs; font.bold: favEpDialog.selectedSeason === index; color: favEpDialog.selectedSeason === index ? Theme.textOnAccent : Theme.textSecondary }
                             MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: favEpDialog.selectedSeason = index }
                         }
                     }

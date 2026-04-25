@@ -3,8 +3,8 @@
   <id>org.schelstraete.iptvxs</id>
   <name>iptvXS</name>
   <summary>Cross-platform IPTV viewer</summary>
-  <metadata_license>MIT</metadata_license>
-  <project_license>MIT</project_license>
+  <metadata_license>FSFAP</metadata_license>
+  <project_license>GPL-3.0-or-later</project_license>
 
   <description>
     <p>
@@ -29,17 +29,21 @@
 
   <launchable type="desktop-id">org.schelstraete.iptvxs.desktop</launchable>
 
-  <url type="homepage">https://github.com/bschelst/iptvxs</url>
-  <url type="bugtracker">https://github.com/bschelst/iptvxs/issues</url>
+  <url type="homepage">https://github.com/bschelst/iptvXS</url>
+  <url type="bugtracker">https://github.com/bschelst/iptvXS/issues</url>
 
   <provides>
     <binary>iptvXS</binary>
   </provides>
 
+  <developer id="org.schelstraete">
+    <name>Schelstraete Bart</name>
+  </developer>
+
   <content_rating type="oars-1.1" />
 
   <releases>
-    <release version="0.1.0" date="2026-04-18">
+    <release version="0.2.0" date="2026-04-25">
       <description>
         <p>Initial release with full IPTV viewer functionality.</p>
       </description>

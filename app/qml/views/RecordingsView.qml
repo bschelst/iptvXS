@@ -88,7 +88,7 @@ Item {
                         text: "+ Record"
                         font.pixelSize: Theme.fontSizeXs
                         font.bold: true
-                        color: Theme.textPrimary
+                        color: Theme.textOnAccent
                     }
 
                     MouseArea {
@@ -141,7 +141,7 @@ Item {
                                 font.bold: true
                                 color: {
                                     var current = appViewModel ? appViewModel.recordingList.filterStatus : ""
-                                    return current === modelData.value ? Theme.textPrimary : Theme.textSecondary
+                                    return current === modelData.value ? Theme.textOnAccent : Theme.textSecondary
                                 }
                             }
 
@@ -221,7 +221,7 @@ Item {
                         font.bold: true
                         font.capitalization: Font.AllUppercase
                         color: Theme.textSecondary
-                        letterSpacing: 1
+                        font.letterSpacing: 1
                     }
 
                     Item { Layout.fillWidth: true }
@@ -266,13 +266,18 @@ Item {
                     onEntered: parent.recHovered = true
                     onExited: parent.recHovered = false
                     onClicked: {
-                        if (model.status === "completed" && model.filePath && appViewModel) {
-                            appViewModel.pendingPlayUrl = model.filePath
-                            appViewModel.pendingPlayName = model.channelName + " (Recording)"
-                            appViewModel.currentView = "player"
+                        if ((model.status === "completed" || model.status === "uploaded") && appViewModel) {
+                            if (model.filePath && model.filePath.length > 0) {
+                                appViewModel.pendingPlayUrl = model.filePath
+                                appViewModel.pendingPlayName = model.channelName + " (Recording)"
+                                appViewModel.currentView = "player"
+                            } else {
+                                noFileToast.show()
+                            }
                         }
                     }
-                    cursorShape: model.status === "completed" ? Qt.PointingHandCursor : Qt.ArrowCursor
+                    cursorShape: (model.status === "completed" || model.status === "uploaded")
+                        ? Qt.PointingHandCursor : Qt.ArrowCursor
                 }
 
                 RowLayout {
@@ -281,11 +286,12 @@ Item {
                     anchors.right: parent.right
                     anchors.margins: Theme.spacingSm
                     height: 72
-                    spacing: Theme.spacingMd
+                    spacing: Theme.spacingSm
 
                     Rectangle {
                         Layout.preferredWidth: 56
                         Layout.preferredHeight: 56
+                        Layout.alignment: Qt.AlignTop
                         radius: Theme.borderRadiusSmall
                         clip: true
                         color: {
@@ -309,36 +315,35 @@ Item {
                             visible: status === Image.Ready
                         }
 
-                        Text {
-                            anchors.centerIn: parent
-                            visible: !recThumb.visible
-                            text: {
-                                switch (model.status) {
-                                case "recording": return "●"
-                                case "scheduled": return "◷"
-                                case "completed": return "✓"
-                                case "failed": return "✕"
-                                case "uploading": return "↑"
-                                case "uploaded": return "☁"
-                                default: return "▶"
+                            Text {
+                                anchors.centerIn: parent
+                                visible: !recThumb.visible
+                                text: {
+                                    switch (model.status) {
+                                    case "recording": return "●"
+                                    case "scheduled": return "◷"
+                                    case "completed": return "✓"
+                                    case "failed": return "✕"
+                                    case "uploading": return "↑"
+                                    case "uploaded": return "☁"
+                                    default: return "▶"
+                                    }
+                                }
+                                font.pixelSize: 20
+                                font.bold: model.status === "completed" || model.status === "failed"
+                                color: {
+                                    switch (model.status) {
+                                    case "recording": return Theme.error
+                                    case "scheduled": return Theme.accent
+                                    case "completed": return Theme.success
+                                    case "uploading": return Theme.accent
+                                    case "uploaded": return Theme.success
+                                    case "failed": return Theme.error
+                                    default: return Theme.textSecondary
+                                    }
                                 }
                             }
-                            font.pixelSize: 20
-                            font.bold: model.status === "completed" || model.status === "failed"
-                            color: {
-                                switch (model.status) {
-                                case "recording": return Theme.error
-                                case "scheduled": return Theme.accent
-                                case "completed": return Theme.success
-                                case "uploading": return Theme.accent
-                                case "uploaded": return Theme.success
-                                case "failed": return Theme.error
-                                default: return Theme.textSecondary
-                                }
-                            }
-                        }
 
-                        // Status badge overlay
                         Rectangle {
                             visible: recThumb.visible
                             anchors.right: parent.right
@@ -347,6 +352,7 @@ Item {
                             width: 16
                             height: 16
                             radius: 8
+                            z: 10
                             color: {
                                 switch (model.status) {
                                 case "recording": return Theme.error
@@ -388,15 +394,29 @@ Item {
 
                     ColumnLayout {
                         Layout.fillWidth: true
+                        Layout.alignment: Qt.AlignTop
                         spacing: 4
 
-                        Text {
-                            text: model.channelName
-                            font.pixelSize: Theme.fontSizeSm
-                            font.bold: true
-                            color: Theme.textPrimary
-                            elide: Text.ElideRight
+                        RowLayout {
                             Layout.fillWidth: true
+                            spacing: Theme.spacingSm
+
+                            Text {
+                                text: model.channelName
+                                font.pixelSize: Theme.fontSizeSm
+                                font.bold: true
+                                color: Theme.textPrimary
+                                elide: Text.ElideRight
+                            }
+
+                            Text {
+                                visible: model.programmeTitle && model.programmeTitle.length > 0
+                                text: model.programmeTitle || ""
+                                font.pixelSize: Theme.fontSizeSm
+                                color: Theme.textSecondary
+                                elide: Text.ElideRight
+                                Layout.fillWidth: true
+                            }
                         }
 
                         RowLayout {
@@ -540,6 +560,37 @@ Item {
                         }
 
                         Rectangle {
+                            visible: model.status === "uploaded" && model.filePath && model.filePath.length > 0
+                            Layout.preferredWidth: delLocalLabel.implicitWidth + 16
+                            Layout.preferredHeight: 28
+                            radius: Theme.borderRadius
+                            color: delLocalHov ? Theme.error + "30" : "transparent"
+                            border.color: delLocalHov ? Theme.error : Theme.surfaceBorder
+                            border.width: 1
+                            property bool delLocalHov: false
+
+                            Text {
+                                id: delLocalLabel
+                                anchors.centerIn: parent
+                                text: "🗑 Local"
+                                font.pixelSize: 10
+                                color: parent.delLocalHov ? Theme.error : Theme.textMuted
+                            }
+
+                            MouseArea {
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onEntered: parent.delLocalHov = true
+                                onExited: parent.delLocalHov = false
+                                onClicked: {
+                                    if (appViewModel)
+                                        appViewModel.recordingList.deleteLocalFile(model.recordingId)
+                                }
+                            }
+                        }
+
+                        Rectangle {
                             visible: (model.status === "completed" || model.status === "failed") && appViewModel && appViewModel.gdrive.authenticated
                             Layout.preferredWidth: model.status === "failed" ? retryLabel.implicitWidth + 20 : 32
                             Layout.preferredHeight: 32
@@ -557,7 +608,7 @@ Item {
                                 font.pixelSize: model.status === "failed" ? Theme.fontSizeXs : Theme.fontSizeMd
                                 font.bold: model.status === "failed"
                                 color: model.status === "failed"
-                                    ? (parent.uploadBtnHovered ? "#ffffff" : Theme.warning)
+                                    ? (parent.uploadBtnHovered ? Theme.textOnAccent : Theme.warning)
                                     : Theme.textSecondary
                             }
 
@@ -892,7 +943,7 @@ Item {
                             anchors.centerIn: parent
                             text: modelData.label
                             font.pixelSize: Theme.fontSizeXs
-                            color: manualRecordDialog.startNow === modelData.value ? Theme.textPrimary : Theme.textSecondary
+                            color: manualRecordDialog.startNow === modelData.value ? Theme.textOnAccent : Theme.textSecondary
                         }
 
                         MouseArea {
@@ -995,7 +1046,7 @@ Item {
                             text: modelData.label
                             font.pixelSize: Theme.fontSizeXs
                             color: manualRecordDialog.durationMinutes === modelData.value
-                                ? Theme.textPrimary : Theme.textSecondary
+                                ? Theme.textOnAccent : Theme.textSecondary
                         }
 
                         MouseArea {
@@ -1222,6 +1273,42 @@ Item {
                     }
                 }
             }
+        }
+    }
+
+    Rectangle {
+        id: noFileToast
+        anchors.bottom: parent.bottom
+        anchors.bottomMargin: 24
+        anchors.horizontalCenter: parent.horizontalCenter
+        width: toastText.implicitWidth + 32
+        height: 36
+        radius: 18
+        color: Theme.surfaceElevated
+        border.color: Theme.surfaceBorder
+        border.width: 1
+        opacity: 0
+        z: 100
+
+        function show() {
+            opacity = 1
+            toastHideTimer.restart()
+        }
+
+        Behavior on opacity { NumberAnimation { duration: 300 } }
+
+        Timer {
+            id: toastHideTimer
+            interval: 2500
+            onTriggered: noFileToast.opacity = 0
+        }
+
+        Text {
+            id: toastText
+            anchors.centerIn: parent
+            text: "No local file available — recording was uploaded to Google Drive"
+            font.pixelSize: Theme.fontSizeXs
+            color: Theme.textSecondary
         }
     }
 }

@@ -73,7 +73,7 @@ bool AppViewModel::initialize(const QString &dbPath) {
     channelListVm_->setRepository(channelRepo_.get());
     recordingMgr_->setRepositories(recordingRepo_.get(), channelRepo_.get(),
                                    settingsRepo_.get(), progRepo_.get());
-    recordingListVm_->setRepositories(recordingRepo_.get(), channelRepo_.get());
+    recordingListVm_->setRepositories(recordingRepo_.get(), channelRepo_.get(), progRepo_.get());
     recordingListVm_->setRecordingManager(recordingMgr_.get());
 
     // When destination=gdrive and the user is authenticated, auto-upload new
@@ -216,7 +216,7 @@ bool AppViewModel::initialize(const QString &dbPath) {
     gdriveVm_->setUploader(gdriveUploader_.get());
     gdriveVm_->setRecordingRepository(recordingRepo_.get());
     gdriveVm_->setSettingsRepository(settingsRepo_.get());
-    gdriveVm_->setDeleteLocalAfterUpload(recordingDestination() == QStringLiteral("gdrive"));
+    gdriveVm_->setDeleteLocalAfterUpload(!keepLocalCopy() && recordingDestination() == QStringLiteral("gdrive"));
     gdriveVm_->resumePendingUploads();
 
     connect(serverListVm_, &ServerListViewModel::syncFinished, this,
@@ -579,7 +579,7 @@ QString AppViewModel::databaseSize() const {
 QString AppViewModel::recordingDirectory() const {
     if (recordingMgr_) return recordingMgr_->recordingDirectory();
     return QStandardPaths::writableLocation(QStandardPaths::MoviesLocation)
-           + QStringLiteral("/iptvxs");
+           + QStringLiteral("/iptvXS");
 }
 
 void AppViewModel::setRecordingDirectory(const QString &path) {
@@ -601,7 +601,7 @@ void AppViewModel::setRecordingDestination(const QString &dest) {
     if (recordingDestination() == normalized) return;
     settingsRepo_->set(QStringLiteral("recording_destination"), normalized);
     if (gdriveVm_) {
-        gdriveVm_->setDeleteLocalAfterUpload(normalized == QStringLiteral("gdrive"));
+        gdriveVm_->setDeleteLocalAfterUpload(!keepLocalCopy() && normalized == QStringLiteral("gdrive"));
     }
     emit recordingDestinationChanged();
 }
@@ -706,7 +706,7 @@ int AppViewModel::gridColumns() const {
 
 void AppViewModel::setGridColumns(int cols) {
     if (!settingsRepo_) return;
-    cols = qBound(1, cols, 4);
+    cols = qBound(1, cols, 3);
     settingsRepo_->set(QStringLiteral("grid_columns"), cols);
     emit gridColumnsChanged();
 }
@@ -791,6 +791,19 @@ void AppViewModel::setDeinterlace(bool enabled) {
     settingsRepo_->set(QStringLiteral("deinterlace"), enabled ? QStringLiteral("true") : QStringLiteral("false"));
     if (playerVm_) playerVm_->mpvPlayer()->setProperty(QStringLiteral("deinterlace"), QVariant(enabled ? QStringLiteral("yes") : QStringLiteral("no")));
     emit deinterlaceChanged();
+}
+
+bool AppViewModel::keepLocalCopy() const {
+    return settingsRepo_ ? settingsRepo_->getBool(QStringLiteral("keep_local_copy"), false) : false;
+}
+
+void AppViewModel::setKeepLocalCopy(bool keep) {
+    if (!settingsRepo_) return;
+    settingsRepo_->set(QStringLiteral("keep_local_copy"), keep ? QStringLiteral("true") : QStringLiteral("false"));
+    if (gdriveVm_) {
+        gdriveVm_->setDeleteLocalAfterUpload(!keep && recordingDestination() == QStringLiteral("gdrive"));
+    }
+    emit keepLocalCopyChanged();
 }
 
 void AppViewModel::searchSubtitles(const QString &query) {

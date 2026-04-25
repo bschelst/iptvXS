@@ -77,9 +77,10 @@ Rectangle {
             model: [
                 { name: "home", icon: "🏠", label: "Home" },
                 { name: "servers", icon: "🔗", label: "Servers" },
-                { name: "channels", icon: "📺", label: "TV Channels" },
+                { name: "channels", icon: "📺", label: "Live TV" },
                 { name: "epg", icon: "📅", label: "TV Guide" },
-                { name: "vod", icon: "🎬", label: "VOD" },
+                { name: "vod_movies", icon: "🎬", label: "VOD Movies" },
+                { name: "vod_series", icon: "📀", label: "VOD Series" },
                 { name: "favorites", icon: "★", label: "Favorites" },
                 { name: "groups", icon: "📁", label: "Groups" },
                 { name: "recordings", icon: "⏺", label: "Recordings" },
@@ -122,7 +123,7 @@ Rectangle {
                             text: modelData.icon
                             font.pixelSize: 18
                             color: sidebar.activeItem === modelData.name
-                                ? "#ffffff" : Theme.textSecondary
+                                ? Theme.textOnAccent : Theme.textSecondary
                         }
                     }
 
@@ -132,7 +133,7 @@ Rectangle {
                         font.pixelSize: Theme.fontSizeSm
                         font.weight: sidebar.activeItem === modelData.name ? Font.DemiBold : Font.Normal
                         color: sidebar.activeItem === modelData.name
-                            ? "#ffffff"
+                            ? Theme.textOnAccent
                             : Theme.textSecondary
                         anchors.verticalCenter: parent.verticalCenter
 
@@ -223,7 +224,7 @@ Rectangle {
                             text: modelData.icon
                             font.pixelSize: 18
                             color: sidebar.activeItem === modelData.name
-                                ? "#ffffff" : Theme.textSecondary
+                                ? Theme.textOnAccent : Theme.textSecondary
                         }
                     }
 
@@ -233,7 +234,7 @@ Rectangle {
                         font.pixelSize: Theme.fontSizeSm
                         font.weight: sidebar.activeItem === modelData.name ? Font.DemiBold : Font.Normal
                         color: sidebar.activeItem === modelData.name
-                            ? "#ffffff"
+                            ? Theme.textOnAccent
                             : Theme.textSecondary
                         anchors.verticalCenter: parent.verticalCenter
                     }

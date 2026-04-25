@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import Qt5Compat.GraphicalEffects
 import app.iptvxs
 
 Item {
@@ -216,9 +217,8 @@ Item {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     clip: true
-                    keyNavigationEnabled: true
-                    highlight: Rectangle { color: Theme.accent + "20"; radius: Theme.borderRadiusSmall }
-                    highlightFollowsCurrentItem: true
+                    highlightFollowsCurrentItem: false
+                    highlight: null
                     model: appViewModel ? appViewModel.categoryList : null
 
                     ScrollBar.vertical: ScrollBar {
@@ -502,7 +502,7 @@ Item {
                                 font.pixelSize: Theme.fontSizeSm
                                 font.bold: appViewModel && appViewModel.channelList.recentlyAddedFilter
                                 color: appViewModel && appViewModel.channelList.recentlyAddedFilter
-                                    ? "#ffffff" : Theme.textSecondary
+                                    ? Theme.textOnAccent : Theme.textSecondary
                                 anchors.verticalCenter: parent.verticalCenter
                             }
                         }
@@ -608,29 +608,47 @@ Item {
                                     color: Theme.textPrimary
                                 }
 
-                                Rectangle {
+                                Row {
                                     anchors.right: parent.right
                                     anchors.rightMargin: Theme.spacingSm
                                     anchors.verticalCenter: parent.verticalCenter
-                                    width: 28; height: 28; radius: 14
-                                    color: chScrollHov ? Theme.surfaceHover : "transparent"
-                                    property bool chScrollHov: false
+                                    spacing: 4
+                                    visible: chRowListView.contentWidth > chRowListView.width - chRowListView.leftMargin - chRowListView.rightMargin
 
-                                    Text {
-                                        anchors.centerIn: parent
-                                        text: "\u203A"
-                                        font.pixelSize: 22
-                                        font.bold: true
-                                        color: parent.chScrollHov ? Theme.textPrimary : Theme.textMuted
+                                    Rectangle {
+                                        width: 28; height: 28; radius: 14
+                                        color: chScrollLeftHov ? Theme.surfaceHover : "transparent"
+                                        property bool chScrollLeftHov: false
+
+                                        Text {
+                                            anchors.centerIn: parent
+                                            text: "\u2039"
+                                            font.pixelSize: 22; font.bold: true
+                                            color: parent.chScrollLeftHov ? Theme.textPrimary : Theme.textMuted
+                                        }
+                                        MouseArea {
+                                            anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                                            onEntered: parent.chScrollLeftHov = true; onExited: parent.chScrollLeftHov = false
+                                            onClicked: chRowListView.contentX = Math.max(chRowListView.contentX - 216, -chRowListView.leftMargin)
+                                        }
                                     }
 
-                                    MouseArea {
-                                        anchors.fill: parent
-                                        hoverEnabled: true
-                                        cursorShape: Qt.PointingHandCursor
-                                        onEntered: parent.chScrollHov = true
-                                        onExited: parent.chScrollHov = false
-                                        onClicked: chRowListView.contentX = Math.min(chRowListView.contentX + 216, chRowListView.contentWidth - chRowListView.width)
+                                    Rectangle {
+                                        width: 28; height: 28; radius: 14
+                                        color: chScrollRightHov ? Theme.surfaceHover : "transparent"
+                                        property bool chScrollRightHov: false
+
+                                        Text {
+                                            anchors.centerIn: parent
+                                            text: "\u203A"
+                                            font.pixelSize: 22; font.bold: true
+                                            color: parent.chScrollRightHov ? Theme.textPrimary : Theme.textMuted
+                                        }
+                                        MouseArea {
+                                            anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                                            onEntered: parent.chScrollRightHov = true; onExited: parent.chScrollRightHov = false
+                                            onClicked: chRowListView.contentX = Math.min(chRowListView.contentX + 216, chRowListView.contentWidth - chRowListView.width + chRowListView.rightMargin)
+                                        }
                                     }
                                 }
                             }
@@ -659,12 +677,14 @@ Item {
                                         radius: 10
                                         color: Theme.surfaceElevated
                                         clip: true
-                                        border.color: chNetHov ? Theme.accent : "transparent"
-                                        border.width: chNetHov ? 2 : 0
-
-                                        scale: chNetHov ? 1.04 : 1.0
-                                        Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
-
+                                        layer.enabled: true
+                                        layer.effect: OpacityMask {
+                                            maskSource: Rectangle {
+                                                width: chNetCard.width
+                                                height: chNetCard.height
+                                                radius: chNetCard.radius
+                                            }
+                                        }
                                         property bool chNetHov: false
 
                                         // Logo area (centered, not cropped)
@@ -689,10 +709,10 @@ Item {
 
                                             Image {
                                                 anchors.centerIn: parent
-                                                width: 72; height: 72
+                                                width: parent.width * 0.5; height: parent.width * 0.5
                                                 source: "qrc:/images/iptvxs_tray.png"
                                                 fillMode: Image.PreserveAspectFit
-                                                opacity: 0.25
+                                                opacity: 0.2
                                                 visible: chNetLogoImg.status !== Image.Ready
                                             }
                                         }
@@ -743,7 +763,17 @@ Item {
                                                 }
                                             }
                                         }
+
+                                        Rectangle {
+                                            anchors.fill: parent
+                                            radius: chNetCard.radius
+                                            color: "transparent"
+                                            border.color: chNetCard.chNetHov ? Theme.accent : "transparent"
+                                            border.width: 2
+                                            z: 100
+                                        }
                                     }
+
                                 }
                             }
                         }
@@ -1191,7 +1221,7 @@ Item {
                         color: saveHov ? Theme.accent : Theme.accent + "CC"
                         property bool saveHov: false
 
-                        Text { id: saveLabel; anchors.centerIn: parent; text: "Save"; font.pixelSize: Theme.fontSizeSm; font.bold: true; color: "#FFFFFF" }
+                        Text { id: saveLabel; anchors.centerIn: parent; text: "Save"; font.pixelSize: Theme.fontSizeSm; font.bold: true; color: Theme.textOnAccent }
                         MouseArea {
                             anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
                             onEntered: parent.saveHov = true; onExited: parent.saveHov = false

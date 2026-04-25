@@ -1,6 +1,7 @@
 #include "iptvxs/player/mpv_player.h"
 
 #include <QDebug>
+#include <QRegularExpression>
 #include <QSocketNotifier>
 #include <QTimer>
 
@@ -9,6 +10,15 @@
 namespace iptvxs {
 
 namespace {
+
+QString sanitizeUrl(const QString &url) {
+    static const QRegularExpression re(
+        QStringLiteral("((?:username|password|user|pass)=)[^&]*"),
+        QRegularExpression::CaseInsensitiveOption);
+    QString masked = url;
+    masked.replace(re, QStringLiteral("\\1***"));
+    return masked;
+}
 
 void wakeupCallback(void *ctx) {
     auto *player = static_cast<MpvPlayer *>(ctx);
@@ -65,6 +75,7 @@ bool MpvPlayer::initialize() {
     mpv_observe_property(mpv_, 0, "volume", MPV_FORMAT_DOUBLE);
     mpv_observe_property(mpv_, 0, "mute", MPV_FORMAT_FLAG);
     mpv_observe_property(mpv_, 0, "idle-active", MPV_FORMAT_FLAG);
+    mpv_observe_property(mpv_, 0, "demuxer-cache-duration", MPV_FORMAT_DOUBLE);
 
     mpv_request_log_messages(mpv_, "warn");
     mpv_set_wakeup_callback(mpv_, wakeupCallback, this);
@@ -75,7 +86,7 @@ bool MpvPlayer::initialize() {
 void MpvPlayer::play(const QString &url) {
     if (!mpv_) return;
 
-    qInfo("MpvPlayer: loading %s", qPrintable(url));
+    qInfo("MpvPlayer: loading %s", qPrintable(sanitizeUrl(url)));
 
     auto urlStr = url.toUtf8();
     const char *args[] = {"loadfile", urlStr.constData(), nullptr};
@@ -137,6 +148,8 @@ MpvPlayer::State MpvPlayer::state() const { return state_; }
 double MpvPlayer::duration() const { return duration_; }
 
 double MpvPlayer::position() const { return position_; }
+
+double MpvPlayer::cacheDuration() const { return cacheDuration_; }
 
 void MpvPlayer::seek(double seconds) {
     if (!mpv_) return;
@@ -227,6 +240,9 @@ void MpvPlayer::processEvents() {
             } else if (name == QLatin1String("mute") && prop->format == MPV_FORMAT_FLAG) {
                 muted_ = *static_cast<int *>(prop->data);
                 emit mutedChanged(muted_);
+            } else if (name == QLatin1String("demuxer-cache-duration") && prop->format == MPV_FORMAT_DOUBLE) {
+                cacheDuration_ = *static_cast<double *>(prop->data);
+                emit cacheDurationChanged(cacheDuration_);
             }
             break;
         }
