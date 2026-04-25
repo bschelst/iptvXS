@@ -10,6 +10,10 @@ void ChannelListViewModel::setRepository(iptvxs::ChannelRepository *repo) {
     repo_ = repo;
 }
 
+void ChannelListViewModel::setFavoriteRepository(iptvxs::FavoriteRepository *favRepo) {
+    favRepo_ = favRepo;
+}
+
 int ChannelListViewModel::rowCount(const QModelIndex &parent) const {
     if (parent.isValid()) return 0;
     return static_cast<int>(channels_.size());
@@ -208,6 +212,16 @@ void ChannelListViewModel::loadChannels(bool append) {
     }
 
     // Filter by recently added (last 7 days) if enabled
+    if (favRepo_ && !append && !result.isEmpty()) {
+        auto favs = favRepo_->findAll();
+        QSet<int64_t> favIds;
+        for (const auto &f : favs) favIds.insert(f.channelId);
+        std::stable_sort(result.begin(), result.end(),
+            [&favIds](const iptvxs::Channel &a, const iptvxs::Channel &b) {
+                return favIds.contains(a.id) && !favIds.contains(b.id);
+            });
+    }
+
     if (recentlyAddedFilter_) {
         auto sinceSecs = QDateTime::currentSecsSinceEpoch() - 7 * 24 * 3600;
         QVector<iptvxs::Channel> filtered;

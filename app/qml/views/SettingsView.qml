@@ -1680,18 +1680,22 @@ Item {
                 border.color: Theme.surfaceBorder
                 border.width: 1
 
-                ColumnLayout {
+                RowLayout {
                     id: aboutCol
                     anchors.fill: parent
                     anchors.margins: Theme.spacingLg
-                    spacing: Theme.spacingMd
+                    spacing: Theme.spacingLg
 
-                    Text {
-                        text: "About"
-                        font.pixelSize: Theme.fontSizeMd
-                        font.bold: true
-                        color: Theme.textPrimary
-                    }
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        spacing: Theme.spacingMd
+
+                        Text {
+                            text: "About"
+                            font.pixelSize: Theme.fontSizeMd
+                            font.bold: true
+                            color: Theme.textPrimary
+                        }
 
                     RowLayout {
                         spacing: Theme.spacingMd
@@ -1821,6 +1825,16 @@ Item {
                                 onClicked: { if (appViewModel) appViewModel.checkForUpdates() }
                             }
                         }
+                    }
+                    }
+
+                    Image {
+                        Layout.preferredWidth: 128
+                        Layout.preferredHeight: 128
+                        Layout.alignment: Qt.AlignRight | Qt.AlignVCenter
+                        source: "qrc:/images/iptvxs_tray.png"
+                        fillMode: Image.PreserveAspectFit
+                        opacity: 0.6
                     }
                 }
             }

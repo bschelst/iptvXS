@@ -38,6 +38,7 @@ public:
         ChannelNameRole,
         ChannelLogoRole,
         StreamUrlRole,
+        EpgChannelIdRole,
         ProgrammesRole,
         IsFavoriteRole
     };

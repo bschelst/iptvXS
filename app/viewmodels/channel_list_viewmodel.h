@@ -4,6 +4,7 @@
 #include <QQmlEngine>
 
 #include "iptvxs/db/channel_repository.h"
+#include "iptvxs/db/favorite_repository.h"
 #include "iptvxs/models/channel.h"
 
 class ChannelListViewModel : public QAbstractListModel {
@@ -45,6 +46,7 @@ public:
     explicit ChannelListViewModel(QObject *parent = nullptr);
 
     void setRepository(iptvxs::ChannelRepository *repo);
+    void setFavoriteRepository(iptvxs::FavoriteRepository *favRepo);
 
     int rowCount(const QModelIndex &parent = {}) const override;
     QVariant data(const QModelIndex &index, int role) const override;
@@ -87,6 +89,7 @@ private:
     void updateTotalCount();
 
     iptvxs::ChannelRepository *repo_{nullptr};
+    iptvxs::FavoriteRepository *favRepo_{nullptr};
     QVector<iptvxs::Channel> channels_;
     int64_t serverId_{0};
     int64_t categoryId_{0};

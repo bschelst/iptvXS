@@ -1085,7 +1085,7 @@ Item {
                     Layout.preferredWidth: startRecText.implicitWidth + Theme.spacingLg * 2
                     Layout.preferredHeight: 36
                     radius: Theme.borderRadius
-                    color: startRecHov ? Theme.error : Theme.error + "cc"
+                    color: startRecHov ? Theme.accentHover : Theme.accent
                     opacity: manualRecordDialog.selectedChannelId > 0 ? 1.0 : 0.4
                     property bool startRecHov: false
                     Text {
@@ -1094,7 +1094,7 @@ Item {
                         text: manualRecordDialog.startNow ? "Start Recording" : "Schedule"
                         font.pixelSize: Theme.fontSizeSm
                         font.bold: true
-                        color: "#ffffff"
+                        color: Theme.textOnAccent
                     }
                     MouseArea {
                         anchors.fill: parent; hoverEnabled: true
@@ -1142,7 +1142,9 @@ Item {
             if (appViewModel) {
                 appViewModel.channelList.typeFilter = "live"
                 var primary = appViewModel.serverList.primaryServerIndex()
-                serverCombo.currentIndex = primary >= 0 ? primary : 0
+                var idx = primary >= 0 ? primary : 0
+                serverCombo.currentIndex = -1
+                serverCombo.currentIndex = idx
             }
         }
 

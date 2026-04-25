@@ -170,9 +170,10 @@ Item {
 
                     Text {
                         anchors.centerIn: parent
-                        text: "◀"
-                        font.pixelSize: Theme.fontSizeMd
-                        color: Theme.textSecondary
+                        text: "\u2039"
+                        font.pixelSize: 22
+                        font.bold: true
+                        color: parent.prevHovered ? Theme.textPrimary : Theme.textSecondary
                     }
 
                     MouseArea {
@@ -209,9 +210,10 @@ Item {
 
                     Text {
                         anchors.centerIn: parent
-                        text: "▶"
-                        font.pixelSize: Theme.fontSizeMd
-                        color: Theme.textSecondary
+                        text: "\u203A"
+                        font.pixelSize: 22
+                        font.bold: true
+                        color: parent.nextHovered ? Theme.textPrimary : Theme.textSecondary
                     }
 
                     MouseArea {
@@ -421,7 +423,7 @@ Item {
                             cursorShape: Qt.PointingHandCursor
                             onClicked: {
                                 if (appViewModel) {
-                                    appViewModel.player.play(model.streamUrl, model.channelName, model.channelLogo, model.channelId)
+                                    appViewModel.player.play(model.streamUrl, model.channelName, model.channelLogo, model.channelId, model.epgChannelId || "")
                                     appViewModel.currentView = "player"
                                 }
                             }
@@ -525,6 +527,7 @@ Item {
                                             progDetailPopup.channelLogo = channelLogo
                                             progDetailPopup.streamUrl = streamUrl
                                             progDetailPopup.channelId = channelId
+                                            progDetailPopup.epgChannelId = epgChannelId || ""
                                             progDetailPopup.progTitle = modelData.title || ""
                                             progDetailPopup.progDescription = modelData.description || ""
                                             progDetailPopup.progStart = modelData.startTime
@@ -633,6 +636,7 @@ Item {
         property string channelLogo: ""
         property string streamUrl: ""
         property var channelId: 0
+        property string epgChannelId: ""
         property string progTitle: ""
         property string progDescription: ""
         property real progStart: 0
@@ -852,6 +856,49 @@ Item {
                     Item { Layout.fillWidth: true }
 
                     Rectangle {
+                        width: recBtnLabel.implicitWidth + Theme.spacingLg * 2
+                        height: 36
+                        radius: 18
+                        color: recBtnHov ? Theme.error : Theme.error + "cc"
+
+                        property bool recBtnHov: false
+
+                        Text {
+                            id: recBtnLabel
+                            anchors.centerIn: parent
+                            text: "●  Record"
+                            font.pixelSize: Theme.fontSizeSm
+                            font.bold: true
+                            color: "#ffffff"
+                        }
+
+                        MouseArea {
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onEntered: parent.recBtnHov = true
+                            onExited: parent.recBtnHov = false
+                            onClicked: {
+                                if (appViewModel) {
+                                    var startEpoch = Math.floor(progDetailPopup.progStart)
+                                    var endEpoch = Math.floor(progDetailPopup.progEnd)
+                                    var now = Math.floor(Date.now() / 1000)
+                                    if (progDetailPopup.isLive) {
+                                        var remaining = endEpoch > now ? endEpoch - now : 3600
+                                        appViewModel.recordingList.startNow(
+                                            progDetailPopup.channelId, remaining, "original")
+                                    } else {
+                                        appViewModel.recordingList.scheduleRecording(
+                                            progDetailPopup.channelId, startEpoch, endEpoch, "original")
+                                    }
+                                    appViewModel.recordingList.refresh()
+                                }
+                                progDetailPopup.visible = false
+                            }
+                        }
+                    }
+
+                    Rectangle {
                         width: watchBtnLabel.implicitWidth + Theme.spacingLg * 2
                         height: 36
                         radius: 18
@@ -879,7 +926,8 @@ Item {
                                     appViewModel.player.play(progDetailPopup.streamUrl,
                                         progDetailPopup.channelName,
                                         progDetailPopup.channelLogo,
-                                        progDetailPopup.channelId)
+                                        progDetailPopup.channelId,
+                                        progDetailPopup.epgChannelId)
                                     appViewModel.currentView = "player"
                                 }
                                 progDetailPopup.visible = false

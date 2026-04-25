@@ -95,6 +95,8 @@ QVariant EpgViewModel::data(const QModelIndex &index, int role) const {
         return row.channel.logoUrl;
     case StreamUrlRole:
         return row.channel.streamUrl;
+    case EpgChannelIdRole:
+        return row.channel.epgChannelId;
     case IsFavoriteRole:
         return row.isFavorite;
     case ProgrammesRole: {
@@ -121,6 +123,7 @@ QHash<int, QByteArray> EpgViewModel::roleNames() const {
         {ChannelNameRole, "channelName"},
         {ChannelLogoRole, "channelLogo"},
         {StreamUrlRole, "streamUrl"},
+        {EpgChannelIdRole, "epgChannelId"},
         {ProgrammesRole, "programmes"},
         {IsFavoriteRole, "isFavorite"},
     };

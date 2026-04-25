@@ -73,6 +73,7 @@ bool AppViewModel::initialize(const QString &dbPath) {
     categoryListVm_->setRepository(categoryRepo_.get());
     categoryListVm_->setCategorySettingsRepository(categorySettingsRepo_.get());
     channelListVm_->setRepository(channelRepo_.get());
+    channelListVm_->setFavoriteRepository(favoriteRepo_.get());
     recordingMgr_->setRepositories(recordingRepo_.get(), channelRepo_.get(),
                                    settingsRepo_.get(), progRepo_.get());
     recordingListVm_->setRepositories(recordingRepo_.get(), channelRepo_.get(), progRepo_.get());
@@ -1015,7 +1016,7 @@ bool AppViewModel::fileExists(const QString &path) const {
 QString AppViewModel::latestVersion() const { return latestVersion_; }
 
 bool AppViewModel::updateAvailable() const {
-    if (latestVersion_.isEmpty()) return false;
+    if (latestVersion_.isEmpty() || latestVersion_ == QStringLiteral("unknown")) return false;
     auto strip = [](QString v) { return v.startsWith("v") ? v.mid(1) : v; };
     return strip(latestVersion_) != strip(appVersion());
 }
@@ -1090,6 +1091,7 @@ void AppViewModel::resetDatabase() {
                                        channelRepo_.get());
         favoriteListVm_->setRepository(favoriteRepo_.get());
         channelListVm_->setRepository(channelRepo_.get());
+    channelListVm_->setFavoriteRepository(favoriteRepo_.get());
         categoryListVm_->setRepository(categoryRepo_.get());
         categoryListVm_->setCategorySettingsRepository(categorySettingsRepo_.get());
         epgVm_->setRepositories(progRepo_.get(), channelRepo_.get(),

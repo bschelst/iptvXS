@@ -156,7 +156,7 @@ Item {
                     spacing: Theme.spacingSm
 
                     PlayerButton {
-                        text: appViewModel && appViewModel.player.paused ? "▶\uFE0E" : "⏸\uFE0E"
+                        text: appViewModel && appViewModel.player.paused ? "\u25B6" : "\u2016"
                         btnSize: 48
                         iconSize: 22
                         onClicked: {
@@ -165,7 +165,7 @@ Item {
                     }
 
                     PlayerButton {
-                        text: "⏹\uFE0E"
+                        text: "\u25A0"
                         btnSize: 48
                         iconSize: 22
                         onClicked: goBack()
@@ -181,7 +181,7 @@ Item {
                             }
                             if (appViewModel.player.paused && appViewModel.player.isLive && pos > 0) {
                                 var cache = appViewModel.player.cacheDuration
-                                return appViewModel.player.formatTime(pos) + " / " + appViewModel.player.formatTime(pos + cache) + "  ⏸ PAUSED"
+                                return appViewModel.player.formatTime(pos) + " / " + appViewModel.player.formatTime(pos + cache) + "  \u2016 PAUSED"
                             }
                             if (pos > 0) return appViewModel.player.formatTime(pos)
                             return "● LIVE"
@@ -207,7 +207,7 @@ Item {
                     // --- Favorite button (live channels only) ---
                     PlayerButton {
                         id: favBtn
-                        text: isFav ? "★" : "☆"
+                        text: isFav ? "\u2605" : "\u2606"
                         property bool isFav: false
                         visible: appViewModel ? appViewModel.player.channelId > 0 : false
                         onClicked: {
@@ -231,7 +231,7 @@ Item {
                     PlayerButton {
                         id: recBtn
                         readonly property bool recActive: appViewModel ? appViewModel.player.recording : false
-                        text: recActive ? "⏹\uFE0E" : "⏺\uFE0E"
+                        text: recActive ? "\u25A0" : "\u25CF"
                         btnColor: recActive ? Theme.error : "transparent"
                         visible: appViewModel ? appViewModel.player.isLive : false
                         onClicked: {
