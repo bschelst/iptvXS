@@ -43,9 +43,15 @@
   <content_rating type="oars-1.1" />
 
   <releases>
-    <release version="0.2.0" date="2026-04-25">
+    <release version="0.2.1" date="2026-04-25">
       <description>
-        <p>Initial release with full IPTV viewer functionality.</p>
+        <p>Release focused on Steam Deck support, Flatpak reliability, and VOD browsing polish.</p>
+        <ul>
+          <li>Improved controller navigation for Steam Deck game mode.</li>
+          <li>Fixed EPG sync on Flatpak by normalizing XMLTV URLs.</li>
+          <li>Optimized VOD poster loading and cache behavior.</li>
+          <li>Fixed app data path handling on Linux.</li>
+        </ul>
       </description>
     </release>
   </releases>

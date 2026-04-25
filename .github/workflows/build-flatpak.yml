@@ -1,0 +1,43 @@
+name: Build Flatpak
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Flatpak tooling
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y flatpak flatpak-builder
+
+      - name: Add Flathub remote
+        run: flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+
+      - name: Build Flatpak repo
+        run: flatpak-builder --force-clean --install-deps-from=flathub --repo=repo/iptvxs-repo build-flatpak packaging/flatpak/org.schelstraete.iptvxs.yml
+
+      - name: Build bundle
+        run: flatpak build-bundle repo/iptvxs-repo iptvxs.flatpak org.schelstraete.iptvxs master
+
+      - name: Upload Flatpak artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: iptvxs-flatpak
+          path: iptvxs.flatpak
+
+      - name: Upload Flatpak to release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: iptvxs.flatpak
