@@ -173,7 +173,7 @@ Item {
                                 text: parent.text
                                 font.pixelSize: Theme.fontSizeSm
                                 font.bold: true
-                                color: Theme.textPrimary
+                                color: Theme.textOnAccent
                                 horizontalAlignment: Text.AlignHCenter
                                 verticalAlignment: Text.AlignVCenter
                             }
@@ -181,7 +181,7 @@ Item {
                                 implicitWidth: 130
                                 implicitHeight: 40
                                 radius: Theme.borderRadius
-                                color: parent.hovered ? Theme.success : Theme.success + "cc"
+                                color: parent.hovered ? Theme.accentHover : Theme.accent
                                 Behavior on color { ColorAnimation { duration: Theme.animFast } }
                             }
                             onClicked: {
@@ -199,7 +199,7 @@ Item {
                                 text: parent.text
                                 font.pixelSize: Theme.fontSizeSm
                                 font.bold: true
-                                color: Theme.textPrimary
+                                color: Theme.textOnAccent
                                 horizontalAlignment: Text.AlignHCenter
                                 verticalAlignment: Text.AlignVCenter
                             }
@@ -406,7 +406,7 @@ Item {
                                     text: modelData + "s"
                                     font.pixelSize: Theme.fontSizeXs
                                     color: speedTest && speedTest.duration === modelData
-                                        ? Theme.textPrimary : Theme.textSecondary
+                                        ? Theme.textOnAccent : Theme.textSecondary
                                 }
 
                                 MouseArea {
@@ -435,10 +435,18 @@ Item {
                         Layout.fillWidth: true
                         spacing: Theme.spacingSm
 
+                        property var quickChannels: {
+                            if (!speedTest || !appViewModel || !appViewModel.serverList || appViewModel.serverList.count === 0)
+                                return []
+                            var serverId = appViewModel.serverList.serverIdAt(0)
+                            return speedTest.quickTestChannels(serverId)
+                        }
+
                         Repeater {
-                            model: channelList ? Math.min(channelList.rowCount(), 8) : 0
+                            model: parent.quickChannels.length
 
                             delegate: Rectangle {
+                                property var ch: parent.parent.quickChannels[index]
                                 width: channelLabel.implicitWidth + Theme.spacingMd * 2
                                 height: 36
                                 radius: Theme.borderRadius
@@ -450,12 +458,7 @@ Item {
                                 Text {
                                     id: channelLabel
                                     anchors.centerIn: parent
-                                    text: {
-                                        var name = channelList
-                                            ? channelList.data(channelList.index(index, 0), 258)
-                                            : ""
-                                        return name || "Channel"
-                                    }
+                                    text: ch ? ch.name : ""
                                     font.pixelSize: Theme.fontSizeXs
                                     color: Theme.textSecondary
                                     elide: Text.ElideRight
@@ -467,11 +470,8 @@ Item {
                                     hoverEnabled: true
                                     cursorShape: Qt.PointingHandCursor
                                     onClicked: {
-                                        if (!speedTest || !channelList) return
-                                        var chId = channelList.data(
-                                            channelList.index(index, 0), 257)
-                                        var url = channelList.data(
-                                            channelList.index(index, 0), 259)
+                                        if (!speedTest || !ch) return
+                                        var url = ch.streamUrl
                                         if (url) {
                                             streamUrlField.text = url
                                             root.sparklineData = []
@@ -484,7 +484,7 @@ Item {
                         }
 
                         Text {
-                            visible: !channelList || channelList.rowCount() === 0
+                            visible: parent.quickChannels.length === 0
                             text: "No channels loaded — add a server first"
                             font.pixelSize: Theme.fontSizeXs
                             font.italic: true

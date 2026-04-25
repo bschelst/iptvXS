@@ -4,10 +4,12 @@
 #include <QDateTime>
 #include <QDesktopServices>
 #include <QJsonArray>
+#include <QJsonDocument>
 #include <QJsonObject>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QSqlQuery>
 #include <QStandardPaths>
 #include <QTimer>
 
@@ -211,6 +213,8 @@ bool AppViewModel::initialize(const QString &dbPath) {
 
     speedTestVm_->setRunner(speedTestRunner_.get());
     speedTestVm_->setChannelRepository(channelRepo_.get());
+    speedTestVm_->setFavoriteRepository(favoriteRepo_.get());
+    speedTestVm_->setHistoryRepository(historyRepo_.get());
 
     gdriveVm_->setAuth(gdriveAuth_.get());
     gdriveVm_->setUploader(gdriveUploader_.get());
@@ -330,6 +334,7 @@ bool AppViewModel::initialize(const QString &dbPath) {
 
     rescheduleAutoSyncChannels();
     rescheduleAutoSyncEpg();
+    checkForUpdates();
 
     return true;
 }
@@ -1007,6 +1012,55 @@ bool AppViewModel::fileExists(const QString &path) const {
     return QFileInfo::exists(path);
 }
 
+QString AppViewModel::latestVersion() const { return latestVersion_; }
+
+bool AppViewModel::updateAvailable() const {
+    if (latestVersion_.isEmpty()) return false;
+    auto strip = [](QString v) { return v.startsWith("v") ? v.mid(1) : v; };
+    return strip(latestVersion_) != strip(appVersion());
+}
+
+void AppViewModel::checkForUpdates() {
+    if (!httpClient_) return;
+    QUrl url(QStringLiteral("https://iptvxs.schelstraete.org/api/version"));
+    auto *reply = httpClient_->get(url);
+    QTimer::singleShot(5000, reply, [reply]() {
+        if (!reply->isFinished()) { reply->abort(); }
+    });
+    connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+        reply->deleteLater();
+        if (reply->error() != QNetworkReply::NoError) {
+            qWarning("Version check failed: %s", qPrintable(reply->errorString()));
+            if (latestVersion_.isEmpty()) {
+                latestVersion_ = QStringLiteral("unknown");
+                emit latestVersionChanged();
+            }
+            return;
+        }
+        auto data = reply->readAll();
+        auto doc = QJsonDocument::fromJson(data);
+        auto obj = doc.object();
+        if (obj.contains("error") || obj.value("latest").toString().isEmpty()) {
+            qWarning("Version check: no release found (%s)", data.constData());
+            if (latestVersion_.isEmpty() || latestVersion_ == QStringLiteral("checking...")) {
+                latestVersion_ = QStringLiteral("unknown");
+                emit latestVersionChanged();
+            }
+            return;
+        }
+        auto tag = obj.value("latest").toString();
+        if (tag != latestVersion_) {
+            latestVersion_ = tag;
+            emit latestVersionChanged();
+            qInfo("Latest version: %s (current: %s)", qPrintable(tag), qPrintable(appVersion()));
+        }
+    });
+}
+
+void AppViewModel::openGitHub() {
+    QDesktopServices::openUrl(QUrl(QStringLiteral("https://github.com/bschelst/iptvXS")));
+}
+
 void AppViewModel::resetDatabase() {
     if (!database_) return;
 
@@ -1028,15 +1082,60 @@ void AppViewModel::resetDatabase() {
         favoriteRepo_ = std::make_unique<iptvxs::FavoriteRepository>(db, this);
         progRepo_ = std::make_unique<iptvxs::ProgrammeRepository>(db, this);
         recordingRepo_ = std::make_unique<iptvxs::RecordingRepository>(db, this);
+        historyRepo_ = std::make_unique<iptvxs::HistoryRepository>(db, this);
+        groupRepo_ = std::make_unique<iptvxs::ChannelGroupRepository>(db, this);
+        categorySettingsRepo_ = std::make_unique<iptvxs::CategorySettingsRepository>(db, this);
 
         serverListVm_->setRepositories(serverRepo_.get(), categoryRepo_.get(),
                                        channelRepo_.get());
         favoriteListVm_->setRepository(favoriteRepo_.get());
         channelListVm_->setRepository(channelRepo_.get());
         categoryListVm_->setRepository(categoryRepo_.get());
+        categoryListVm_->setCategorySettingsRepository(categorySettingsRepo_.get());
+        epgVm_->setRepositories(progRepo_.get(), channelRepo_.get(),
+                                favoriteRepo_.get());
+        historyVm_->setRepository(historyRepo_.get());
+        groupListVm_->setRepository(groupRepo_.get());
+        groupListVm_->setChannelRepository(channelRepo_.get());
+        recordingMgr_->setRepositories(recordingRepo_.get(), channelRepo_.get(),
+                                       settingsRepo_.get(), progRepo_.get());
+        recordingListVm_->setRepositories(recordingRepo_.get(), channelRepo_.get(), progRepo_.get());
+        recordingListVm_->setRecordingManager(recordingMgr_.get());
         speedTestVm_->setChannelRepository(channelRepo_.get());
 
         databaseReady_ = true;
         emit databaseReadyChanged();
     }
+}
+
+QVariantMap AppViewModel::databaseStats() const {
+    QVariantMap stats;
+    if (!databaseReady_ || !database_) {
+        return stats;
+    }
+
+    stats["servers"] = serverRepo_ ? serverRepo_->count() : 0;
+    stats["recordings"] = recordingRepo_ ? recordingRepo_->count() : 0;
+    stats["favourites"] = favoriteRepo_ ? favoriteRepo_->count() : 0;
+    stats["groups"] = groupRepo_ ? groupRepo_->groupCount() : 0;
+    stats["programmes"] = progRepo_ ? progRepo_->count() : 0;
+    stats["history"] = historyRepo_ ? historyRepo_->count() : 0;
+
+    // Count channels by type using SQL for efficiency
+    auto db = database_->connection();
+    auto countByType = [&](const QString &type) -> int {
+        QSqlQuery q(db);
+        q.prepare("SELECT COUNT(*) FROM channels WHERE type = ?");
+        q.addBindValue(type);
+        if (q.exec() && q.next()) {
+            return q.value(0).toInt();
+        }
+        return 0;
+    };
+
+    stats["channels"] = countByType("live");
+    stats["movies"] = countByType("vod");
+    stats["series"] = countByType("series");
+
+    return stats;
 }

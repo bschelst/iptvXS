@@ -82,6 +82,8 @@ class AppViewModel : public QObject {
     Q_PROPERTY(bool keepLocalCopy READ keepLocalCopy WRITE setKeepLocalCopy NOTIFY keepLocalCopyChanged)
     Q_PROPERTY(GroupListViewModel *groupList READ groupList CONSTANT)
     Q_PROPERTY(iptvxs::LogoCache *logoCache READ logoCache CONSTANT)
+    Q_PROPERTY(QString latestVersion READ latestVersion NOTIFY latestVersionChanged)
+    Q_PROPERTY(bool updateAvailable READ updateAvailable NOTIFY latestVersionChanged)
 
 public:
     explicit AppViewModel(QObject *parent = nullptr);
@@ -158,6 +160,11 @@ public:
     bool keepLocalCopy() const;
     void setKeepLocalCopy(bool keep);
 
+    QString latestVersion() const;
+    bool updateAvailable() const;
+    Q_INVOKABLE void checkForUpdates();
+    Q_INVOKABLE void openGitHub();
+
     Q_INVOKABLE bool fileExists(const QString &path) const;
     Q_INVOKABLE void resetDatabase();
     Q_INVOKABLE void searchSubtitles(const QString &query);
@@ -182,6 +189,7 @@ public:
     Q_INVOKABLE QString currentProgrammeTitle(const QString &epgChannelId) const;
     Q_INVOKABLE QString nextProgrammeTitle(const QString &epgChannelId) const;
     Q_INVOKABLE QString nextProgrammeTime(const QString &epgChannelId) const;
+    Q_INVOKABLE QVariantMap databaseStats() const;
 
 signals:
     void databaseReadyChanged();
@@ -211,6 +219,7 @@ signals:
     void subtitlesFound(int count);
     void subtitleLoaded(const QString &filePath);
     void seriesEpisodesReady(const QString &seriesName, const QVariantList &seasons);
+    void latestVersionChanged();
 
 private:
     std::unique_ptr<iptvxs::Database> database_;
@@ -268,6 +277,7 @@ private:
     std::unique_ptr<iptvxs::OpenSubtitlesClient> subtitlesClient_;
     QVector<iptvxs::SubtitleResult> lastSubResults_;
     QString seriesServerUrl_;
+    QString latestVersion_;
     QString seriesUsername_;
     QString seriesPassword_;
     QString activeSeriesName_;

@@ -165,6 +165,16 @@ void RecordingListViewModel::startNow(int64_t channelId, int64_t durationSecs,
         rec.endTime = rec.startTime + durationSecs;
     }
 
+    if (progRepo_ && channelRepo_) {
+        auto ch = channelRepo_->findById(channelId);
+        if (ch && !ch->epgChannelId.isEmpty()) {
+            auto progs = progRepo_->findCurrent(ch->epgChannelId);
+            if (!progs.isEmpty()) {
+                rec.programmeId = progs.first().id;
+            }
+        }
+    }
+
     auto id = recordingRepo_->create(rec);
     if (id > 0) {
         manager_->startRecording(id);

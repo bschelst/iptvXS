@@ -124,7 +124,7 @@ Item {
                         contentItem: Text {
                             text: model.name
                             font.pixelSize: Theme.fontSizeSm
-                            color: highlighted ? "#ffffff" : Theme.textPrimary
+                            color: highlighted ? Theme.textOnAccent : Theme.textPrimary
                             verticalAlignment: Text.AlignVCenter
                         }
                         highlighted: serverPicker.highlightedIndex === index

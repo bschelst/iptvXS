@@ -28,6 +28,7 @@ Item {
 
             ColumnLayout {
                 anchors.fill: parent
+                anchors.rightMargin: 1
                 spacing: 0
 
                 Item {
@@ -491,12 +492,6 @@ Item {
                             spacing: 5
 
                             Text {
-                                text: "\u2728"
-                                font.pixelSize: 13
-                                anchors.verticalCenter: parent.verticalCenter
-                            }
-
-                            Text {
                                 id: newFilterLabel
                                 text: "New"
                                 font.pixelSize: Theme.fontSizeSm
@@ -807,6 +802,7 @@ Item {
                 id: channelGrid
                 Layout.fillWidth: true
                 Layout.fillHeight: true
+                Layout.leftMargin: Theme.spacingSm
                 visible: chSearchInput.text.length > 0 || selectedCategoryId !== 0
                 property int cols: appViewModel ? appViewModel.gridColumns : 2
                 cellWidth: Math.floor(width / cols)

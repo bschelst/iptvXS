@@ -284,7 +284,9 @@ Item {
                     anchors.top: parent.top
                     anchors.left: parent.left
                     anchors.right: parent.right
-                    anchors.margins: Theme.spacingSm
+                    anchors.leftMargin: Theme.spacingMd
+                    anchors.rightMargin: Theme.spacingSm
+                    anchors.topMargin: Theme.spacingSm
                     height: 72
                     spacing: Theme.spacingSm
 
@@ -474,7 +476,7 @@ Item {
                                     font.pixelSize: 10
                                     font.capitalization: Font.AllUppercase
                                     font.bold: true
-                                    color: "#ffffff"
+                                    color: Theme.textOnAccent
                                 }
                             }
 
@@ -495,6 +497,7 @@ Item {
                     }
 
                     RowLayout {
+                        Layout.alignment: Qt.AlignRight | Qt.AlignVCenter
                         spacing: Theme.spacingXs
 
                         // Pin button
@@ -829,7 +832,7 @@ Item {
                         text: model.name
                         font.pixelSize: Theme.fontSizeSm
                         font.bold: model.isPrimary
-                        color: highlighted ? "#ffffff" : Theme.textPrimary
+                        color: highlighted ? Theme.textOnAccent : Theme.textPrimary
                         verticalAlignment: Text.AlignVCenter
                     }
                     highlighted: serverCombo.highlightedIndex === index
@@ -883,7 +886,7 @@ Item {
                     contentItem: Text {
                         text: model.name
                         font.pixelSize: Theme.fontSizeSm
-                        color: highlighted ? "#ffffff" : Theme.textPrimary
+                        color: highlighted ? Theme.textOnAccent : Theme.textPrimary
                         verticalAlignment: Text.AlignVCenter
                         elide: Text.ElideRight
                     }

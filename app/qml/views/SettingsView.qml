@@ -1580,6 +1580,60 @@ Item {
                         color: Theme.surfaceBorder
                     }
 
+                    // Database statistics
+                    GridLayout {
+                        id: dbStatsGrid
+                        Layout.fillWidth: true
+                        columns: 5
+                        columnSpacing: Theme.spacingMd
+                        rowSpacing: Theme.spacingSm
+
+                        property var stats: appViewModel ? appViewModel.databaseStats() : ({})
+
+                        Repeater {
+                            model: [
+                                { label: "Servers", key: "servers" },
+                                { label: "TV Channels", key: "channels" },
+                                { label: "Movies", key: "movies" },
+                                { label: "Series", key: "series" },
+                                { label: "Recordings", key: "recordings" },
+                                { label: "Favourites", key: "favourites" },
+                                { label: "Groups", key: "groups" },
+                                { label: "EPG Programmes", key: "programmes" },
+                                { label: "History", key: "history" }
+                            ]
+
+                            delegate: Column {
+                                Layout.fillWidth: true
+                                spacing: 2
+
+                                Text {
+                                    text: {
+                                        var val = dbStatsGrid.stats[modelData.key];
+                                        return val !== undefined ? Number(val).toLocaleString() : "0";
+                                    }
+                                    font.pixelSize: Theme.fontSizeMd
+                                    font.bold: true
+                                    color: Theme.textPrimary
+                                    anchors.horizontalCenter: parent.horizontalCenter
+                                }
+
+                                Text {
+                                    text: modelData.label
+                                    font.pixelSize: Theme.fontSizeXs
+                                    color: Theme.textMuted
+                                    anchors.horizontalCenter: parent.horizontalCenter
+                                }
+                            }
+                        }
+                    }
+
+                    Rectangle {
+                        Layout.fillWidth: true
+                        height: 1
+                        color: Theme.surfaceBorder
+                    }
+
                     Text {
                         text: "Reset will delete all servers, channels, recordings, favorites, and settings."
                         font.pixelSize: Theme.fontSizeXs
@@ -1591,10 +1645,9 @@ Item {
                     Rectangle {
                         Layout.preferredWidth: resetBtnText.implicitWidth + Theme.spacingLg * 2
                         Layout.preferredHeight: 36
+                        Layout.alignment: Qt.AlignRight
                         radius: Theme.borderRadius
-                        color: resetBtnHovered ? Theme.error : Theme.error + "30"
-                        border.color: Theme.error
-                        border.width: 1
+                        color: resetBtnHovered ? Qt.darker(Theme.error, 1.2) : Theme.error
 
                         property bool resetBtnHovered: false
 
@@ -1604,7 +1657,7 @@ Item {
                             text: "Reset Database"
                             font.pixelSize: Theme.fontSizeSm
                             font.bold: true
-                            color: Theme.textPrimary
+                            color: "#000000"
                         }
 
                         MouseArea {
@@ -1644,17 +1697,28 @@ Item {
                         spacing: Theme.spacingMd
 
                         Text {
-                            text: "iptvxs"
+                            text: "iptvXS"
                             font.pixelSize: Theme.fontSizeLg
                             font.bold: true
                             color: Theme.textPrimary
                         }
 
-                        Text {
-                            text: "v" + (appViewModel ? appViewModel.appVersion : "0.1.0")
-                            font.pixelSize: Theme.fontSizeSm
-                            color: Theme.textSecondary
-                            Layout.alignment: Qt.AlignBaseline
+                        Rectangle {
+                            visible: appViewModel && appViewModel.updateAvailable
+                            width: updateLabel.implicitWidth + 12
+                            height: 20
+                            radius: 10
+                            color: Theme.accent
+                            Layout.alignment: Qt.AlignVCenter
+
+                            Text {
+                                id: updateLabel
+                                anchors.centerIn: parent
+                                text: "Update available"
+                                font.pixelSize: 10
+                                font.bold: true
+                                color: Theme.textOnAccent
+                            }
                         }
                     }
 
@@ -1662,6 +1726,101 @@ Item {
                         text: "Cross-platform IPTV viewer built with Qt6 and libmpv"
                         font.pixelSize: Theme.fontSizeSm
                         color: Theme.textMuted
+                    }
+
+                    Text {
+                        text: "Author: Schelstraete Bart"
+                        font.pixelSize: Theme.fontSizeSm
+                        color: Theme.textSecondary
+                    }
+
+                    RowLayout {
+                        spacing: Theme.spacingMd
+
+                        Text {
+                            text: "Current version:"
+                            font.pixelSize: Theme.fontSizeXs
+                            color: Theme.textMuted
+                        }
+                        Text {
+                            text: "v" + (appViewModel ? appViewModel.appVersion : "?")
+                            font.pixelSize: Theme.fontSizeXs
+                            color: Theme.textPrimary
+                            font.bold: true
+                        }
+                    }
+
+                    RowLayout {
+                        spacing: Theme.spacingMd
+
+                        Text {
+                            text: "Latest version:"
+                            font.pixelSize: Theme.fontSizeXs
+                            color: Theme.textMuted
+                        }
+                        Text {
+                            text: appViewModel && appViewModel.latestVersion ? appViewModel.latestVersion : "checking..."
+                            font.pixelSize: Theme.fontSizeXs
+                            color: appViewModel && appViewModel.updateAvailable ? Theme.accent : Theme.textPrimary
+                            font.bold: true
+                        }
+                    }
+
+                    RowLayout {
+                        spacing: Theme.spacingSm
+
+                        Rectangle {
+                            width: githubLabel.implicitWidth + Theme.spacingLg
+                            height: 32
+                            radius: Theme.borderRadius
+                            color: githubHov ? Theme.surfaceHover : Theme.surface
+                            border.color: Theme.surfaceBorder
+                            border.width: 1
+                            property bool githubHov: false
+
+                            Text {
+                                id: githubLabel
+                                anchors.centerIn: parent
+                                text: "View on GitHub"
+                                font.pixelSize: Theme.fontSizeXs
+                                color: Theme.textSecondary
+                            }
+
+                            MouseArea {
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onEntered: parent.githubHov = true
+                                onExited: parent.githubHov = false
+                                onClicked: { if (appViewModel) appViewModel.openGitHub() }
+                            }
+                        }
+
+                        Rectangle {
+                            width: checkLabel.implicitWidth + Theme.spacingLg
+                            height: 32
+                            radius: Theme.borderRadius
+                            color: checkHov ? Theme.accentHover : Theme.accent
+                            property bool checkHov: false
+
+                            Text {
+                                id: checkLabel
+                                anchors.centerIn: parent
+                                text: "Check for Updates"
+                                font.pixelSize: Theme.fontSizeXs
+                                font.bold: true
+                                color: Theme.textOnAccent
+                            }
+
+                            MouseArea {
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onEntered: parent.checkHov = true
+                                onExited: parent.checkHov = false
+                                onClicked: { if (appViewModel) appViewModel.checkForUpdates() }
+                            }
+                        }
                     }
                 }
             }

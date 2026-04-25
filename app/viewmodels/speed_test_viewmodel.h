@@ -6,6 +6,8 @@
 
 #include "iptvxs/net/speed_test_runner.h"
 #include "iptvxs/db/channel_repository.h"
+#include "iptvxs/db/favorite_repository.h"
+#include "iptvxs/db/history_repository.h"
 
 class SpeedTestViewModel : public QObject {
     Q_OBJECT
@@ -40,6 +42,10 @@ public:
     Q_INVOKABLE void startTestForChannel(qint64 channelId);
     Q_INVOKABLE void startInternetTest();
     Q_INVOKABLE void stopTest();
+    Q_INVOKABLE QVariantList quickTestChannels(int serverId);
+
+    void setFavoriteRepository(iptvxs::FavoriteRepository *repo);
+    void setHistoryRepository(iptvxs::HistoryRepository *repo);
 
 signals:
     void runningChanged();
@@ -56,6 +62,8 @@ private:
 
     iptvxs::SpeedTestRunner *runner_{nullptr};
     iptvxs::ChannelRepository *channelRepo_{nullptr};
+    iptvxs::FavoriteRepository *favoriteRepo_{nullptr};
+    iptvxs::HistoryRepository *historyRepo_{nullptr};
 
     bool running_{false};
     double currentMbps_{0.0};
@@ -64,5 +72,5 @@ private:
     qint64 elapsedMs_{0};
     QString errorMessage_;
     bool hasResult_{false};
-    int duration_{10};
+    int duration_{60};
 };

@@ -960,23 +960,25 @@ Item {
             }
         }
 
-        // --- Stopped placeholder ---
+        // --- Logo placeholder (stopped + loading) ---
         Image {
+            id: logoPlaceholder
             anchors.centerIn: parent
-            visible: appViewModel ? appViewModel.player.stopped : true
+            property bool isLoading: appViewModel ? (appViewModel.player.position <= 0 && !appViewModel.player.stopped) : false
+            visible: (appViewModel ? appViewModel.player.stopped : true) || isLoading
             width: 128; height: 128
             source: "qrc:/images/iptvxs_tray.png"
             fillMode: Image.PreserveAspectFit
             opacity: 0.15
-        }
 
-        // --- Loading spinner (hidden once position starts updating) ---
-        BusyIndicator {
-            anchors.centerIn: parent
-            visible: appViewModel ? (appViewModel.player.position <= 0 && !appViewModel.player.stopped) : false
-            running: visible
-            width: 48
-            height: 48
+            SequentialAnimation on opacity {
+                id: pulseAnim
+                running: logoPlaceholder.isLoading
+                loops: Animation.Infinite
+                NumberAnimation { to: 0.4; duration: 1000; easing.type: Easing.InOutSine }
+                NumberAnimation { to: 0.08; duration: 1000; easing.type: Easing.InOutSine }
+                onRunningChanged: if (!running) logoPlaceholder.opacity = 0.15
+            }
         }
 
         // --- Auto-next episode OSD ---

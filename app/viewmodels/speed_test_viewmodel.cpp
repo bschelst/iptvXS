@@ -1,6 +1,8 @@
 #include "speed_test_viewmodel.h"
 
 #include <QRandomGenerator>
+#include <algorithm>
+#include <numeric>
 
 SpeedTestViewModel::SpeedTestViewModel(QObject *parent)
     : QObject(parent) {}
@@ -43,6 +45,66 @@ void SpeedTestViewModel::setRunner(iptvxs::SpeedTestRunner *runner) {
 
 void SpeedTestViewModel::setChannelRepository(iptvxs::ChannelRepository *repo) {
     channelRepo_ = repo;
+}
+
+void SpeedTestViewModel::setFavoriteRepository(iptvxs::FavoriteRepository *repo) {
+    favoriteRepo_ = repo;
+}
+
+void SpeedTestViewModel::setHistoryRepository(iptvxs::HistoryRepository *repo) {
+    historyRepo_ = repo;
+}
+
+QVariantList SpeedTestViewModel::quickTestChannels(int serverId) {
+    if (!channelRepo_) return {};
+
+    auto allLive = channelRepo_->findByServerAndType(serverId, QStringLiteral("live"), 0, 0);
+    if (allLive.isEmpty()) return {};
+
+    QSet<int64_t> usedIds;
+    QVariantList result;
+
+    auto addChannel = [&](const iptvxs::Channel &ch) {
+        if (usedIds.contains(ch.id) || ch.streamUrl.isEmpty()) return;
+        usedIds.insert(ch.id);
+        QVariantMap m;
+        m["channelId"] = QVariant::fromValue(static_cast<qlonglong>(ch.id));
+        m["name"] = ch.name;
+        m["streamUrl"] = ch.streamUrl;
+        result.append(m);
+    };
+
+    if (favoriteRepo_) {
+        auto favs = favoriteRepo_->findAll();
+        for (const auto &fav : favs) {
+            if (result.size() >= 8) break;
+            for (const auto &ch : allLive) {
+                if (ch.id == fav.channelId) { addChannel(ch); break; }
+            }
+        }
+    }
+
+    if (historyRepo_ && result.size() < 8) {
+        auto history = historyRepo_->findRecent(20);
+        for (const auto &h : history) {
+            if (result.size() >= 8) break;
+            for (const auto &ch : allLive) {
+                if (ch.id == h.channelId) { addChannel(ch); break; }
+            }
+        }
+    }
+
+    if (result.size() < 8) {
+        QVector<int> indices(allLive.size());
+        std::iota(indices.begin(), indices.end(), 0);
+        std::shuffle(indices.begin(), indices.end(), *QRandomGenerator::global());
+        for (int idx : indices) {
+            if (result.size() >= 8) break;
+            addChannel(allLive.at(idx));
+        }
+    }
+
+    return result;
 }
 
 bool SpeedTestViewModel::running() const { return running_; }

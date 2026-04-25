@@ -54,9 +54,9 @@ Item {
                         Text {
                             text: groupListModel.count
                             font.pixelSize: Theme.fontSizeXs
-                            color: Theme.textMuted
-                            opacity: 0.5
+                            color: Theme.textSecondary
                             Layout.alignment: Qt.AlignVCenter
+                            Layout.rightMargin: 4
                         }
 
                         Rectangle {
