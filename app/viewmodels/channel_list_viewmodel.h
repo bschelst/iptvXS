@@ -69,6 +69,8 @@ public:
 
     Q_INVOKABLE void loadMore();
     Q_INVOKABLE void refresh();
+    Q_INVOKABLE void setBrowseContext(int64_t serverId, const QString &type,
+                                      int64_t categoryId = 0);
     Q_INVOKABLE QString channelUrlAt(int index) const;
     Q_INVOKABLE QString channelNameAt(int index) const;
     Q_INVOKABLE QVariantList channelsForCategory(int64_t categoryId, int limit = 20) const;

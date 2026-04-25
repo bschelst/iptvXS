@@ -12,6 +12,14 @@ Item {
     property string initialType: "vod"
     property var selectedCategoryId: 0
 
+    function logoSource(url) {
+        if (!appViewModel || !appViewModel.logoCache || !url || url.indexOf("http") !== 0)
+            return ""
+        var _ = appViewModel.logoCache.revision
+        var __ = appViewModel.logoCache.failedRevision
+        return appViewModel.logoCache.resolve(url)
+    }
+
     onInitialTypeChanged: {
         if (initialType && initialType !== activeType) {
             activeType = initialType
@@ -648,7 +656,7 @@ Item {
                                         Image {
                                             id: posterImg
                                             anchors.fill: parent
-                                            source: model.logoUrl && model.logoUrl.indexOf("http") === 0 ? model.logoUrl : ""
+                                            source: vodView.logoSource(model.logoUrl)
                                             fillMode: Image.PreserveAspectCrop
                                             asynchronous: true
                                             visible: status === Image.Ready
@@ -864,7 +872,7 @@ Item {
                         Image {
                             id: catGridPoster
                             anchors.fill: parent
-                            source: model.logoUrl && model.logoUrl.indexOf("http") === 0 ? model.logoUrl : ""
+                            source: vodView.logoSource(model.logoUrl)
                             fillMode: Image.PreserveAspectCrop
                             asynchronous: true
                             visible: status === Image.Ready
@@ -1025,7 +1033,7 @@ Item {
                                 Image {
                                     anchors.fill: parent
                                     anchors.margins: 4
-                                    source: model.logoUrl && model.logoUrl.indexOf("http") === 0 ? model.logoUrl : ""
+                                    source: vodView.logoSource(model.logoUrl)
                                     fillMode: Image.PreserveAspectFit
                                     asynchronous: true
                                     visible: status === Image.Ready
@@ -1320,6 +1328,17 @@ Item {
                     ScrollBar.vertical: ScrollBar {
                         active: true
                         policy: ScrollBar.AsNeeded
+                        contentItem: Rectangle {
+                            implicitWidth: 6
+                            radius: 3
+                            color: Theme.accent
+                            opacity: parent.active ? 0.8 : 0.0
+                            Behavior on opacity { NumberAnimation { duration: Theme.animNormal } }
+                        }
+                        background: Rectangle {
+                            implicitWidth: 6
+                            color: "transparent"
+                        }
                     }
 
                     delegate: Rectangle {
@@ -1374,9 +1393,10 @@ Item {
                             }
 
                             Text {
-                                text: "\u25B6"
-                                font.pixelSize: 14
-                                color: Theme.textMuted
+                                text: "\u203A"
+                                font.pixelSize: 18
+                                font.bold: true
+                                color: Theme.textSecondary
                             }
                         }
 
@@ -1494,14 +1514,8 @@ Item {
 
     function reloadVod() {
         if (!appViewModel) return
-        appViewModel.channelList.typeFilter = activeType
-        appViewModel.channelList.serverId = activeServerId
-        appViewModel.channelList.refresh()
-        // Force category reload — shared categoryList may already have same serverId
-        // from ChannelsView but with different filterType, causing no reload
-        appViewModel.categoryList.filterType = activeType
-        appViewModel.categoryList.serverId = activeServerId
-        appViewModel.categoryList.refresh()
+        appViewModel.channelList.setBrowseContext(activeServerId, activeType, 0)
+        appViewModel.categoryList.setBrowseContext(activeServerId, activeType)
     }
 
     Connections {

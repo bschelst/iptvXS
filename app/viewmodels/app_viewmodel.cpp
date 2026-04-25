@@ -13,6 +13,13 @@
 #include <QStandardPaths>
 #include <QTimer>
 
+namespace {
+QString localAppDataPath() {
+    return QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation)
+           + QStringLiteral("/iptvXS");
+}
+}
+
 AppViewModel::AppViewModel(QObject *parent)
     : QObject(parent),
       serverListVm_(new ServerListViewModel(this)),
@@ -54,9 +61,7 @@ bool AppViewModel::initialize(const QString &dbPath) {
     groupListVm_->setRepository(groupRepo_.get());
     groupListVm_->setChannelRepository(channelRepo_.get());
     logoCache_ = std::make_unique<iptvxs::LogoCache>(this);
-    logoCache_->setCacheDir(
-        QStandardPaths::writableLocation(QStandardPaths::AppDataLocation)
-        + QStringLiteral("/logos"));
+    logoCache_->setCacheDir(localAppDataPath() + QStringLiteral("/logos"));
     recordingMgr_ = std::make_unique<iptvxs::RecordingManager>(this);
     httpClient_ = std::make_unique<iptvxs::HttpClient>(this);
     speedTestRunner_ = std::make_unique<iptvxs::SpeedTestRunner>(this);
@@ -567,8 +572,7 @@ void AppViewModel::runAutoSyncEpg() {
 }
 
 QString AppViewModel::databasePath() const {
-    return QStandardPaths::writableLocation(QStandardPaths::AppDataLocation)
-           + QStringLiteral("/iptvxs.db");
+    return localAppDataPath() + QStringLiteral("/iptvxs.db");
 }
 
 QString AppViewModel::databaseSize() const {
@@ -1085,8 +1089,7 @@ void AppViewModel::openGitHub() {
 void AppViewModel::resetDatabase() {
     if (!database_) return;
 
-    auto path = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation)
-                + QStringLiteral("/iptvxs.db");
+    auto path = localAppDataPath() + QStringLiteral("/iptvxs.db");
 
     database_->close();
     QFile::remove(path);

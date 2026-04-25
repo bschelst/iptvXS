@@ -97,6 +97,22 @@ QString CategoryListViewModel::categoryNameAt(int index) const {
 
 void CategoryListViewModel::refresh() { loadCategories(); }
 
+void CategoryListViewModel::setBrowseContext(int64_t serverId, const QString &type) {
+    bool serverChanged = serverId_ != serverId;
+    bool typeChanged = filterType_ != type;
+    if (!serverChanged && !typeChanged) {
+        return;
+    }
+
+    serverId_ = serverId;
+    filterType_ = type;
+
+    if (serverChanged) emit serverIdChanged();
+    if (typeChanged) emit filterTypeChanged();
+
+    loadCategories();
+}
+
 void CategoryListViewModel::toggleHidden(int64_t categoryId) {
     if (!settingsRepo_) return;
     settingsRepo_->setHidden(categoryId, !settingsRepo_->isHidden(categoryId));

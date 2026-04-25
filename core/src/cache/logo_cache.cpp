@@ -33,6 +33,10 @@ QString LogoCache::resolve(const QString &url) const {
         return url;
     }
 
+    if (isBlocked(url)) {
+        return {};
+    }
+
     // Already cached in memory?
     if (cache_.contains(url)) {
         return QStringLiteral("file://%1").arg(cache_.value(url));
@@ -55,12 +59,12 @@ QString LogoCache::resolve(const QString &url) const {
         const_cast<LogoCache *>(this)->downloadNext();
     }
 
-    return url;
+    return {};
 }
 
 void LogoCache::prefetch(const QStringList &urls) {
     for (const auto &url : urls) {
-        if (url.isEmpty() || cache_.contains(url) || pending_.contains(url)) {
+        if (url.isEmpty() || isBlocked(url) || cache_.contains(url) || pending_.contains(url)) {
             continue;
         }
 
@@ -78,6 +82,22 @@ void LogoCache::prefetch(const QStringList &urls) {
     downloadNext();
 }
 
+bool LogoCache::isBlocked(const QString &url) const {
+    const QString host = hostForUrl(url);
+    return !host.isEmpty() && blockedHosts_.contains(host);
+}
+
+void LogoCache::markFailed(const QString &url) {
+    const QString host = hostForUrl(url);
+    if (host.isEmpty() || blockedHosts_.contains(host)) {
+        return;
+    }
+
+    blockedHosts_.insert(host);
+    ++failedRevision_;
+    emit failedRevisionChanged();
+}
+
 void LogoCache::clear() {
     QDir dir(cacheDir_);
     if (dir.exists()) {
@@ -88,10 +108,21 @@ void LogoCache::clear() {
     }
     cache_.clear();
     pending_.clear();
+    blockedHosts_.clear();
     queue_.clear();
+    if (revision_ != 0) {
+        revision_ = 0;
+        emit revisionChanged();
+    }
+    if (failedRevision_ != 0) {
+        failedRevision_ = 0;
+        emit failedRevisionChanged();
+    }
 }
 
 int LogoCache::cachedCount() const { return cache_.size(); }
+int LogoCache::revision() const { return revision_; }
+int LogoCache::failedRevision() const { return failedRevision_; }
 
 void LogoCache::downloadNext() {
     while (activeDownloads_ < kMaxConcurrent && !queue_.isEmpty()) {
@@ -126,9 +157,13 @@ void LogoCache::downloadNext() {
                         file.write(data);
                         file.close();
                         cache_.insert(url, localPath);
+                        ++revision_;
+                        emit revisionChanged();
                         emit logoReady(url, QStringLiteral("file://%1").arg(localPath));
                     }
                 }
+            } else {
+                markFailed(url);
             }
 
             pending_.remove(url);
@@ -155,6 +190,14 @@ QString LogoCache::urlToFilename(const QString &url) const {
     }
 
     return QString::fromLatin1(hash) + ext;
+}
+
+QString LogoCache::hostForUrl(const QString &url) {
+    const QUrl parsed(url);
+    if (!parsed.isValid()) {
+        return {};
+    }
+    return parsed.host().toLower();
 }
 
 } // namespace iptvxs

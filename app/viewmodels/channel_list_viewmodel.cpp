@@ -124,6 +124,32 @@ void ChannelListViewModel::loadMore() {
 
 void ChannelListViewModel::refresh() { loadChannels(); }
 
+void ChannelListViewModel::setBrowseContext(int64_t serverId, const QString &type,
+                                            int64_t categoryId) {
+    bool serverChanged = serverId_ != serverId;
+    bool typeChanged = typeFilter_ != type;
+    bool categoryChanged = categoryId_ != categoryId;
+    bool searchChanged = serverChanged && !searchQuery_.isEmpty();
+
+    if (!serverChanged && !typeChanged && !categoryChanged && !searchChanged) {
+        return;
+    }
+
+    serverId_ = serverId;
+    typeFilter_ = type;
+    categoryId_ = categoryId;
+    if (serverChanged) {
+        searchQuery_.clear();
+    }
+
+    if (serverChanged) emit serverIdChanged();
+    if (typeChanged) emit typeFilterChanged();
+    if (categoryChanged) emit categoryIdChanged();
+    if (searchChanged) emit searchQueryChanged();
+
+    loadChannels();
+}
+
 QString ChannelListViewModel::streamUrlAt(int index) const {
     if (index < 0 || index >= channels_.size()) return {};
     return channels_[index].streamUrl;

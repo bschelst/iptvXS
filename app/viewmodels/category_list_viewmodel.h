@@ -44,6 +44,7 @@ public:
     Q_INVOKABLE int64_t categoryIdAt(int index) const;
     Q_INVOKABLE QString categoryNameAt(int index) const;
     Q_INVOKABLE void refresh();
+    Q_INVOKABLE void setBrowseContext(int64_t serverId, const QString &type);
     Q_INVOKABLE void toggleHidden(int64_t categoryId);
     Q_INVOKABLE void toggleFavorite(int64_t categoryId);
     Q_INVOKABLE void renameCategory(int64_t categoryId, const QString &name);

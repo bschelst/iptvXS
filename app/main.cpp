@@ -67,6 +67,11 @@ static void showMainWindow(QQmlApplicationEngine &engine) {
     }
 }
 
+static QString localAppDataPath() {
+    return QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation)
+           + QStringLiteral("/iptvXS");
+}
+
 int main(int argc, char *argv[]) {
     std::setlocale(LC_NUMERIC, "C");
 #if defined(Q_OS_WIN) || defined(_WIN32)
@@ -82,8 +87,7 @@ int main(int argc, char *argv[]) {
 
     QQuickStyle::setStyle("Basic");
 
-    QString dataPath =
-        QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
+    QString dataPath = localAppDataPath();
     QDir().mkpath(dataPath);
 
     auto logFilePath = dataPath + "/iptvxs.log";
