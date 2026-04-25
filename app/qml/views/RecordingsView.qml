@@ -576,7 +576,7 @@ Item {
                             Text {
                                 id: delLocalLabel
                                 anchors.centerIn: parent
-                                text: "🗑 Local"
+                                text: "\u2716 Local"
                                 font.pixelSize: 10
                                 color: parent.delLocalHov ? Theme.error : Theme.textMuted
                             }
@@ -588,8 +588,9 @@ Item {
                                 onEntered: parent.delLocalHov = true
                                 onExited: parent.delLocalHov = false
                                 onClicked: {
-                                    if (appViewModel)
-                                        appViewModel.recordingList.deleteLocalFile(model.recordingId)
+                                    deleteLocalDialog.recordingId = model.recordingId
+                                    deleteLocalDialog.recordingName = model.channelName || "Recording"
+                                    deleteLocalDialog.visible = true
                                 }
                             }
                         }
@@ -1274,6 +1275,132 @@ Item {
                                     appViewModel.recordingList.refresh()
                                 }
                                 deleteConfirmDialog.visible = false
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    Rectangle {
+        id: deleteLocalDialog
+        visible: false
+        anchors.fill: parent
+        color: "#C0000000"
+        z: 200
+
+        property int recordingId: 0
+        property string recordingName: ""
+
+        MouseArea {
+            anchors.fill: parent
+            onClicked: deleteLocalDialog.visible = false
+        }
+
+        Rectangle {
+            anchors.centerIn: parent
+            width: 380
+            height: localConfirmCol.implicitHeight + Theme.spacingLg * 2
+            radius: Theme.borderRadiusLarge
+            color: Theme.surfaceElevated
+            border.color: Theme.surfaceBorder
+            border.width: 1
+
+            MouseArea { anchors.fill: parent }
+
+            ColumnLayout {
+                id: localConfirmCol
+                anchors.fill: parent
+                anchors.margins: Theme.spacingLg
+                spacing: Theme.spacingMd
+
+                Text {
+                    text: "Delete Local File"
+                    font.pixelSize: Theme.fontSizeLg
+                    font.bold: true
+                    color: Theme.textPrimary
+                }
+
+                Text {
+                    text: "Remove the downloaded file from disk and keep the recording entry in the library."
+                    font.pixelSize: Theme.fontSizeSm
+                    color: Theme.textSecondary
+                    wrapMode: Text.WordWrap
+                    Layout.fillWidth: true
+                    lineHeight: 1.4
+                }
+
+                Text {
+                    text: deleteLocalDialog.recordingName
+                    font.pixelSize: Theme.fontSizeSm
+                    font.bold: true
+                    color: Theme.textPrimary
+                    elide: Text.ElideRight
+                    Layout.fillWidth: true
+                }
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: Theme.spacingSm
+
+                    Item { Layout.fillWidth: true }
+
+                    Rectangle {
+                        width: cancelLocalBtnText.implicitWidth + 24
+                        height: 36
+                        radius: Theme.borderRadius
+                        color: cancelLocalBtnHov ? Theme.surfaceHover : Theme.surface
+                        border.color: Theme.surfaceBorder
+                        border.width: 1
+                        property bool cancelLocalBtnHov: false
+
+                        Text {
+                            id: cancelLocalBtnText
+                            anchors.centerIn: parent
+                            text: "Cancel"
+                            font.pixelSize: Theme.fontSizeSm
+                            color: Theme.textSecondary
+                        }
+
+                        MouseArea {
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onEntered: parent.cancelLocalBtnHov = true
+                            onExited: parent.cancelLocalBtnHov = false
+                            onClicked: deleteLocalDialog.visible = false
+                        }
+                    }
+
+                    Rectangle {
+                        width: deleteLocalBtnText.implicitWidth + 24
+                        height: 36
+                        radius: Theme.borderRadius
+                        color: deleteLocalBtnHov ? Qt.darker(Theme.error, 1.2) : Theme.error
+
+                        property bool deleteLocalBtnHov: false
+
+                        Text {
+                            id: deleteLocalBtnText
+                            anchors.centerIn: parent
+                            text: "Delete File"
+                            font.pixelSize: Theme.fontSizeSm
+                            font.bold: true
+                            color: "#FFFFFF"
+                        }
+
+                        MouseArea {
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onEntered: parent.deleteLocalBtnHov = true
+                            onExited: parent.deleteLocalBtnHov = false
+                            onClicked: {
+                                if (appViewModel) {
+                                    appViewModel.recordingList.deleteLocalFile(deleteLocalDialog.recordingId)
+                                }
+                                deleteLocalDialog.visible = false
                             }
                         }
                     }
