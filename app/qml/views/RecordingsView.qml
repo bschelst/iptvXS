@@ -350,10 +350,11 @@ Item {
                             visible: recThumb.visible
                             anchors.right: parent.right
                             anchors.bottom: parent.bottom
-                            anchors.margins: 2
-                            width: 16
-                            height: 16
-                            radius: 8
+                            anchors.rightMargin: 3
+                            anchors.bottomMargin: 3
+                            width: 14
+                            height: 14
+                            radius: 7
                             z: 10
                             color: {
                                 switch (model.status) {
@@ -380,7 +381,7 @@ Item {
                                     default: return ""
                                     }
                                 }
-                                font.pixelSize: 9
+                                font.pixelSize: 8
                                 font.bold: true
                                 color: "#ffffff"
                             }

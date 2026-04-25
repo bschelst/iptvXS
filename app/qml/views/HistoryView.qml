@@ -52,7 +52,7 @@ Item {
                         anchors.centerIn: parent
                         text: "Clear History"
                         font.pixelSize: Theme.fontSizeXs
-                        color: clearBtnHov ? "#FFFFFF" : Theme.textSecondary
+                        color: clearBtnHov ? Theme.textOnAccent : Theme.textSecondary
 
                         property bool clearBtnHov: parent.clearBtnHov
                     }
@@ -193,8 +193,8 @@ Item {
                     }
 
                     Text {
-                        text: "▶"
-                        font.pixelSize: 14
+                        text: "\u25B6"
+                        font.pixelSize: 12
                         color: Theme.textMuted
                         visible: !histHov
                     }
