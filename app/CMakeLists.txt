@@ -81,6 +81,8 @@ qt_add_qml_module(iptvXS
         viewmodels/player_viewmodel.cpp
         viewmodels/mpv_video_item.h
         viewmodels/mpv_video_item.cpp
+        controller_input_bridge.h
+        controller_input_bridge.cpp
 )
 
 target_include_directories(iptvXS
@@ -93,6 +95,7 @@ if(NOT WIN32)
     find_package(Qt6 REQUIRED COMPONENTS DBus)
     find_package(PkgConfig REQUIRED)
     pkg_check_modules(MPV REQUIRED mpv)
+    pkg_check_modules(SDL2 REQUIRED sdl2)
 endif()
 
 target_compile_definitions(iptvXS PRIVATE IPTVXS_VERSION="${PROJECT_VERSION}")
@@ -112,8 +115,11 @@ target_link_libraries(iptvXS
         Qt6::QuickDialogs2
         Qt6::OpenGL
         Qt6::Widgets
+        ${SDL2_LIBRARIES}
         ${MPV_LIBRARIES}
 )
+
+target_include_directories(iptvXS PRIVATE ${SDL2_INCLUDE_DIRS})
 
 install(TARGETS iptvXS
     BUNDLE DESTINATION .

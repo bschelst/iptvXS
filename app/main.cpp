@@ -1,4 +1,5 @@
 #include <clocale>
+#include <memory>
 
 #include <QApplication>
 #include <QDateTime>
@@ -16,6 +17,7 @@
 #include <QSystemTrayIcon>
 #include <QTextStream>
 
+#include "controller_input_bridge.h"
 #include "viewmodels/app_viewmodel.h"
 #include "viewmodels/log_viewmodel.h"
 
@@ -55,7 +57,7 @@ static void appMessageHandler(QtMsgType type, const QMessageLogContext &, const 
     fprintf(stderr, "%s\n", qPrintable(line));
 }
 
-static void showMainWindow(QQmlApplicationEngine &engine) {
+static QQuickWindow *showMainWindow(QQmlApplicationEngine &engine) {
     const auto roots = engine.rootObjects();
     if (!roots.isEmpty()) {
         auto *window = qobject_cast<QQuickWindow *>(roots.first());
@@ -63,8 +65,10 @@ static void showMainWindow(QQmlApplicationEngine &engine) {
             window->show();
             window->raise();
             window->requestActivate();
+            return window;
         }
     }
+    return nullptr;
 }
 
 static QString localAppDataPath() {
@@ -205,7 +209,8 @@ int main(int argc, char *argv[]) {
     QObject::connect(viewModel, &AppViewModel::closeToTrayChanged, &trayIcon,
                      applyTrayVisibility);
 
-    showMainWindow(engine);
+    auto *mainWindow = showMainWindow(engine);
+    auto controllerBridge = std::make_unique<ControllerInputBridge>(mainWindow, &app);
 
     qInfo("Application started successfully");
 

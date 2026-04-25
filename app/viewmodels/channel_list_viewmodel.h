@@ -74,6 +74,7 @@ public:
     Q_INVOKABLE QString channelUrlAt(int index) const;
     Q_INVOKABLE QString channelNameAt(int index) const;
     Q_INVOKABLE QVariantList channelsForCategory(int64_t categoryId, int limit = 20) const;
+    Q_INVOKABLE QVariantList channelsForServerAndType(int64_t serverId, const QString &type) const;
 
 signals:
     void serverIdChanged();

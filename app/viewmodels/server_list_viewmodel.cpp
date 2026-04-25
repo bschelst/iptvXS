@@ -2,6 +2,24 @@
 
 #include <QBuffer>
 #include <QDateTime>
+#include <QUrl>
+
+namespace {
+QString normalizeHttpUrl(const QString &input) {
+    QUrl url(input);
+    if (!url.isValid() ||
+        (url.scheme() != QStringLiteral("http") && url.scheme() != QStringLiteral("https"))) {
+        return input;
+    }
+
+    QString path = url.path();
+    while (path.startsWith(QStringLiteral("//"))) {
+        path.remove(0, 1);
+    }
+    url.setPath(path);
+    return url.toString(QUrl::FullyEncoded);
+}
+}
 
 ServerListViewModel::ServerListViewModel(QObject *parent)
     : QAbstractListModel(parent) {}
@@ -181,10 +199,10 @@ int64_t ServerListViewModel::serverIdAt(int index) const {
 QString ServerListViewModel::epgUrlAt(int index) const {
     if (index < 0 || index >= servers_.size()) return {};
     const auto &srv = servers_.at(index);
-    if (!srv.epgUrl.isEmpty()) return srv.epgUrl;
+    if (!srv.epgUrl.isEmpty()) return normalizeHttpUrl(srv.epgUrl);
     if (srv.type == QStringLiteral("xtream")) {
-        return QStringLiteral("%1/xmltv.php?username=%2&password=%3")
-            .arg(srv.url, srv.username, srv.password);
+        return normalizeHttpUrl(QStringLiteral("%1/xmltv.php?username=%2&password=%3")
+                                     .arg(srv.url, srv.username, srv.password));
     }
     return {};
 }

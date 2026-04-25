@@ -128,14 +128,7 @@ QVector<Recording> RecordingRepository::findAll() const {
                gdrive_upload_url, error_message, created_at, pinned,
                thumbnail_url
         FROM recordings
-        ORDER BY CASE status
-            WHEN 'recording' THEN 0
-            WHEN 'scheduled' THEN 1
-            WHEN 'uploading' THEN 2
-            WHEN 'completed' THEN 3
-            WHEN 'uploaded' THEN 4
-            WHEN 'failed' THEN 5
-        END, start_time DESC
+        ORDER BY start_time DESC
     )");
 
     if (!q.exec()) {

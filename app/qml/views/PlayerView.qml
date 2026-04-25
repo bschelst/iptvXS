@@ -11,6 +11,32 @@ Item {
     property string channelLogo: ""
     property bool videoFullscreen: appViewModel ? appViewModel.videoFullscreen : false
 
+    function visibleControlButtons() {
+        var buttons = [playPauseBtn, stopBtn, favBtn, recBtn, ccBtn, audioBtn, stretchBtn, fullscreenBtn]
+        var visibleButtons = []
+        for (var i = 0; i < buttons.length; i++) {
+            if (buttons[i] && buttons[i].visible)
+                visibleButtons.push(buttons[i])
+        }
+        return visibleButtons
+    }
+
+    function focusedControlIndex() {
+        var buttons = visibleControlButtons()
+        for (var i = 0; i < buttons.length; i++) {
+            if (buttons[i].activeFocus) return i
+        }
+        return -1
+    }
+
+    function focusControlButton(index) {
+        var buttons = visibleControlButtons()
+        if (!buttons.length) return
+        var idx = Math.max(0, Math.min(buttons.length - 1, index))
+        buttons[idx].forceActiveFocus()
+        showControls()
+    }
+
     function langCodesFor(iso1) {
         var map = {
             "en": ["eng"], "nl": ["dut","nld"], "fr": ["fre","fra"],
@@ -156,6 +182,7 @@ Item {
                     spacing: Theme.spacingSm
 
                     PlayerButton {
+                        id: playPauseBtn
                         text: appViewModel && appViewModel.player.paused ? "\u25B6" : "II"
                         btnSize: 36
                         iconSize: 16
@@ -165,6 +192,7 @@ Item {
                     }
 
                     PlayerButton {
+                        id: stopBtn
                         text: "\u25A0"
                         btnSize: 36
                         iconSize: 14
@@ -423,6 +451,7 @@ Item {
                     }
 
                     PlayerButton {
+                        id: fullscreenBtn
                         text: videoFullscreen ? "⤢" : "⛶\uFE0E"
                         iconSize: 20
                         onClicked: toggleVideoFullscreen()
@@ -1200,10 +1229,41 @@ Item {
     }
 
     Keys.onSpacePressed: { if (appViewModel) appViewModel.player.togglePause(); showControls() }
-    Keys.onLeftPressed: { if (appViewModel) appViewModel.player.seek(Math.max(0, appViewModel.player.position - 10)); showControls() }
-    Keys.onRightPressed: { if (appViewModel) appViewModel.player.seek(appViewModel.player.position + 10); showControls() }
-    Keys.onUpPressed: { if (appViewModel) appViewModel.player.volumeUp(); showControls() }
-    Keys.onDownPressed: { if (appViewModel) appViewModel.player.volumeDown(); showControls() }
+    Keys.onLeftPressed: {
+        var focusedIdx = focusedControlIndex()
+        if (focusedIdx >= 0) {
+            focusControlButton(focusedIdx - 1)
+        } else if (appViewModel) {
+            appViewModel.player.seek(Math.max(0, appViewModel.player.position - 10))
+            showControls()
+        }
+    }
+    Keys.onRightPressed: {
+        var focusedIdx = focusedControlIndex()
+        if (focusedIdx >= 0) {
+            focusControlButton(focusedIdx + 1)
+        } else if (appViewModel) {
+            appViewModel.player.seek(appViewModel.player.position + 10)
+            showControls()
+        }
+    }
+    Keys.onUpPressed: {
+        if (focusedControlIndex() >= 0) {
+            playerView.forceActiveFocus()
+            showControls()
+        } else if (appViewModel) {
+            appViewModel.player.volumeUp()
+            showControls()
+        }
+    }
+    Keys.onDownPressed: {
+        if (focusedControlIndex() < 0 && controlsVisible) {
+            focusControlButton(0)
+        } else if (appViewModel && focusedControlIndex() < 0) {
+            appViewModel.player.volumeDown()
+            showControls()
+        }
+    }
     Keys.onPressed: function(event) {
         if (event.key === Qt.Key_M) {
             if (appViewModel) appViewModel.player.toggleMute()
@@ -1232,6 +1292,9 @@ Item {
         color: btnColor
 
         property bool btnHovered: false
+        activeFocusOnTab: true
+        border.width: activeFocus ? 2 : 0
+        border.color: Theme.accent
 
         // Hover overlay layered ON TOP of btnColor so the recording-state color
         // (e.g. Theme.error) remains visible while the mouse is over the button.
@@ -1256,7 +1319,13 @@ Item {
             cursorShape: Qt.PointingHandCursor
             onEntered: playerBtn.btnHovered = true
             onExited: playerBtn.btnHovered = false
-            onClicked: playerBtn.clicked()
+            onClicked: {
+                playerBtn.forceActiveFocus()
+                playerBtn.clicked()
+            }
         }
+
+        Keys.onReturnPressed: playerBtn.clicked()
+        Keys.onEnterPressed: playerBtn.clicked()
     }
 }

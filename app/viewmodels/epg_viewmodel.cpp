@@ -1,6 +1,10 @@
 #include "epg_viewmodel.h"
 
 #include <QDateTime>
+#include <QDir>
+#include <QFile>
+#include <QProcess>
+#include <QTemporaryFile>
 #include <QJsonArray>
 #include <QJsonObject>
 #include <QNetworkReply>
@@ -17,6 +21,21 @@ QString sanitizeUrl(const QString &url) {
     QString masked = url;
     masked.replace(re, QStringLiteral("\\1***"));
     return masked;
+}
+
+QString normalizeHttpUrl(const QString &input) {
+    QUrl url(input);
+    if (!url.isValid() ||
+        (url.scheme() != QStringLiteral("http") && url.scheme() != QStringLiteral("https"))) {
+        return input;
+    }
+
+    QString path = url.path();
+    while (path.startsWith(QStringLiteral("//"))) {
+        path.remove(0, 1);
+    }
+    url.setPath(path);
+    return url.toString(QUrl::FullyEncoded);
 }
 }
 
@@ -169,36 +188,187 @@ void EpgViewModel::refresh() {
     loadGrid();
 }
 
+void EpgViewModel::handleDownloadedEpgData(const QByteArray &data) {
+    setSyncStatus("Parsing EPG data (background)...");
+
+    auto future = QtConcurrent::run([data]() {
+        iptvxs::XmltvParser parser;
+        return parser.parse(data);
+    });
+    parseWatcher_.setFuture(future);
+}
+
+bool EpgViewModel::decodeChunkedBody(const QByteArray &chunked, QByteArray *decoded) {
+    qsizetype pos = 0;
+    while (true) {
+        const qsizetype lineEnd = chunked.indexOf("\r\n", pos);
+        if (lineEnd < 0) {
+            return false;
+        }
+
+        QByteArray sizeLine = chunked.mid(pos, lineEnd - pos).trimmed();
+        const int semicolon = sizeLine.indexOf(';');
+        if (semicolon >= 0) {
+            sizeLine = sizeLine.left(semicolon);
+        }
+
+        bool ok = false;
+        const qsizetype size = sizeLine.toLongLong(&ok, 16);
+        if (!ok) {
+            return false;
+        }
+
+        pos = lineEnd + 2;
+        if (size == 0) {
+            return true;
+        }
+        if (pos + size + 2 > chunked.size()) {
+            return false;
+        }
+
+        decoded->append(chunked.mid(pos, size));
+        pos += size + 2;
+    }
+}
+
 void EpgViewModel::syncEpg(const QString &epgUrl) {
     if (!http_ || epgUrl.isEmpty() || syncing_) {
         return;
     }
 
+    const QString normalizedUrl = normalizeHttpUrl(epgUrl);
     setSyncing(true);
+    qInfo("EPG sync started: %s", qPrintable(sanitizeUrl(normalizedUrl)));
+
+    const QUrl url(normalizedUrl);
+    if (qEnvironmentVariableIsSet("FLATPAK_ID") && url.scheme() == QStringLiteral("http")) {
+        startCurlFallbackDownload(normalizedUrl);
+        return;
+    }
+
     setSyncStatus("Downloading EPG data...");
-    qInfo("EPG sync started: %s", qPrintable(sanitizeUrl(epgUrl)));
+    auto *reply = http_->get(url);
+    auto *buffer = new QByteArray();
+    connect(reply, &QIODevice::readyRead, this, [reply, buffer]() {
+        buffer->append(reply->readAll());
+    });
+    connect(reply, &QNetworkReply::finished, this, [this, reply, buffer]() {
+        const int statusCode =
+            reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+        buffer->append(reply->readAll());
+        const QByteArray data = *buffer;
+        const bool tolerateRemoteClose =
+            reply->error() == QNetworkReply::RemoteHostClosedError &&
+            !data.isEmpty();
 
-    auto *reply = http_->get(QUrl(epgUrl));
-    connect(reply, &QNetworkReply::finished, this, [this, reply]() {
-        reply->deleteLater();
-
-        if (reply->error() != QNetworkReply::NoError) {
-            qWarning("EPG sync failed: %s", qPrintable(reply->errorString()));
+        if (reply->error() != QNetworkReply::NoError && !tolerateRemoteClose) {
+            qWarning("EPG sync failed: %s (code=%d http=%d bytes=%lld)",
+                     qPrintable(reply->errorString()),
+                     static_cast<int>(reply->error()),
+                     statusCode,
+                     static_cast<long long>(data.size()));
             setSyncStatus(
                 QStringLiteral("EPG download failed: %1").arg(reply->errorString()));
             setSyncing(false);
+            reply->deleteLater();
+            delete buffer;
             return;
         }
 
-        setSyncStatus("Parsing EPG data (background)...");
-        QByteArray data = reply->readAll();
+        if (tolerateRemoteClose) {
+            qWarning("EPG sync: accepting closed connection after %lld bytes with HTTP %d",
+                     static_cast<long long>(data.size()), statusCode);
+        }
 
-        auto future = QtConcurrent::run([data]() {
-            iptvxs::XmltvParser parser;
-            return parser.parse(data);
-        });
-        parseWatcher_.setFuture(future);
+        handleDownloadedEpgData(data);
+        reply->deleteLater();
+        delete buffer;
     });
+}
+
+void EpgViewModel::startCurlFallbackDownload(const QString &epgUrl) {
+    auto *tempFile = new QTemporaryFile(QDir::tempPath() + QStringLiteral("/iptvxs-epg-XXXXXX.xml"), this);
+    tempFile->setAutoRemove(false);
+    if (!tempFile->open()) {
+        qWarning("EPG curl fallback failed: cannot create temp file");
+        setSyncStatus(QStringLiteral("EPG download failed: cannot create temp file"));
+        setSyncing(false);
+        delete tempFile;
+        return;
+    }
+    const QString tempPath = tempFile->fileName();
+    tempFile->close();
+
+    auto *process = new QProcess(this);
+    process->setProgram(QStringLiteral("curl"));
+    process->setArguments({
+        QStringLiteral("--fail"),
+        QStringLiteral("--location"),
+        QStringLiteral("--silent"),
+        QStringLiteral("--show-error"),
+        QStringLiteral("--connect-timeout"),
+        QStringLiteral("20"),
+        QStringLiteral("--max-time"),
+        QStringLiteral("180"),
+        QStringLiteral("--user-agent"),
+        QStringLiteral("IPTVXs/%1")
+            .arg(QCoreApplication::applicationVersion().isEmpty()
+                     ? QStringLiteral("0.1.0")
+                     : QCoreApplication::applicationVersion()),
+        QStringLiteral("--header"),
+        QStringLiteral("Accept-Encoding: identity"),
+        QStringLiteral("--output"),
+        tempPath,
+        normalizeHttpUrl(epgUrl),
+    });
+
+    connect(process,
+            QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
+            this,
+            [this, process, tempFile, tempPath](int exitCode, QProcess::ExitStatus exitStatus) {
+                const QByteArray stderrText = process->readAllStandardError();
+                QByteArray data;
+                QFile file(tempPath);
+                if (file.open(QIODevice::ReadOnly)) {
+                    data = file.readAll();
+                    file.close();
+                }
+                QFile::remove(tempPath);
+                tempFile->deleteLater();
+                process->deleteLater();
+
+                if (exitStatus != QProcess::NormalExit || exitCode != 0 ||
+                    data.isEmpty()) {
+                    qWarning("EPG curl fallback failed: exit=%d status=%d bytes=%lld stderr=%s",
+                             exitCode,
+                             static_cast<int>(exitStatus),
+                             static_cast<long long>(data.size()),
+                             qPrintable(QString::fromUtf8(stderrText).trimmed()));
+                    setSyncStatus(QStringLiteral("EPG download failed: %1")
+                                      .arg(stderrText.isEmpty()
+                                               ? QStringLiteral("curl fallback failed")
+                                               : QString::fromUtf8(stderrText).trimmed()));
+                    setSyncing(false);
+                    return;
+                }
+
+                qWarning("EPG sync: curl fallback downloaded %lld bytes",
+                         static_cast<long long>(data.size()));
+                handleDownloadedEpgData(data);
+            });
+
+    connect(process, &QProcess::errorOccurred, this,
+            [this, process, tempFile, tempPath](QProcess::ProcessError error) {
+        qWarning("EPG curl fallback process error: %d", static_cast<int>(error));
+        QFile::remove(tempPath);
+        tempFile->deleteLater();
+        setSyncStatus(QStringLiteral("EPG download failed: curl unavailable"));
+        setSyncing(false);
+        process->deleteLater();
+    });
+
+    setSyncStatus("Retrying EPG download...");
+    process->start();
 }
 
 void EpgViewModel::shiftTime(int hours) {

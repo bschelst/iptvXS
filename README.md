@@ -21,8 +21,7 @@
   <img src="https://img.shields.io/badge/C++-20-00599C?logo=c%2B%2B&logoColor=white" alt="C++20" />
 </p>
 
-> **Warning:** This project is in **early alpha** and under heavy active development. Expect breaking changes, incomplete features, and bugs. Not recommended for production use. Contributions and bug reports are welcome!
-
+> **Warning:** This project is in **early alpha** and under heavy active development. Expect breaking changes, incomplete features, and bugs. Not recommended for production use. I still need to do a lot, sorry.
 ---
 
 ## Features

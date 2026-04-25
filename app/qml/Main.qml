@@ -131,6 +131,26 @@ ApplicationWindow {
         }
     }
 
+    function focusSidebar() {
+        if (sidebar.visible) {
+            sidebar.forceActiveFocus()
+        }
+    }
+
+    function focusCurrentViewPrimary() {
+        if (viewLoader.item && viewLoader.item.focusPrimary) {
+            viewLoader.item.focusPrimary()
+        }
+    }
+
+    function focusCurrentViewSecondary() {
+        if (viewLoader.item && viewLoader.item.focusCategorySidebar) {
+            viewLoader.item.focusCategorySidebar()
+            return
+        }
+        focusCurrentViewPrimary()
+    }
+
     Connections {
         target: appViewModel
         function onCurrentViewChanged() {
@@ -156,6 +176,7 @@ ApplicationWindow {
             var savedTheme = appViewModel.theme
             if (savedTheme) Theme.applyTheme(savedTheme)
         }
+        focusSidebar()
     }
 
     // --- Single persistent video surface with PIP ---

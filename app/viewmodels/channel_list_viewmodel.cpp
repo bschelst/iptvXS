@@ -1,6 +1,7 @@
 #include "channel_list_viewmodel.h"
 
 #include <QDateTime>
+#include <QSet>
 #include <algorithm>
 
 ChannelListViewModel::ChannelListViewModel(QObject *parent)
@@ -216,6 +217,44 @@ QVariantList ChannelListViewModel::channelsForCategory(int64_t categoryId, int l
     return result;
 }
 
+QVariantList ChannelListViewModel::channelsForServerAndType(int64_t serverId,
+                                                            const QString &type) const {
+    QVariantList result;
+    if (!repo_ || serverId <= 0 || type.isEmpty()) return result;
+
+    auto channels = repo_->findByServerAndType(serverId, type, 0, 0);
+    if (channels.isEmpty()) return result;
+
+    QSet<int64_t> favoriteIds;
+    if (favRepo_) {
+        const auto favorites = favRepo_->findAll();
+        for (const auto &favorite : favorites) {
+            favoriteIds.insert(favorite.channelId);
+        }
+    }
+
+    std::stable_partition(channels.begin(), channels.end(),
+                          [&favoriteIds](const iptvxs::Channel &channel) {
+                              return favoriteIds.contains(channel.id);
+                          });
+
+    for (const auto &ch : channels) {
+        QVariantMap item;
+        item[QStringLiteral("channelId")] = QVariant::fromValue(ch.id);
+        item[QStringLiteral("name")] = ch.name;
+        item[QStringLiteral("streamUrl")] = ch.streamUrl;
+        item[QStringLiteral("logoUrl")] = ch.logoUrl;
+        item[QStringLiteral("type")] = ch.type;
+        item[QStringLiteral("externalId")] = ch.externalId;
+        item[QStringLiteral("serverId")] = QVariant::fromValue(ch.serverId);
+        item[QStringLiteral("epgChannelId")] = ch.epgChannelId;
+        item[QStringLiteral("isFavorite")] = favoriteIds.contains(ch.id);
+        result.append(item);
+    }
+
+    return result;
+}
+
 void ChannelListViewModel::loadChannels(bool append) {
     if (!repo_ || serverId_ <= 0) return;
 
@@ -242,10 +281,10 @@ void ChannelListViewModel::loadChannels(bool append) {
         auto favs = favRepo_->findAll();
         QSet<int64_t> favIds;
         for (const auto &f : favs) favIds.insert(f.channelId);
-        std::stable_sort(result.begin(), result.end(),
-            [&favIds](const iptvxs::Channel &a, const iptvxs::Channel &b) {
-                return favIds.contains(a.id) && !favIds.contains(b.id);
-            });
+        std::stable_partition(result.begin(), result.end(),
+                              [&favIds](const iptvxs::Channel &channel) {
+                                  return favIds.contains(channel.id);
+                              });
     }
 
     if (recentlyAddedFilter_) {

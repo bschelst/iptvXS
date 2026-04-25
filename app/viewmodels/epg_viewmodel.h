@@ -81,7 +81,11 @@ signals:
     void searchQueryChanged();
 
 private:
+    void handleDownloadedEpgData(const QByteArray &data);
+    void startHttp10Download(const QString &epgUrl);
+    static bool decodeChunkedBody(const QByteArray &chunked, QByteArray *decoded);
     void loadGrid();
+    void startCurlFallbackDownload(const QString &epgUrl);
     void setSyncing(bool syncing);
     void setSyncStatus(const QString &status);
 
