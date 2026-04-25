@@ -77,7 +77,7 @@ QVariantList SpeedTestViewModel::quickTestChannels(int serverId) {
     if (favoriteRepo_) {
         auto favs = favoriteRepo_->findAll();
         for (const auto &fav : favs) {
-            if (result.size() >= 8) break;
+            if (result.size() >= 5) break;
             for (const auto &ch : allLive) {
                 if (ch.id == fav.channelId) { addChannel(ch); break; }
             }
@@ -87,7 +87,7 @@ QVariantList SpeedTestViewModel::quickTestChannels(int serverId) {
     if (historyRepo_ && result.size() < 8) {
         auto history = historyRepo_->findRecent(20);
         for (const auto &h : history) {
-            if (result.size() >= 8) break;
+            if (result.size() >= 5) break;
             for (const auto &ch : allLive) {
                 if (ch.id == h.channelId) { addChannel(ch); break; }
             }
@@ -99,7 +99,7 @@ QVariantList SpeedTestViewModel::quickTestChannels(int serverId) {
         std::iota(indices.begin(), indices.end(), 0);
         std::shuffle(indices.begin(), indices.end(), *QRandomGenerator::global());
         for (int idx : indices) {
-            if (result.size() >= 8) break;
+            if (result.size() >= 5) break;
             addChannel(allLive.at(idx));
         }
     }

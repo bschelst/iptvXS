@@ -432,6 +432,7 @@ Item {
                     }
 
                     Flow {
+                        id: quickTestFlow
                         Layout.fillWidth: true
                         spacing: Theme.spacingSm
 
@@ -443,10 +444,10 @@ Item {
                         }
 
                         Repeater {
-                            model: parent.quickChannels.length
+                            model: quickTestFlow.quickChannels.length
 
                             delegate: Rectangle {
-                                property var ch: parent.parent.quickChannels[index]
+                                property var ch: quickTestFlow.quickChannels[index]
                                 width: channelLabel.implicitWidth + Theme.spacingMd * 2
                                 height: 36
                                 radius: Theme.borderRadius
@@ -484,7 +485,7 @@ Item {
                         }
 
                         Text {
-                            visible: parent.quickChannels.length === 0
+                            visible: quickTestFlow.quickChannels.length === 0
                             text: "No channels loaded — add a server first"
                             font.pixelSize: Theme.fontSizeXs
                             font.italic: true
