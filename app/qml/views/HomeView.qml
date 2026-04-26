@@ -65,9 +65,12 @@ Item {
                 }
             }
 
+            Item { Layout.fillWidth: true }
+
             Image {
                 Layout.preferredWidth: 160
                 Layout.preferredHeight: 160
+                Layout.alignment: Qt.AlignRight | Qt.AlignVCenter
                 source: "qrc:/images/iptvxs_tray.png"
                 fillMode: Image.PreserveAspectFit
 
