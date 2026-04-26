@@ -1,3 +1,4 @@
+// iptvXS Project - Schelstraete Bart - https://iptvxs.schelstraete.org
 #include "iptvxs/db/favorite_repository.h"
 
 #include <QSqlError>

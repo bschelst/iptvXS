@@ -1,3 +1,4 @@
+// iptvXS Project - Schelstraete Bart - https://iptvxs.schelstraete.org
 import QtQuick
 import QtQuick.Controls
 import app.iptvxs

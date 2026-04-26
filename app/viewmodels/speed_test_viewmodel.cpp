@@ -1,3 +1,4 @@
+// iptvXS Project - Schelstraete Bart - https://iptvxs.schelstraete.org
 #include "speed_test_viewmodel.h"
 
 #include <QRandomGenerator>

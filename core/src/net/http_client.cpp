@@ -1,3 +1,4 @@
+// iptvXS Project - Schelstraete Bart - https://iptvxs.schelstraete.org
 #include "iptvxs/net/http_client.h"
 
 #include <QCoreApplication>

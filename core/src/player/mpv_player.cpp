@@ -1,3 +1,4 @@
+// iptvXS Project - Schelstraete Bart - https://iptvxs.schelstraete.org
 #include "iptvxs/player/mpv_player.h"
 
 #include <QDebug>

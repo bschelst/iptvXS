@@ -1,3 +1,4 @@
+// iptvXS Project - Schelstraete Bart - https://iptvxs.schelstraete.org
 #include "iptvxs/db/channel_repository.h"
 
 #include <QCoreApplication>

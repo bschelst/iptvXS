@@ -1,3 +1,4 @@
+// iptvXS Project - Schelstraete Bart - https://iptvxs.schelstraete.org
 #include "iptvxs/parser/m3u_parser.h"
 
 #include <QNetworkReply>

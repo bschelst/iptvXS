@@ -1,3 +1,4 @@
+// iptvXS Project - Schelstraete Bart - https://iptvxs.schelstraete.org
 #include "iptvxs/cache/logo_cache.h"
 
 #include <QCryptographicHash>

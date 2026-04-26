@@ -1,3 +1,4 @@
+// iptvXS Project - Schelstraete Bart - https://iptvxs.schelstraete.org
 #include "log_viewmodel.h"
 
 LogViewModel::LogViewModel(QObject *parent)

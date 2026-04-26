@@ -1,3 +1,4 @@
+// iptvXS Project - Schelstraete Bart - https://iptvxs.schelstraete.org
 #include "player_viewmodel.h"
 
 #ifdef Q_OS_LINUX

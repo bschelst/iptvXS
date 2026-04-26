@@ -1,3 +1,4 @@
+// iptvXS Project - Schelstraete Bart - https://iptvxs.schelstraete.org
 #include "mpv_video_item.h"
 
 #include <QOpenGLContext>

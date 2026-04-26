@@ -1,7 +1,9 @@
+// iptvXS Project - Schelstraete Bart - https://iptvxs.schelstraete.org
 #pragma once
 
 #include <QAbstractListModel>
 #include <QQmlEngine>
+#include <QSet>
 
 #include "iptvxs/db/channel_repository.h"
 #include "iptvxs/db/favorite_repository.h"
@@ -47,6 +49,7 @@ public:
 
     void setRepository(iptvxs::ChannelRepository *repo);
     void setFavoriteRepository(iptvxs::FavoriteRepository *favRepo);
+    void invalidateFavCache() { favIds_.clear(); }
 
     int rowCount(const QModelIndex &parent = {}) const override;
     QVariant data(const QModelIndex &index, int role) const override;
@@ -93,6 +96,7 @@ private:
 
     iptvxs::ChannelRepository *repo_{nullptr};
     iptvxs::FavoriteRepository *favRepo_{nullptr};
+    QSet<int64_t> favIds_;
     QVector<iptvxs::Channel> channels_;
     int64_t serverId_{0};
     int64_t categoryId_{0};

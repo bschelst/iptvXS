@@ -1,3 +1,4 @@
+// iptvXS Project - Schelstraete Bart - https://iptvxs.schelstraete.org
 #include "group_list_viewmodel.h"
 
 GroupListViewModel::GroupListViewModel(QObject *parent)

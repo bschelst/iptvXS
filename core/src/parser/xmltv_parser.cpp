@@ -1,3 +1,4 @@
+// iptvXS Project - Schelstraete Bart - https://iptvxs.schelstraete.org
 #include "iptvxs/parser/xmltv_parser.h"
 
 #include <QBuffer>

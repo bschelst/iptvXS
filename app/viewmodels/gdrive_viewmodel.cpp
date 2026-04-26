@@ -1,3 +1,4 @@
+// iptvXS Project - Schelstraete Bart - https://iptvxs.schelstraete.org
 #include "gdrive_viewmodel.h"
 
 #include <QFile>

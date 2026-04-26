@@ -1,3 +1,4 @@
+// iptvXS Project - Schelstraete Bart - https://iptvxs.schelstraete.org
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
@@ -436,7 +437,7 @@ Item {
                 id: guideFlickable
                 x: channelColumnWidth
                 y: timeHeaderHeight
-                width: parent.width - channelColumnWidth
+                width: parent.width - channelColumnWidth - 10
                 height: parent.height - timeHeaderHeight
                 contentWidth: timelineContentWidth
                 clip: true
@@ -562,24 +563,7 @@ Item {
                         }
                     }
 
-                    ScrollBar.vertical: ScrollBar {
-                        active: true
-                        policy: ScrollBar.AlwaysOn
-                        parent: guideFlickable.parent
-                        anchors.right: guideFlickable.parent.right
-                        anchors.top: guideFlickable.top
-                        anchors.bottom: guideFlickable.bottom
-                        contentItem: Rectangle {
-                            implicitWidth: 8
-                            radius: 4
-                            color: Theme.accent
-                            opacity: parent.active ? 0.8 : 0.4
-                        }
-                        background: Rectangle {
-                            implicitWidth: 6
-                            color: "transparent"
-                        }
-                    }
+                    ScrollBar.vertical: ScrollBar { policy: ScrollBar.AlwaysOff }
                 }
 
                 ScrollBar {
@@ -610,6 +594,37 @@ Item {
                     background: Rectangle {
                         implicitHeight: 6
                         color: "transparent"
+                    }
+                }
+
+                ScrollBar {
+                    id: vScrollBar
+                    orientation: Qt.Vertical
+                    x: parent.width - 10
+                    y: timeHeaderHeight
+                    height: parent.height - timeHeaderHeight
+                    size: guideListView.height / Math.max(guideListView.contentHeight, 1)
+                    position: guideListView.contentY / Math.max(guideListView.contentHeight - guideListView.height, 1)
+                    policy: ScrollBar.AlwaysOn
+                    active: true
+
+                    onPositionChanged: {
+                        if (pressed) {
+                            guideListView.contentY = position * (guideListView.contentHeight - guideListView.height)
+                        }
+                    }
+
+                    contentItem: Rectangle {
+                        implicitWidth: 8
+                        radius: 4
+                        color: Theme.accent
+                        opacity: vScrollBar.pressed ? 1.0 : 0.5
+                    }
+                    background: Rectangle {
+                        implicitWidth: 8
+                        color: Theme.surfaceBorder
+                        opacity: 0.3
+                        radius: 4
                     }
                 }
             }

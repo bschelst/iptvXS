@@ -1,3 +1,4 @@
+// iptvXS Project - Schelstraete Bart - https://iptvxs.schelstraete.org
 #include "channel_list_viewmodel.h"
 
 #include <QDateTime>
@@ -13,6 +14,7 @@ void ChannelListViewModel::setRepository(iptvxs::ChannelRepository *repo) {
 
 void ChannelListViewModel::setFavoriteRepository(iptvxs::FavoriteRepository *favRepo) {
     favRepo_ = favRepo;
+    favIds_.clear();
 }
 
 int ChannelListViewModel::rowCount(const QModelIndex &parent) const {
@@ -276,15 +278,17 @@ void ChannelListViewModel::loadChannels(bool append) {
         result = repo_->findByServer(serverId_, kPageSize, offset);
     }
 
-    // Filter by recently added (last 7 days) if enabled
     if (favRepo_ && !append && !result.isEmpty()) {
-        auto favs = favRepo_->findAll();
-        QSet<int64_t> favIds;
-        for (const auto &f : favs) favIds.insert(f.channelId);
-        std::stable_partition(result.begin(), result.end(),
-                              [&favIds](const iptvxs::Channel &channel) {
-                                  return favIds.contains(channel.id);
-                              });
+        if (favIds_.isEmpty()) {
+            auto favs = favRepo_->findAll();
+            for (const auto &f : favs) favIds_.insert(f.channelId);
+        }
+        if (!favIds_.isEmpty()) {
+            std::stable_partition(result.begin(), result.end(),
+                                  [this](const iptvxs::Channel &channel) {
+                                      return favIds_.contains(channel.id);
+                                  });
+        }
     }
 
     if (recentlyAddedFilter_) {

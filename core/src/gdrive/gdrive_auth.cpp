@@ -1,3 +1,4 @@
+// iptvXS Project - Schelstraete Bart - https://iptvxs.schelstraete.org
 #include "iptvxs/gdrive/gdrive_auth.h"
 
 #include <QCryptographicHash>

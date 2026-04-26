@@ -1,3 +1,4 @@
+// iptvXS Project - Schelstraete Bart - https://iptvxs.schelstraete.org
 #include "epg_viewmodel.h"
 
 #include <QDateTime>

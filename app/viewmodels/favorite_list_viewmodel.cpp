@@ -1,3 +1,4 @@
+// iptvXS Project - Schelstraete Bart - https://iptvxs.schelstraete.org
 #include "favorite_list_viewmodel.h"
 
 FavoriteListViewModel::FavoriteListViewModel(QObject *parent)

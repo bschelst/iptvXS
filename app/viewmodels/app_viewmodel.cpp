@@ -1,3 +1,4 @@
+// iptvXS Project - Schelstraete Bart - https://iptvxs.schelstraete.org
 #include "app_viewmodel.h"
 #include "log_viewmodel.h"
 
@@ -72,7 +73,10 @@ bool AppViewModel::initialize(const QString &dbPath) {
     epgVm_->setRepositories(progRepo_.get(), channelRepo_.get(),
                             favoriteRepo_.get());
     connect(favoriteListVm_, &FavoriteListViewModel::favoriteToggled,
-            epgVm_, [this](int64_t, bool) { epgVm_->refresh(); });
+            this, [this](int64_t, bool) {
+                epgVm_->refresh();
+                channelListVm_->invalidateFavCache();
+            });
     epgVm_->setHttpClient(httpClient_.get());
     categorySettingsRepo_ = std::make_unique<iptvxs::CategorySettingsRepository>(db, this);
     categoryListVm_->setRepository(categoryRepo_.get());
