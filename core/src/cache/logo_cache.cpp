@@ -112,14 +112,11 @@ void LogoCache::clear() {
     pending_.clear();
     blockedHosts_.clear();
     queue_.clear();
-    if (revision_ != 0) {
-        revision_ = 0;
-        emit revisionChanged();
-    }
-    if (failedRevision_ != 0) {
-        failedRevision_ = 0;
-        emit failedRevisionChanged();
-    }
+    ++revision_;
+    emit revisionChanged();
+    failedRevision_ = 0;
+    emit failedRevisionChanged();
+    qInfo("Logo cache cleared: %s", qPrintable(cacheDir_));
 }
 
 qint64 LogoCache::cacheSizeBytes() const {

@@ -1617,7 +1617,10 @@ Item {
                         }
 
                         Text {
-                            text: appViewModel && appViewModel.logoCache ? appViewModel.logoCache.cacheSizeFormatted() : "0 B"
+                            text: {
+                                var _ = appViewModel ? appViewModel.logoCache.revision : 0
+                                return appViewModel && appViewModel.logoCache ? appViewModel.logoCache.cacheSizeFormatted() : "0 B"
+                            }
                             font.pixelSize: Theme.fontSizeSm
                             font.bold: true
                             color: Theme.accent
@@ -1683,10 +1686,18 @@ Item {
 
                     RowLayout {
                         Layout.fillWidth: true
+                        spacing: Theme.spacingMd
 
-                        Item { Layout.fillWidth: true }
+                        Text {
+                            text: "Clearing the cache will cause all logos to be re-downloaded.\nThis may temporarily impact performance."
+                            font.pixelSize: Theme.fontSizeXs
+                            color: Theme.warning
+                            wrapMode: Text.WordWrap
+                            Layout.fillWidth: true
+                        }
 
                         Rectangle {
+                            Layout.alignment: Qt.AlignRight
                             width: clearCacheLabel.implicitWidth + Theme.spacingLg * 2
                             height: 36
                             radius: Theme.borderRadius
@@ -1713,14 +1724,6 @@ Item {
                                 }
                             }
                         }
-                    }
-
-                    Text {
-                        text: "Warning: Clearing the cache will cause all channel logos to be re-downloaded. This may temporarily impact performance and increase network usage."
-                        font.pixelSize: Theme.fontSizeXs
-                        color: Theme.warning
-                        wrapMode: Text.WordWrap
-                        Layout.fillWidth: true
                     }
                 }
             }
