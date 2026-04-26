@@ -18,7 +18,9 @@
 #include <QSystemTrayIcon>
 #include <QTextStream>
 
+#ifndef Q_OS_WIN
 #include "controller_input_bridge.h"
+#endif
 #include "viewmodels/app_viewmodel.h"
 #include "viewmodels/log_viewmodel.h"
 
@@ -211,7 +213,9 @@ int main(int argc, char *argv[]) {
                      applyTrayVisibility);
 
     auto *mainWindow = showMainWindow(engine);
+#ifndef Q_OS_WIN
     auto controllerBridge = std::make_unique<ControllerInputBridge>(mainWindow, &app);
+#endif
 
     qInfo("Application started successfully");
 

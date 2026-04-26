@@ -81,8 +81,8 @@ qt_add_qml_module(iptvXS
         viewmodels/player_viewmodel.cpp
         viewmodels/mpv_video_item.h
         viewmodels/mpv_video_item.cpp
-        controller_input_bridge.h
-        controller_input_bridge.cpp
+        $<$<NOT:$<PLATFORM_ID:Windows>>:controller_input_bridge.h>
+        $<$<NOT:$<PLATFORM_ID:Windows>>:controller_input_bridge.cpp>
 )
 
 target_include_directories(iptvXS
