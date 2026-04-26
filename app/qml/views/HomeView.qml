@@ -44,6 +44,7 @@ Item {
         spacing: Theme.spacingLg
 
         RowLayout {
+            Layout.fillWidth: true
             spacing: Theme.spacingLg
 
             ColumnLayout {
