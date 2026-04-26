@@ -214,6 +214,7 @@ Item {
 
                     delegate: Column {
                         id: recordingSection
+                        property int sectionIdx: index
                         width: recordingsColumn.width
                         spacing: Theme.spacingSm
 
@@ -410,7 +411,7 @@ Item {
                                             }
                                         }
 
-                                        property int sectionRepeaterIndex: sectionIndex
+                                        property int sectionRepeaterIndex: recordingSection.sectionIdx
 
                                         MouseArea {
                                             anchors.fill: parent
