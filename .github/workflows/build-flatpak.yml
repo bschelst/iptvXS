@@ -23,10 +23,13 @@ jobs:
           git lfs install
 
       - name: Add Flathub remote
-        run: flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+        run: flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+
+      - name: Install SDK and runtime
+        run: flatpak install --user -y flathub org.kde.Platform//6.8 org.kde.Sdk//6.8 || true
 
       - name: Build Flatpak repo
-        run: flatpak-builder --force-clean --install-deps-from=flathub --repo=repo/iptvxs-repo build-flatpak packaging/flatpak/org.schelstraete.iptvxs.yml
+        run: flatpak-builder --user --force-clean --install-deps-from=flathub --repo=repo/iptvxs-repo build-flatpak packaging/flatpak/org.schelstraete.iptvxs.yml
 
       - name: Build bundle
         run: flatpak build-bundle repo/iptvxs-repo iptvxs.flatpak org.schelstraete.iptvxs master
