@@ -186,14 +186,14 @@ ApplicationWindow {
     // --- Single persistent video surface with PIP ---
     property bool _inPlayer: appViewModel && appViewModel.currentView === "player"
     property bool _playing: appViewModel && !appViewModel.player.stopped
-    property bool _pipMode: _playing && !_inPlayer && appViewModel.player.isLive
+    property bool pipMode: _playing && !_inPlayer && appViewModel.player.isLive
 
     Rectangle {
         id: videoContainer
         visible: _playing
         color: "#000000"
-        clip: _pipMode
-        radius: _pipMode ? Theme.borderRadius : 0
+        clip: pipMode
+        radius: pipMode ? Theme.borderRadius : 0
 
         // Default PIP corner position
         property real pipDefaultX: parent.width - 320 - Theme.spacingMd
@@ -202,7 +202,7 @@ ApplicationWindow {
         states: [
             State {
                 name: "pip"
-                when: _pipMode
+                when: pipMode
                 PropertyChanges {
                     target: videoContainer
                     width: 320
@@ -212,7 +212,7 @@ ApplicationWindow {
             },
             State {
                 name: "fullscreen"
-                when: !_pipMode
+                when: !pipMode
                 PropertyChanges {
                     target: videoContainer
                     x: sidebar.visible ? sidebar.width : 0
@@ -224,11 +224,13 @@ ApplicationWindow {
             }
         ]
 
-        // Reset PIP position to default corner when entering PIP mode
-        on_PipModeChanged: {
-            if (_pipMode) {
-                videoContainer.x = videoContainer.pipDefaultX
-                videoContainer.y = videoContainer.pipDefaultY
+        Connections {
+            target: videoContainer.parent
+            function onPipModeChanged() {
+                if (pipMode) {
+                    videoContainer.x = videoContainer.pipDefaultX
+                    videoContainer.y = videoContainer.pipDefaultY
+                }
             }
         }
 
@@ -240,9 +242,9 @@ ApplicationWindow {
         MouseArea {
             id: pipMouseArea
             anchors.fill: parent
-            visible: _pipMode
+            visible: pipMode
             cursorShape: Qt.PointingHandCursor
-            drag.target: _pipMode ? videoContainer : null
+            drag.target: pipMode ? videoContainer : null
             drag.minimumX: 0
             drag.maximumX: videoContainer.parent.width - videoContainer.width
             drag.minimumY: 0
@@ -252,7 +254,7 @@ ApplicationWindow {
         }
 
         Rectangle {
-            visible: _pipMode
+            visible: pipMode
             anchors.top: parent.top
             anchors.right: parent.right
             anchors.margins: 4
@@ -276,7 +278,7 @@ ApplicationWindow {
         }
 
         Rectangle {
-            visible: _pipMode
+            visible: pipMode
             anchors.bottom: parent.bottom
             anchors.left: parent.left
             anchors.right: parent.right

@@ -565,11 +565,15 @@ Item {
                     ScrollBar.vertical: ScrollBar {
                         active: true
                         policy: ScrollBar.AlwaysOn
+                        parent: guideFlickable.parent
+                        anchors.right: guideFlickable.parent.right
+                        anchors.top: guideFlickable.top
+                        anchors.bottom: guideFlickable.bottom
                         contentItem: Rectangle {
-                            implicitWidth: 6
-                            radius: 3
+                            implicitWidth: 8
+                            radius: 4
                             color: Theme.accent
-                            opacity: parent.active ? 0.6 : 0.3
+                            opacity: parent.active ? 0.8 : 0.4
                         }
                         background: Rectangle {
                             implicitWidth: 6
