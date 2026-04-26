@@ -533,8 +533,10 @@ Item {
                                 selectByMouse: true
 
                                 onTextChanged: {
-                                    if (appViewModel)
+                                    if (appViewModel) {
+                                        appViewModel.channelList.typeFilter = "live"
                                         appViewModel.channelList.searchQuery = text
+                                    }
                                 }
 
                                 Text {

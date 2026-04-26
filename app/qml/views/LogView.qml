@@ -73,7 +73,7 @@ Item {
                                 color: {
                                     var current = appViewModel ? appViewModel.log.filterLevel : ""
                                     return current === modelData.value
-                                        ? Theme.textPrimary : Theme.textSecondary
+                                        ? Theme.textOnAccent : Theme.textSecondary
                                 }
                             }
 
@@ -186,6 +186,16 @@ Item {
                         logList.positionViewAtEnd()
                 }
             }
+        }
+    }
+
+    Timer {
+        interval: 60000
+        repeat: true
+        running: true
+        onTriggered: {
+            if (appViewModel && appViewModel.log)
+                appViewModel.log.refresh()
         }
     }
 }

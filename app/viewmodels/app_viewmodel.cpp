@@ -431,7 +431,7 @@ iptvxs::LogoCache *AppViewModel::logoCache() const {
 }
 
 int AppViewModel::autoSyncInterval() const {
-    return settingsRepo_ ? settingsRepo_->getInt(QStringLiteral("auto_sync_hours"), 0) : 0;
+    return settingsRepo_ ? settingsRepo_->getInt(QStringLiteral("auto_sync_hours"), 6) : 6;
 }
 
 void AppViewModel::setAutoSyncInterval(int hours) {
@@ -442,7 +442,7 @@ void AppViewModel::setAutoSyncInterval(int hours) {
 }
 
 int AppViewModel::autoSyncEpgInterval() const {
-    return settingsRepo_ ? settingsRepo_->getInt(QStringLiteral("auto_sync_epg_hours"), 0) : 0;
+    return settingsRepo_ ? settingsRepo_->getInt(QStringLiteral("auto_sync_epg_hours"), 6) : 6;
 }
 
 void AppViewModel::setAutoSyncEpgInterval(int hours) {
@@ -701,7 +701,7 @@ void AppViewModel::setSubtitleBgColor(const QString &color) {
 }
 
 qint64 AppViewModel::maxRecordingSizeGb() const {
-    return settingsRepo_ ? settingsRepo_->getInt(QStringLiteral("max_recording_size_gb"), 0) : 0;
+    return settingsRepo_ ? settingsRepo_->getInt(QStringLiteral("max_recording_size_gb"), 2) : 2;
 }
 
 void AppViewModel::setMaxRecordingSizeGb(qint64 gb) {

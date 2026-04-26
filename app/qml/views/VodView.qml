@@ -733,13 +733,9 @@ Item {
                                 Keys.onDownPressed: vodView.focusAdjacentVodRow(rowIndex, currentIndex, 1)
 
                                 function playCurrentItem() {
-                                    if (currentIndex < 0 || !appViewModel) return
-                                    var item = model.get(currentIndex)
-                                    if (item.type === "series") {
-                                        appViewModel.fetchSeriesEpisodes(item.serverId, item.externalId, item.name, item.logoUrl)
-                                    } else {
-                                        appViewModel.player.play(item.streamUrl, item.name, item.logoUrl, item.channelId)
-                                        appViewModel.currentView = "player"
+                                    if (currentIndex < 0) return
+                                    if (currentItem && currentItem.activate) {
+                                        currentItem.activate()
                                     }
                                 }
 
@@ -888,15 +884,7 @@ Item {
                                             cursorShape: Qt.PointingHandCursor
                                             onEntered: posterCard.posterHov = true
                                             onExited: posterCard.posterHov = false
-                                            onClicked: {
-                                                if (!appViewModel) return
-                                                if (model.type === "series") {
-                                                    appViewModel.fetchSeriesEpisodes(model.serverId, model.externalId, model.name, model.logoUrl)
-                                                } else {
-                                                    appViewModel.player.play(model.streamUrl, model.name, model.logoUrl, model.channelId)
-                                                    appViewModel.currentView = "player"
-                                                }
-                                            }
+                                            onClicked: if (parent.activate) parent.activate()
                                         }
 
                                         Rectangle {
@@ -907,6 +895,16 @@ Item {
                                                 ? Theme.accent : "transparent"
                                             border.width: 2
                                             z: 100
+                                        }
+
+                                        function activate() {
+                                            if (!appViewModel) return
+                                            if (type === "series") {
+                                                appViewModel.fetchSeriesEpisodes(serverId, externalId, name, logoUrl)
+                                            } else {
+                                                appViewModel.player.play(streamUrl, name, logoUrl, channelId)
+                                                appViewModel.currentView = "player"
+                                            }
                                         }
                                     }
 
@@ -958,10 +956,17 @@ Item {
                 leftMargin: Theme.spacingMd
                 rightMargin: Theme.spacingMd
                 topMargin: Theme.spacingSm
+                property int cols: Math.max(1, Math.floor((width - leftMargin - rightMargin) / cellWidth))
 
                 Keys.onReturnPressed: playCurrentItem()
                 Keys.onEnterPressed: playCurrentItem()
-                Keys.onLeftPressed: vodView.focusCategorySidebar()
+                Keys.onLeftPressed: {
+                    if (currentIndex > 0 && (currentIndex % cols) !== 0) {
+                        currentIndex--
+                    } else {
+                        vodView.focusCategorySidebar()
+                    }
+                }
                 Keys.onPressed: function(event) {
                     if (event.key === Qt.Key_Space || event.key === Qt.Key_Select) {
                         playCurrentItem()
@@ -970,16 +975,9 @@ Item {
                 }
 
                 function playCurrentItem() {
-                    if (currentIndex < 0 || !appViewModel) return
-                    var cl = appViewModel.channelList
-                    var type = cl.typeAt(currentIndex)
-                    if (type === "series") {
-                        appViewModel.fetchSeriesEpisodes(cl.serverIdAt(currentIndex),
-                            cl.externalIdAt(currentIndex), cl.nameAt(currentIndex), cl.logoUrlAt(currentIndex))
-                    } else {
-                        appViewModel.player.play(cl.channelUrlAt(currentIndex),
-                            cl.nameAt(currentIndex), cl.logoUrlAt(currentIndex), cl.channelIdAt(currentIndex))
-                        appViewModel.currentView = "player"
+                    if (currentIndex < 0) return
+                    if (currentItem && currentItem.activate) {
+                        currentItem.activate()
                     }
                 }
 
@@ -1065,17 +1063,7 @@ Item {
                             cursorShape: Qt.PointingHandCursor
                             onEntered: parent.catGridHov = true
                             onExited: parent.catGridHov = false
-                            onClicked: {
-                                if (!appViewModel) return
-                                var cl = appViewModel.channelList
-                                if (model.type === "series") {
-                                    appViewModel.fetchSeriesEpisodes(cl.serverIdAt(index),
-                                        cl.externalIdAt(index), cl.nameAt(index), cl.logoUrlAt(index))
-                                } else {
-                                    appViewModel.player.play(model.streamUrl, model.name, model.logoUrl, model.channelId)
-                                    appViewModel.currentView = "player"
-                                }
-                            }
+                            onClicked: if (parent.activate) parent.activate()
                         }
 
                         Rectangle {
@@ -1086,6 +1074,16 @@ Item {
                                 ? Theme.accent : "transparent"
                             border.width: (catGridCard.catGridHov || (categoryGrid.activeFocus && categoryGrid.currentIndex === index)) ? 2 : 0
                             z: 100
+                        }
+
+                        function activate() {
+                            if (!appViewModel) return
+                            if (model.type === "series") {
+                                appViewModel.fetchSeriesEpisodes(model.serverId, model.externalId, model.name, model.logoUrl)
+                            } else {
+                                appViewModel.player.play(model.streamUrl, model.name, model.logoUrl, model.channelId)
+                                appViewModel.currentView = "player"
+                            }
                         }
                     }
 
@@ -1113,7 +1111,13 @@ Item {
 
                 Keys.onReturnPressed: playCurrentItem()
                 Keys.onEnterPressed: playCurrentItem()
-                Keys.onLeftPressed: vodView.focusCategorySidebar()
+                Keys.onLeftPressed: {
+                    if (currentIndex > 0 && (currentIndex % cols) !== 0) {
+                        currentIndex--
+                    } else {
+                        vodView.focusCategorySidebar()
+                    }
+                }
                 Keys.onPressed: function(event) {
                     if (event.key === Qt.Key_Space || event.key === Qt.Key_Select) {
                         playCurrentItem()
@@ -1122,20 +1126,9 @@ Item {
                 }
 
                 function playCurrentItem() {
-                    if (currentIndex < 0 || !appViewModel) return
-                    var cl = appViewModel.channelList
-                    var type = cl.typeAt(currentIndex)
-                    if (type === "series") {
-                        appViewModel.fetchSeriesEpisodes(cl.serverIdAt(currentIndex),
-                                                         cl.externalIdAt(currentIndex),
-                                                         cl.nameAt(currentIndex),
-                                                         cl.logoUrlAt(currentIndex))
-                    } else {
-                        appViewModel.player.play(cl.channelUrlAt(currentIndex),
-                                                 cl.nameAt(currentIndex),
-                                                 cl.logoUrlAt(currentIndex),
-                                                 cl.channelIdAt(currentIndex))
-                        appViewModel.currentView = "player"
+                    if (currentIndex < 0) return
+                    if (currentItem && currentItem.activate) {
+                        currentItem.activate()
                     }
                 }
 
@@ -1264,15 +1257,16 @@ Item {
                             cursorShape: Qt.PointingHandCursor
                             onEntered: searchCard.searchItemHov = true
                             onExited: searchCard.searchItemHov = false
-                            onClicked: {
-                                if (appViewModel) {
-                                    if (model.type === "series") {
-                                        appViewModel.fetchSeriesEpisodes(model.serverId, model.externalId, model.name, model.logoUrl)
-                                    } else {
-                                        appViewModel.player.play(model.streamUrl, model.name, model.logoUrl, model.channelId)
-                                        appViewModel.currentView = "player"
-                                    }
-                                }
+                            onClicked: if (parent.activate) parent.activate()
+                        }
+
+                        function activate() {
+                            if (!appViewModel) return
+                            if (model.type === "series") {
+                                appViewModel.fetchSeriesEpisodes(model.serverId, model.externalId, model.name, model.logoUrl)
+                            } else {
+                                appViewModel.player.play(model.streamUrl, model.name, model.logoUrl, model.channelId)
+                                appViewModel.currentView = "player"
                             }
                         }
                     }

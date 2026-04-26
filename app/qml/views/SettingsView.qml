@@ -1104,7 +1104,8 @@ Item {
                                 text: appViewModel && appViewModel.gdrive.authenticated
                                     ? "Disconnect" : "Connect"
                                 font.pixelSize: Theme.fontSizeSm
-                                color: Theme.textPrimary
+                                color: appViewModel && appViewModel.gdrive.authenticated
+                                    ? Theme.error : Theme.textOnAccent
                             }
 
                             MouseArea {

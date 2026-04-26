@@ -193,8 +193,9 @@ Item {
                         }
 
                         Button {
-                            text: speedTest && speedTest.running ? "Stop" : "Stream Test"
-                            enabled: speedTest !== null && (speedTest.running || streamUrlField.text.length > 0)
+                            text: "Stop"
+                            visible: speedTest ? speedTest.running : false
+                            enabled: speedTest !== null && speedTest.running
                             contentItem: Text {
                                 text: parent.text
                                 font.pixelSize: Theme.fontSizeSm
@@ -204,26 +205,18 @@ Item {
                                 verticalAlignment: Text.AlignVCenter
                             }
                             background: Rectangle {
-                                implicitWidth: 120
+                                implicitWidth: 100
                                 implicitHeight: 40
                                 radius: Theme.borderRadius
-                                color: speedTest && speedTest.running
-                                    ? Theme.error : parent.hovered
-                                        ? Theme.accentHover : Theme.accent
+                                color: parent.hovered
+                                    ? Qt.darker(Theme.error, 1.2) : Theme.error
 
                                 Behavior on color {
                                     ColorAnimation { duration: Theme.animFast }
                                 }
                             }
                             onClicked: {
-                                if (!speedTest) return
-                                if (speedTest.running) {
-                                    speedTest.stopTest()
-                                } else {
-                                    root.sparklineData = []
-                                    sparklineCanvas.requestPaint()
-                                    speedTest.startTest(streamUrlField.text)
-                                }
+                                if (speedTest) speedTest.stopTest()
                             }
                         }
                     }
@@ -370,12 +363,6 @@ Item {
                     anchors.margins: Theme.spacingLg
                     spacing: Theme.spacingMd
 
-                    TextField {
-                        id: streamUrlField
-                        visible: false
-                        text: ""
-                    }
-
                     RowLayout {
                         Layout.fillWidth: true
                         spacing: Theme.spacingMd
@@ -474,7 +461,6 @@ Item {
                                         if (!speedTest || !ch) return
                                         var url = ch.streamUrl
                                         if (url) {
-                                            streamUrlField.text = url
                                             root.sparklineData = []
                                             sparklineCanvas.requestPaint()
                                             speedTest.startTest(url)

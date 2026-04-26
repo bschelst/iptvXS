@@ -52,6 +52,10 @@ void LogViewModel::clear() {
     emit countChanged();
 }
 
+void LogViewModel::refresh() {
+    rebuildFiltered();
+}
+
 void LogViewModel::appendLog(const QString &level, const QString &timestamp,
                              const QString &message) {
     if (allEntries_.size() >= kMaxEntries) {

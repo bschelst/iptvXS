@@ -31,6 +31,7 @@ public:
     void setFilterLevel(const QString &level);
 
     Q_INVOKABLE void clear();
+    Q_INVOKABLE void refresh();
     Q_INVOKABLE void appendLog(const QString &level, const QString &timestamp,
                                const QString &message);
 

@@ -6,6 +6,19 @@ import app.iptvxs
 Item {
     id: recordingsView
 
+    function focusPrimary() {
+        if (recordingSectionRepeater && recordingSectionRepeater.count > 0) {
+            var firstSection = recordingSectionRepeater.itemAt(0)
+            if (firstSection && firstSection.focusCardAt) {
+                firstSection.focusCardAt(0)
+                return
+            }
+        }
+        if (newRecButton) {
+            newRecButton.forceActiveFocus()
+        }
+    }
+
     ColumnLayout {
         anchors.fill: parent
         spacing: 0
@@ -75,6 +88,7 @@ Item {
                 Item { Layout.fillWidth: true }
 
                 Rectangle {
+                    id: newRecButton
                     Layout.preferredWidth: newRecBtnText.implicitWidth + Theme.spacingLg
                     Layout.preferredHeight: 32
                     radius: 16
@@ -98,6 +112,13 @@ Item {
                         onEntered: parent.newRecBtnHov = true
                         onExited: parent.newRecBtnHov = false
                         onClicked: manualRecordDialog.open()
+                    }
+
+                    Keys.onPressed: function(event) {
+                        if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter || event.key === Qt.Key_Space) {
+                            manualRecordDialog.open()
+                            event.accepted = true
+                        }
                     }
                 }
 
