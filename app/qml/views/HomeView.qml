@@ -43,43 +43,42 @@ Item {
         anchors.margins: Theme.spacingXl
         spacing: Theme.spacingLg
 
-        Text {
-            text: "Welcome to iptvXS"
-            font.pixelSize: Theme.fontSizeHero
-            font.bold: true
-            color: Theme.textPrimary
+        RowLayout {
+            spacing: Theme.spacingLg
 
-            opacity: 0
-            Component.onCompleted: {
-                opacity = 1
+            ColumnLayout {
+                Layout.fillWidth: true
+                spacing: Theme.spacingXs
+
+                Text {
+                    text: "Welcome to iptvXS"
+                    font.pixelSize: Theme.fontSizeHero
+                    font.bold: true
+                    color: Theme.textPrimary
+                }
+
+                Text {
+                    text: "Live TV, VOD & recordings — all in one"
+                    font.pixelSize: Theme.fontSizeLg
+                    color: Theme.textSecondary
+                }
             }
 
-            Behavior on opacity {
-                NumberAnimation {
-                    duration: Theme.animSlow
-                    easing.type: Easing.OutCubic
+            Image {
+                Layout.preferredWidth: 160
+                Layout.preferredHeight: 160
+                source: "qrc:/images/iptvxs_tray.png"
+                fillMode: Image.PreserveAspectFit
+
+                opacity: 0
+                Component.onCompleted: { opacity = 0.7 }
+                Behavior on opacity {
+                    NumberAnimation { duration: Theme.animSlow; easing.type: Easing.OutCubic }
                 }
             }
         }
 
-        Text {
-            text: "Live TV, VOD & recordings — all in one"
-            font.pixelSize: Theme.fontSizeLg
-            color: Theme.textSecondary
-            Layout.bottomMargin: Theme.spacingLg
-
-            opacity: 0
-            Component.onCompleted: {
-                opacity = 1
-            }
-
-            Behavior on opacity {
-                NumberAnimation {
-                    duration: Theme.animSlow
-                    easing.type: Easing.OutCubic
-                }
-            }
-        }
+        Item { Layout.preferredHeight: Theme.spacingSm }
 
         GridLayout {
             columns: 3

@@ -18,7 +18,7 @@ QVector<Server> ServerRepository::findAll() const {
     QSqlQuery query(db_);
     query.prepare("SELECT id, name, type, url, username, password, user_agent, "
                   "epg_url, last_synced_at, created_at, enabled, is_primary "
-                  "FROM servers ORDER BY is_primary DESC, name");
+                  "FROM servers ORDER BY is_primary DESC, enabled DESC, name");
     if (!query.exec()) {
         return {};
     }
