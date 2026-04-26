@@ -46,6 +46,9 @@ modules:
       - -Dtests=false
       - -Ddefault_library=shared
       - -Dopengl=disabled
+      - -Dvulkan=disabled
+      - -Dglslang=disabled
+      - -Dd3d11=disabled
     sources:
       - type: git
         url: https://code.videolan.org/videolan/libplacebo.git
