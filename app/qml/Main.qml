@@ -226,7 +226,7 @@ ApplicationWindow {
         ]
 
         Connections {
-            target: videoContainer.parent
+            target: window
             function onPipModeChanged() {
                 if (pipMode) {
                     videoContainer.x = videoContainer.pipDefaultX
