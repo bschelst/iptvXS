@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/status-unstable%20%2F%20alpha-orange?style=for-the-badge" alt="Unstable" />
+  <a href="https://github.com/bschelst/iptvXS/releases/latest"><img src="https://img.shields.io/github/v/release/bschelst/iptvXS?style=for-the-badge&color=blue" alt="Latest Release" /></a>
 </p>
 
 <p align="center">
@@ -21,7 +21,11 @@
   <img src="https://img.shields.io/badge/C++-20-00599C?logo=c%2B%2B&logoColor=white" alt="C++20" />
 </p>
 
-> **Warning:** This project is in **early alpha** and under heavy active development. Expect breaking changes, incomplete features, and bugs. Not recommended for production use. I still need to do a lot, sorry.
+<p align="center">
+  <strong>Author:</strong> Schelstraete Bart &nbsp;|&nbsp;
+  <a href="https://iptvxs.schelstraete.org">iptvxs.schelstraete.org</a>
+</p>
+
 ---
 
 ## Features
@@ -33,37 +37,46 @@
 - Channel categories with search and filtering
 - **Channel Groups** — create custom playlists, add channels via built-in search picker
 - **Recently Added** filter — highlights channels added in the last 7 days
-- VOD movie playback with automatic subtitle fetching
+- VOD Movies and VOD Series as separate sidebar entries
+- Netflix-style horizontal poster rows with category browsing
 - Series support with season/episode picker
 - **Audio track selection** for multi-language VOD content
-- **Picture-in-Picture (PIP)** — video continues in a floating mini-player when navigating away
-- Configurable grid layout (1–4 columns) for channel and VOD lists
+- **Picture-in-Picture (PIP)** — draggable floating mini-player for live TV when navigating away
+- **Favourites-first sorting** — favourite channels always appear at the top
+- Configurable grid layout (1–3 columns) for channel and VOD lists
+- Rounded card corners with accent hover borders
 
 ### Electronic Programme Guide (EPG)
 
-- XMLTV parser with automatic EPG updates
-- Full TV Guide grid with programme details
-- Schedule-based recording from the EPG
+- XMLTV parser with automatic EPG updates (configurable interval, default 6h)
+- Full TV Guide grid with programme details popup
+- **Record from EPG** — one-click recording with confirmation dialog
+- **EPG recording padding** — configurable start-early / end-late (0–5 minutes)
+- Now/Next programme display in the player for live TV
+- Vertical scrollbar and keyboard/controller navigation
+- Channel search within the guide
 
 ### Recording
 
 - Live and scheduled recording via FFmpeg
 - **In-player stream recording** — record directly from the video player
+- **Record from EPG** with programme title capture
 - **Schedule recordings** with custom start time (day, hour, minute picker)
-- Recordings saved to `~/Videos/iptvxs/` (configurable)
-- **Storage quota** with visual usage bar
-- **Safe filenames** — channel names are sanitized with unique naming to prevent overwrites
-- Delete recordings with confirmation and file cleanup
+- **EPG padding** — start recording early, end late (configurable in Settings)
+- Recordings saved to `~/Videos/iptvXS/` (configurable)
+- **Storage quota** (default 2 GB) with visual usage bar
+- **Safe filenames** — channel names are sanitized with unique naming
+- Delete recordings with confirmation dialog
 - **Google Drive upload** with resumable chunked uploads and cross-session resume
 - **Retry failed uploads** directly from the Recordings view
 - **Auto-delete** local files after successful Google Drive upload
-- **Stale recording cleanup** — orphaned "recording" states are resolved on app restart
+- FFmpeg user-agent header for provider compatibility
 
 ### Subtitles
 
 - Automatic subtitle search via OpenSubtitles
 - **Built-in subtitle track picker** for embedded subtitles
-- Configurable subtitle language, size, text color, and background
+- Configurable subtitle language (primary + secondary), size, text color, and background
 - Subtitle timing adjustment in the player
 
 ### Video Enhancement & Player Tuning
@@ -71,47 +84,56 @@
 - GPU-accelerated video processing presets (Off / Light / Medium / Strong)
 - **Debanding** to remove color banding artifacts
 - **High-quality scaling** via ewa_lanczossharp with sigmoid upscaling
-- **Denoising** via hqdn3d filter for cleaner picture on noisy IPTV streams
+- **Denoising** via hqdn3d filter for cleaner picture
 - **Hardware decoding** modes (Auto Safe / Auto / Software)
 - **Deinterlace** toggle for interlaced content
+- Pulsing logo animation during stream loading
 
 ### Theming
 
 - 7 built-in themes: Midnight, Ocean, Forest, Sunset, Nord, Light, **High Contrast**
-- High Contrast theme with yellow accent on black for maximum readability
+- High Contrast theme with `textOnAccent` token for maximum readability
+- Consistent accent-aware text across all buttons, badges, and dropdowns
 - Theme persists across sessions
 
 ### Play History
 
 - Automatic tracking of watched channels, movies, and series
-- Browse history sorted by most recent
+- Browse history sorted by most recent, grouped by type
 - Remove individual entries or clear all history
 - One-click replay from history
 
 ### Steam Deck & Controller Support
 
 - Full **D-pad/controller navigation** throughout the entire UI
+- **External controller support** — USB and Bluetooth gamepads via SDL2 HIDAPI
+- **D-pad debounce** (120ms) prevents cursor double-jumping
+- **GameScope Google Drive auth** — copyable auth URL dialog when browser unavailable
 - Optimized for Steam Deck's display and input
 - **Screensaver inhibition** during video playback
 - Available as a **Flatpak** for easy installation
 - Works in both Desktop Mode and Game Mode
 
-### Channel Logo Caching
+### Settings & Management
 
-- Automatic background download and local caching of channel logos
-- SHA1-based filenames with concurrent downloads (4 parallel)
-- Reduces bandwidth and improves UI responsiveness
-
-### Other Features
-
-- Favorites system with easy add/remove
-- Stream speed testing
-- System tray integration with minimize-to-tray option
-- **Close confirmation** when recordings or uploads are active
-- Per-server channel synchronization with **auto-sync watchdog** (recovers from stalled syncs)
+- **Version check** — automatic check for updates via gateway API
+- **About section** with current/latest version, author, GitHub link
+- **Database statistics** — server, channel, movie, series, recording counts
+- **Logo cache management** — auto-prune (30 days), configurable max size (100 MB – 2 GB), clear button
+- **Database reset** with full reconnection of all repositories
+- **Auto-sync** channels and EPG (configurable interval, default 6 hours)
 - Configurable stream buffer time
-- Automatic stream reconnection on network drops
-- **Application logging** with in-app log viewer
+- Close-to-tray option
+- **Application log** with auto-refresh, level filtering, and search
+
+### UI Polish
+
+- **TopBar clock** with blinking colon separator
+- Styled hamburger menu icon (not emoji)
+- Sidebar separator lines properly isolated
+- Card hover borders visible over poster images
+- Scroll buttons hidden when content fits
+- Copyright headers on all source files
 
 ---
 
@@ -123,20 +145,29 @@
 
 ## Installation
 
-### Flatpak (Recommended)
+### Flatpak (Recommended for Linux & Steam Deck)
 
 ```bash
-# Install from a local bundle
+# Download from GitHub Releases
+wget https://github.com/bschelst/iptvXS/releases/latest/download/iptvxs.flatpak
+
+# Install
 flatpak install --user iptvxs.flatpak
 ```
+
+### Windows
+
+Download `iptvXS-windows-x64.zip` or `iptvXS-setup-x64.exe` from [GitHub Releases](https://github.com/bschelst/iptvXS/releases/latest).
 
 ### Build from Source
 
 #### Dependencies
 
 - Qt 6.5+ (Core, Quick, QuickControls2, Sql, Network, Concurrent, OpenGL, Widgets, DBus)
+- Qt5Compat.GraphicalEffects (for rounded corner clipping)
 - libmpv
 - FFmpeg
+- SDL2 (Linux only, for controller support)
 - CMake 3.22+
 - C++20 compiler
 
@@ -144,7 +175,7 @@ flatpak install --user iptvxs.flatpak
 
 ```bash
 git clone https://github.com/bschelst/iptvXS.git
-cd iptvxs
+cd iptvXS
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build --parallel $(nproc)
 ```
@@ -153,13 +184,6 @@ cmake --build build --parallel $(nproc)
 
 ```bash
 ./build/app/iptvXS
-```
-
-### AppImage
-
-```bash
-cd packaging/linux
-./build-appimage.sh
 ```
 
 ---
@@ -185,7 +209,8 @@ cd packaging/linux
 1. Go to **Servers** in the sidebar
 2. Click **Add Server**
 3. Enter your Xtream Codes credentials (server URL, username, password) or M3U playlist URL
-4. Sync the server to fetch channels, VOD, and series
+4. Optionally add an EPG URL (XMLTV format)
+5. Sync the server to fetch channels, VOD, and series
 
 ---
 
@@ -194,8 +219,7 @@ cd packaging/linux
 | Key | Action |
 |-----|--------|
 | Space | Play / Pause |
-| F | Toggle fullscreen |
-| F11 | Toggle fullscreen |
+| F / F11 | Toggle fullscreen |
 | Escape | Exit player / Exit fullscreen |
 | Left / Right | Seek ±10 seconds |
 | Up / Down | Volume up / down |
@@ -207,25 +231,30 @@ cd packaging/linux
 ## Architecture
 
 ```
-iptvxs/
+iptvXS/
 ├── app/                    # Qt/QML application
 │   ├── qml/               # QML UI files
 │   │   ├── views/          # Main views (Channels, VOD, Player, EPG, etc.)
-│   │   ├── components/     # Reusable components (Sidebar, Dialogs)
-│   │   └── themes/         # Theme definitions
-│   └── viewmodels/         # C++ ViewModels (MVVM pattern)
+│   │   ├── components/     # Reusable components (Sidebar, TopBar, Dialogs)
+│   │   └── themes/         # Theme definitions (7 themes)
+│   ├── viewmodels/         # C++ ViewModels (MVVM pattern)
+│   └── controller_input_bridge.*  # SDL2 gamepad input (Linux/Steam Deck)
 ├── core/                   # Core library (no UI dependency)
 │   ├── api/                # Xtream Codes & OpenSubtitles clients
-│   ├── cache/              # Logo cache manager
-│   ├── db/                 # SQLite repositories
+│   ├── cache/              # Logo cache manager with auto-prune
+│   ├── db/                 # SQLite repositories (14 tables, migrations)
 │   ├── gdrive/             # Google Drive OAuth & resumable upload
 │   ├── models/             # Data models
-│   ├── net/                # HTTP client & speed test
+│   ├── net/                # HTTP client & speed test runner
 │   ├── parser/             # M3U & XMLTV parsers
 │   ├── player/             # libmpv wrapper
 │   └── recording/          # FFmpeg recording manager
 ├── tests/                  # Unit tests (GoogleTest)
-└── packaging/              # Flatpak, AppImage, desktop files
+├── packaging/
+│   ├── flatpak/            # Flatpak manifest
+│   ├── linux/              # AppStream metainfo, desktop file
+│   └── windows/            # Inno Setup installer
+└── .github/workflows/      # CI: Flatpak + Windows builds
 ```
 
 ---
@@ -233,6 +262,12 @@ iptvxs/
 ## License
 
 [GPL-3.0](LICENSE)
+
+---
+
+## Author
+
+**Schelstraete Bart** — [iptvxs.schelstraete.org](https://iptvxs.schelstraete.org) — [GitHub](https://github.com/bschelst/iptvXS)
 
 ---
 
