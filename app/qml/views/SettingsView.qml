@@ -1587,6 +1587,146 @@ Item {
 
             Rectangle {
                 Layout.fillWidth: true
+                Layout.preferredHeight: cacheCol.implicitHeight + Theme.spacingLg * 2
+                radius: Theme.borderRadiusLarge
+                color: Theme.surfaceElevated
+                border.color: Theme.surfaceBorder
+                border.width: 1
+
+                ColumnLayout {
+                    id: cacheCol
+                    anchors.fill: parent
+                    anchors.margins: Theme.spacingLg
+                    spacing: Theme.spacingMd
+
+                    Text {
+                        text: "Logo Cache"
+                        font.pixelSize: Theme.fontSizeMd
+                        font.bold: true
+                        color: Theme.textPrimary
+                    }
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: Theme.spacingLg
+
+                        Text {
+                            text: "Cache size:"
+                            font.pixelSize: Theme.fontSizeSm
+                            color: Theme.textSecondary
+                        }
+
+                        Text {
+                            text: appViewModel && appViewModel.logoCache ? appViewModel.logoCache.cacheSizeFormatted() : "0 B"
+                            font.pixelSize: Theme.fontSizeSm
+                            font.bold: true
+                            color: Theme.accent
+                        }
+
+                        Item { Layout.fillWidth: true }
+                    }
+
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        spacing: Theme.spacingXs
+
+                        Text {
+                            text: "Maximum cache size"
+                            font.pixelSize: Theme.fontSizeSm
+                            color: Theme.textPrimary
+                        }
+
+                        Flow {
+                            Layout.fillWidth: true
+                            spacing: Theme.spacingSm
+
+                            Repeater {
+                                model: [
+                                    { value: 100, label: "100 MB" },
+                                    { value: 250, label: "250 MB" },
+                                    { value: 500, label: "500 MB" },
+                                    { value: 1000, label: "1 GB" },
+                                    { value: 2000, label: "2 GB" }
+                                ]
+
+                                Rectangle {
+                                    width: 64; height: 28; radius: Theme.borderRadiusSmall
+                                    color: appViewModel && appViewModel.logoCacheMaxMb === modelData.value
+                                        ? Theme.accent : cacheSzHov ? Theme.surfaceHover : Theme.surface
+                                    border.width: 1; border.color: Theme.surfaceBorder
+                                    property bool cacheSzHov: false
+
+                                    Text {
+                                        anchors.centerIn: parent
+                                        text: modelData.label
+                                        font.pixelSize: 9
+                                        color: appViewModel && appViewModel.logoCacheMaxMb === modelData.value
+                                            ? Theme.textOnAccent : Theme.textSecondary
+                                    }
+                                    MouseArea {
+                                        anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                                        onEntered: parent.cacheSzHov = true; onExited: parent.cacheSzHov = false
+                                        onClicked: { if (appViewModel) appViewModel.logoCacheMaxMb = modelData.value }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    Text {
+                        text: "Logos older than 30 days are automatically removed on startup."
+                        font.pixelSize: Theme.fontSizeXs
+                        color: Theme.textMuted
+                        wrapMode: Text.WordWrap
+                        Layout.fillWidth: true
+                    }
+
+                    RowLayout {
+                        Layout.fillWidth: true
+
+                        Item { Layout.fillWidth: true }
+
+                        Rectangle {
+                            width: clearCacheLabel.implicitWidth + Theme.spacingLg * 2
+                            height: 36
+                            radius: Theme.borderRadius
+                            color: clearCacheHov ? Theme.error : Theme.error + "30"
+                            border.color: Theme.error
+                            border.width: 1
+                            property bool clearCacheHov: false
+
+                            Text {
+                                id: clearCacheLabel
+                                anchors.centerIn: parent
+                                text: "Clear Logo Cache"
+                                font.pixelSize: Theme.fontSizeSm
+                                font.bold: true
+                                color: clearCacheLabel.parent.clearCacheHov ? Theme.textOnAccent : Theme.textSecondary
+                            }
+                            MouseArea {
+                                anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                                onEntered: parent.clearCacheHov = true; onExited: parent.clearCacheHov = false
+                                onClicked: {
+                                    if (appViewModel && appViewModel.logoCache) {
+                                        appViewModel.logoCache.clear()
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    Text {
+                        text: "Warning: Clearing the cache will cause all channel logos to be re-downloaded. This may temporarily impact performance and increase network usage."
+                        font.pixelSize: Theme.fontSizeXs
+                        color: Theme.warning
+                        wrapMode: Text.WordWrap
+                        Layout.fillWidth: true
+                    }
+                }
+            }
+
+            Rectangle {
+                Layout.fillWidth: true
                 Layout.preferredHeight: dbCol.implicitHeight + Theme.spacingLg * 2
                 radius: Theme.borderRadiusLarge
                 color: Theme.surfaceElevated

@@ -2,6 +2,7 @@
 #include "iptvxs/cache/logo_cache.h"
 
 #include <QCryptographicHash>
+#include <QDateTime>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
@@ -118,6 +119,61 @@ void LogoCache::clear() {
     if (failedRevision_ != 0) {
         failedRevision_ = 0;
         emit failedRevisionChanged();
+    }
+}
+
+qint64 LogoCache::cacheSizeBytes() const {
+    qint64 total = 0;
+    QDir dir(cacheDir_);
+    if (!dir.exists()) return 0;
+    const auto entries = dir.entryInfoList(QDir::Files);
+    for (const auto &fi : entries) {
+        total += fi.size();
+    }
+    return total;
+}
+
+QString LogoCache::cacheSizeFormatted() const {
+    auto bytes = cacheSizeBytes();
+    if (bytes < 1024) return QStringLiteral("%1 B").arg(bytes);
+    if (bytes < 1024 * 1024) return QStringLiteral("%1 KB").arg(bytes / 1024.0, 0, 'f', 1);
+    if (bytes < 1024LL * 1024 * 1024) return QStringLiteral("%1 MB").arg(bytes / (1024.0 * 1024), 0, 'f', 1);
+    return QStringLiteral("%1 GB").arg(bytes / (1024.0 * 1024 * 1024), 0, 'f', 2);
+}
+
+void LogoCache::pruneExpired(int maxAgeDays, qint64 maxSizeBytes) {
+    QDir dir(cacheDir_);
+    if (!dir.exists()) return;
+
+    auto now = QDateTime::currentDateTime();
+    auto entries = dir.entryInfoList(QDir::Files, QDir::Time | QDir::Reversed);
+    int removed = 0;
+
+    for (const auto &fi : entries) {
+        if (fi.lastModified().daysTo(now) > maxAgeDays) {
+            dir.remove(fi.fileName());
+            ++removed;
+        }
+    }
+
+    entries = dir.entryInfoList(QDir::Files, QDir::Time | QDir::Reversed);
+    qint64 totalSize = 0;
+    for (const auto &fi : entries) totalSize += fi.size();
+
+    if (totalSize > maxSizeBytes) {
+        for (const auto &fi : entries) {
+            if (totalSize <= maxSizeBytes) break;
+            totalSize -= fi.size();
+            dir.remove(fi.fileName());
+            ++removed;
+        }
+    }
+
+    if (removed > 0) {
+        qInfo("Logo cache pruned: %d files removed", removed);
+        cache_.clear();
+        ++revision_;
+        emit revisionChanged();
     }
 }
 

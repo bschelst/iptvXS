@@ -24,6 +24,9 @@ public:
     Q_INVOKABLE bool isBlocked(const QString &url) const;
     Q_INVOKABLE void markFailed(const QString &url);
     void clear();
+    Q_INVOKABLE void pruneExpired(int maxAgeDays = 30, qint64 maxSizeBytes = 500LL * 1024 * 1024);
+    Q_INVOKABLE qint64 cacheSizeBytes() const;
+    Q_INVOKABLE QString cacheSizeFormatted() const;
     int cachedCount() const;
     int revision() const;
     int failedRevision() const;

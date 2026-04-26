@@ -63,6 +63,8 @@ bool AppViewModel::initialize(const QString &dbPath) {
     groupListVm_->setChannelRepository(channelRepo_.get());
     logoCache_ = std::make_unique<iptvxs::LogoCache>(this);
     logoCache_->setCacheDir(localAppDataPath() + QStringLiteral("/logos"));
+    auto maxMb = settingsRepo_->getInt(QStringLiteral("logo_cache_max_mb"), 500);
+    logoCache_->pruneExpired(30, static_cast<qint64>(maxMb) * 1024 * 1024);
     recordingMgr_ = std::make_unique<iptvxs::RecordingManager>(this);
     httpClient_ = std::make_unique<iptvxs::HttpClient>(this);
     speedTestRunner_ = std::make_unique<iptvxs::SpeedTestRunner>(this);
@@ -438,6 +440,16 @@ GroupListViewModel *AppViewModel::groupList() const {
 
 iptvxs::LogoCache *AppViewModel::logoCache() const {
     return logoCache_.get();
+}
+
+int AppViewModel::logoCacheMaxMb() const {
+    return settingsRepo_ ? settingsRepo_->getInt(QStringLiteral("logo_cache_max_mb"), 500) : 500;
+}
+
+void AppViewModel::setLogoCacheMaxMb(int mb) {
+    if (!settingsRepo_) return;
+    settingsRepo_->set(QStringLiteral("logo_cache_max_mb"), qBound(50, mb, 2000));
+    emit logoCacheMaxMbChanged();
 }
 
 int AppViewModel::autoSyncInterval() const {

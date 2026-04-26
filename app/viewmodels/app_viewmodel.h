@@ -85,6 +85,7 @@ class AppViewModel : public QObject {
     Q_PROPERTY(bool keepLocalCopy READ keepLocalCopy WRITE setKeepLocalCopy NOTIFY keepLocalCopyChanged)
     Q_PROPERTY(GroupListViewModel *groupList READ groupList CONSTANT)
     Q_PROPERTY(iptvxs::LogoCache *logoCache READ logoCache CONSTANT)
+    Q_PROPERTY(int logoCacheMaxMb READ logoCacheMaxMb WRITE setLogoCacheMaxMb NOTIFY logoCacheMaxMbChanged)
     Q_PROPERTY(QString latestVersion READ latestVersion NOTIFY latestVersionChanged)
     Q_PROPERTY(bool updateAvailable READ updateAvailable NOTIFY latestVersionChanged)
 
@@ -117,6 +118,8 @@ public:
     LogViewModel *log() const;
     GroupListViewModel *groupList() const;
     iptvxs::LogoCache *logoCache() const;
+    int logoCacheMaxMb() const;
+    void setLogoCacheMaxMb(int mb);
 
     int autoSyncInterval() const;
     void setAutoSyncInterval(int hours);
@@ -230,6 +233,7 @@ signals:
     void subtitleLoaded(const QString &filePath);
     void seriesEpisodesReady(const QString &seriesName, const QVariantList &seasons);
     void latestVersionChanged();
+    void logoCacheMaxMbChanged();
     void authUrlReady(const QString &url);
 
 private:
