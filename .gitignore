@@ -11,3 +11,7 @@ compile_commands.json
 *.autosave
 CMakeUserPresets.json
 .cl*
+repo/
+.tmp-bundle-repo/
+*.flatpak.prev
+.codex
