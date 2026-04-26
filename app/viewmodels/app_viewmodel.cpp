@@ -215,7 +215,13 @@ bool AppViewModel::initialize(const QString &dbPath) {
     }
 
     connect(gdriveAuth_.get(), &iptvxs::GDriveAuth::openUrlRequested, this,
-            [](const QUrl &url) { QDesktopServices::openUrl(url); });
+            [this](const QUrl &url) {
+                // Try the system browser first; emit the URL as a signal so QML
+                // can show a fallback dialog (needed on Steam Deck GameScope where
+                // QDesktopServices::openUrl() silently fails).
+                QDesktopServices::openUrl(url);
+                emit authUrlReady(url.toString());
+            });
 
     speedTestVm_->setRunner(speedTestRunner_.get());
     speedTestVm_->setChannelRepository(channelRepo_.get());
@@ -948,10 +954,11 @@ void AppViewModel::playChannelByName(const QString &name) {
 }
 
 void AppViewModel::playSeriesEpisode(const QString &episodeId, const QString &ext,
-                                      const QString &title, const QString &logoUrl) {
+                                      const QString &title, const QString &logoUrl,
+                                      int64_t channelId) {
     auto url = QStringLiteral("%1/series/%2/%3/%4.%5")
                    .arg(seriesServerUrl_, seriesUsername_, seriesPassword_, episodeId, ext);
-    playerVm_->play(url, title, logoUrl, 0);
+    playerVm_->play(url, title, logoUrl, channelId);
     setCurrentView(QStringLiteral("player"));
 }
 

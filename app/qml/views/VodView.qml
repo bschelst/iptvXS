@@ -900,6 +900,7 @@ Item {
                                         function activate() {
                                             if (!appViewModel) return
                                             if (type === "series") {
+                                                episodeDialog.seriesChannelId = channelId
                                                 appViewModel.fetchSeriesEpisodes(serverId, externalId, name, logoUrl)
                                             } else {
                                                 appViewModel.player.play(streamUrl, name, logoUrl, channelId)
@@ -1079,6 +1080,7 @@ Item {
                         function activate() {
                             if (!appViewModel) return
                             if (model.type === "series") {
+                                episodeDialog.seriesChannelId = model.channelId
                                 appViewModel.fetchSeriesEpisodes(model.serverId, model.externalId, model.name, model.logoUrl)
                             } else {
                                 appViewModel.player.play(model.streamUrl, model.name, model.logoUrl, model.channelId)
@@ -1263,6 +1265,7 @@ Item {
                         function activate() {
                             if (!appViewModel) return
                             if (model.type === "series") {
+                                episodeDialog.seriesChannelId = model.channelId
                                 appViewModel.fetchSeriesEpisodes(model.serverId, model.externalId, model.name, model.logoUrl)
                             } else {
                                 appViewModel.player.play(model.streamUrl, model.name, model.logoUrl, model.channelId)
@@ -1321,6 +1324,7 @@ Item {
         property string seriesTitle: ""
         property var seasonsData: []
         property int selectedSeason: 0
+        property int seriesChannelId: 0
 
         MouseArea {
             anchors.fill: parent
@@ -1461,7 +1465,7 @@ Item {
                         var seasonNum = episodeDialog.seasonsData[episodeDialog.selectedSeason].season
                         var displayTitle = episodeDialog.seriesTitle + " - S" + seasonNum + "E" + (ep.episodeNum || (idx + 1))
                         if (ep.title) displayTitle += " - " + ep.title
-                        appViewModel.playSeriesEpisode(ep.id, ep.ext, displayTitle, ep.logoUrl)
+                        appViewModel.playSeriesEpisode(ep.id, ep.ext, displayTitle, ep.logoUrl, episodeDialog.seriesChannelId)
 
                         // Set up auto-next episode
                         if (idx + 1 < episodes.length) {
@@ -1470,7 +1474,7 @@ Item {
                             var nextTitle = episodeDialog.seriesTitle + " - S" + seasonNum + "E" + nextNum
                             if (nextEp.title) nextTitle += " - " + nextEp.title
                             var nextUrl = vodView.buildEpisodeUrl(nextEp.id, nextEp.ext)
-                            appViewModel.player.setNextEpisode(nextUrl, nextTitle, nextEp.logoUrl || "", 0)
+                            appViewModel.player.setNextEpisode(nextUrl, nextTitle, nextEp.logoUrl || "", episodeDialog.seriesChannelId)
                         }
 
                         episodeDialog.visible = false
@@ -1562,7 +1566,7 @@ Item {
                                     var seasonNum = episodeDialog.seasonsData[episodeDialog.selectedSeason].season
                                     var displayTitle = episodeDialog.seriesTitle + " - S" + seasonNum + "E" + (modelData.episodeNum || (index + 1))
                                     if (modelData.title) displayTitle += " - " + modelData.title
-                                    appViewModel.playSeriesEpisode(modelData.id, modelData.ext, displayTitle, modelData.logoUrl)
+                                    appViewModel.playSeriesEpisode(modelData.id, modelData.ext, displayTitle, modelData.logoUrl, episodeDialog.seriesChannelId)
 
                                     // Set up auto-next episode
                                     var episodes = episodeDialog.seasonsData[episodeDialog.selectedSeason].episodes
@@ -1572,7 +1576,7 @@ Item {
                                         var nextTitle = episodeDialog.seriesTitle + " - S" + seasonNum + "E" + nextNum
                                         if (nextEp.title) nextTitle += " - " + nextEp.title
                                         var nextUrl = vodView.buildEpisodeUrl(nextEp.id, nextEp.ext)
-                                        appViewModel.player.setNextEpisode(nextUrl, nextTitle, nextEp.logoUrl || "", 0)
+                                        appViewModel.player.setNextEpisode(nextUrl, nextTitle, nextEp.logoUrl || "", episodeDialog.seriesChannelId)
                                     }
 
                                     episodeDialog.visible = false

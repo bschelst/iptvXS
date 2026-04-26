@@ -180,7 +180,8 @@ public:
     Q_INVOKABLE void playChannelById(int64_t channelId);
     Q_INVOKABLE void playChannelByName(const QString &name);
     Q_INVOKABLE void playSeriesEpisode(const QString &episodeId, const QString &ext,
-                                        const QString &title, const QString &logoUrl);
+                                        const QString &title, const QString &logoUrl,
+                                        int64_t channelId = 0);
     Q_INVOKABLE bool isCategoryHidden(int64_t categoryId) const;
     Q_INVOKABLE void setActiveSeriesDialog(const QString &name, int64_t serverId, const QString &seriesId, const QString &logoUrl);
     Q_INVOKABLE void clearActiveSeriesDialog();
@@ -228,6 +229,7 @@ signals:
     void subtitleLoaded(const QString &filePath);
     void seriesEpisodesReady(const QString &seriesName, const QVariantList &seasons);
     void latestVersionChanged();
+    void authUrlReady(const QString &url);
 
 private:
     std::unique_ptr<iptvxs::Database> database_;

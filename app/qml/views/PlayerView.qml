@@ -232,7 +232,7 @@ Item {
 
                     Item { Layout.fillWidth: true }
 
-                    // --- Favorite button (live channels only) ---
+                    // --- Favorite button (any content with a channelId) ---
                     PlayerButton {
                         id: favBtn
                         text: isFav ? "\u2605" : "\u2606"

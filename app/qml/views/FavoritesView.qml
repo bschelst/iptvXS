@@ -165,6 +165,7 @@ Item {
                     onClicked: {
                         if (appViewModel) {
                             if (model.type === "series") {
+                                favEpDialog.seriesChannelId = model.channelId
                                 appViewModel.fetchSeriesEpisodes(model.serverId, model.externalId, model.name, model.logoUrl)
                             } else {
                                 appViewModel.player.play(model.streamUrl, model.name, model.logoUrl, model.channelId)
@@ -211,6 +212,7 @@ Item {
         property string seriesTitle: ""
         property var seasonsData: []
         property int selectedSeason: 0
+        property int seriesChannelId: 0
 
         MouseArea { anchors.fill: parent; onClicked: favEpDialog.visible = false }
 
@@ -324,7 +326,7 @@ Item {
                                 var url = appViewModel.buildSeriesEpisodeUrl(ep.id, ext)
                                 if (url) {
                                     var title = ep.title || favEpDialog.seriesTitle
-                                    appViewModel.player.play(url, title, "", 0)
+                                    appViewModel.player.play(url, title, "", favEpDialog.seriesChannelId)
                                     appViewModel.currentView = "player"
                                     favEpDialog.visible = false
                                 }

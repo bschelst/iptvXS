@@ -441,6 +441,12 @@ Item {
                 contentWidth: timelineContentWidth
                 clip: true
                 flickableDirection: Flickable.HorizontalFlick
+                focus: true
+
+                Keys.onUpPressed: guideListView.contentY = Math.max(0, guideListView.contentY - 80)
+                Keys.onDownPressed: guideListView.contentY = Math.min(guideListView.contentHeight - guideListView.height, guideListView.contentY + 80)
+                Keys.onLeftPressed: contentX = Math.max(0, contentX - 200)
+                Keys.onRightPressed: contentX = Math.min(contentWidth - width, contentX + 200)
 
                 readonly property real timelineContentWidth: {
                     if (!appViewModel) return 0
@@ -558,13 +564,12 @@ Item {
 
                     ScrollBar.vertical: ScrollBar {
                         active: true
-                        policy: ScrollBar.AsNeeded
+                        policy: ScrollBar.AlwaysOn
                         contentItem: Rectangle {
                             implicitWidth: 6
                             radius: 3
                             color: Theme.accent
-                            opacity: parent.active ? 0.8 : 0.0
-                            Behavior on opacity { NumberAnimation { duration: Theme.animNormal } }
+                            opacity: parent.active ? 0.6 : 0.3
                         }
                         background: Rectangle {
                             implicitWidth: 6

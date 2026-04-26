@@ -30,12 +30,15 @@ Qt::Key keyForControllerButton(SDL_GameControllerButton button) {
 ControllerInputBridge::ControllerInputBridge(QWindow *targetWindow, QObject *parent)
     : QObject(parent), targetWindow_(targetWindow) {
     SDL_SetHint(SDL_HINT_JOYSTICK_ALLOW_BACKGROUND_EVENTS, "1");
+    // Ensure external controllers connected via USB/Bluetooth are detected.
+    SDL_SetHint(SDL_HINT_JOYSTICK_HIDAPI, "1");
     if (SDL_Init(SDL_INIT_GAMECONTROLLER | SDL_INIT_JOYSTICK | SDL_INIT_EVENTS) != 0) {
         qWarning("SDL controller init failed: %s", SDL_GetError());
         return;
     }
 
     openControllers();
+    cooldownClock_.start();
 
     pollTimer_.setInterval(16);
     connect(&pollTimer_, &QTimer::timeout, this, &ControllerInputBridge::pollEvents);
@@ -86,6 +89,21 @@ void ControllerInputBridge::sendKey(Qt::Key key, bool pressed) {
 }
 
 void ControllerInputBridge::handleControllerButton(int button, bool pressed) {
+    // Apply cooldown only to d-pad press events to prevent double-firing
+    // (some controllers emit both hat and button events for d-pad).
+    const bool isDpad = (button == SDL_CONTROLLER_BUTTON_DPAD_UP ||
+                         button == SDL_CONTROLLER_BUTTON_DPAD_DOWN ||
+                         button == SDL_CONTROLLER_BUTTON_DPAD_LEFT ||
+                         button == SDL_CONTROLLER_BUTTON_DPAD_RIGHT);
+    if (isDpad && pressed) {
+        const qint64 now = cooldownClock_.elapsed();
+        const qint64 last = lastDpadPressMs_.value(button, 0);
+        if (now - last < kDpadCooldownMs) {
+            return; // suppress duplicate
+        }
+        lastDpadPressMs_[button] = now;
+    }
+
     sendKey(keyForControllerButton(static_cast<SDL_GameControllerButton>(button)), pressed);
 }
 

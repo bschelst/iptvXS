@@ -155,6 +155,10 @@ ApplicationWindow {
         target: appViewModel
         function onCurrentViewChanged() {
             var view = appViewModel.currentView
+            // Stop VOD playback when navigating away from player (no PIP for VOD)
+            if (view !== "player" && !appViewModel.player.stopped && !appViewModel.player.isLive) {
+                appViewModel.player.stop()
+            }
             sidebar.activeItem = view
             var src = viewForName(view)
             if (view === "vod_movies" || view === "vod_series") {
@@ -182,7 +186,7 @@ ApplicationWindow {
     // --- Single persistent video surface with PIP ---
     property bool _inPlayer: appViewModel && appViewModel.currentView === "player"
     property bool _playing: appViewModel && !appViewModel.player.stopped
-    property bool _pipMode: _playing && !_inPlayer
+    property bool _pipMode: _playing && !_inPlayer && appViewModel.player.isLive
 
     Rectangle {
         id: videoContainer
@@ -191,11 +195,42 @@ ApplicationWindow {
         clip: _pipMode
         radius: _pipMode ? Theme.borderRadius : 0
 
-        x: _pipMode ? (parent.width - 320 - Theme.spacingMd) : (sidebar.visible ? sidebar.width : 0)
-        y: _pipMode ? (parent.height - 180 - Theme.spacingMd) : (topBar.visible ? topBar.height : 0)
-        width: _pipMode ? 320 : (parent.width - x)
-        height: _pipMode ? 180 : (parent.height - y)
-        z: _pipMode ? 100 : -1
+        // Default PIP corner position
+        property real pipDefaultX: parent.width - 320 - Theme.spacingMd
+        property real pipDefaultY: parent.height - 180 - Theme.spacingMd
+
+        states: [
+            State {
+                name: "pip"
+                when: _pipMode
+                PropertyChanges {
+                    target: videoContainer
+                    width: 320
+                    height: 180
+                    z: 100
+                }
+            },
+            State {
+                name: "fullscreen"
+                when: !_pipMode
+                PropertyChanges {
+                    target: videoContainer
+                    x: sidebar.visible ? sidebar.width : 0
+                    y: topBar.visible ? topBar.height : 0
+                    width: parent.width - (sidebar.visible ? sidebar.width : 0)
+                    height: parent.height - (topBar.visible ? topBar.height : 0)
+                    z: -1
+                }
+            }
+        ]
+
+        // Reset PIP position to default corner when entering PIP mode
+        on_PipModeChanged: {
+            if (_pipMode) {
+                videoContainer.x = videoContainer.pipDefaultX
+                videoContainer.y = videoContainer.pipDefaultY
+            }
+        }
 
         MpvVideoItem {
             anchors.fill: parent
@@ -203,9 +238,16 @@ ApplicationWindow {
         }
 
         MouseArea {
+            id: pipMouseArea
             anchors.fill: parent
             visible: _pipMode
             cursorShape: Qt.PointingHandCursor
+            drag.target: _pipMode ? videoContainer : null
+            drag.minimumX: 0
+            drag.maximumX: videoContainer.parent.width - videoContainer.width
+            drag.minimumY: 0
+            drag.maximumY: videoContainer.parent.height - videoContainer.height
+            drag.threshold: 5
             onClicked: { if (appViewModel) appViewModel.currentView = "player" }
         }
 

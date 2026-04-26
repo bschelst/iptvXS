@@ -2053,4 +2053,116 @@ Item {
             }
         }
     }
+
+    // --- Google Drive auth URL fallback dialog (for GameScope / no desktop browser) ---
+
+    property string pendingAuthUrl: ""
+
+    Connections {
+        target: appViewModel
+        function onAuthUrlReady(url) {
+            settingsView.pendingAuthUrl = url
+            authUrlDialog.open()
+        }
+    }
+
+    Dialog {
+        id: authUrlDialog
+        anchors.centerIn: parent
+        width: Math.min(parent.width * 0.85, 600)
+        modal: true
+        title: "Google Drive Login"
+        standardButtons: Dialog.Close
+
+        background: Rectangle {
+            color: Theme.surfaceElevated
+            border.color: Theme.surfaceBorder
+            border.width: 1
+            radius: Theme.borderRadiusLarge
+        }
+
+        header: Item {
+            height: 48
+            Text {
+                anchors.centerIn: parent
+                text: "Google Drive Login"
+                font.pixelSize: Theme.fontSizeMd
+                font.bold: true
+                color: Theme.textPrimary
+            }
+        }
+
+        contentItem: ColumnLayout {
+            spacing: Theme.spacingMd
+
+            Text {
+                Layout.fillWidth: true
+                text: "If your browser did not open automatically (e.g. on Steam Deck in Gaming Mode), copy the URL below and paste it into a browser on any device:"
+                font.pixelSize: Theme.fontSizeSm
+                color: Theme.textSecondary
+                wrapMode: Text.WordWrap
+            }
+
+            Rectangle {
+                Layout.fillWidth: true
+                Layout.preferredHeight: authUrlText.implicitHeight + Theme.spacingMd
+                color: Theme.background
+                border.color: Theme.surfaceBorder
+                border.width: 1
+                radius: Theme.borderRadius
+
+                TextEdit {
+                    id: authUrlText
+                    anchors.fill: parent
+                    anchors.margins: Theme.spacingSm
+                    text: settingsView.pendingAuthUrl
+                    font.pixelSize: Theme.fontSizeXs
+                    font.family: "monospace"
+                    color: Theme.accent
+                    wrapMode: TextEdit.WrapAnywhere
+                    readOnly: true
+                    selectByMouse: true
+                }
+            }
+
+            Rectangle {
+                Layout.alignment: Qt.AlignHCenter
+                Layout.preferredWidth: copyBtn.implicitWidth + Theme.spacingLg * 2
+                Layout.preferredHeight: 36
+                radius: Theme.borderRadius
+                color: copyBtnHovered ? Theme.accent : Theme.accentHover
+                border.color: Theme.accent
+                border.width: 1
+                property bool copyBtnHovered: false
+
+                Text {
+                    id: copyBtn
+                    anchors.centerIn: parent
+                    text: "Select All"
+                    font.pixelSize: Theme.fontSizeSm
+                    color: Theme.textOnAccent
+                }
+
+                MouseArea {
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onEntered: parent.copyBtnHovered = true
+                    onExited: parent.copyBtnHovered = false
+                    onClicked: {
+                        authUrlText.selectAll()
+                        authUrlText.focus = true
+                    }
+                }
+            }
+
+            Text {
+                Layout.fillWidth: true
+                text: "After granting access, the browser will redirect to localhost and this app will receive the token automatically."
+                font.pixelSize: Theme.fontSizeXs
+                color: Theme.textMuted
+                wrapMode: Text.WordWrap
+            }
+        }
+    }
 }
