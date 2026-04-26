@@ -43,6 +43,29 @@
   <content_rating type="oars-1.1" />
 
   <releases>
+    <release version="0.3.0" date="2026-04-26">
+      <description>
+        <p>Major UI polish, new features, and Steam Deck improvements.</p>
+        <ul>
+          <li>Rounded card corners with OpacityMask for poster images.</li>
+          <li>High-contrast theme: textOnAccent token across all views.</li>
+          <li>EPG: record button with confirmation popup and time padding.</li>
+          <li>EPG: vertical scrollbar and controller navigation.</li>
+          <li>Version check via gateway API with update notification.</li>
+          <li>Database statistics in Settings.</li>
+          <li>Logo cache management: auto-prune, size limit, clear button.</li>
+          <li>Draggable PIP window, VOD stops on navigate (no PIP for VOD).</li>
+          <li>Player: themed icons, smaller buttons, pulsing loading logo.</li>
+          <li>TopBar: live clock with blinking colon.</li>
+          <li>Speed test: internet-only, 60s default, favorites-first channels.</li>
+          <li>Favorites sorted to top of channel lists.</li>
+          <li>Steam Deck: external controller support, d-pad debounce, GameScope Google Drive auth.</li>
+          <li>Recording: EPG programme title capture, ffmpeg user-agent.</li>
+          <li>Home screen logo, server ordering (disabled at bottom).</li>
+          <li>Copyright headers on all source files.</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.2.1" date="2026-04-25">
       <description>
         <p>Release focused on Steam Deck support, Flatpak reliability, and VOD browsing polish.</p>
