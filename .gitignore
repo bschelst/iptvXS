@@ -15,3 +15,5 @@ repo/
 .tmp-bundle-repo/
 *.flatpak.prev
 .codex
+.mc*
+iptvxs.flatpak
