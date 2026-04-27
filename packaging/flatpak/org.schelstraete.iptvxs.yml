@@ -46,7 +46,7 @@ modules:
     buildsystem: simple
     build-commands:
       - PYTHONPATH=. python3 -m flit_core.wheel .
-      - python3 bootstrap_install.py dist/flit_core-3.12.0-py3-none-any.whl -i /app/lib/python3.12/site-packages
+      - python3 bootstrap_install.py dist/flit_core-3.12.0-py3-none-any.whl -i "$(python3 -c 'import sysconfig; print(sysconfig.get_path(\"purelib\"))')"
     sources:
       - type: archive
         url: https://files.pythonhosted.org/packages/source/f/flit-core/flit_core-3.12.0.tar.gz
@@ -106,13 +106,7 @@ modules:
     config-opts:
       - -DIPTVXS_BUILD_TESTS=OFF
     post-install:
-      - |
-        cat > /app/bin/iptvXS-wrapper <<'WRAPPER'
-        #!/bin/sh
-        export QT_PLUGIN_PATH="/app/lib/plugins:/usr/lib/plugins:${QT_PLUGIN_PATH}"
-        exec /app/bin/iptvXS "$@"
-        WRAPPER
-        chmod +x /app/bin/iptvXS-wrapper
+      - printf '#!/bin/sh\nexport QT_PLUGIN_PATH="/app/lib/plugins:/usr/lib/plugins:${QT_PLUGIN_PATH}"\nexec /app/bin/iptvXS "$@"\n' > /app/bin/iptvXS-wrapper && chmod +x /app/bin/iptvXS-wrapper
     sources:
       - type: dir
         path: ../..
