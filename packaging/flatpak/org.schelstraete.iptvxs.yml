@@ -42,35 +42,18 @@ modules:
         url: https://github.com/libass/libass/archive/refs/tags/0.17.3.tar.gz
         sha256: 26fbfb7a7bd3e6d5c713f8a65a12b36084d1dde6efaed8a9996489054c4aeca0
 
-  - name: flit_core
+  - name: python-deps
     buildsystem: simple
     build-commands:
-      - PYTHONPATH=. python3 -m flit_core.wheel .
-      - python3 bootstrap_install.py dist/flit_core-3.12.0-py3-none-any.whl -i "$(python3 -c 'import sysconfig; print(sysconfig.get_path(\"purelib\"))')"
+      - pip3 install --no-build-isolation --prefix=/app markupsafe-3.0.3.tar.gz
+      - pip3 install --no-build-isolation --prefix=/app jinja2-3.1.6.tar.gz
     sources:
-      - type: archive
-        url: https://files.pythonhosted.org/packages/source/f/flit-core/flit_core-3.12.0.tar.gz
-        sha256: 18f63100d6f94385c6ed57a72073443e1a71a4acb4339491615d0f16d6ff01b2
-
-  - name: markupsafe
-    buildsystem: simple
-    build-commands:
-      - python3 setup.py build
-      - python3 setup.py install --prefix=/app --root=/
-    sources:
-      - type: archive
-        url: https://github.com/pallets/markupsafe/archive/refs/tags/3.0.3.tar.gz
-        sha256: f1d9d06c34515dd3ad210ec769da613057b536d11d6c039183b87757a883a254
-
-  - name: jinja
-    buildsystem: simple
-    build-commands:
-      - python3 -c "import sys; sys.path.insert(0,'/app/lib/python'+'.'.join(map(str,sys.version_info[:2]))+'/site-packages'); from flit_core.buildapi import *; build_wheel('dist')"
-      - pip3 install --no-deps --prefix=/app dist/*.whl
-    sources:
-      - type: archive
-        url: https://github.com/pallets/jinja/archive/refs/tags/3.1.6.tar.gz
-        sha256: 2074b22a72caa65474902234b320d73463d6d4c223ee49f4b433495758356337
+      - type: file
+        url: https://files.pythonhosted.org/packages/b4/d2/38ff920762f2247c3af5cbbbbc40f8734b989d53571c67c11f9c54e1523/markupsafe-3.0.3.tar.gz
+        sha256: 4c10c5ae0c9c4dda6b607fb6bc1e34ccc206c9d0e4cc9fe3acfb0afd2b6c4f36
+      - type: file
+        url: https://files.pythonhosted.org/packages/df/bf/f7da0350254c0ed7c72f3e33cef02e048281fec7ecec5f032d4aac52226b/jinja2-3.1.6.tar.gz
+        sha256: 0137fb05990d35f1275a587e9aee6d56da821fc83491a0fb838183be43f66d6d
 
   - name: libplacebo
     buildsystem: meson
