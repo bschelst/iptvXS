@@ -39,6 +39,35 @@ modules:
         url: https://github.com/libass/libass/archive/refs/tags/0.17.3.tar.gz
         sha256: 26fbfb7a7bd3e6d5c713f8a65a12b36084d1dde6efaed8a9996489054c4aeca0
 
+  - name: flit_core
+    buildsystem: simple
+    build-commands:
+      - PYTHONPATH=. python3 -m flit_core.wheel .
+      - python3 bootstrap_install.py dist/flit_core-3.12.0-py3-none-any.whl -i /app/lib/python3.12/site-packages
+    sources:
+      - type: archive
+        url: https://files.pythonhosted.org/packages/source/f/flit-core/flit_core-3.12.0.tar.gz
+        sha256: 18f63100d6f94385c6ed57a72073443e1a71a4acb4339491615d0f16d6ff01b2
+
+  - name: markupsafe
+    buildsystem: simple
+    build-commands:
+      - python3 setup.py build
+      - python3 setup.py install --prefix=/app --root=/
+    sources:
+      - type: archive
+        url: https://github.com/pallets/markupsafe/archive/refs/tags/3.0.3.tar.gz
+        sha256: f1d9d06c34515dd3ad210ec769da613057b536d11d6c039183b87757a883a254
+
+  - name: jinja
+    buildsystem: simple
+    build-commands:
+      - python3 -m pip install --no-build-isolation --no-deps --prefix=/app --root=/ .
+    sources:
+      - type: archive
+        url: https://github.com/pallets/jinja/archive/refs/tags/3.1.6.tar.gz
+        sha256: 2074b22a72caa65474902234b320d73463d6d4c223ee49f4b433495758356337
+
   - name: libplacebo
     buildsystem: meson
     config-opts:
