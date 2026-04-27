@@ -70,6 +70,8 @@ modules:
 
   - name: libplacebo
     buildsystem: meson
+    build-options:
+      libdir: /app/lib
     config-opts:
       - -Ddemos=false
       - -Dtests=false
