@@ -194,8 +194,9 @@ Item {
                     }
 
                     Text {
-                        text: "\u25B6"
-                        font.pixelSize: 12
+                        text: "\u203A"
+                        font.pixelSize: 18
+                        font.bold: true
                         color: Theme.textMuted
                         visible: !histHov
                     }
