@@ -71,6 +71,7 @@ public:
     Q_INVOKABLE void syncEpg(const QString &epgUrl);
     Q_INVOKABLE void shiftTime(int hours);
     Q_INVOKABLE QVariantList programmesForChannel(int row) const;
+    Q_INVOKABLE QVariantMap rowData(int row) const;
 
 signals:
     void serverIdChanged();

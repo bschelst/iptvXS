@@ -397,6 +397,22 @@ QVariantList EpgViewModel::programmesForChannel(int row) const {
     return result;
 }
 
+QVariantMap EpgViewModel::rowData(int row) const {
+    if (row < 0 || row >= rows_.size()) {
+        return {};
+    }
+
+    const auto &r = rows_.at(row);
+    QVariantMap m;
+    m["channelId"] = QVariant::fromValue(static_cast<qlonglong>(r.channel.id));
+    m["channelName"] = r.channel.name;
+    m["channelLogo"] = r.channel.logoUrl;
+    m["streamUrl"] = r.channel.streamUrl;
+    m["epgChannelId"] = r.channel.epgChannelId;
+    m["isFavorite"] = r.isFavorite;
+    return m;
+}
+
 void EpgViewModel::loadGrid() {
     if (!progRepo_ || !channelRepo_ || serverId_ <= 0) {
         return;

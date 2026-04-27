@@ -9,11 +9,11 @@
 </p>
 
 <p align="center">
-  <em>This project is under active development. Expect bugs, incomplete features, and rough edges. I'm still fully testing,and there are a lot of outstanding actions — use at your own risk.</em>
+  <em>This project is under active development. Expect bugs, incomplete features, and rough edges. I'm still fully testing, and there are a lot of outstanding actions — use at your own risk.</em>
 </p>
 <p>
-I created this app because I was a bit dissapointed in the IPTV clients on Linux, SteamOS and Android TV. Despite there a some good clients available, there are always some kind of issues with it, or you need to pay for basic functionality. On the other hand, using quite some channels was also problematic. Hence my attempt to create something.
-<p>
+I created this app because I was a bit disappointed in the IPTV clients on Linux, SteamOS, and Android TV. Despite there being some good clients available, there are always some kind of issues with them, or you need to pay for basic functionality. On the other hand, managing a large number of channels was also problematic. Hence my attempt to create something better.
+</p>
 
 <p align="center">
   <a href="https://github.com/bschelst/iptvXS/releases/latest"><img src="https://img.shields.io/github/v/release/bschelst/iptvXS?style=for-the-badge&color=blue" alt="Latest Release" /></a>

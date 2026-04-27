@@ -2,6 +2,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import QtQuick.Window
 import app.iptvxs
 
 Item {
@@ -14,8 +15,69 @@ Item {
 
     readonly property int channelColumnWidth: 200
     readonly property real pixelsPerSecond: 0.08
-    readonly property int rowHeight: 64
+    readonly property int rowHeight: 84
     readonly property int timeHeaderHeight: 40
+
+    // --- Controller / d-pad navigation state ---
+    property int currentChannelIndex: 0
+    property int currentProgrammeIndex: 0
+    property bool channelColumnFocused: false  // true = channel col, false = programme grid
+
+    function focusPrimary() {
+        if (progDetailPopup.visible || recConfirm.visible) return
+        currentChannelIndex = Math.min(currentChannelIndex, Math.max(0, guideListView.count - 1))
+        channelColumnFocused = false
+        guideFlickable.forceActiveFocus()
+        ensureChannelVisible()
+    }
+
+    function ensureChannelVisible() {
+        var targetY = currentChannelIndex * rowHeight
+        if (targetY < guideListView.contentY) {
+            guideListView.contentY = targetY
+        } else if (targetY + rowHeight > guideListView.contentY + guideListView.height) {
+            guideListView.contentY = targetY + rowHeight - guideListView.height
+        }
+        guideListView.contentY = Math.max(0, Math.min(guideListView.contentY,
+            guideListView.contentHeight - guideListView.height))
+    }
+
+    function ensureProgrammeVisible() {
+        // Find the programme rectangle x position and scroll the flickable so it is visible
+        if (!appViewModel) return
+        var progs = appViewModel.epg.programmesForChannel(currentChannelIndex)
+        if (!progs || currentProgrammeIndex < 0 || currentProgrammeIndex >= progs.length) return
+        var prog = progs[currentProgrammeIndex]
+        var progStart = Math.max(prog.startTime, appViewModel.epg.timeWindowStart)
+        var progEnd = Math.min(prog.endTime, appViewModel.epg.timeWindowEnd)
+        var xStart = (progStart - appViewModel.epg.timeWindowStart) * pixelsPerSecond
+        var xEnd = (progEnd - appViewModel.epg.timeWindowStart) * pixelsPerSecond
+        if (xStart < guideFlickable.contentX) {
+            guideFlickable.contentX = Math.max(0, xStart - 20)
+        } else if (xEnd > guideFlickable.contentX + guideFlickable.width) {
+            guideFlickable.contentX = Math.min(guideFlickable.contentWidth - guideFlickable.width,
+                xEnd - guideFlickable.width + 20)
+        }
+    }
+
+    function openProgrammeDetail() {
+        if (!appViewModel) return
+        var progs = appViewModel.epg.programmesForChannel(currentChannelIndex)
+        if (!progs || currentProgrammeIndex < 0 || currentProgrammeIndex >= progs.length) return
+        var prog = progs[currentProgrammeIndex]
+        var row = appViewModel.epg.rowData(currentChannelIndex)
+        if (!row) return
+        progDetailPopup.channelName = row.channelName || ""
+        progDetailPopup.channelLogo = row.channelLogo || ""
+        progDetailPopup.streamUrl = row.streamUrl || ""
+        progDetailPopup.channelId = row.channelId || 0
+        progDetailPopup.epgChannelId = row.epgChannelId || ""
+        progDetailPopup.progTitle = prog.title || ""
+        progDetailPopup.progDescription = prog.description || ""
+        progDetailPopup.progStart = prog.startTime
+        progDetailPopup.progEnd = prog.endTime
+        progDetailPopup.visible = true
+    }
 
     ColumnLayout {
         anchors.fill: parent
@@ -359,7 +421,11 @@ Item {
                     delegate: Rectangle {
                         width: channelColumnWidth
                         height: rowHeight
-                        color: "transparent"
+                        color: (guideFlickable.activeFocus && channelColumnFocused && index === currentChannelIndex)
+                            ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.15) : "transparent"
+                        border.width: (guideFlickable.activeFocus && channelColumnFocused && index === currentChannelIndex) ? 2 : 0
+                        border.color: (guideFlickable.activeFocus && channelColumnFocused && index === currentChannelIndex)
+                            ? Theme.accent : "transparent"
 
                         Rectangle {
                             anchors.bottom: parent.bottom
@@ -437,17 +503,89 @@ Item {
                 id: guideFlickable
                 x: channelColumnWidth
                 y: timeHeaderHeight
-                width: parent.width - channelColumnWidth - 10
+                width: parent.width - channelColumnWidth
                 height: parent.height - timeHeaderHeight
                 contentWidth: timelineContentWidth
                 clip: true
                 flickableDirection: Flickable.HorizontalFlick
                 focus: true
 
-                Keys.onUpPressed: guideListView.contentY = Math.max(0, guideListView.contentY - 80)
-                Keys.onDownPressed: guideListView.contentY = Math.min(guideListView.contentHeight - guideListView.height, guideListView.contentY + 80)
-                Keys.onLeftPressed: contentX = Math.max(0, contentX - 200)
-                Keys.onRightPressed: contentX = Math.min(contentWidth - width, contentX + 200)
+                Keys.onUpPressed: {
+                    if (currentChannelIndex > 0) {
+                        currentChannelIndex--
+                        if (!channelColumnFocused) {
+                            // Clamp programme index to new row
+                            var progs = appViewModel ? appViewModel.epg.programmesForChannel(currentChannelIndex) : null
+                            if (progs) currentProgrammeIndex = Math.min(currentProgrammeIndex, progs.length - 1)
+                            else currentProgrammeIndex = 0
+                            ensureProgrammeVisible()
+                        }
+                        ensureChannelVisible()
+                    }
+                }
+                Keys.onDownPressed: {
+                    if (guideListView.count > 0 && currentChannelIndex < guideListView.count - 1) {
+                        currentChannelIndex++
+                        if (!channelColumnFocused) {
+                            var progs = appViewModel ? appViewModel.epg.programmesForChannel(currentChannelIndex) : null
+                            if (progs) currentProgrammeIndex = Math.min(currentProgrammeIndex, progs.length - 1)
+                            else currentProgrammeIndex = 0
+                            ensureProgrammeVisible()
+                        }
+                        ensureChannelVisible()
+                    }
+                }
+                Keys.onLeftPressed: {
+                    if (channelColumnFocused) {
+                        // Already on channel column — go to sidebar
+                        if (Window.window && Window.window.focusSidebar)
+                            Window.window.focusSidebar()
+                    } else if (currentProgrammeIndex > 0) {
+                        currentProgrammeIndex--
+                        ensureProgrammeVisible()
+                    } else {
+                        // At first programme or no programmes — move to channel column
+                        channelColumnFocused = true
+                    }
+                }
+                Keys.onRightPressed: {
+                    if (channelColumnFocused) {
+                        // Move from channel column into programme grid
+                        channelColumnFocused = false
+                        var progs = appViewModel ? appViewModel.epg.programmesForChannel(currentChannelIndex) : null
+                        if (progs && progs.length > 0) {
+                            currentProgrammeIndex = 0
+                            ensureProgrammeVisible()
+                        }
+                    } else {
+                        var progs2 = appViewModel ? appViewModel.epg.programmesForChannel(currentChannelIndex) : null
+                        if (progs2 && currentProgrammeIndex < progs2.length - 1) {
+                            currentProgrammeIndex++
+                            ensureProgrammeVisible()
+                        }
+                    }
+                }
+                Keys.onReturnPressed: {
+                    if (channelColumnFocused) {
+                        // Play the channel directly
+                        if (appViewModel && currentChannelIndex >= 0 && currentChannelIndex < guideListView.count) {
+                            var row = appViewModel.epg.rowData(currentChannelIndex)
+                            if (row) {
+                                appViewModel.player.play(row.streamUrl, row.channelName,
+                                    row.channelLogo, row.channelId, row.epgChannelId || "")
+                                appViewModel.currentView = "player"
+                            }
+                        }
+                    } else {
+                        openProgrammeDetail()
+                    }
+                }
+                Keys.onPressed: function(event) {
+                    if (event.key === Qt.Key_Enter) {
+                        Keys.onReturnPressed(event)
+                        event.accepted = true
+                    }
+                }
 
                 readonly property real timelineContentWidth: {
                     if (!appViewModel) return 0
@@ -462,8 +600,11 @@ Item {
                     cacheBuffer: rowHeight * 4
 
                     delegate: Item {
+                        id: guideRowDelegate
                         width: guideFlickable.timelineContentWidth
                         height: rowHeight
+
+                        property int channelRowIndex: index
 
                         Rectangle {
                             anchors.bottom: parent.bottom
@@ -483,13 +624,19 @@ Item {
                                     property real progEnd: Math.min(modelData.endTime, appViewModel.epg.timeWindowEnd)
                                     property real duration: progEnd - progStart
 
+                                    readonly property bool isFocused: guideFlickable.activeFocus
+                                        && !channelColumnFocused
+                                        && guideRowDelegate.channelRowIndex === currentChannelIndex
+                                        && index === currentProgrammeIndex
+
                                     x: (progStart - appViewModel.epg.timeWindowStart) * pixelsPerSecond
                                     width: Math.max(duration * pixelsPerSecond - 1, 2)
                                     height: rowHeight - 1
                                     radius: Theme.borderRadiusSmall
-                                    color: progHovered ? Theme.surfaceHover : Theme.surfaceElevated
-                                    border.color: Theme.surfaceBorder
-                                    border.width: 1
+                                    color: isFocused ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.2)
+                                        : progHovered ? Theme.surfaceHover : Theme.surfaceElevated
+                                    border.color: isFocused ? Theme.accent : Theme.surfaceBorder
+                                    border.width: isFocused ? 2 : 1
 
                                     property bool progHovered: false
 
@@ -569,7 +716,6 @@ Item {
                 ScrollBar {
                     id: hScrollBar
                     anchors.left: parent.left
-                    anchors.leftMargin: channelColumnWidth
                     anchors.right: parent.right
                     anchors.bottom: parent.bottom
                     orientation: Qt.Horizontal
@@ -600,12 +746,12 @@ Item {
                 ScrollBar {
                     id: vScrollBar
                     orientation: Qt.Vertical
-                    x: parent.width - 10
-                    y: timeHeaderHeight
-                    height: parent.height - timeHeaderHeight
+                    anchors.right: parent.right
+                    anchors.top: parent.top
+                    anchors.bottom: parent.bottom
                     size: guideListView.height / Math.max(guideListView.contentHeight, 1)
                     position: guideListView.contentY / Math.max(guideListView.contentHeight - guideListView.height, 1)
-                    policy: ScrollBar.AlwaysOn
+                    policy: ScrollBar.AsNeeded
                     active: true
 
                     onPositionChanged: {

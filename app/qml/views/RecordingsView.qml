@@ -2,6 +2,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import QtQuick.Window
 import app.iptvxs
 
 Item {
@@ -9,14 +10,61 @@ Item {
 
     function focusPrimary() {
         if (recordingSectionRepeater && recordingSectionRepeater.count > 0) {
-            var firstSection = recordingSectionRepeater.itemAt(0)
-            if (firstSection && firstSection.focusCardAt) {
-                firstSection.focusCardAt(0)
-                return
+            for (var i = 0; i < recordingSectionRepeater.count; i++) {
+                var section = recordingSectionRepeater.itemAt(i)
+                if (section && section.rowItems && section.rowItems.length > 0) {
+                    section.focusCardAt(section.currentCardIndex >= 0 ? section.currentCardIndex : 0)
+                    return
+                }
             }
         }
         if (newRecButton) {
             newRecButton.forceActiveFocus()
+        }
+    }
+
+    function focusAdjacentSection(sectionIdx, currentCardIdx, delta) {
+        if (!recordingSectionRepeater) return
+        for (var i = sectionIdx + delta;
+             i >= 0 && i < recordingSectionRepeater.count;
+             i += delta) {
+            var section = recordingSectionRepeater.itemAt(i)
+            if (section && section.rowItems && section.rowItems.length > 0) {
+                var targetCard = Math.min(currentCardIdx, section.rowItems.length - 1)
+                section.focusCardAt(targetCard)
+                ensureSectionVisible(section)
+                return
+            }
+        }
+    }
+
+    function ensureSectionVisible(section) {
+        if (!recordingsFlickable || !section) return
+        var sectionY = section.mapToItem(recordingsColumn, 0, 0).y
+        var viewTop = recordingsFlickable.contentY
+        var viewBottom = viewTop + recordingsFlickable.height
+        if (sectionY < viewTop) {
+            recordingsFlickable.contentY = Math.max(0, sectionY - 20)
+        } else if (sectionY + 286 > viewBottom) {
+            recordingsFlickable.contentY = Math.min(
+                recordingsFlickable.contentHeight - recordingsFlickable.height,
+                sectionY + 286 - recordingsFlickable.height + 20)
+        }
+    }
+
+    function ensureCardVisible(section, cardIndex) {
+        if (!section) return
+        var rowFlickable = section.rowFlickable
+        if (!rowFlickable) return
+        var cardX = Theme.spacingMd + cardIndex * (220 + Theme.spacingSm)
+        var viewLeft = rowFlickable.contentX
+        var viewRight = viewLeft + rowFlickable.width
+        if (cardX < viewLeft) {
+            rowFlickable.contentX = Math.max(0, cardX - Theme.spacingMd)
+        } else if (cardX + 220 > viewRight) {
+            rowFlickable.contentX = Math.min(
+                rowFlickable.contentWidth - rowFlickable.width,
+                cardX + 220 - rowFlickable.width + Theme.spacingMd)
         }
     }
 
@@ -116,8 +164,17 @@ Item {
                     }
 
                     Keys.onPressed: function(event) {
-                        if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter || event.key === Qt.Key_Space) {
+                        if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter
+                                || event.key === Qt.Key_Space || event.key === Qt.Key_Select) {
                             manualRecordDialog.open()
+                            event.accepted = true
+                        } else if (event.key === Qt.Key_Down) {
+                            recordingsView.focusPrimary()
+                            event.accepted = true
+                        } else if (event.key === Qt.Key_Left) {
+                            if (Window.window && Window.window.focusSidebar) {
+                                Window.window.focusSidebar()
+                            }
                             event.accepted = true
                         }
                     }
@@ -223,12 +280,17 @@ Item {
                             ? ((appViewModel.recordingList.modelRevision, appViewModel.recordingList.recordingsForSection(sectionName)))
                             : []
                         property int currentCardIndex: 0
+                        property alias rowFlickable: rowListView
 
                         function focusCardAt(i) {
                             if (!rowRepeater || rowItems.length <= 0) return
                             currentCardIndex = Math.max(0, Math.min(i, rowItems.length - 1))
                             var item = rowRepeater.itemAt(currentCardIndex)
-                            if (item) item.forceActiveFocus()
+                            if (item) {
+                                item.forceActiveFocus()
+                                recordingsView.ensureCardVisible(recordingSection, currentCardIndex)
+                                recordingsView.ensureSectionVisible(recordingSection)
+                            }
                         }
 
                         Item {
@@ -329,6 +391,7 @@ Item {
                                         width: 220
                                         height: 272
                                         focus: recordingSection.currentCardIndex === cardIndex
+                                        activeFocusOnTab: true
 
                                         property int cardIndex: index
 
@@ -373,8 +436,9 @@ Item {
                                             appViewModel.recordingList.togglePin(modelData.recordingId)
                                         }
 
-                                        Keys.onPressed: {
-                                            if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter || event.key === Qt.Key_Space) {
+                                        Keys.onPressed: function(event) {
+                                            if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter
+                                                    || event.key === Qt.Key_Space || event.key === Qt.Key_Select) {
                                                 openRecording()
                                                 event.accepted = true
                                             } else if (event.key === Qt.Key_Delete || event.key === Qt.Key_Backspace) {
@@ -383,6 +447,10 @@ Item {
                                             } else if (event.key === Qt.Key_Left) {
                                                 if (cardIndex > 0) {
                                                     recordingSection.focusCardAt(cardIndex - 1)
+                                                } else {
+                                                    if (Window.window && Window.window.focusSidebar) {
+                                                        Window.window.focusSidebar()
+                                                    }
                                                 }
                                                 event.accepted = true
                                             } else if (event.key === Qt.Key_Right) {
@@ -391,22 +459,10 @@ Item {
                                                 }
                                                 event.accepted = true
                                             } else if (event.key === Qt.Key_Up) {
-                                                if (recordingSectionRepeater && recordingSectionRepeater.count > 0) {
-                                                    var prev = Math.max(0, sectionRepeaterIndex - 1)
-                                                    var prevItem = recordingSectionRepeater.itemAt(prev)
-                                                    if (prevItem && prevItem.focusCardAt) {
-                                                        prevItem.focusCardAt(cardIndex)
-                                                    }
-                                                }
+                                                recordingsView.focusAdjacentSection(sectionRepeaterIndex, cardIndex, -1)
                                                 event.accepted = true
                                             } else if (event.key === Qt.Key_Down) {
-                                                if (recordingSectionRepeater && recordingSectionRepeater.count > 0) {
-                                                    var next = Math.min(recordingSectionRepeater.count - 1, sectionRepeaterIndex + 1)
-                                                    var nextItem = recordingSectionRepeater.itemAt(next)
-                                                    if (nextItem && nextItem.focusCardAt) {
-                                                        nextItem.focusCardAt(cardIndex)
-                                                    }
-                                                }
+                                                recordingsView.focusAdjacentSection(sectionRepeaterIndex, cardIndex, 1)
                                                 event.accepted = true
                                             }
                                         }

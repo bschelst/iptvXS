@@ -988,7 +988,8 @@ struct SeriesPrefetchState {
     int64_t serverId;
     QVector<iptvxs::Channel> series;
     std::atomic<int> nextIndex{0};
-    int activeWorkers{0};
+    std::atomic<int> completed{0};
+    std::atomic<int> errors{0};
     static constexpr int kParallelWorkers = 2;
 };
 
@@ -1040,6 +1041,12 @@ void AppViewModel::prefetchNextSeries(std::shared_ptr<SeriesPrefetchState> state
                 if (seriesCacheRepo_ && !info.isEmpty()) {
                     seriesCacheRepo_->store(state->serverId, ch.externalId, ch.name, ch.logoUrl, info);
                 }
+                int done = state->completed.fetch_add(1) + 1;
+                int total = state->series.size();
+                if (done % 100 == 0 || done == total) {
+                    qInfo("Series cache: %d/%d prefetched (%d errors)",
+                          done, total, state->errors.load());
+                }
                 QTimer::singleShot(50, this, [this, state]() {
                     prefetchNextSeries(state);
                 });
@@ -1049,7 +1056,13 @@ void AppViewModel::prefetchNextSeries(std::shared_ptr<SeriesPrefetchState> state
             [this, client, state]
             (const QString &msg) {
                 client->deleteLater();
-                qWarning("Series cache prefetch error: %s", qPrintable(msg));
+                state->errors.fetch_add(1);
+                int done = state->completed.fetch_add(1) + 1;
+                int total = state->series.size();
+                if (done % 100 == 0) {
+                    qInfo("Series cache: %d/%d prefetched (%d errors)",
+                          done, total, state->errors.load());
+                }
                 QTimer::singleShot(100, this, [this, state]() {
                     prefetchNextSeries(state);
                 });
