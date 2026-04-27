@@ -167,6 +167,7 @@ ApplicationWindow {
             } else {
                 viewLoader.setSource(src)
             }
+            focusContentTimer.restart()
         }
         function onDatabaseReadyChanged() {
             if (appViewModel.databaseReady) {
@@ -174,6 +175,12 @@ ApplicationWindow {
                 if (savedTheme) Theme.applyTheme(savedTheme)
             }
         }
+    }
+
+    Timer {
+        id: focusContentTimer
+        interval: 100
+        onTriggered: focusCurrentViewPrimary()
     }
 
     Component.onCompleted: {
