@@ -67,8 +67,19 @@ Item {
             if (item && item.visible && item.rowView && item.rowView.count > 0) {
                 item.rowView.currentIndex = Math.min(currentItemIndex, item.rowView.count - 1)
                 item.rowView.forceActiveFocus()
+                var flickable = netflixFlickable
+                if (flickable && item.y !== undefined) {
+                    var targetY = item.y - flickable.height / 3
+                    flickable.contentY = Math.max(0, Math.min(targetY, flickable.contentHeight - flickable.height))
+                }
+                if (flickable && flickable.contentY + flickable.height > flickable.contentHeight - 400) {
+                    loadMoreVodRows()
+                }
                 return
             }
+        }
+        if (delta > 0) {
+            loadMoreVodRows()
         }
     }
 

@@ -51,8 +51,18 @@ Item {
             if (item && item.visible && item.rowView && item.rowView.count > 0) {
                 item.rowView.currentIndex = Math.min(currentItemIndex, item.rowView.count - 1)
                 item.rowView.forceActiveFocus()
+                if (netflixFlickable && item.y !== undefined) {
+                    var targetY = item.y - netflixFlickable.height / 3
+                    netflixFlickable.contentY = Math.max(0, Math.min(targetY, netflixFlickable.contentHeight - netflixFlickable.height))
+                }
+                if (netflixFlickable && netflixFlickable.contentY + netflixFlickable.height > netflixFlickable.contentHeight - 400) {
+                    loadMoreChannelRows()
+                }
                 return
             }
+        }
+        if (delta > 0) {
+            loadMoreChannelRows()
         }
     }
 
