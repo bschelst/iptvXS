@@ -18,6 +18,9 @@ finish-args:
   - --talk-name=org.freedesktop.ScreenSaver
   - --talk-name=org.gnome.SessionManager
 
+build-options:
+  append-pkg-config-path: /app/lib/pkgconfig:/app/lib64/pkgconfig
+
 modules:
   - name: ffmpeg
     buildsystem: autotools
