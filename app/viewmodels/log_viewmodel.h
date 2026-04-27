@@ -53,7 +53,7 @@ private:
 
     QVector<LogEntry> allEntries_;
     QVector<int> filteredIndices_;
-    QString filterLevel_;
+    QString filterLevel_{QStringLiteral("WARN")};
 
     static constexpr int kMaxEntries = 5000;
 };

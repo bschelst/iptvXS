@@ -1492,7 +1492,7 @@ Item {
                             var nextNum = nextEp.episodeNum || (idx + 2)
                             var nextTitle = episodeDialog.seriesTitle + " - S" + seasonNum + "E" + nextNum
                             if (nextEp.title) nextTitle += " - " + nextEp.title
-                            var nextUrl = vodView.buildEpisodeUrl(nextEp.id, nextEp.ext)
+                            var nextUrl = appViewModel.buildSeriesEpisodeUrl(nextEp.id, nextEp.ext)
                             appViewModel.player.setNextEpisode(nextUrl, nextTitle, nextEp.logoUrl || "", episodeDialog.seriesChannelId)
                         }
 
@@ -1557,7 +1557,7 @@ Item {
                                 visible: {
                                     if (!appViewModel) return false
                                     // Build the episode URL to check history
-                                    var url = vodView.buildEpisodeUrl(modelData.id, modelData.ext)
+                                    var url = appViewModel.buildSeriesEpisodeUrl(modelData.id, modelData.ext)
                                     return appViewModel.hasWatchedUrl(url)
                                 }
                                 text: "\u2713"
@@ -1594,7 +1594,7 @@ Item {
                                         var nextNum = nextEp.episodeNum || (index + 2)
                                         var nextTitle = episodeDialog.seriesTitle + " - S" + seasonNum + "E" + nextNum
                                         if (nextEp.title) nextTitle += " - " + nextEp.title
-                                        var nextUrl = vodView.buildEpisodeUrl(nextEp.id, nextEp.ext)
+                                        var nextUrl = appViewModel.buildSeriesEpisodeUrl(nextEp.id, nextEp.ext)
                                         appViewModel.player.setNextEpisode(nextUrl, nextTitle, nextEp.logoUrl || "", episodeDialog.seriesChannelId)
                                     }
 
