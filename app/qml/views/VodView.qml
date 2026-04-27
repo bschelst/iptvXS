@@ -721,8 +721,14 @@ Item {
                                 keyNavigationEnabled: true
                                 property int rowIndex: index
 
-                                Keys.onReturnPressed: playCurrentItem()
-                                Keys.onEnterPressed: playCurrentItem()
+                                Keys.onReturnPressed: { playCurrentItem(); event.accepted = true }
+                                Keys.onEnterPressed: { playCurrentItem(); event.accepted = true }
+                                Keys.onPressed: function(event) {
+                                    if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter || event.key === Qt.Key_Select) {
+                                        playCurrentItem()
+                                        event.accepted = true
+                                    }
+                                }
                                 Keys.onLeftPressed: {
                                     if (currentIndex > 0) currentIndex--
                                     else vodView.focusCategorySidebar()
