@@ -105,7 +105,6 @@ void XtreamClient::fetchSeriesInfo(const QString &seriesId) {
     query.addQueryItem(QStringLiteral("series_id"), seriesId);
     url.setQuery(query);
 
-    qDebug("Fetching series info: %s", qPrintable(sanitizeUrl(url.toString())));
     auto *reply = http_->get(url);
     connect(reply, &QNetworkReply::finished, this, [this, reply, seriesId]() {
         reply->deleteLater();
@@ -116,8 +115,6 @@ void XtreamClient::fetchSeriesInfo(const QString &seriesId) {
 
         auto data = reply->readAll();
         const auto doc = QJsonDocument::fromJson(data);
-        qDebug("Series info response for %s: %d bytes, isObject=%d isArray=%d isNull=%d",
-               qPrintable(seriesId), data.size(), doc.isObject(), doc.isArray(), doc.isNull());
         if (doc.isNull() || doc.isEmpty()) {
             qWarning("Series info raw response: %s", data.left(500).constData());
             emit errorOccurred(QStringLiteral("Invalid series info response"));
