@@ -49,7 +49,7 @@ modules:
     sources:
       - type: file
         url: https://files.pythonhosted.org/packages/a9/21/9b05698b46f218fc0e118e1f8168395c65c8a2c750ae2bab54fc4bd4e0e8/markupsafe-3.0.3-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl
-        sha256: 42224b37f76b09ef2636947baa6c13c98b9336e5e8db57c012a9cace8d2b44aa
+        sha256: ccfcd093f13f0f0b7fdd0f198b90053bf7b2f02a3927a30e63f3ccc9df56b676
 
   - name: jinja2
     buildsystem: simple
