@@ -920,29 +920,29 @@ Item {
                 }
             }
 
-            // --- Search results / single-category grid (shown when search is active or a specific category is selected) ---
+            // --- Search results / single-category grid (Netflix-style cards) ---
             GridView {
                 id: channelGrid
                 Layout.fillWidth: true
                 Layout.fillHeight: true
-                Layout.leftMargin: Theme.spacingSm
+                Layout.leftMargin: Theme.spacingMd
+                Layout.rightMargin: Theme.spacingSm
                 visible: chSearchInput.text.length > 0 || selectedCategoryId !== 0
-                property int cols: appViewModel ? appViewModel.gridColumns : 2
-                cellWidth: Math.floor(width / cols)
-                cellHeight: 80
+                cellWidth: 210
+                cellHeight: 200
                 clip: true
                 focus: visible
                 keyNavigationEnabled: true
-                highlight: Rectangle {
-                    color: Theme.accent + "30"
-                    radius: Theme.borderRadius
-                }
-                highlightFollowsCurrentItem: true
                 model: appViewModel ? appViewModel.channelList : null
 
-                Keys.onReturnPressed: playCurrentItem()
-                Keys.onEnterPressed: playCurrentItem()
-                Keys.onLeftPressed: channelsView.focusCategorySidebar()
+                Keys.onReturnPressed: function(event) { playCurrentItem(); event.accepted = true }
+                Keys.onEnterPressed: function(event) { playCurrentItem(); event.accepted = true }
+                Keys.onLeftPressed: {
+                    if (currentIndex % Math.floor(width / cellWidth) === 0)
+                        channelsView.focusCategorySidebar()
+                    else
+                        moveCurrentIndexLeft()
+                }
                 Keys.onPressed: function(event) {
                     if (event.key === Qt.Key_Space || event.key === Qt.Key_Select) {
                         playCurrentItem()
@@ -968,152 +968,96 @@ Item {
                         implicitWidth: 6
                         radius: 3
                         color: Theme.accent
-                        opacity: parent.active ? 0.8 : 0.0
-                        Behavior on opacity { NumberAnimation { duration: Theme.animNormal } }
+                        opacity: parent.active ? 0.8 : 0.3
                     }
-                    background: Rectangle {
-                        implicitWidth: 6
-                        color: "transparent"
-                    }
+                    background: Rectangle { implicitWidth: 6; color: "transparent" }
                 }
 
                 delegate: Item {
-                    id: chCardWrapper
-                    width: channelGrid.cellWidth - Theme.spacingSm
-                    height: channelGrid.cellHeight - Theme.spacingSm
+                    width: channelGrid.cellWidth
+                    height: channelGrid.cellHeight
+                    function activate() { chNetCard.activate() }
 
                     Rectangle {
-                        id: chCard
+                        id: chNetCard
                         anchors.fill: parent
-                        anchors.margins: 2
-                        radius: Theme.borderRadiusLarge
-                        color: chHovered ? Theme.surfaceHover : Theme.surfaceElevated
-                        border.color: (chHovered || (channelGrid.activeFocus && channelGrid.currentIndex === index))
-                            ? Theme.accent + "80" : "transparent"
-                        border.width: (chHovered || (channelGrid.activeFocus && channelGrid.currentIndex === index)) ? 2 : 1
+                        anchors.margins: 4
+                        radius: 10
+                        color: Theme.surfaceElevated
+                        clip: true
+                        layer.enabled: true
+                        layer.effect: OpacityMask {
+                            maskSource: Rectangle {
+                                width: chNetCard.width
+                                height: chNetCard.height
+                                radius: chNetCard.radius
+                            }
+                        }
+
                         property bool chHovered: false
 
-                        scale: chHovered ? 1.02 : 1.0
-                        Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
-                        Behavior on color { ColorAnimation { duration: 150 } }
+                        function activate() {
+                            if (appViewModel) {
+                                appViewModel.player.play(model.streamUrl, model.name, model.logoUrl, model.channelId, model.epgChannelId || "")
+                                appViewModel.currentView = "player"
+                            }
+                        }
 
-                        // Logo
-                        Rectangle {
-                            id: chLogo
+                        Image {
+                            id: chGridLogo
+                            anchors.top: parent.top
                             anchors.left: parent.left
-                            anchors.leftMargin: 12
-                            anchors.verticalCenter: parent.verticalCenter
-                            width: 56; height: 56
-                            radius: 10; color: Theme.surface; clip: true
-
-                            Image {
-                                anchors.fill: parent; anchors.margins: 4
-                                source: model.logoUrl || ""
-                                fillMode: Image.PreserveAspectFit
-                                asynchronous: true; visible: status === Image.Ready
-                            }
-                            Image {
-                                anchors.centerIn: parent
-                                width: 28; height: 28
-                                source: "qrc:/images/iptvxs_tray.png"
-                                fillMode: Image.PreserveAspectFit
-                                opacity: 0.4
-                                visible: !model.logoUrl
-                            }
-                        }
-
-                        // Name + type
-                        Column {
-                            anchors.left: chLogo.right
-                            anchors.leftMargin: 12
-                            anchors.right: chBtnRow.left
-                            anchors.rightMargin: 6
-                            anchors.verticalCenter: parent.verticalCenter
-                            spacing: 3
-
-                            Text {
-                                text: model.name
-                                font.pixelSize: Theme.fontSizeSm
-                                font.bold: true
-                                color: Theme.textPrimary
-                                elide: Text.ElideRight
-                                width: parent.width
-                            }
-                            Text {
-                                text: model.type
-                                font.pixelSize: Theme.fontSizeXs
-                                color: Theme.textMuted
-                            }
-                        }
-
-                        // Action buttons (horizontal row)
-                        Row {
-                            id: chBtnRow
                             anchors.right: parent.right
-                            anchors.rightMargin: 10
-                            anchors.verticalCenter: parent.verticalCenter
-                            spacing: 4
-                            visible: chCard.chHovered
-
-                            // Record
-                            Rectangle {
-                                width: 30; height: 30; radius: 15
-                                anchors.verticalCenter: parent.verticalCenter
-                                color: isRec ? Theme.error + "40" : recHov ? Theme.error + "20" : "#15ffffff"
-                                property bool recHov: false
-                                property bool isRec: appViewModel ? appViewModel.recordingList.isChannelRecording(model.channelId) : false
-                                Text { anchors.centerIn: parent; text: parent.isRec ? "\u23F9" : "\u23FA"; font.pixelSize: 14; color: parent.isRec ? Theme.error : parent.recHov ? Theme.error : Theme.textMuted }
-                                MouseArea { anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onEntered: parent.recHov = true; onExited: parent.recHov = false; onClicked: { if (!appViewModel) return; if (parent.isRec) { appViewModel.recordingList.stopChannelRecording(model.channelId); parent.isRec = false } else { appViewModel.recordingList.startNow(model.channelId); parent.isRec = true } } }
-                            }
-
-                            // Add to group
-                            Rectangle {
-                                width: 30; height: 30; radius: 15
-                                anchors.verticalCenter: parent.verticalCenter
-                                color: grpHov ? Theme.accent + "20" : "#15ffffff"
-                                property bool grpHov: false
-                                Text { anchors.centerIn: parent; text: "+"; font.pixelSize: 18; font.bold: true; color: parent.grpHov ? Theme.accent : Theme.textMuted }
-                                MouseArea { anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onEntered: parent.grpHov = true; onExited: parent.grpHov = false; onClicked: { addToGroupPopup.channelId = model.channelId; addToGroupPopup.channelName = model.name; addToGroupPopup.open() } }
-                            }
-
-                            // Favorite
-                            Rectangle {
-                                width: 30; height: 30; radius: 15
-                                anchors.verticalCenter: parent.verticalCenter
-                                color: starHov ? Theme.surfaceHover : "#15ffffff"
-                                property bool starHov: false
-                                property bool isFav: appViewModel ? appViewModel.favoriteList.isFavorite(model.channelId) : false
-                                Text { anchors.centerIn: parent; text: parent.isFav ? "\u2B50" : "\u2606"; font.pixelSize: 16; color: parent.isFav ? Theme.warning : Theme.textMuted }
-                                MouseArea { anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onEntered: parent.starHov = true; onExited: parent.starHov = false; onClicked: { if (appViewModel) { appViewModel.favoriteList.toggleFavorite(model.channelId); parent.isFav = !parent.isFav } } }
-                            }
+                            height: parent.height - 50
+                            source: model.logoUrl || ""
+                            fillMode: Image.PreserveAspectFit
+                            asynchronous: true
+                            visible: status === Image.Ready
                         }
 
-                        // Favorite indicator (always visible when favorited)
+                        Image {
+                            anchors.centerIn: parent
+                            anchors.verticalCenterOffset: -20
+                            width: parent.width * 0.4; height: parent.width * 0.4
+                            source: "qrc:/images/iptvxs_tray.png"
+                            fillMode: Image.PreserveAspectFit
+                            opacity: 0.15
+                            visible: !chGridLogo.visible
+                        }
+
                         Text {
-                            visible: !chCard.chHovered && appViewModel && appViewModel.favoriteList.isFavorite(model.channelId)
+                            anchors.left: parent.left
                             anchors.right: parent.right
-                            anchors.rightMargin: 10
-                            anchors.verticalCenter: parent.verticalCenter
-                            text: "\u2B50"
-                            font.pixelSize: 14
-                            opacity: 0.6
+                            anchors.bottom: parent.bottom
+                            anchors.leftMargin: 8
+                            anchors.rightMargin: 8
+                            anchors.bottomMargin: 8
+                            text: model.name
+                            font.pixelSize: Theme.fontSizeXs
+                            font.bold: true
+                            color: Theme.textPrimary
+                            elide: Text.ElideRight
+                            maximumLineCount: 2
+                            wrapMode: Text.Wrap
                         }
 
                         MouseArea {
-                            anchors.left: chLogo.left
-                            anchors.right: chBtnRow.visible ? chBtnRow.left : parent.right
-                            anchors.top: parent.top
-                            anchors.bottom: parent.bottom
+                            anchors.fill: parent
                             hoverEnabled: true
                             cursorShape: Qt.PointingHandCursor
-                            onEntered: chCard.chHovered = true
-                            onExited: chCard.chHovered = false
-                            onClicked: {
-                                if (appViewModel) {
-                                    appViewModel.player.play(model.streamUrl, model.name, model.logoUrl, model.channelId, model.epgChannelId || "")
-                                    appViewModel.currentView = "player"
-                                }
-                            }
+                            onEntered: chNetCard.chHovered = true
+                            onExited: chNetCard.chHovered = false
+                            onClicked: chNetCard.activate()
+                        }
+
+                        Rectangle {
+                            anchors.fill: parent
+                            radius: chNetCard.radius
+                            color: "transparent"
+                            border.color: (chNetCard.chHovered || (channelGrid.activeFocus && channelGrid.currentIndex === index))
+                                ? Theme.accent : "transparent"
+                            border.width: 2
+                            z: 100
                         }
                     }
                 }
