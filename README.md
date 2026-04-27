@@ -9,6 +9,10 @@
 </p>
 
 <p align="center">
+  <em>This project is under active development. Expect bugs, incomplete features, and rough edges. Testing is ongoing — use at your own risk.</em>
+</p>
+
+<p align="center">
   <a href="https://github.com/bschelst/iptvXS/releases/latest"><img src="https://img.shields.io/github/v/release/bschelst/iptvXS?style=for-the-badge&color=blue" alt="Latest Release" /></a>
 </p>
 
@@ -108,7 +112,7 @@
 - Full **D-pad/controller navigation** throughout the entire UI
 - **External controller support** — USB and Bluetooth gamepads via SDL2 HIDAPI
 - **D-pad debounce** (120ms) prevents cursor double-jumping
-- **GameScope Google Drive auth** — copyable auth URL dialog when browser unavailable
+- **GameScope Google Drive auth** — Steam overlay browser integration with hint dialog
 - Optimized for Steam Deck's display and input
 - **Screensaver inhibition** during video playback
 - Available as a **Flatpak** for easy installation

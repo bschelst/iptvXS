@@ -74,6 +74,9 @@ ApplicationWindow {
                     var view = appViewModel ? appViewModel.currentView : "home"
                     if (view === "player") {
                         if (appViewModel && appViewModel.player.isLive) return "Live TV"
+                        var prev = appViewModel ? appViewModel.previousView() : ""
+                        if (prev === "vod_series") return "VOD Series"
+                        if (prev === "vod_movies") return "VOD Movies"
                         return "Now Playing"
                     }
                     return viewTitles[view] || "Home"

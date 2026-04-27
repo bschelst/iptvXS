@@ -156,7 +156,7 @@ Item {
                         visible: model.enabled
                         clip: true
                         color: activeServerId === model.serverId
-                            ? Theme.accent + "25" : srvHov ? Theme.surfaceHover : "transparent"
+                            ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.15) : srvHov ? Theme.surfaceHover : "transparent"
                         border.width: serverPicker.activeFocus && serverPicker.currentIndex === index ? 2 : 0
                         border.color: serverPicker.activeFocus && serverPicker.currentIndex === index
                             ? Theme.accent
@@ -968,7 +968,7 @@ Item {
                 focus: visible
                 keyNavigationEnabled: true
                 highlight: Rectangle {
-                    color: Theme.accent + "30"
+                    color: Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.19)
                     radius: Theme.borderRadius
                 }
                 highlightFollowsCurrentItem: true
@@ -1124,7 +1124,7 @@ Item {
                 focus: visible
                 keyNavigationEnabled: true
                 highlight: Rectangle {
-                    color: Theme.accent + "30"
+                    color: Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.19)
                     radius: Theme.borderRadius
                 }
                 highlightFollowsCurrentItem: true
@@ -1180,7 +1180,7 @@ Item {
                         radius: Theme.borderRadiusLarge
                         color: searchItemHov ? Theme.surfaceHover : Theme.surfaceElevated
                         border.color: (searchItemHov || (vodGrid.activeFocus && vodGrid.currentIndex === index))
-                            ? Theme.accent + "80" : "transparent"
+                            ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.50) : "transparent"
                         border.width: (searchItemHov || (vodGrid.activeFocus && vodGrid.currentIndex === index)) ? 2 : 1
 
                         scale: searchItemHov ? 1.02 : 1.0
@@ -1458,7 +1458,7 @@ Item {
                     spacing: 2
                     focus: true
                     keyNavigationEnabled: true
-                    highlight: Rectangle { color: Theme.accent + "20"; radius: Theme.borderRadiusSmall }
+                    highlight: Rectangle { color: Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.13); radius: Theme.borderRadiusSmall }
                     highlightFollowsCurrentItem: true
                     model: episodeDialog.seasonsData.length > 0
                         ? episodeDialog.seasonsData[episodeDialog.selectedSeason].episodes

@@ -153,17 +153,37 @@ Item {
 
                     background: Rectangle {
                         x: seekSlider.leftPadding
-                        y: seekSlider.topPadding + seekSlider.availableHeight / 2 - 2
+                        y: seekSlider.topPadding + seekSlider.availableHeight / 2 - 3
                         width: seekSlider.availableWidth
-                        height: 4
-                        radius: 2
+                        height: 6
+                        radius: 3
                         color: "#40ffffff"
 
                         Rectangle {
                             width: seekSlider.visualPosition * parent.width
                             height: parent.height
-                            radius: 2
+                            radius: 3
                             color: Theme.accent
+                        }
+
+                        Text {
+                            anchors.left: parent.left
+                            anchors.top: parent.bottom
+                            anchors.topMargin: 2
+                            text: appViewModel ? appViewModel.player.formatTime(seekSlider.value) : ""
+                            font.pixelSize: 10
+                            color: "#aaffffff"
+                            visible: !appViewModel || !appViewModel.player.isLive
+                        }
+
+                        Text {
+                            anchors.right: parent.right
+                            anchors.top: parent.bottom
+                            anchors.topMargin: 2
+                            text: appViewModel ? appViewModel.player.formatTime(appViewModel.player.duration) : ""
+                            font.pixelSize: 10
+                            color: "#60ffffff"
+                            visible: !appViewModel || !appViewModel.player.isLive
                         }
                     }
 
@@ -174,7 +194,7 @@ Item {
                         height: 14
                         radius: 7
                         color: seekSlider.pressed ? Theme.accentHover : Theme.accent
-                        visible: seekSlider.hovered || seekSlider.pressed
+                        visible: seekSlider.hovered || seekSlider.pressed || seekSlider.activeFocus
                     }
                 }
 
@@ -184,7 +204,7 @@ Item {
 
                     PlayerButton {
                         id: playPauseBtn
-                        text: appViewModel && appViewModel.player.paused ? "\u25B6" : "II"
+                        text: appViewModel && appViewModel.player.paused ? "\u25B7" : "II"
                         btnSize: 36
                         iconSize: 16
                         onClicked: {
@@ -332,7 +352,7 @@ Item {
                         height: 44
                         radius: Theme.borderRadius
                         color: {
-                            if (appViewModel && appViewModel.player.muted) return Theme.error + "60"
+                            if (appViewModel && appViewModel.player.muted) return Qt.rgba(Theme.error.r, Theme.error.g, Theme.error.b, 0.38)
                             return muteHov ? "#40ffffff" : "transparent"
                         }
                         property bool muteHov: false
@@ -733,7 +753,7 @@ Item {
                             var filtered = []
                             for (var i = 0; i < tracks.length; i++) {
                                 var t = tracks[i]
-                                if (t.selected || t.external
+                                if (t.selected
                                     || playerView.langMatches(t.lang, primary)
                                     || playerView.langMatches(t.lang, secondary)
                                     || !t.lang)
@@ -747,9 +767,10 @@ Item {
                             width: subTrackList.width
                             height: 36
                             radius: 6
-                            color: modelData.selected ? Theme.accent + "50" : stHov ? Theme.accent + "25" : "#15ffffff"
-                            border.width: modelData.selected ? 1 : 0
-                            border.color: Theme.accent
+                            color: modelData.selected ? Theme.accent
+                                                     : stHov ? "#30ffffff"
+                                                              : "#15ffffff"
+                            border.width: 0
                             property bool stHov: false
 
                             Behavior on color { ColorAnimation { duration: 150 } }
@@ -760,9 +781,9 @@ Item {
                                 anchors.rightMargin: 10
 
                                 Text {
-                                    text: modelData.selected ? "●" : "○"
+                                    text: modelData.selected ? "✓" : "○"
                                     font.pixelSize: 12
-                                    color: modelData.selected ? Theme.accent : stHov ? "#bbffffff" : "#60ffffff"
+                                    color: modelData.selected ? Theme.textOnAccent : stHov ? "#bbffffff" : "#60ffffff"
                                 }
 
                                 Text {
@@ -777,7 +798,7 @@ Item {
                                     }
                                     font.pixelSize: Theme.fontSizeXs
                                     font.bold: modelData.selected
-                                    color: modelData.selected ? "#ffffff" : stHov ? "#eeffffff" : "#ccffffff"
+                                    color: modelData.selected ? Theme.textOnAccent : stHov ? "#eeffffff" : "#ccffffff"
                                     elide: Text.ElideRight
                                     Layout.fillWidth: true
                                 }
@@ -942,9 +963,10 @@ Item {
                             Layout.fillWidth: true
                             height: 36
                             radius: 4
-                            color: modelData.selected ? Theme.accent + "50" : atHov ? Theme.accent + "25" : "#15ffffff"
-                            border.width: modelData.selected ? 1 : 0
-                            border.color: Theme.accent
+                            color: modelData.selected ? Theme.accent
+                                                     : atHov ? "#30ffffff"
+                                                              : "#15ffffff"
+                            border.width: 0
                             property bool atHov: false
 
                             Behavior on color { ColorAnimation { duration: 150 } }
@@ -955,9 +977,9 @@ Item {
                                 anchors.rightMargin: 10
 
                                 Text {
-                                    text: modelData.selected ? "●" : "○"
+                                    text: modelData.selected ? "✓" : "○"
                                     font.pixelSize: 12
-                                    color: modelData.selected ? Theme.accent : atHov ? "#bbffffff" : "#60ffffff"
+                                    color: modelData.selected ? Theme.textOnAccent : atHov ? "#bbffffff" : "#60ffffff"
                                 }
 
                                 Text {
@@ -971,7 +993,7 @@ Item {
                                     }
                                     font.pixelSize: Theme.fontSizeXs
                                     font.bold: modelData.selected
-                                    color: modelData.selected ? "#ffffff" : atHov ? "#eeffffff" : "#ccffffff"
+                                    color: modelData.selected ? Theme.textOnAccent : atHov ? "#eeffffff" : "#ccffffff"
                                     elide: Text.ElideRight
                                     Layout.fillWidth: true
                                 }
@@ -1026,7 +1048,7 @@ Item {
             height: autoNextContent.implicitHeight + Theme.spacingMd * 2
             radius: Theme.borderRadiusLarge
             color: "#dd1a1a2e"
-            border.color: Theme.accent + "60"
+            border.color: Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.38)
             border.width: 1
             z: 30
 

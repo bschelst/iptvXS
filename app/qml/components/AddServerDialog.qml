@@ -65,7 +65,7 @@ Dialog {
                     Layout.preferredHeight: 44
                     radius: Theme.borderRadius
                     color: serverType === modelData.value
-                        ? Theme.accent + "30"
+                        ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.19)
                         : typeHovered ? Theme.surfaceHover : Theme.surface
                     border.color: serverType === modelData.value
                         ? Theme.accent : Theme.surfaceBorder

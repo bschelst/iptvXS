@@ -229,6 +229,27 @@ std::vector<Database::Migration> Database::migrations() const {
              }
              return true;
          }},
+        {12, "Add series_info_cache table", [](QSqlDatabase &db) -> bool {
+             QSqlQuery q(db);
+             const QStringList statements = {
+                 R"(CREATE TABLE IF NOT EXISTS series_info_cache (
+                     server_id INTEGER NOT NULL,
+                     series_id TEXT NOT NULL,
+                     series_name TEXT NOT NULL,
+                     logo_url TEXT DEFAULT '',
+                     data TEXT NOT NULL,
+                     updated_at INTEGER NOT NULL DEFAULT (strftime('%s','now')),
+                     PRIMARY KEY (server_id, series_id)
+                 ))",
+             };
+
+             for (const auto &sql : statements) {
+                 if (!q.exec(sql)) {
+                     return false;
+                 }
+             }
+             return true;
+         }},
     };
 }
 

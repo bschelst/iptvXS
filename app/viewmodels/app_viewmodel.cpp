@@ -5,6 +5,7 @@
 #include <QDateTime>
 #include <QDesktopServices>
 #include <QJsonArray>
+#include <QProcess>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QDir>
@@ -81,6 +82,7 @@ bool AppViewModel::initialize(const QString &dbPath) {
             });
     epgVm_->setHttpClient(httpClient_.get());
     categorySettingsRepo_ = std::make_unique<iptvxs::CategorySettingsRepository>(db, this);
+    seriesCacheRepo_ = std::make_unique<iptvxs::SeriesCacheRepository>(db, this);
     categoryListVm_->setRepository(categoryRepo_.get());
     categoryListVm_->setCategorySettingsRepository(categorySettingsRepo_.get());
     channelListVm_->setRepository(channelRepo_.get());
@@ -222,11 +224,12 @@ bool AppViewModel::initialize(const QString &dbPath) {
 
     connect(gdriveAuth_.get(), &iptvxs::GDriveAuth::openUrlRequested, this,
             [this](const QUrl &url) {
-                // Try the system browser first; emit the URL as a signal so QML
-                // can show a fallback dialog (needed on Steam Deck GameScope where
-                // QDesktopServices::openUrl() silently fails).
-                QDesktopServices::openUrl(url);
-                emit authUrlReady(url.toString());
+                const bool gamescope = qEnvironmentVariableIsSet("GAMESCOPE_WAYLAND_DISPLAY");
+                if (gamescope) {
+                    emit showAuthHint(url.toString());
+                } else {
+                    QDesktopServices::openUrl(url);
+                }
             });
 
     speedTestVm_->setRunner(speedTestRunner_.get());
@@ -249,6 +252,8 @@ bool AppViewModel::initialize(const QString &dbPath) {
                 if (categoryListVm_->serverId() == serverId) {
                     categoryListVm_->refresh();
                 }
+                // Pre-populate series episode cache in background
+                prefetchSeriesCache(serverId);
             });
 
     connect(playerVm_, &PlayerViewModel::streamRecordingStopped, this,
@@ -269,17 +274,19 @@ bool AppViewModel::initialize(const QString &dbPath) {
 
     connect(playerVm_, &PlayerViewModel::stateChanged, this, [this]() {
         if (playerVm_->playing() && historyRepo_) {
-            if (playerVm_->channelId() > 0) {
-                historyRepo_->addEntry(playerVm_->channelId());
-            } else if (!playerVm_->channelName().isEmpty()) {
-                auto url = playerVm_->currentUrl();
-                QString type;
-                if (playerVm_->isLive()) type = QStringLiteral("live");
-                else if (url.contains(QStringLiteral("/series/"))) type = QStringLiteral("series");
-                else type = QStringLiteral("vod");
-                historyRepo_->addEntry(playerVm_->channelName(), playerVm_->channelLogo(),
-                                        type, url);
-            }
+            auto url = playerVm_->currentUrl();
+            auto name = playerVm_->channelName();
+            if (name.isEmpty()) return;
+
+            QString type;
+            if (url.contains(QStringLiteral("/series/"))) type = QStringLiteral("series");
+            else if (url.contains(QStringLiteral("/movie/"))) type = QStringLiteral("vod");
+            else if (playerVm_->isLive()) type = QStringLiteral("live");
+            else type = QStringLiteral("vod");
+
+            qInfo("History: adding '%s' type=%s url=%s",
+                  qPrintable(name), qPrintable(type), qPrintable(url.left(80)));
+            historyRepo_->addEntry(name, playerVm_->channelLogo(), type, url);
         }
     });
 
@@ -896,43 +903,35 @@ void AppViewModel::fetchSeriesEpisodes(int64_t serverId, const QString &seriesId
     seriesUsername_ = srv->username;
     seriesPassword_ = srv->password;
 
+    // Try cache first
+    if (seriesCacheRepo_) {
+        auto cached = seriesCacheRepo_->find(serverId, seriesId);
+        if (cached) {
+            auto seasons = parseSeriesEpisodes(*cached, seriesName, logoUrl);
+            if (!seasons.isEmpty()) {
+                emit seriesEpisodesReady(seriesName, seasons);
+                return;
+            }
+        }
+    }
+
+    // Cache miss — fetch from API and cache the result
     auto *client = new iptvxs::XtreamClient(
         httpClient_.get(), srv->url, srv->username, srv->password, this);
 
     connect(client, &iptvxs::XtreamClient::seriesInfoReady, this,
-            [this, client, seriesName, logoUrl](const QString &, const QJsonObject &info) {
+            [this, client, serverId, seriesId, seriesName, logoUrl](const QString &, const QJsonObject &info) {
                 client->deleteLater();
 
-                auto episodes = info.value(QStringLiteral("episodes")).toObject();
-                if (episodes.isEmpty()) {
-                    qWarning("No episodes found for series '%s'", qPrintable(seriesName));
-                    return;
+                // Cache the raw response
+                if (seriesCacheRepo_) {
+                    seriesCacheRepo_->store(serverId, seriesId, seriesName, logoUrl, info);
                 }
 
-                QVariantList seasons;
-                auto seasonKeys = episodes.keys();
-                std::sort(seasonKeys.begin(), seasonKeys.end(),
-                          [](const QString &a, const QString &b) { return a.toInt() < b.toInt(); });
-
-                for (const auto &seasonKey : seasonKeys) {
-                    QVariantMap seasonMap;
-                    seasonMap[QStringLiteral("season")] = seasonKey;
-
-                    QVariantList epList;
-                    auto seasonEps = episodes.value(seasonKey).toArray();
-                    for (const auto &epVal : seasonEps) {
-                        auto ep = epVal.toObject();
-                        QVariantMap epMap;
-                        auto epId = ep.value(QStringLiteral("id")).toVariant().toString();
-                        epMap[QStringLiteral("id")] = epId;
-                        epMap[QStringLiteral("title")] = ep.value(QStringLiteral("title")).toString();
-                        epMap[QStringLiteral("episodeNum")] = ep.value(QStringLiteral("episode_num")).toVariant().toString();
-                        epMap[QStringLiteral("ext")] = ep.value(QStringLiteral("container_extension")).toString(QStringLiteral("mkv"));
-                        epMap[QStringLiteral("logoUrl")] = logoUrl;
-                        epList.append(epMap);
-                    }
-                    seasonMap[QStringLiteral("episodes")] = epList;
-                    seasons.append(seasonMap);
+                auto seasons = parseSeriesEpisodes(info, seriesName, logoUrl);
+                if (seasons.isEmpty()) {
+                    qWarning("No episodes found for series '%s'", qPrintable(seriesName));
+                    return;
                 }
 
                 emit seriesEpisodesReady(seriesName, seasons);
@@ -945,6 +944,118 @@ void AppViewModel::fetchSeriesEpisodes(int64_t serverId, const QString &seriesId
             });
 
     client->fetchSeriesInfo(seriesId);
+}
+
+QVariantList AppViewModel::parseSeriesEpisodes(const QJsonObject &info,
+                                                const QString &seriesName,
+                                                const QString &logoUrl) {
+    auto episodes = info.value(QStringLiteral("episodes")).toObject();
+    if (episodes.isEmpty()) {
+        return {};
+    }
+
+    QVariantList seasons;
+    auto seasonKeys = episodes.keys();
+    std::sort(seasonKeys.begin(), seasonKeys.end(),
+              [](const QString &a, const QString &b) { return a.toInt() < b.toInt(); });
+
+    for (const auto &seasonKey : seasonKeys) {
+        QVariantMap seasonMap;
+        seasonMap[QStringLiteral("season")] = seasonKey;
+
+        QVariantList epList;
+        auto seasonEps = episodes.value(seasonKey).toArray();
+        for (const auto &epVal : seasonEps) {
+            auto ep = epVal.toObject();
+            QVariantMap epMap;
+            auto epId = ep.value(QStringLiteral("id")).toVariant().toString();
+            epMap[QStringLiteral("id")] = epId;
+            epMap[QStringLiteral("title")] = ep.value(QStringLiteral("title")).toString();
+            epMap[QStringLiteral("episodeNum")] = ep.value(QStringLiteral("episode_num")).toVariant().toString();
+            epMap[QStringLiteral("ext")] = ep.value(QStringLiteral("container_extension")).toString(QStringLiteral("mkv"));
+            epMap[QStringLiteral("logoUrl")] = logoUrl;
+            epList.append(epMap);
+        }
+        seasonMap[QStringLiteral("episodes")] = epList;
+        seasons.append(seasonMap);
+    }
+
+    Q_UNUSED(seriesName)
+    return seasons;
+}
+
+struct SeriesPrefetchState {
+    int64_t serverId;
+    QVector<iptvxs::Channel> series;
+    std::atomic<int> nextIndex{0};
+    int activeWorkers{0};
+    static constexpr int kParallelWorkers = 2;
+};
+
+void AppViewModel::prefetchSeriesCache(int64_t serverId) {
+    if (!channelRepo_ || !serverRepo_ || !seriesCacheRepo_ || !httpClient_) return;
+
+    auto srv = serverRepo_->findById(serverId);
+    if (!srv || srv->type != QStringLiteral("xtream")) return;
+
+    auto seriesChannels = channelRepo_->findByServerAndType(serverId, QStringLiteral("series"), -1, 0);
+    if (seriesChannels.isEmpty()) return;
+
+    qInfo("Pre-fetching series cache for %lld series on server %lld",
+          static_cast<long long>(seriesChannels.size()), static_cast<long long>(serverId));
+
+    auto state = std::make_shared<SeriesPrefetchState>();
+    state->serverId = serverId;
+    state->series = std::move(seriesChannels);
+
+    for (int i = 0; i < SeriesPrefetchState::kParallelWorkers; ++i) {
+        prefetchNextSeries(state);
+    }
+}
+
+void AppViewModel::prefetchNextSeries(std::shared_ptr<SeriesPrefetchState> state) {
+    if (!serverRepo_ || !httpClient_ || !seriesCacheRepo_) return;
+
+    int index = state->nextIndex.fetch_add(1);
+    if (index >= state->series.size()) return;
+
+    const auto &ch = state->series.at(index);
+    if (ch.externalId.isEmpty()) {
+        QMetaObject::invokeMethod(this, [this, state]() {
+            prefetchNextSeries(state);
+        }, Qt::QueuedConnection);
+        return;
+    }
+
+    auto srv = serverRepo_->findById(state->serverId);
+    if (!srv) return;
+
+    auto *client = new iptvxs::XtreamClient(
+        httpClient_.get(), srv->url, srv->username, srv->password, this);
+
+    connect(client, &iptvxs::XtreamClient::seriesInfoReady, this,
+            [this, client, state, ch]
+            (const QString &, const QJsonObject &info) {
+                client->deleteLater();
+                if (seriesCacheRepo_ && !info.isEmpty()) {
+                    seriesCacheRepo_->store(state->serverId, ch.externalId, ch.name, ch.logoUrl, info);
+                }
+                QTimer::singleShot(50, this, [this, state]() {
+                    prefetchNextSeries(state);
+                });
+            });
+
+    connect(client, &iptvxs::XtreamClient::errorOccurred, this,
+            [this, client, state]
+            (const QString &msg) {
+                client->deleteLater();
+                qWarning("Series cache prefetch error: %s", qPrintable(msg));
+                QTimer::singleShot(100, this, [this, state]() {
+                    prefetchNextSeries(state);
+                });
+            });
+
+    client->fetchSeriesInfo(ch.externalId);
 }
 
 void AppViewModel::playChannelById(int64_t channelId) {
@@ -1109,6 +1220,14 @@ void AppViewModel::openGitHub() {
     QDesktopServices::openUrl(QUrl(QStringLiteral("https://github.com/bschelst/iptvXS")));
 }
 
+void AppViewModel::openAuthUrlInSteamBrowser(const QString &url) {
+    const QString steamUrl = QStringLiteral("steam://openurl/") + url;
+    QProcess::startDetached(QStringLiteral("flatpak-spawn"),
+                            {QStringLiteral("--host"),
+                             QStringLiteral("steam"),
+                             steamUrl});
+}
+
 void AppViewModel::resetDatabase() {
     if (!database_) return;
 
@@ -1132,6 +1251,7 @@ void AppViewModel::resetDatabase() {
         historyRepo_ = std::make_unique<iptvxs::HistoryRepository>(db, this);
         groupRepo_ = std::make_unique<iptvxs::ChannelGroupRepository>(db, this);
         categorySettingsRepo_ = std::make_unique<iptvxs::CategorySettingsRepository>(db, this);
+        seriesCacheRepo_ = std::make_unique<iptvxs::SeriesCacheRepository>(db, this);
 
         serverListVm_->setRepositories(serverRepo_.get(), categoryRepo_.get(),
                                        channelRepo_.get());

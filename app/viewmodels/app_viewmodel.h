@@ -1,6 +1,9 @@
 // iptvXS Project - Schelstraete Bart - https://iptvxs.schelstraete.org
 #pragma once
 
+#include <atomic>
+#include <memory>
+#include <QJsonObject>
 #include <QObject>
 #include <QQmlEngine>
 #include <QString>
@@ -23,6 +26,7 @@
 #include "iptvxs/net/speed_test_runner.h"
 #include "iptvxs/db/category_settings_repository.h"
 #include "iptvxs/db/channel_group_repository.h"
+#include "iptvxs/db/series_cache_repository.h"
 #include "iptvxs/cache/logo_cache.h"
 
 #include "category_list_viewmodel.h"
@@ -234,7 +238,10 @@ signals:
     void seriesEpisodesReady(const QString &seriesName, const QVariantList &seasons);
     void latestVersionChanged();
     void logoCacheMaxMbChanged();
-    void authUrlReady(const QString &url);
+    void showAuthHint(const QString &url);
+
+public slots:
+    void openAuthUrlInSteamBrowser(const QString &url);
 
 private:
     std::unique_ptr<iptvxs::Database> database_;
@@ -277,6 +284,11 @@ private:
     bool autoSyncInProgress_{false};
     bool autoSyncEpgInProgress_{false};
 
+    static QVariantList parseSeriesEpisodes(const QJsonObject &info,
+                                              const QString &seriesName,
+                                              const QString &logoUrl);
+    void prefetchSeriesCache(int64_t serverId);
+    void prefetchNextSeries(std::shared_ptr<struct SeriesPrefetchState> state);
     void rescheduleAutoSyncChannels();
     void rescheduleAutoSyncEpg();
     void advanceAutoSyncToNextEnabled();
@@ -289,6 +301,7 @@ private:
     std::unique_ptr<iptvxs::HistoryRepository> historyRepo_;
     std::unique_ptr<iptvxs::ChannelGroupRepository> groupRepo_;
     std::unique_ptr<iptvxs::LogoCache> logoCache_;
+    std::unique_ptr<iptvxs::SeriesCacheRepository> seriesCacheRepo_;
     std::unique_ptr<iptvxs::OpenSubtitlesClient> subtitlesClient_;
     QVector<iptvxs::SubtitleResult> lastSubResults_;
     QString seriesServerUrl_;

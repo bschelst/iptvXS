@@ -110,7 +110,7 @@ Item {
                         Rectangle {
                             anchors.fill: parent
                             color: selectedGroupId === model.gid
-                                ? Theme.accent + "25" : grpHov ? Theme.surfaceHover : "transparent"
+                                ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.15) : grpHov ? Theme.surfaceHover : "transparent"
                             property bool grpHov: false
 
                             Rectangle {
@@ -161,7 +161,7 @@ Item {
                                 anchors.rightMargin: Theme.spacingSm
                                 anchors.verticalCenter: parent.verticalCenter
                                 width: 22; height: 22; radius: 11
-                                color: delGrpHov ? Theme.error + "30" : "transparent"
+                                color: delGrpHov ? Qt.rgba(Theme.error.r, Theme.error.g, Theme.error.b, 0.19) : "transparent"
                                 property bool delGrpHov: false
 
                                 Text {
@@ -298,7 +298,7 @@ Item {
                     x: 12
                     radius: 8
                     color: memHov ? Theme.surfaceHover : Theme.surfaceElevated
-                    border.color: memHov ? Theme.accent + "40" : "transparent"
+                    border.color: memHov ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.25) : "transparent"
                     border.width: 1
                     property bool memHov: false
 
@@ -355,7 +355,7 @@ Item {
                         anchors.rightMargin: 12
                         anchors.verticalCenter: parent.verticalCenter
                         width: 32; height: 32; radius: 16
-                        color: mDelHov ? Theme.error + "30" : "transparent"
+                        color: mDelHov ? Qt.rgba(Theme.error.r, Theme.error.g, Theme.error.b, 0.19) : "transparent"
                         property bool mDelHov: false
 
                         Text {
@@ -680,8 +680,8 @@ Item {
                             anchors.verticalCenter: parent.verticalCenter
                             width: 70; height: 28; radius: 6
                             color: inGrp
-                                ? (srBtnHov ? Theme.error : Theme.error + "20")
-                                : (srBtnHov ? Theme.accent : Theme.accent + "20")
+                                ? (srBtnHov ? Theme.error : Qt.rgba(Theme.error.r, Theme.error.g, Theme.error.b, 0.13))
+                                : (srBtnHov ? Theme.accent : Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.13))
                             property bool srBtnHov: false
 
                             Text {

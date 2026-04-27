@@ -133,7 +133,7 @@ Item {
                         visible: model.enabled
                         clip: true
                         color: activeServerId === model.serverId
-                            ? Theme.accent + "25" : srvHovered ? Theme.surfaceHover : "transparent"
+                            ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.15) : srvHovered ? Theme.surfaceHover : "transparent"
                         border.width: serverPicker.activeFocus && serverPicker.currentIndex === index ? 2 : 0
                         border.color: serverPicker.activeFocus && serverPicker.currentIndex === index
                             ? Theme.accent
@@ -1288,7 +1288,7 @@ Item {
                         width: saveLabel.implicitWidth + 20
                         height: 32
                         radius: Theme.borderRadius
-                        color: saveHov ? Theme.accent : Theme.accent + "CC"
+                        color: saveHov ? Theme.accent : Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.80)
                         property bool saveHov: false
 
                         Text { id: saveLabel; anchors.centerIn: parent; text: "Save"; font.pixelSize: Theme.fontSizeSm; font.bold: true; color: Theme.textOnAccent }
@@ -1413,7 +1413,7 @@ Item {
                                 Layout.preferredWidth: addRemLabel.implicitWidth + 16
                                 Layout.preferredHeight: 24
                                 radius: 12
-                                color: model.inGroup ? Theme.error + "30" : Theme.accent + "30"
+                                color: model.inGroup ? Qt.rgba(Theme.error.r, Theme.error.g, Theme.error.b, 0.19) : Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.19)
                                 border.color: model.inGroup ? Theme.error : Theme.accent
                                 border.width: 1
 

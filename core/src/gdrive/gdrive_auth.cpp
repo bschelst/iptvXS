@@ -1,6 +1,7 @@
 // iptvXS Project - Schelstraete Bart - https://iptvxs.schelstraete.org
 #include "iptvxs/gdrive/gdrive_auth.h"
 
+#include <QCoreApplication>
 #include <QCryptographicHash>
 #include <QDateTime>
 #include <QJsonDocument>
@@ -9,11 +10,21 @@
 #include <QNetworkReply>
 #include <QNetworkRequest>
 #include <QRandomGenerator>
+#include <QSysInfo>
 #include <QTcpSocket>
 #include <QUrl>
 #include <QUrlQuery>
 
 namespace {
+
+QByteArray gdriveUserAgent() {
+    auto version = QCoreApplication::applicationVersion();
+    return QStringLiteral("IPTVXs/%1 (%2 %3)")
+        .arg(version.isEmpty() ? QStringLiteral("0.3.0") : version,
+             QSysInfo::productType(),
+             QSysInfo::productVersion())
+        .toUtf8();
+}
 
 // RFC 7636 §4.1 — PKCE code_verifier: 43-128 chars of unreserved URL-safe chars.
 QString makeRandomVerifier(int len = 64) {
@@ -96,7 +107,7 @@ void GDriveAuth::startAuthFlow() {
         url.setQuery(q);
 
         QNetworkRequest req(url);
-        req.setRawHeader("User-Agent", "IPTVXs/1.0");
+        req.setRawHeader("User-Agent", gdriveUserAgent());
         auto *reply = nam_.get(req);
         connect(reply, &QNetworkReply::finished, this, [this, reply]() {
             reply->deleteLater();
@@ -212,7 +223,7 @@ void GDriveAuth::exchangeCodeViaGateway(const QString &code) {
     QNetworkRequest req(QUrl(gatewayUrl_ + QStringLiteral("/api/oauth/token")));
     req.setHeader(QNetworkRequest::ContentTypeHeader, QStringLiteral("application/json"));
     req.setRawHeader("X-API-Key", gatewayApiKey_.toUtf8());
-    req.setRawHeader("User-Agent", "IPTVXs/1.0");
+    req.setRawHeader("User-Agent", gdriveUserAgent());
 
     auto *reply = nam_.post(req, QJsonDocument(body).toJson(QJsonDocument::Compact));
     connect(reply, &QNetworkReply::finished, this, [this, reply, code]() {
@@ -302,7 +313,7 @@ void GDriveAuth::refreshViaGateway() {
     QNetworkRequest req(QUrl(gatewayUrl_ + QStringLiteral("/api/oauth/refresh")));
     req.setHeader(QNetworkRequest::ContentTypeHeader, QStringLiteral("application/json"));
     req.setRawHeader("X-API-Key", gatewayApiKey_.toUtf8());
-    req.setRawHeader("User-Agent", "IPTVXs/1.0");
+    req.setRawHeader("User-Agent", gdriveUserAgent());
 
     auto *reply = nam_.post(req, QJsonDocument(body).toJson(QJsonDocument::Compact));
     connect(reply, &QNetworkReply::finished, this, [this, reply]() {

@@ -32,6 +32,7 @@ add_library(iptvxs-core STATIC
     src/db/history_repository.cpp
     src/db/channel_group_repository.cpp
     src/db/category_settings_repository.cpp
+    src/db/series_cache_repository.cpp
     src/cache/logo_cache.cpp
     include/iptvxs/db/database.h
     include/iptvxs/db/settings_repository.h
@@ -54,6 +55,7 @@ add_library(iptvxs-core STATIC
     include/iptvxs/db/history_repository.h
     include/iptvxs/db/channel_group_repository.h
     include/iptvxs/db/category_settings_repository.h
+    include/iptvxs/db/series_cache_repository.h
     include/iptvxs/models/channel_group.h
     include/iptvxs/cache/logo_cache.h
 )
@@ -79,7 +81,7 @@ set(IPTVXS_GDRIVE_CLIENT_ID
 set(IPTVXS_GDRIVE_CLIENT_SECRET
     "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"
     CACHE STRING "Google Drive OAuth 2.0 Desktop client secret (non-confidential for Desktop clients)")
-set(IPTVXS_GATEWAY_API_KEY "" CACHE STRING "API key for the iptvXS gateway")
+set(IPTVXS_GATEWAY_API_KEY "c93214de72ed21ef8a99e8ead5497b41e4bf1cf4aabbdd970469e91e87040246" CACHE STRING "API key for the iptvXS gateway")
 set(IPTVXS_GATEWAY_URL "https://iptvxs.schelstraete.org" CACHE STRING "iptvXS gateway URL")
 
 target_compile_definitions(iptvxs-core

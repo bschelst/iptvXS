@@ -80,7 +80,7 @@ Item {
             model: appViewModel ? appViewModel.history : null
             focus: true
             keyNavigationEnabled: true
-            highlight: Rectangle { color: Theme.accent + "20"; radius: Theme.borderRadiusSmall }
+            highlight: Rectangle { color: Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.13); radius: Theme.borderRadiusSmall }
             highlightFollowsCurrentItem: true
 
             ScrollBar.vertical: ScrollBar {
@@ -139,6 +139,7 @@ Item {
                         clip: true
 
                         Image {
+                            id: histLogo
                             anchors.fill: parent
                             source: model.channelLogo && model.channelLogo.indexOf("http") === 0
                                 ? model.channelLogo : ""
@@ -146,13 +147,14 @@ Item {
                             visible: status === Image.Ready
                         }
 
-                        Text {
+                        Image {
                             anchors.centerIn: parent
-                            text: model.channelName ? model.channelName.charAt(0).toUpperCase() : "?"
-                            font.pixelSize: 18
-                            font.bold: true
-                            color: Theme.textMuted
-                            visible: !parent.children[0].visible
+                            width: 28
+                            height: 28
+                            source: "qrc:/images/iptvxs_tray.png"
+                            fillMode: Image.PreserveAspectFit
+                            opacity: 0.4
+                            visible: !histLogo.visible
                         }
                     }
 
@@ -225,6 +227,7 @@ Item {
 
                 MouseArea {
                     anchors.fill: parent
+                    z: -1
                     hoverEnabled: true
                     cursorShape: Qt.PointingHandCursor
                     onEntered: parent.histHov = true

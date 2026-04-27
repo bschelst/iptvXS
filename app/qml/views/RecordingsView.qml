@@ -435,8 +435,8 @@ Item {
                                             border.width: 1
                                             border.color: {
                                                 if (recordingSection.currentCardIndex === cardIndex || recordingCard.activeFocus) return Theme.accent
-                                                if (modelData.pinned) return Theme.accent + "80"
-                                                if (modelData.status === "recording") return Theme.error + "60"
+                                                if (modelData.pinned) return Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.50)
+                                                if (modelData.status === "recording") return Qt.rgba(Theme.error.r, Theme.error.g, Theme.error.b, 0.38)
                                                 return Theme.surfaceBorder
                                             }
 
@@ -452,12 +452,12 @@ Item {
                                                     clip: true
                                                     color: {
                                                         switch (modelData.status) {
-                                                        case "recording": return Theme.error + "18"
-                                                        case "scheduled": return Theme.accent + "18"
-                                                        case "completed": return Theme.success + "18"
-                                                        case "uploading": return Theme.accent + "18"
-                                                        case "uploaded": return Theme.success + "18"
-                                                        case "failed": return Theme.error + "10"
+                                                        case "recording": return Qt.rgba(Theme.error.r, Theme.error.g, Theme.error.b, 0.09)
+                                                        case "scheduled": return Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.09)
+                                                        case "completed": return Qt.rgba(Theme.success.r, Theme.success.g, Theme.success.b, 0.09)
+                                                        case "uploading": return Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.09)
+                                                        case "uploaded": return Qt.rgba(Theme.success.r, Theme.success.g, Theme.success.b, 0.09)
+                                                        case "failed": return Qt.rgba(Theme.error.r, Theme.error.g, Theme.error.b, 0.06)
                                                         default: return Theme.surface
                                                         }
                                                     }

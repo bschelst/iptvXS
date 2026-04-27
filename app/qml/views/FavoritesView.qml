@@ -60,7 +60,7 @@ Item {
                 x: Theme.spacingMd
                 radius: Theme.borderRadius
                 color: favHovered ? Theme.surfaceHover : Theme.surfaceElevated
-                border.color: favHovered ? Theme.accent + "40" : "transparent"
+                border.color: favHovered ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.25) : "transparent"
                 border.width: 1
 
                 property bool favHovered: false
@@ -130,7 +130,7 @@ Item {
                         Layout.preferredWidth: 32
                         Layout.preferredHeight: 32
                         radius: 16
-                        color: removeHovered ? Theme.error + "30" : "transparent"
+                        color: removeHovered ? Qt.rgba(Theme.error.r, Theme.error.g, Theme.error.b, 0.19) : "transparent"
 
                         property bool removeHovered: false
 

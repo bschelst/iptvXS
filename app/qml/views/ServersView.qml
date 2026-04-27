@@ -75,7 +75,7 @@ Item {
             Layout.preferredHeight: 48
             radius: Theme.borderRadius
             color: Theme.surfaceElevated
-            border.color: Theme.accent + "40"
+            border.color: Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.25)
             border.width: 1
 
             RowLayout {
@@ -117,7 +117,7 @@ Item {
                     : Theme.surface
                 border.color: model.isPrimary
                     ? Theme.accent
-                    : (delegateHovered ? Theme.accent + "40" : Theme.surfaceBorder)
+                    : (delegateHovered ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.25) : Theme.surfaceBorder)
                 border.width: model.isPrimary ? 2 : 1
                 opacity: model.enabled ? 1.0 : 0.5
 
@@ -147,7 +147,7 @@ Item {
                         Layout.preferredWidth: 56
                         Layout.preferredHeight: 56
                         radius: Theme.borderRadius
-                        color: model.type === "xtream" ? Theme.accent + "20" : Theme.success + "20"
+                        color: model.type === "xtream" ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.13) : Qt.rgba(Theme.success.r, Theme.success.g, Theme.success.b, 0.13)
 
                         Text {
                             anchors.centerIn: parent
@@ -332,7 +332,7 @@ Item {
                         Layout.preferredWidth: 36
                         Layout.preferredHeight: 36
                         radius: Theme.borderRadius
-                        color: delBtnHovered ? Theme.error + "30" : "transparent"
+                        color: delBtnHovered ? Qt.rgba(Theme.error.r, Theme.error.g, Theme.error.b, 0.19) : "transparent"
 
                         property bool delBtnHovered: false
 

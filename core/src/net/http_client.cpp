@@ -3,6 +3,7 @@
 
 #include <QCoreApplication>
 #include <QNetworkRequest>
+#include <QSysInfo>
 
 namespace iptvxs {
 
@@ -51,7 +52,10 @@ void HttpClient::setTimeoutMs(int ms) {
 
 QByteArray HttpClient::buildUserAgent() const {
     auto version = QCoreApplication::applicationVersion();
-    auto agent = QStringLiteral("IPTVXs/%1").arg(version.isEmpty() ? QStringLiteral("0.1.0") : version);
+    auto agent = QStringLiteral("IPTVXs/%1 (%2 %3)")
+        .arg(version.isEmpty() ? QStringLiteral("0.3.0") : version,
+             QSysInfo::productType(),
+             QSysInfo::productVersion());
     if (!userAgentSuffix_.isEmpty()) {
         agent += QStringLiteral(" %1").arg(userAgentSuffix_);
     }

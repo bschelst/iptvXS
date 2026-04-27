@@ -3,10 +3,162 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Dialogs
 import QtQuick.Layouts
+import QtQuick.Window
 import app.iptvxs
 
 Item {
     id: settingsView
+    focus: true
+
+    // --- D-pad / controller navigation state ---
+    property int currentFocusIndex: 0
+
+    function focusPrimary() {
+        settingsView.forceActiveFocus()
+    }
+
+    // Direct lookup by index — returns the QML item for the given focus slot.
+    // Using a function (not a property) so ids resolve after component completion.
+    readonly property int focusItemCount: 29
+
+    function focusTarget() {
+        switch (currentFocusIndex) {
+        case  0: return themeFlow
+        case  1: return startMinSwitch
+        case  2: return bufferFlow
+        case  3: return hwdecFlow
+        case  4: return gridColFlow
+        case  5: return closeToTraySwitch
+        case  6: return videoEnhFlow
+        case  7: return deinterlaceSwitch
+        case  8: return subtitlesSwitch
+        case  9: return subLangFlow
+        case 10: return secSubLangFlow
+        case 11: return subSizeRow
+        case 12: return subColorFlow
+        case 13: return subBgFlow
+        case 14: return syncIntervalFlow
+        case 15: return epgSyncFlow
+        case 16: return gdriveConnectBtn
+        case 17: return gdriveSaveFolderBtn
+        case 18: return recDestFlow
+        case 19: return keepLocalSwitch
+        case 20: return recBrowseBtn
+        case 21: return maxRecSizeFlow
+        case 22: return leadTimeFlow
+        case 23: return overrunFlow
+        case 24: return logoCacheMaxFlow
+        case 25: return clearCacheBtn
+        case 26: return resetDbBtn
+        case 27: return githubBtn
+        case 28: return checkUpdatesBtn
+        default: return null
+        }
+    }
+
+    function scrollToFocused() {
+        var target = focusTarget()
+        if (!target) return
+        var mapped = target.mapToItem(settingsScrollContent, 0, 0)
+        var scrollY = mapped.y - settingsScroll.height / 2 + target.height / 2
+        settingsScroll.contentItem.contentY = Math.max(0,
+            Math.min(scrollY, settingsScroll.contentItem.contentHeight - settingsScroll.height))
+        focusOverlayTimer.restart()
+    }
+
+    function activateFocusedItem() {
+        var target = focusTarget()
+        if (!target) return
+        // Determine type from the target's properties
+        if (typeof target.toggle === "function") {
+            target.toggle()
+        } else if (typeof target.activate === "function") {
+            target.activate()
+        } else if (target.activateSubIndex !== undefined) {
+            target.activateSubIndex(target.subFocusIndex)
+        }
+    }
+
+    Keys.onUpPressed: {
+        if (currentFocusIndex > 0) {
+            currentFocusIndex--
+            scrollToFocused()
+        }
+    }
+    Keys.onDownPressed: {
+        if (currentFocusIndex < focusItemCount - 1) {
+            currentFocusIndex++
+            scrollToFocused()
+        }
+    }
+    Keys.onReturnPressed: activateFocusedItem()
+    Keys.onEnterPressed: activateFocusedItem()
+    Keys.onLeftPressed: {
+        var target = focusTarget()
+        if (target && target.subFocusIndex !== undefined && target.subFocusIndex > 0) {
+            target.subFocusIndex--
+            if (target.activateSubIndex) target.activateSubIndex(target.subFocusIndex)
+            focusOverlayTimer.restart()
+        } else if (target && typeof target.decrementSlider === "function") {
+            target.decrementSlider()
+        } else {
+            if (Window.window && Window.window.focusSidebar) Window.window.focusSidebar()
+        }
+    }
+    Keys.onRightPressed: {
+        var target = focusTarget()
+        if (target && target.subFocusIndex !== undefined && target.subCount !== undefined && target.subFocusIndex < target.subCount - 1) {
+            target.subFocusIndex++
+            if (target.activateSubIndex) target.activateSubIndex(target.subFocusIndex)
+            focusOverlayTimer.restart()
+        } else if (target && typeof target.incrementSlider === "function") {
+            target.incrementSlider()
+        }
+    }
+
+    onCurrentFocusIndexChanged: focusOverlayTimer.restart()
+    onActiveFocusChanged: focusOverlayTimer.restart()
+    Connections {
+        target: settingsScroll.contentItem
+        function onContentYChanged() { focusOverlayTimer.restart() }
+    }
+
+    Timer {
+        id: focusOverlayTimer
+        interval: 16
+        onTriggered: updateFocusOverlay()
+    }
+
+    // Focus overlay — sits on top of the ScrollView, tracks scroll position
+    Rectangle {
+        id: focusOverlay
+        parent: settingsScroll
+        color: "transparent"
+        border.color: Theme.accent
+        border.width: 2
+        radius: Theme.borderRadius
+        visible: false
+        z: 1000
+    }
+
+    function updateFocusOverlay() {
+        var target = focusTarget()
+        if (!target || !settingsView.activeFocus) {
+            focusOverlay.visible = false
+            return
+        }
+        // Flow items highlight their own children via border.color — skip overlay
+        if (target.subFocusIndex !== undefined) {
+            focusOverlay.visible = false
+            return
+        }
+        var mapped = target.mapToItem(settingsScroll, 0, 0)
+        focusOverlay.x = mapped.x - 3
+        focusOverlay.y = mapped.y - 3
+        focusOverlay.width = target.width + 6
+        focusOverlay.height = target.height + 6
+        focusOverlay.visible = true
+    }
 
     property var langOptions: [
         { value: "en", label: "English" },
@@ -36,10 +188,12 @@ Item {
     ]
 
     ScrollView {
+        id: settingsScroll
         anchors.fill: parent
         contentWidth: availableWidth
 
         ColumnLayout {
+            id: settingsScrollContent
             width: parent.width - Theme.spacingXl * 2
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.margins: Theme.spacingXl
@@ -76,79 +230,97 @@ Item {
                         color: Theme.textPrimary
                     }
 
-                    Flow {
+                    Item {
+                        id: themeFlow
                         Layout.fillWidth: true
-                        spacing: Theme.spacingSm
+                        implicitHeight: themeFlowInner.implicitHeight
+                        property int subFocusIndex: 0
+                        property int subCount: Theme.themeNames.length
+                        function activateSubIndex(idx) {
+                            var name = Theme.themeNames[idx]
+                            if (name) {
+                                Theme.applyTheme(name)
+                                if (appViewModel) appViewModel.theme = name
+                            }
+                        }
 
-                        Repeater {
-                            model: Theme.themeNames
+                        Flow {
+                            id: themeFlowInner
+                            width: parent.width
+                            spacing: Theme.spacingSm
 
-                            Rectangle {
-                                width: 120
-                                height: 72
-                                radius: Theme.borderRadius
-                                color: Theme.themes[modelData].background
-                                border.color: Theme.currentTheme === modelData
-                                    ? Theme.accent : themeCardHovered ? Theme.surfaceBorder : "transparent"
-                                border.width: 2
+                            Repeater {
+                                model: Theme.themeNames
 
-                                property bool themeCardHovered: false
+                                Rectangle {
+                                    width: 120
+                                    height: 72
+                                    radius: Theme.borderRadius
+                                    color: Theme.themes[modelData].background
+                                    border.color: Theme.currentTheme === modelData
+                                        ? Theme.accent
+                                        : (settingsView.currentFocusIndex === 0 && settingsView.activeFocus && themeFlow.subFocusIndex === index)
+                                            ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.50) : themeCardHovered ? Theme.surfaceBorder : "transparent"
+                                    border.width: 2
 
-                                ColumnLayout {
-                                    anchors.fill: parent
-                                    anchors.margins: Theme.spacingSm
-                                    spacing: 4
+                                    property bool themeCardHovered: false
 
-                                    Text {
-                                        text: modelData.charAt(0).toUpperCase() + modelData.slice(1)
-                                        font.pixelSize: Theme.fontSizeXs
-                                        font.bold: Theme.currentTheme === modelData
-                                        color: Theme.themes[modelData].textPrimary
-                                    }
-
-                                    Row {
+                                    ColumnLayout {
+                                        anchors.fill: parent
+                                        anchors.margins: Theme.spacingSm
                                         spacing: 4
-                                        Repeater {
-                                            model: [
-                                                Theme.themes[modelData].accent,
-                                                Theme.themes[modelData].success,
-                                                Theme.themes[modelData].warning,
-                                                Theme.themes[modelData].error
-                                            ]
+
+                                        Text {
+                                            text: modelData.charAt(0).toUpperCase() + modelData.slice(1)
+                                            font.pixelSize: Theme.fontSizeXs
+                                            font.bold: Theme.currentTheme === modelData
+                                            color: Theme.themes[modelData].textPrimary
+                                        }
+
+                                        Row {
+                                            spacing: 4
+                                            Repeater {
+                                                model: [
+                                                    Theme.themes[modelData].accent,
+                                                    Theme.themes[modelData].success,
+                                                    Theme.themes[modelData].warning,
+                                                    Theme.themes[modelData].error
+                                                ]
+
+                                                Rectangle {
+                                                    width: 14
+                                                    height: 14
+                                                    radius: 7
+                                                    color: modelData
+                                                }
+                                            }
+                                        }
+
+                                        Rectangle {
+                                            Layout.fillWidth: true
+                                            height: 8
+                                            radius: 4
+                                            color: Theme.themes[modelData].surface
 
                                             Rectangle {
-                                                width: 14
-                                                height: 14
-                                                radius: 7
-                                                color: modelData
+                                                width: parent.width * 0.6
+                                                height: parent.height
+                                                radius: 4
+                                                color: Theme.themes[modelData].accent
                                             }
                                         }
                                     }
 
-                                    Rectangle {
-                                        Layout.fillWidth: true
-                                        height: 8
-                                        radius: 4
-                                        color: Theme.themes[modelData].surface
-
-                                        Rectangle {
-                                            width: parent.width * 0.6
-                                            height: parent.height
-                                            radius: 4
-                                            color: Theme.themes[modelData].accent
+                                    MouseArea {
+                                        anchors.fill: parent
+                                        hoverEnabled: true
+                                        cursorShape: Qt.PointingHandCursor
+                                        onEntered: parent.themeCardHovered = true
+                                        onExited: parent.themeCardHovered = false
+                                        onClicked: {
+                                            Theme.applyTheme(modelData)
+                                            if (appViewModel) appViewModel.theme = modelData
                                         }
-                                    }
-                                }
-
-                                MouseArea {
-                                    anchors.fill: parent
-                                    hoverEnabled: true
-                                    cursorShape: Qt.PointingHandCursor
-                                    onEntered: parent.themeCardHovered = true
-                                    onExited: parent.themeCardHovered = false
-                                    onClicked: {
-                                        Theme.applyTheme(modelData)
-                                        if (appViewModel) appViewModel.theme = modelData
                                     }
                                 }
                             }
@@ -179,8 +351,11 @@ Item {
                     }
 
                     RowLayout {
+                        id: startMinSwitch
                         Layout.fillWidth: true
                         spacing: Theme.spacingMd
+
+                        function toggle() { startMinSwitchCtrl.toggle() }
 
                         ColumnLayout {
                             Layout.fillWidth: true
@@ -200,6 +375,7 @@ Item {
                         }
 
                         Switch {
+                            id: startMinSwitchCtrl
                             checked: false
                         }
                     }
@@ -243,48 +419,63 @@ Item {
                             color: Theme.textMuted
                         }
 
-                        Flow {
+                        Item {
+                            id: bufferFlow
                             Layout.fillWidth: true
-                            spacing: Theme.spacingSm
                             Layout.topMargin: Theme.spacingXs
+                            implicitHeight: bufferFlowInner.implicitHeight
+                            property int subFocusIndex: 0
+                            property int subCount: 4
+                            property var subValues: [0, 5, 10, 15]
+                            function activateSubIndex(idx) {
+                                if (appViewModel && idx >= 0 && idx < subValues.length)
+                                    appViewModel.bufferSeconds = subValues[idx]
+                            }
 
-                            Repeater {
-                                model: [
-                                    { value: 0, label: "Default" },
-                                    { value: 5, label: "5s" },
-                                    { value: 10, label: "10s" },
-                                    { value: 15, label: "15s" }
-                                ]
+                            Flow {
+                                id: bufferFlowInner
+                                width: parent.width
+                                spacing: Theme.spacingSm
 
-                                Rectangle {
-                                    width: 64
-                                    height: 32
-                                    radius: Theme.borderRadiusSmall
-                                    color: appViewModel && appViewModel.bufferSeconds === modelData.value
-                                        ? Theme.accent : bufHovered
-                                            ? Theme.surfaceHover : Theme.surface
-                                    border.width: 1
-                                    border.color: Theme.surfaceBorder
+                                Repeater {
+                                    model: [
+                                        { value: 0, label: "Default" },
+                                        { value: 5, label: "5s" },
+                                        { value: 10, label: "10s" },
+                                        { value: 15, label: "15s" }
+                                    ]
 
-                                    property bool bufHovered: false
-
-                                    Text {
-                                        anchors.centerIn: parent
-                                        text: modelData.label
-                                        font.pixelSize: Theme.fontSizeXs
+                                    Rectangle {
+                                        width: 64
+                                        height: 32
+                                        radius: Theme.borderRadiusSmall
                                         color: appViewModel && appViewModel.bufferSeconds === modelData.value
-                                            ? Theme.textOnAccent : Theme.textSecondary
-                                    }
+                                            ? Theme.accent : bufHovered
+                                                ? Theme.surfaceHover : Theme.surface
+                                        border.width: 1
+                                        border.color: (settingsView.currentFocusIndex === 2 && settingsView.activeFocus && bufferFlow.subFocusIndex === index)
+                                            ? Theme.accent : Theme.surfaceBorder
 
-                                    MouseArea {
-                                        anchors.fill: parent
-                                        hoverEnabled: true
-                                        cursorShape: Qt.PointingHandCursor
-                                        onEntered: parent.bufHovered = true
-                                        onExited: parent.bufHovered = false
-                                        onClicked: {
-                                            if (appViewModel)
-                                                appViewModel.bufferSeconds = modelData.value
+                                        property bool bufHovered: false
+
+                                        Text {
+                                            anchors.centerIn: parent
+                                            text: modelData.label
+                                            font.pixelSize: Theme.fontSizeXs
+                                            color: appViewModel && appViewModel.bufferSeconds === modelData.value
+                                                ? Theme.textOnAccent : Theme.textSecondary
+                                        }
+
+                                        MouseArea {
+                                            anchors.fill: parent
+                                            hoverEnabled: true
+                                            cursorShape: Qt.PointingHandCursor
+                                            onEntered: parent.bufHovered = true
+                                            onExited: parent.bufHovered = false
+                                            onClicked: {
+                                                if (appViewModel)
+                                                    appViewModel.bufferSeconds = modelData.value
+                                            }
                                         }
                                     }
                                 }
@@ -308,47 +499,62 @@ Item {
                             color: Theme.textMuted
                         }
 
-                        Flow {
+                        Item {
+                            id: hwdecFlow
                             Layout.fillWidth: true
-                            spacing: Theme.spacingSm
                             Layout.topMargin: Theme.spacingXs
+                            implicitHeight: hwdecFlowInner.implicitHeight
+                            property int subFocusIndex: 0
+                            property int subCount: 3
+                            property var subValues: ["auto-safe", "auto", "no"]
+                            function activateSubIndex(idx) {
+                                if (appViewModel && idx >= 0 && idx < subValues.length)
+                                    appViewModel.hwdecMode = subValues[idx]
+                            }
 
-                            Repeater {
-                                model: [
-                                    { value: "auto-safe", label: "Auto Safe" },
-                                    { value: "auto", label: "Auto" },
-                                    { value: "no", label: "Software" }
-                                ]
+                            Flow {
+                                id: hwdecFlowInner
+                                width: parent.width
+                                spacing: Theme.spacingSm
 
-                                Rectangle {
-                                    width: 80
-                                    height: 32
-                                    radius: Theme.borderRadiusSmall
-                                    color: appViewModel && appViewModel.hwdecMode === modelData.value
-                                        ? Theme.accent : hwdecHov
-                                            ? Theme.surfaceHover : Theme.surface
-                                    border.width: 1
-                                    border.color: Theme.surfaceBorder
+                                Repeater {
+                                    model: [
+                                        { value: "auto-safe", label: "Auto Safe" },
+                                        { value: "auto", label: "Auto" },
+                                        { value: "no", label: "Software" }
+                                    ]
 
-                                    property bool hwdecHov: false
-
-                                    Text {
-                                        anchors.centerIn: parent
-                                        text: modelData.label
-                                        font.pixelSize: Theme.fontSizeXs
+                                    Rectangle {
+                                        width: 80
+                                        height: 32
+                                        radius: Theme.borderRadiusSmall
                                         color: appViewModel && appViewModel.hwdecMode === modelData.value
-                                            ? Theme.textOnAccent : Theme.textSecondary
-                                    }
+                                            ? Theme.accent : hwdecHov
+                                                ? Theme.surfaceHover : Theme.surface
+                                        border.width: 1
+                                        border.color: (settingsView.currentFocusIndex === 3 && settingsView.activeFocus && hwdecFlow.subFocusIndex === index)
+                                            ? Theme.accent : Theme.surfaceBorder
 
-                                    MouseArea {
-                                        anchors.fill: parent
-                                        hoverEnabled: true
-                                        cursorShape: Qt.PointingHandCursor
-                                        onEntered: parent.hwdecHov = true
-                                        onExited: parent.hwdecHov = false
-                                        onClicked: {
-                                            if (appViewModel)
-                                                appViewModel.hwdecMode = modelData.value
+                                        property bool hwdecHov: false
+
+                                        Text {
+                                            anchors.centerIn: parent
+                                            text: modelData.label
+                                            font.pixelSize: Theme.fontSizeXs
+                                            color: appViewModel && appViewModel.hwdecMode === modelData.value
+                                                ? Theme.textOnAccent : Theme.textSecondary
+                                        }
+
+                                        MouseArea {
+                                            anchors.fill: parent
+                                            hoverEnabled: true
+                                            cursorShape: Qt.PointingHandCursor
+                                            onEntered: parent.hwdecHov = true
+                                            onExited: parent.hwdecHov = false
+                                            onClicked: {
+                                                if (appViewModel)
+                                                    appViewModel.hwdecMode = modelData.value
+                                            }
                                         }
                                     }
                                 }
@@ -372,10 +578,23 @@ Item {
                             color: Theme.textMuted
                         }
 
-                        Flow {
+                        Item {
+                            id: gridColFlow
                             Layout.fillWidth: true
-                            spacing: Theme.spacingSm
                             Layout.topMargin: Theme.spacingXs
+                            implicitHeight: gridColFlowInner.implicitHeight
+                            property int subFocusIndex: 0
+                            property int subCount: 3
+                            property var subValues: [1, 2, 3]
+                            function activateSubIndex(idx) {
+                                if (appViewModel && idx >= 0 && idx < subValues.length)
+                                    appViewModel.gridColumns = subValues[idx]
+                            }
+
+                        Flow {
+                            id: gridColFlowInner
+                            width: parent.width
+                            spacing: Theme.spacingSm
 
                             Repeater {
                                 model: [
@@ -392,7 +611,8 @@ Item {
                                         ? Theme.accent : colHovered
                                             ? Theme.surfaceHover : Theme.surface
                                     border.width: 1
-                                    border.color: Theme.surfaceBorder
+                                    border.color: (settingsView.currentFocusIndex === 4 && settingsView.activeFocus && gridColFlow.subFocusIndex === index)
+                                        ? Theme.accent : Theme.surfaceBorder
 
                                     property bool colHovered: false
 
@@ -417,6 +637,7 @@ Item {
                                     }
                                 }
                             }
+                        }
                         }
                     }
                 }
@@ -444,8 +665,10 @@ Item {
                     }
 
                     RowLayout {
+                        id: closeToTraySwitch
                         Layout.fillWidth: true
                         spacing: Theme.spacingMd
+                        function toggle() { closeToTraySwitchCtrl.toggle() }
 
                         ColumnLayout {
                             Layout.fillWidth: true
@@ -465,6 +688,7 @@ Item {
                         }
 
                         Switch {
+                            id: closeToTraySwitchCtrl
                             checked: appViewModel ? appViewModel.closeToTray : false
                             onToggled: {
                                 if (appViewModel) appViewModel.closeToTray = checked
@@ -488,46 +712,60 @@ Item {
                             color: Theme.textMuted
                         }
 
-                        Flow {
+                        Item {
+                            id: videoEnhFlow
                             Layout.fillWidth: true
-                            spacing: Theme.spacingSm
                             Layout.topMargin: Theme.spacingXs
+                            implicitHeight: videoEnhFlowInner.implicitHeight
+                            property int subFocusIndex: 0
+                            property int subCount: 4
+                            property var subValues: ["off", "light", "medium", "strong"]
+                            function activateSubIndex(idx) {
+                                if (appViewModel && idx >= 0 && idx < subValues.length)
+                                    appViewModel.videoEnhancement = subValues[idx]
+                            }
 
-                            Repeater {
-                                model: [
-                                    { value: "off", label: "Off" },
-                                    { value: "light", label: "Light" },
-                                    { value: "medium", label: "Medium" },
-                                    { value: "strong", label: "Strong" }
-                                ]
+                            Flow {
+                                id: videoEnhFlowInner
+                                width: parent.width
+                                spacing: Theme.spacingSm
 
-                                Rectangle {
-                                    width: 80
-                                    height: 32
-                                    radius: Theme.borderRadiusSmall
-                                    color: appViewModel && appViewModel.videoEnhancement === modelData.value
-                                        ? Theme.accent : veHov ? Theme.surfaceHover : Theme.surface
-                                    border.width: 1
-                                    border.color: Theme.surfaceBorder
-                                    property bool veHov: false
+                                Repeater {
+                                    model: [
+                                        { value: "off", label: "Off" },
+                                        { value: "light", label: "Light" },
+                                        { value: "medium", label: "Medium" },
+                                        { value: "strong", label: "Strong" }
+                                    ]
 
-                                    Text {
-                                        anchors.centerIn: parent
-                                        text: modelData.label
-                                        font.pixelSize: Theme.fontSizeXs
+                                    Rectangle {
+                                        width: 80
+                                        height: 32
+                                        radius: Theme.borderRadiusSmall
                                         color: appViewModel && appViewModel.videoEnhancement === modelData.value
-                                            ? Theme.textOnAccent : Theme.textSecondary
-                                    }
+                                            ? Theme.accent : veHov ? Theme.surfaceHover : Theme.surface
+                                        border.width: 1
+                                        border.color: Theme.surfaceBorder
+                                        property bool veHov: false
 
-                                    MouseArea {
-                                        anchors.fill: parent
-                                        hoverEnabled: true
-                                        cursorShape: Qt.PointingHandCursor
-                                        onEntered: parent.veHov = true
-                                        onExited: parent.veHov = false
-                                        onClicked: {
-                                            if (appViewModel)
-                                                appViewModel.videoEnhancement = modelData.value
+                                        Text {
+                                            anchors.centerIn: parent
+                                            text: modelData.label
+                                            font.pixelSize: Theme.fontSizeXs
+                                            color: appViewModel && appViewModel.videoEnhancement === modelData.value
+                                                ? Theme.textOnAccent : Theme.textSecondary
+                                        }
+
+                                        MouseArea {
+                                            anchors.fill: parent
+                                            hoverEnabled: true
+                                            cursorShape: Qt.PointingHandCursor
+                                            onEntered: parent.veHov = true
+                                            onExited: parent.veHov = false
+                                            onClicked: {
+                                                if (appViewModel)
+                                                    appViewModel.videoEnhancement = modelData.value
+                                            }
                                         }
                                     }
                                 }
@@ -536,8 +774,10 @@ Item {
                     }
 
                     RowLayout {
+                        id: deinterlaceSwitch
                         Layout.fillWidth: true
                         spacing: Theme.spacingMd
+                        function toggle() { deinterlaceSwitchCtrl.toggle() }
 
                         ColumnLayout {
                             Layout.fillWidth: true
@@ -557,6 +797,7 @@ Item {
                         }
 
                         Switch {
+                            id: deinterlaceSwitchCtrl
                             checked: appViewModel ? appViewModel.deinterlace : false
                             onToggled: {
                                 if (appViewModel) appViewModel.deinterlace = checked
@@ -588,8 +829,10 @@ Item {
                     }
 
                     RowLayout {
+                        id: subtitlesSwitch
                         Layout.fillWidth: true
                         spacing: Theme.spacingMd
+                        function toggle() { subtitlesSwitchCtrl.toggle() }
 
                         ColumnLayout {
                             Layout.fillWidth: true
@@ -609,6 +852,7 @@ Item {
                         }
 
                         Switch {
+                            id: subtitlesSwitchCtrl
                             checked: appViewModel ? appViewModel.subtitlesEnabled : false
                             onToggled: {
                                 if (appViewModel) appViewModel.subtitlesEnabled = checked
@@ -626,8 +870,20 @@ Item {
                             color: Theme.textPrimary
                         }
 
-                        Flow {
+                        Item {
+                            id: subLangFlow
                             Layout.fillWidth: true
+                            implicitHeight: subLangFlowInner.implicitHeight
+                            property int subFocusIndex: 0
+                            property int subCount: settingsView.langOptions.length
+                            function activateSubIndex(idx) {
+                                if (appViewModel && idx >= 0 && idx < settingsView.langOptions.length)
+                                    appViewModel.subtitleLanguage = settingsView.langOptions[idx].value
+                            }
+
+                        Flow {
+                            id: subLangFlowInner
+                            width: parent.width
                             spacing: Theme.spacingSm
 
                             Repeater {
@@ -666,6 +922,7 @@ Item {
                                 }
                             }
                         }
+                        }
                     }
 
                     ColumnLayout {
@@ -684,8 +941,22 @@ Item {
                             color: Theme.textMuted
                         }
 
-                        Flow {
+                        Item {
+                            id: secSubLangFlow
                             Layout.fillWidth: true
+                            implicitHeight: secSubLangFlowInner.implicitHeight
+                            property int subFocusIndex: 0
+                            property int subCount: 1 + settingsView.langOptions.length
+                            function activateSubIndex(idx) {
+                                if (!appViewModel) return
+                                if (idx === 0) appViewModel.subtitleLanguageSecondary = ""
+                                else if (idx > 0 && idx <= settingsView.langOptions.length)
+                                    appViewModel.subtitleLanguageSecondary = settingsView.langOptions[idx - 1].value
+                            }
+
+                        Flow {
+                            id: secSubLangFlowInner
+                            width: parent.width
                             spacing: Theme.spacingSm
 
                             Rectangle {
@@ -718,6 +989,7 @@ Item {
                                 }
                             }
                         }
+                        }
                     }
 
                     Rectangle {
@@ -737,7 +1009,10 @@ Item {
                         }
 
                         RowLayout {
+                            id: subSizeRow
                             spacing: Theme.spacingSm
+                            function decrementSlider() { subSizeSlider.value = Math.max(subSizeSlider.from, subSizeSlider.value - subSizeSlider.stepSize); if (appViewModel) appViewModel.subtitleSize = subSizeSlider.value }
+                            function incrementSlider() { subSizeSlider.value = Math.min(subSizeSlider.to, subSizeSlider.value + subSizeSlider.stepSize); if (appViewModel) appViewModel.subtitleSize = subSizeSlider.value }
 
                             Slider {
                                 id: subSizeSlider
@@ -771,8 +1046,20 @@ Item {
                             color: Theme.textPrimary
                         }
 
-                        Flow {
+                        Item {
+                            id: subColorFlow
                             Layout.fillWidth: true
+                            implicitHeight: subColorFlowInner.implicitHeight
+                            property int subFocusIndex: 0
+                            property int subCount: 4
+                            property var subValues: ["#FFFFFF", "#FFFF00", "#00FF00", "#00FFFF"]
+                            function activateSubIndex(idx) {
+                                if (appViewModel && idx >= 0 && idx < subValues.length)
+                                    appViewModel.subtitleColor = subValues[idx]
+                            }
+                        Flow {
+                            id: subColorFlowInner
+                            width: parent.width
                             spacing: Theme.spacingSm
 
                             Repeater {
@@ -813,6 +1100,7 @@ Item {
                                 }
                             }
                         }
+                        }
                     }
 
                     ColumnLayout {
@@ -825,8 +1113,20 @@ Item {
                             color: Theme.textPrimary
                         }
 
-                        Flow {
+                        Item {
+                            id: subBgFlow
                             Layout.fillWidth: true
+                            implicitHeight: subBgFlowInner.implicitHeight
+                            property int subFocusIndex: 0
+                            property int subCount: 4
+                            property var subValues: ["#00000000", "#80000000", "#CC000000", "#FF000000"]
+                            function activateSubIndex(idx) {
+                                if (appViewModel && idx >= 0 && idx < subValues.length)
+                                    appViewModel.subtitleBgColor = subValues[idx]
+                            }
+                        Flow {
+                            id: subBgFlowInner
+                            width: parent.width
                             spacing: Theme.spacingSm
 
                             Repeater {
@@ -856,6 +1156,7 @@ Item {
                                     }
                                 }
                             }
+                        }
                         }
                     }
 
@@ -905,10 +1206,19 @@ Item {
                             color: Theme.textMuted
                         }
 
-                        Flow {
+                        Item {
+                            id: syncIntervalFlow
                             Layout.fillWidth: true
-                            spacing: Theme.spacingSm
                             Layout.topMargin: Theme.spacingXs
+                            implicitHeight: syncIntervalFlowInner.implicitHeight
+                            property int subFocusIndex: 0
+                            property int subCount: 6
+                            property var subValues: [0, 1, 6, 12, 24, 48]
+                            function activateSubIndex(idx) { if (appViewModel && idx >= 0 && idx < subValues.length) appViewModel.autoSyncInterval = subValues[idx] }
+                        Flow {
+                            id: syncIntervalFlowInner
+                            width: parent.width
+                            spacing: Theme.spacingSm
 
                             Repeater {
                                 model: [
@@ -954,6 +1264,7 @@ Item {
                                 }
                             }
                         }
+                        }
                     }
 
                     Rectangle {
@@ -978,10 +1289,19 @@ Item {
                             color: Theme.textMuted
                         }
 
-                        Flow {
+                        Item {
+                            id: epgSyncFlow
                             Layout.fillWidth: true
-                            spacing: Theme.spacingSm
                             Layout.topMargin: Theme.spacingXs
+                            implicitHeight: epgSyncFlowInner.implicitHeight
+                            property int subFocusIndex: 0
+                            property int subCount: 6
+                            property var subValues: [0, 1, 6, 12, 24, 48]
+                            function activateSubIndex(idx) { if (appViewModel && idx >= 0 && idx < subValues.length) appViewModel.autoSyncEpgInterval = subValues[idx] }
+                        Flow {
+                            id: epgSyncFlowInner
+                            width: parent.width
+                            spacing: Theme.spacingSm
 
                             Repeater {
                                 model: [
@@ -1026,6 +1346,7 @@ Item {
                                     }
                                 }
                             }
+                        }
                         }
                     }
                 }
@@ -1087,20 +1408,27 @@ Item {
                         }
 
                         Rectangle {
-                            Layout.preferredWidth: gdriveBtn.implicitWidth + Theme.spacingLg
+                            id: gdriveConnectBtn
+                            Layout.preferredWidth: gdriveBtnLabel.implicitWidth + Theme.spacingLg
                             Layout.preferredHeight: 36
                             radius: Theme.borderRadius
                             color: gdriveBtnHovered
-                                ? (appViewModel && appViewModel.gdrive.authenticated ? Theme.error + "30" : Theme.accent)
-                                : (appViewModel && appViewModel.gdrive.authenticated ? Theme.error + "20" : Theme.accentHover)
+                                ? (appViewModel && appViewModel.gdrive.authenticated ? Qt.rgba(Theme.error.r, Theme.error.g, Theme.error.b, 0.19) : Theme.accent)
+                                : (appViewModel && appViewModel.gdrive.authenticated ? Qt.rgba(Theme.error.r, Theme.error.g, Theme.error.b, 0.13) : Theme.accentHover)
                             border.color: appViewModel && appViewModel.gdrive.authenticated
                                 ? Theme.error : Theme.accent
                             border.width: 1
 
                             property bool gdriveBtnHovered: false
+                            function activate() {
+                                if (appViewModel) {
+                                    if (appViewModel.gdrive.authenticated) appViewModel.gdrive.logout()
+                                    else appViewModel.gdrive.login()
+                                }
+                            }
 
                             Text {
-                                id: gdriveBtn
+                                id: gdriveBtnLabel
                                 anchors.centerIn: parent
                                 text: appViewModel && appViewModel.gdrive.authenticated
                                     ? "Disconnect" : "Connect"
@@ -1180,15 +1508,21 @@ Item {
                             }
 
                             Rectangle {
-                                Layout.preferredWidth: saveFolderBtn.implicitWidth + Theme.spacingLg
+                                id: gdriveSaveFolderBtn
+                                Layout.preferredWidth: saveFolderBtnLabel.implicitWidth + Theme.spacingLg
                                 Layout.preferredHeight: 36
                                 radius: Theme.borderRadiusSmall
                                 color: saveFolderHov ? Theme.accent : Theme.accentHover
 
                                 property bool saveFolderHov: false
+                                function activate() {
+                                    if (!appViewModel) return
+                                    appViewModel.gdrive.folderName = gdriveFolderInput.text
+                                    appViewModel.gdrive.resolveFolderNow()
+                                }
 
                                 Text {
-                                    id: saveFolderBtn
+                                    id: saveFolderBtnLabel
                                     anchors.centerIn: parent
                                     text: "Save & create"
                                     font.pixelSize: Theme.fontSizeXs
@@ -1268,8 +1602,21 @@ Item {
                             color: Theme.textMuted
                         }
 
-                        RowLayout {
+                        Item {
+                            id: recDestFlow
                             Layout.fillWidth: true
+                            implicitHeight: recDestFlowInner.implicitHeight
+                            property int subFocusIndex: 0
+                            property int subCount: 2
+                            property var subValues: ["local", "gdrive"]
+                            function activateSubIndex(idx) {
+                                if (!appViewModel || idx < 0 || idx >= subValues.length) return
+                                if (subValues[idx] === "gdrive" && !appViewModel.gdrive.authenticated) return
+                                appViewModel.recordingDestination = subValues[idx]
+                            }
+                        RowLayout {
+                            id: recDestFlowInner
+                            width: parent.width
                             spacing: Theme.spacingSm
 
                             Repeater {
@@ -1322,12 +1669,15 @@ Item {
                                 }
                             }
                         }
+                        }
                     }
 
                     RowLayout {
+                        id: keepLocalSwitch
                         Layout.fillWidth: true
                         spacing: Theme.spacingMd
                         visible: appViewModel && appViewModel.recordingDestination === "gdrive"
+                        function toggle() { keepLocalSwitchCtrl.toggle() }
 
                         ColumnLayout {
                             Layout.fillWidth: true
@@ -1347,6 +1697,7 @@ Item {
                         }
 
                         Switch {
+                            id: keepLocalSwitchCtrl
                             checked: appViewModel ? appViewModel.keepLocalCopy : false
                             onToggled: {
                                 if (appViewModel) appViewModel.keepLocalCopy = checked
@@ -1399,12 +1750,14 @@ Item {
                             }
 
                             Rectangle {
+                                id: recBrowseBtn
                                 Layout.preferredWidth: browseBtnText.implicitWidth + Theme.spacingLg
                                 Layout.preferredHeight: 36
                                 radius: Theme.borderRadiusSmall
                                 color: browseBtnHov ? Theme.accentHover : Theme.accent
 
                                 property bool browseBtnHov: false
+                                function activate() { recordingFolderDialog.open() }
 
                                 Text {
                                     id: browseBtnText
@@ -1451,8 +1804,17 @@ Item {
                             color: Theme.textMuted
                         }
 
-                        Flow {
+                        Item {
+                            id: maxRecSizeFlow
                             Layout.fillWidth: true
+                            implicitHeight: maxRecSizeFlowInner.implicitHeight
+                            property int subFocusIndex: 0
+                            property int subCount: 6
+                            property var subValues: [0, 2, 10, 20, 40, 100]
+                            function activateSubIndex(idx) { if (appViewModel && idx >= 0 && idx < subValues.length) appViewModel.maxRecordingSizeGb = subValues[idx] }
+                        Flow {
+                            id: maxRecSizeFlowInner
+                            width: parent.width
                             spacing: Theme.spacingSm
 
                             Repeater {
@@ -1498,6 +1860,7 @@ Item {
                                 }
                             }
                         }
+                        }
                     }
 
                     ColumnLayout {
@@ -1519,7 +1882,16 @@ Item {
                         RowLayout {
                             spacing: Theme.spacingLg
 
+                            Item {
+                                id: leadTimeFlow
+                                implicitWidth: leadTimeRowInner.implicitWidth
+                                implicitHeight: leadTimeRowInner.implicitHeight
+                                property int subFocusIndex: 0
+                                property int subCount: 5
+                                property var subValues: [0, 1, 2, 3, 5]
+                                function activateSubIndex(idx) { if (appViewModel && idx >= 0 && idx < subValues.length) appViewModel.epgRecordingLeadTime = subValues[idx] }
                             RowLayout {
+                                id: leadTimeRowInner
                                 spacing: Theme.spacingSm
 
                                 Text { text: "Start early:"; font.pixelSize: Theme.fontSizeXs; color: Theme.textSecondary }
@@ -1549,8 +1921,18 @@ Item {
                                     }
                                 }
                             }
+                            }
 
+                            Item {
+                                id: overrunFlow
+                                implicitWidth: overrunRowInner.implicitWidth
+                                implicitHeight: overrunRowInner.implicitHeight
+                                property int subFocusIndex: 0
+                                property int subCount: 5
+                                property var subValues: [0, 1, 2, 3, 5]
+                                function activateSubIndex(idx) { if (appViewModel && idx >= 0 && idx < subValues.length) appViewModel.epgRecordingOverrun = subValues[idx] }
                             RowLayout {
+                                id: overrunRowInner
                                 spacing: Theme.spacingSm
 
                                 Text { text: "End late:"; font.pixelSize: Theme.fontSizeXs; color: Theme.textSecondary }
@@ -1579,6 +1961,7 @@ Item {
                                         }
                                     }
                                 }
+                            }
                             }
                         }
                     }
@@ -1639,8 +2022,17 @@ Item {
                             color: Theme.textPrimary
                         }
 
-                        Flow {
+                        Item {
+                            id: logoCacheMaxFlow
                             Layout.fillWidth: true
+                            implicitHeight: logoCacheMaxFlowInner.implicitHeight
+                            property int subFocusIndex: 0
+                            property int subCount: 5
+                            property var subValues: [100, 250, 500, 1000, 2000]
+                            function activateSubIndex(idx) { if (appViewModel && idx >= 0 && idx < subValues.length) appViewModel.logoCacheMaxMb = subValues[idx] }
+                        Flow {
+                            id: logoCacheMaxFlowInner
+                            width: parent.width
                             spacing: Theme.spacingSm
 
                             Repeater {
@@ -1674,6 +2066,7 @@ Item {
                                 }
                             }
                         }
+                        }
                     }
 
                     Text {
@@ -1697,14 +2090,16 @@ Item {
                         }
 
                         Rectangle {
+                            id: clearCacheBtn
                             Layout.alignment: Qt.AlignRight
                             width: clearCacheLabel.implicitWidth + Theme.spacingLg * 2
                             height: 36
                             radius: Theme.borderRadius
-                            color: clearCacheHov ? Theme.error : Theme.error + "30"
+                            color: clearCacheHov ? Theme.error : Qt.rgba(Theme.error.r, Theme.error.g, Theme.error.b, 0.19)
                             border.color: Theme.error
                             border.width: 1
                             property bool clearCacheHov: false
+                            function activate() { if (appViewModel && appViewModel.logoCache) appViewModel.logoCache.clear() }
 
                             Text {
                                 id: clearCacheLabel
@@ -1871,6 +2266,7 @@ Item {
                     }
 
                     Rectangle {
+                        id: resetDbBtn
                         Layout.preferredWidth: resetBtnText.implicitWidth + Theme.spacingLg * 2
                         Layout.preferredHeight: 36
                         Layout.alignment: Qt.AlignRight
@@ -1878,6 +2274,7 @@ Item {
                         color: resetBtnHovered ? Qt.darker(Theme.error, 1.2) : Theme.error
 
                         property bool resetBtnHovered: false
+                        function activate() { resetConfirmDialog.open() }
 
                         Text {
                             id: resetBtnText
@@ -2002,6 +2399,7 @@ Item {
                         spacing: Theme.spacingSm
 
                         Rectangle {
+                            id: githubBtn
                             width: githubLabel.implicitWidth + Theme.spacingLg
                             height: 32
                             radius: Theme.borderRadius
@@ -2009,6 +2407,7 @@ Item {
                             border.color: Theme.surfaceBorder
                             border.width: 1
                             property bool githubHov: false
+                            function activate() { if (appViewModel) appViewModel.openGitHub() }
 
                             Text {
                                 id: githubLabel
@@ -2029,11 +2428,13 @@ Item {
                         }
 
                         Rectangle {
+                            id: checkUpdatesBtn
                             width: checkLabel.implicitWidth + Theme.spacingLg
                             height: 32
                             radius: Theme.borderRadius
                             color: checkHov ? Theme.accentHover : Theme.accent
                             property bool checkHov: false
+                            function activate() { if (appViewModel) appViewModel.checkForUpdates() }
 
                             Text {
                                 id: checkLabel
@@ -2149,7 +2550,7 @@ Item {
                     Layout.preferredWidth: confirmResetText.implicitWidth + Theme.spacingLg * 2
                     Layout.preferredHeight: 36
                     radius: Theme.borderRadius
-                    color: confirmResetHov ? Theme.error : Theme.error + "80"
+                    color: confirmResetHov ? Theme.error : Qt.rgba(Theme.error.r, Theme.error.g, Theme.error.b, 0.50)
 
                     property bool confirmResetHov: false
 
@@ -2198,25 +2599,42 @@ Item {
         }
     }
 
-    // --- Google Drive auth URL fallback dialog (for GameScope / no desktop browser) ---
+    // --- Steam browser auth hint (Game Mode only) ---
 
     property string pendingAuthUrl: ""
+    property int authCountdown: 10
+
+    Timer {
+        id: authCountdownTimer
+        interval: 1000
+        repeat: true
+        onTriggered: {
+            settingsView.authCountdown--
+            if (settingsView.authCountdown <= 0) {
+                authCountdownTimer.stop()
+                authHintDialog.close()
+                appViewModel.openAuthUrlInSteamBrowser(settingsView.pendingAuthUrl)
+            }
+        }
+    }
 
     Connections {
         target: appViewModel
-        function onAuthUrlReady(url) {
+        function onShowAuthHint(url) {
             settingsView.pendingAuthUrl = url
-            authUrlDialog.open()
+            settingsView.authCountdown = 10
+            authHintDialog.open()
+            authCountdownTimer.start()
         }
     }
 
     Dialog {
-        id: authUrlDialog
+        id: authHintDialog
         anchors.centerIn: parent
-        width: Math.min(parent.width * 0.85, 600)
+        width: Math.min(parent.width * 0.85, 520)
         modal: true
-        title: "Google Drive Login"
-        standardButtons: Dialog.Close
+        standardButtons: Dialog.NoButton
+        closePolicy: Dialog.NoAutoClose
 
         background: Rectangle {
             color: Theme.surfaceElevated
@@ -2225,87 +2643,59 @@ Item {
             radius: Theme.borderRadiusLarge
         }
 
-        header: Item {
-            height: 48
+        contentItem: ColumnLayout {
+            spacing: Theme.spacingLg
+
             Text {
-                anchors.centerIn: parent
-                text: "Google Drive Login"
-                font.pixelSize: Theme.fontSizeMd
+                Layout.alignment: Qt.AlignHCenter
+                text: "Sign in with Google"
+                font.pixelSize: Theme.fontSizeLg
                 font.bold: true
                 color: Theme.textPrimary
             }
-        }
-
-        contentItem: ColumnLayout {
-            spacing: Theme.spacingMd
 
             Text {
                 Layout.fillWidth: true
-                text: "If your browser did not open automatically (e.g. on Steam Deck in Gaming Mode), copy the URL below and paste it into a browser on any device:"
+                Layout.alignment: Qt.AlignHCenter
+                horizontalAlignment: Text.AlignHCenter
+                text: "The Google sign-in page will open in the\nSteam browser.\n\n" +
+                      "When you are done, press the  ⊞ Steam  button\n" +
+                      "then choose  ▶ Resume Game  to return."
                 font.pixelSize: Theme.fontSizeSm
                 color: Theme.textSecondary
                 wrapMode: Text.WordWrap
-            }
-
-            Rectangle {
-                Layout.fillWidth: true
-                Layout.preferredHeight: authUrlText.implicitHeight + Theme.spacingMd
-                color: Theme.background
-                border.color: Theme.surfaceBorder
-                border.width: 1
-                radius: Theme.borderRadius
-
-                TextEdit {
-                    id: authUrlText
-                    anchors.fill: parent
-                    anchors.margins: Theme.spacingSm
-                    text: settingsView.pendingAuthUrl
-                    font.pixelSize: Theme.fontSizeXs
-                    font.family: "monospace"
-                    color: Theme.accent
-                    wrapMode: TextEdit.WrapAnywhere
-                    readOnly: true
-                    selectByMouse: true
-                }
+                lineHeight: 1.3
             }
 
             Rectangle {
                 Layout.alignment: Qt.AlignHCenter
-                Layout.preferredWidth: copyBtn.implicitWidth + Theme.spacingLg * 2
-                Layout.preferredHeight: 36
+                Layout.preferredWidth: gotItLabel.implicitWidth + Theme.spacingLg * 3
+                Layout.preferredHeight: 44
                 radius: Theme.borderRadius
-                color: copyBtnHovered ? Theme.accent : Theme.accentHover
+                color: gotItArea.containsMouse ? Theme.accent : Theme.accentHover
                 border.color: Theme.accent
                 border.width: 1
-                property bool copyBtnHovered: false
 
                 Text {
-                    id: copyBtn
+                    id: gotItLabel
                     anchors.centerIn: parent
-                    text: "Select All"
+                    text: "Got it (" + settingsView.authCountdown + "s)"
                     font.pixelSize: Theme.fontSizeSm
+                    font.bold: true
                     color: Theme.textOnAccent
                 }
 
                 MouseArea {
+                    id: gotItArea
                     anchors.fill: parent
                     hoverEnabled: true
                     cursorShape: Qt.PointingHandCursor
-                    onEntered: parent.copyBtnHovered = true
-                    onExited: parent.copyBtnHovered = false
                     onClicked: {
-                        authUrlText.selectAll()
-                        authUrlText.focus = true
+                        authCountdownTimer.stop()
+                        authHintDialog.close()
+                        appViewModel.openAuthUrlInSteamBrowser(settingsView.pendingAuthUrl)
                     }
                 }
-            }
-
-            Text {
-                Layout.fillWidth: true
-                text: "After granting access, the browser will redirect to localhost and this app will receive the token automatically."
-                font.pixelSize: Theme.fontSizeXs
-                color: Theme.textMuted
-                wrapMode: Text.WordWrap
             }
         }
     }
