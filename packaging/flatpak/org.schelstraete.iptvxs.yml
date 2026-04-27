@@ -2,14 +2,9 @@ app-id: org.schelstraete.iptvxs
 runtime: org.kde.Platform
 runtime-version: '6.10'
 sdk: org.kde.Sdk
-command: iptvXS
-
-build-options:
-  env:
-    QT_PLUGIN_PATH: /app/lib/plugins:/usr/lib/plugins
+command: iptvXS-wrapper
 
 finish-args:
-  - --env=QT_PLUGIN_PATH=/app/lib/plugins:/usr/lib/plugins
   - --share=ipc
   - --share=network
   - --socket=fallback-x11
@@ -110,6 +105,14 @@ modules:
     buildsystem: cmake-ninja
     config-opts:
       - -DIPTVXS_BUILD_TESTS=OFF
+    post-install:
+      - |
+        cat > /app/bin/iptvXS-wrapper <<'WRAPPER'
+        #!/bin/sh
+        export QT_PLUGIN_PATH="/app/lib/plugins:/usr/lib/plugins:${QT_PLUGIN_PATH}"
+        exec /app/bin/iptvXS "$@"
+        WRAPPER
+        chmod +x /app/bin/iptvXS-wrapper
     sources:
       - type: dir
         path: ../..
