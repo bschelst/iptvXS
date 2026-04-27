@@ -743,6 +743,7 @@ Item {
                                 delegate: Item {
                                     width: 200
                                     height: 170
+                                    function activate() { posterCard.activate() }
 
                                     Rectangle {
                                         id: posterCard
