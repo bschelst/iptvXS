@@ -2,6 +2,7 @@
 #pragma once
 
 #include <QObject>
+#include <QNetworkAccessManager>
 #include <QString>
 #include <QTcpServer>
 
@@ -40,13 +41,18 @@ private slots:
     void onNewConnection();
 
 private:
+    void startAuthFlowDirect();
     void exchangeCodeForToken(const QString &code);
     void refreshAccessToken();
     void saveTokens();
     void loadTokens();
     bool isTokenExpired() const;
 
+    void exchangeCodeViaGateway(const QString &code);
+    void refreshViaGateway();
+
     SettingsRepository *settings_;
+    QNetworkAccessManager nam_;
     QString clientId_;
     QString clientSecret_;
     QString accessToken_;
@@ -55,10 +61,23 @@ private:
     QTcpServer *redirectServer_{nullptr};
     QString pkceVerifier_;
     int listenPort_{0};
+    QString gatewayUrl_;
+    QString gatewayApiKey_;
+    bool useGateway_{true};
 
     static constexpr const char *kTokenUrl = "https://oauth2.googleapis.com/token";
     static constexpr const char *kAuthUrl = "https://accounts.google.com/o/oauth2/v2/auth";
     static constexpr const char *kScope = "https://www.googleapis.com/auth/drive.file";
+
+#ifndef IPTVXS_GATEWAY_URL
+#define IPTVXS_GATEWAY_URL "https://iptvxs.schelstraete.org"
+#endif
+    static constexpr const char *kDefaultGatewayUrl = IPTVXS_GATEWAY_URL;
+
+#ifndef IPTVXS_GATEWAY_API_KEY
+#define IPTVXS_GATEWAY_API_KEY ""
+#endif
+    static constexpr const char *kDefaultGatewayApiKey = IPTVXS_GATEWAY_API_KEY;
 
     // Default bundled OAuth client ID for the iptvXS desktop app. Desktop OAuth
     // clients are public — the ID ships with the binary and is paired per-flow

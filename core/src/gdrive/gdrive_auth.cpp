@@ -41,9 +41,11 @@ namespace iptvxs {
 
 GDriveAuth::GDriveAuth(SettingsRepository *settings, QObject *parent)
     : QObject(parent), settings_(settings) {
-    // Prefer bundled default. Users never need to configure a client ID.
     clientId_ = QString::fromUtf8(kDefaultClientId);
     clientSecret_ = QString::fromUtf8(kDefaultClientSecret);
+    gatewayUrl_ = QString::fromUtf8(kDefaultGatewayUrl);
+    gatewayApiKey_ = QString::fromUtf8(kDefaultGatewayApiKey);
+    useGateway_ = !gatewayUrl_.isEmpty() && !gatewayApiKey_.isEmpty();
     loadTokens();
 }
 
@@ -67,10 +69,9 @@ QString GDriveAuth::accessToken() const {
 }
 
 void GDriveAuth::startAuthFlow() {
-    if (clientId_.isEmpty()) {
+    if (!useGateway_ && clientId_.isEmpty()) {
         emit authenticationFailed(QStringLiteral(
-            "Google Drive OAuth client is not bundled in this build. "
-            "Rebuild with -DIPTVXS_GDRIVE_CLIENT_ID=<your-desktop-client-id>."));
+            "Google Drive OAuth not configured. Please update the app."));
         return;
     }
 
@@ -82,14 +83,47 @@ void GDriveAuth::startAuthFlow() {
     redirectServer_ = new QTcpServer(this);
     connect(redirectServer_, &QTcpServer::newConnection, this, &GDriveAuth::onNewConnection);
 
-    // Ephemeral port — Google's desktop OAuth client accepts http://127.0.0.1:* and
-    // http://localhost:* redirect URIs without pre-registering specific ports.
     if (!redirectServer_->listen(QHostAddress::LocalHost, 0)) {
         emit authenticationFailed(QStringLiteral("Failed to start redirect server"));
         return;
     }
     listenPort_ = redirectServer_->serverPort();
 
+    if (useGateway_) {
+        QUrl url(gatewayUrl_ + QStringLiteral("/api/oauth/start"));
+        QUrlQuery q;
+        q.addQueryItem(QStringLiteral("redirect_port"), QString::number(listenPort_));
+        url.setQuery(q);
+
+        QNetworkRequest req(url);
+        req.setRawHeader("User-Agent", "IPTVXs/1.0");
+        auto *reply = nam_.get(req);
+        connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+            reply->deleteLater();
+            if (reply->error() != QNetworkReply::NoError) {
+                qWarning("Gateway OAuth start failed: %s — falling back to direct",
+                         qPrintable(reply->errorString()));
+                startAuthFlowDirect();
+                return;
+            }
+            auto doc = QJsonDocument::fromJson(reply->readAll());
+            auto obj = doc.object();
+            auto authUrl = obj.value("auth_url").toString();
+            pkceVerifier_ = obj.value("code_verifier").toString();
+            if (authUrl.isEmpty() || pkceVerifier_.isEmpty()) {
+                qWarning("Gateway OAuth start: empty response — falling back");
+                startAuthFlowDirect();
+                return;
+            }
+            qInfo("OAuth via gateway: auth URL received");
+            emit openUrlRequested(QUrl(authUrl));
+        });
+    } else {
+        startAuthFlowDirect();
+    }
+}
+
+void GDriveAuth::startAuthFlowDirect() {
     pkceVerifier_ = makeRandomVerifier(64);
     const QString challenge = makeS256Challenge(pkceVerifier_);
 
@@ -169,14 +203,51 @@ void GDriveAuth::onNewConnection() {
     });
 }
 
+void GDriveAuth::exchangeCodeViaGateway(const QString &code) {
+    QJsonObject body;
+    body["code"] = code;
+    body["code_verifier"] = pkceVerifier_;
+    body["redirect_uri"] = QStringLiteral("http://localhost:%1").arg(listenPort_);
+
+    QNetworkRequest req(QUrl(gatewayUrl_ + QStringLiteral("/api/oauth/token")));
+    req.setHeader(QNetworkRequest::ContentTypeHeader, QStringLiteral("application/json"));
+    req.setRawHeader("X-API-Key", gatewayApiKey_.toUtf8());
+    req.setRawHeader("User-Agent", "IPTVXs/1.0");
+
+    auto *reply = nam_.post(req, QJsonDocument(body).toJson(QJsonDocument::Compact));
+    connect(reply, &QNetworkReply::finished, this, [this, reply, code]() {
+        reply->deleteLater();
+        if (reply->error() != QNetworkReply::NoError) {
+            qWarning("Gateway token exchange failed: %s — falling back to direct",
+                     qPrintable(reply->errorString()));
+            exchangeCodeForToken(code);
+            return;
+        }
+        auto doc = QJsonDocument::fromJson(reply->readAll());
+        auto obj = doc.object();
+        accessToken_ = obj.value("access_token").toString();
+        refreshToken_ = obj.value("refresh_token").toString();
+        auto expiresIn = obj.value("expires_in").toInt();
+        tokenExpiresAt_ = QDateTime::currentSecsSinceEpoch() + expiresIn - 60;
+        if (accessToken_.isEmpty()) {
+            emit authenticationFailed(QStringLiteral("Gateway returned empty access_token"));
+            return;
+        }
+        qInfo("OAuth token exchange via gateway successful");
+        saveTokens();
+        emit authenticated();
+    });
+}
+
 void GDriveAuth::exchangeCodeForToken(const QString &code) {
-    auto *nam = new QNetworkAccessManager(this);
+    if (useGateway_) {
+        exchangeCodeViaGateway(code);
+        return;
+    }
 
     QUrlQuery postData;
     postData.addQueryItem(QStringLiteral("code"), code);
     postData.addQueryItem(QStringLiteral("client_id"), clientId_);
-    // Google Desktop clients require client_secret at the token endpoint even
-    // under PKCE; Google does not treat it as confidential for installed apps.
     if (!clientSecret_.isEmpty()) {
         postData.addQueryItem(QStringLiteral("client_secret"), clientSecret_);
     }
@@ -189,11 +260,10 @@ void GDriveAuth::exchangeCodeForToken(const QString &code) {
     request.setHeader(QNetworkRequest::ContentTypeHeader,
                       QStringLiteral("application/x-www-form-urlencoded"));
 
-    auto *reply = nam->post(request, postData.toString(QUrl::FullyEncoded).toUtf8());
+    auto *reply = nam_.post(request, postData.toString(QUrl::FullyEncoded).toUtf8());
 
-    connect(reply, &QNetworkReply::finished, this, [this, reply, nam]() {
+    connect(reply, &QNetworkReply::finished, this, [this, reply]() {
         reply->deleteLater();
-        nam->deleteLater();
 
         auto body = reply->readAll();
         if (reply->error() != QNetworkReply::NoError) {
@@ -225,12 +295,44 @@ void GDriveAuth::exchangeCodeForToken(const QString &code) {
     });
 }
 
+void GDriveAuth::refreshViaGateway() {
+    QJsonObject body;
+    body["refresh_token"] = refreshToken_;
+
+    QNetworkRequest req(QUrl(gatewayUrl_ + QStringLiteral("/api/oauth/refresh")));
+    req.setHeader(QNetworkRequest::ContentTypeHeader, QStringLiteral("application/json"));
+    req.setRawHeader("X-API-Key", gatewayApiKey_.toUtf8());
+    req.setRawHeader("User-Agent", "IPTVXs/1.0");
+
+    auto *reply = nam_.post(req, QJsonDocument(body).toJson(QJsonDocument::Compact));
+    connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+        reply->deleteLater();
+        if (reply->error() != QNetworkReply::NoError) {
+            qWarning("Gateway token refresh failed: %s", qPrintable(reply->errorString()));
+            emit authenticationFailed(reply->errorString());
+            return;
+        }
+        auto doc = QJsonDocument::fromJson(reply->readAll());
+        auto obj = doc.object();
+        accessToken_ = obj.value("access_token").toString();
+        auto expiresIn = obj.value("expires_in").toInt();
+        tokenExpiresAt_ = QDateTime::currentSecsSinceEpoch() + expiresIn - 60;
+        if (obj.contains("refresh_token"))
+            refreshToken_ = obj.value("refresh_token").toString();
+        saveTokens();
+        emit tokenRefreshed();
+    });
+}
+
 void GDriveAuth::refreshAccessToken() {
     if (refreshToken_.isEmpty()) {
         return;
     }
 
-    auto *nam = new QNetworkAccessManager(this);
+    if (useGateway_) {
+        refreshViaGateway();
+        return;
+    }
 
     QUrlQuery postData;
     postData.addQueryItem(QStringLiteral("client_id"), clientId_);
@@ -244,11 +346,10 @@ void GDriveAuth::refreshAccessToken() {
     request.setHeader(QNetworkRequest::ContentTypeHeader,
                       QStringLiteral("application/x-www-form-urlencoded"));
 
-    auto *reply = nam->post(request, postData.toString(QUrl::FullyEncoded).toUtf8());
+    auto *reply = nam_.post(request, postData.toString(QUrl::FullyEncoded).toUtf8());
 
-    connect(reply, &QNetworkReply::finished, this, [this, reply, nam]() {
+    connect(reply, &QNetworkReply::finished, this, [this, reply]() {
         reply->deleteLater();
-        nam->deleteLater();
 
         if (reply->error() != QNetworkReply::NoError) {
             emit authenticationFailed(reply->errorString());
