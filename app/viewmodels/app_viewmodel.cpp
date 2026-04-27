@@ -1181,7 +1181,7 @@ bool AppViewModel::updateAvailable() const {
 
 void AppViewModel::checkForUpdates() {
     if (!httpClient_) return;
-    QUrl url(QStringLiteral("https://iptvxs.schelstraete.org/api/version"));
+    QUrl url(QStringLiteral("https://iptvxs.schelstraete.org/api/v1/version"));
     auto *reply = httpClient_->get(url);
     QTimer::singleShot(5000, reply, [reply]() {
         if (!reply->isFinished()) { reply->abort(); }

@@ -101,12 +101,18 @@ void GDriveAuth::startAuthFlow() {
     listenPort_ = redirectServer_->serverPort();
 
     if (useGateway_) {
-        QUrl url(gatewayUrl_ + QStringLiteral("/api/oauth/start"));
+        pkceVerifier_ = makeRandomVerifier(64);
+        const QString challenge = makeS256Challenge(pkceVerifier_);
+
+        QUrl url(gatewayUrl_ + QStringLiteral("/api/v1/oauth/start"));
         QUrlQuery q;
         q.addQueryItem(QStringLiteral("redirect_port"), QString::number(listenPort_));
+        q.addQueryItem(QStringLiteral("code_challenge"), challenge);
+        q.addQueryItem(QStringLiteral("code_challenge_method"), QStringLiteral("S256"));
         url.setQuery(q);
 
         QNetworkRequest req(url);
+        req.setRawHeader("X-API-Key", gatewayApiKey_.toUtf8());
         req.setRawHeader("User-Agent", gdriveUserAgent());
         auto *reply = nam_.get(req);
         connect(reply, &QNetworkReply::finished, this, [this, reply]() {
@@ -120,8 +126,7 @@ void GDriveAuth::startAuthFlow() {
             auto doc = QJsonDocument::fromJson(reply->readAll());
             auto obj = doc.object();
             auto authUrl = obj.value("auth_url").toString();
-            pkceVerifier_ = obj.value("code_verifier").toString();
-            if (authUrl.isEmpty() || pkceVerifier_.isEmpty()) {
+            if (authUrl.isEmpty()) {
                 qWarning("Gateway OAuth start: empty response — falling back");
                 startAuthFlowDirect();
                 return;
@@ -220,7 +225,7 @@ void GDriveAuth::exchangeCodeViaGateway(const QString &code) {
     body["code_verifier"] = pkceVerifier_;
     body["redirect_uri"] = QStringLiteral("http://localhost:%1").arg(listenPort_);
 
-    QNetworkRequest req(QUrl(gatewayUrl_ + QStringLiteral("/api/oauth/token")));
+    QNetworkRequest req(QUrl(gatewayUrl_ + QStringLiteral("/api/v1/oauth/token")));
     req.setHeader(QNetworkRequest::ContentTypeHeader, QStringLiteral("application/json"));
     req.setRawHeader("X-API-Key", gatewayApiKey_.toUtf8());
     req.setRawHeader("User-Agent", gdriveUserAgent());
@@ -310,7 +315,7 @@ void GDriveAuth::refreshViaGateway() {
     QJsonObject body;
     body["refresh_token"] = refreshToken_;
 
-    QNetworkRequest req(QUrl(gatewayUrl_ + QStringLiteral("/api/oauth/refresh")));
+    QNetworkRequest req(QUrl(gatewayUrl_ + QStringLiteral("/api/v1/oauth/refresh")));
     req.setHeader(QNetworkRequest::ContentTypeHeader, QStringLiteral("application/json"));
     req.setRawHeader("X-API-Key", gatewayApiKey_.toUtf8());
     req.setRawHeader("User-Agent", gdriveUserAgent());
