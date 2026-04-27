@@ -2,7 +2,7 @@ app-id: org.schelstraete.iptvxs
 runtime: org.kde.Platform
 runtime-version: '6.10'
 sdk: org.kde.Sdk
-command: iptvXS-wrapper
+command: iptvXS
 
 finish-args:
   - --share=ipc
@@ -106,7 +106,7 @@ modules:
     config-opts:
       - -DIPTVXS_BUILD_TESTS=OFF
     post-install:
-      - printf '#!/bin/sh\nexport QT_PLUGIN_PATH="/app/lib/plugins:/usr/lib/plugins:${QT_PLUGIN_PATH}"\nexec /app/bin/iptvXS "$@"\n' > /app/bin/iptvXS-wrapper && chmod +x /app/bin/iptvXS-wrapper
+      - mkdir -p /app/lib/plugins/imageformats && ln -sf /usr/lib/plugins/imageformats/* /app/lib/plugins/imageformats/
     sources:
       - type: dir
         path: ../..
