@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <em>This project is under active development. Expect bugs, incomplete features, and rough edges. Testing is ongoing — use at your own risk.</em>
+  <em>This project is under active development. Expect bugs, incomplete features, and rough edges. I'm still fully testing,and there are a lot of outstanding actions — use at your own risk.</em>
 </p>
 
 <p align="center">
