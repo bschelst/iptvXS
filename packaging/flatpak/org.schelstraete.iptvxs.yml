@@ -65,7 +65,7 @@ modules:
   - name: jinja
     buildsystem: simple
     build-commands:
-      - python3 -m pip install --no-build-isolation --no-deps --prefix=/app --root=/ .
+      - PYTHONPATH=/app/lib/python3.13/site-packages python3 -m pip install --no-build-isolation --no-deps --prefix=/app --root=/ .
     sources:
       - type: archive
         url: https://github.com/pallets/jinja/archive/refs/tags/3.1.6.tar.gz
