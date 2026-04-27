@@ -29,7 +29,9 @@ jobs:
         run: flatpak install --user -y flathub org.kde.Platform//6.10 org.kde.Sdk//6.10 || true
 
       - name: Build Flatpak repo
-        run: flatpak-builder --user --force-clean --install-deps-from=flathub --repo=repo/iptvxs-repo build-flatpak packaging/flatpak/org.schelstraete.iptvxs.yml
+        run: |
+          mkdir -p repo
+          flatpak-builder --user --force-clean --install-deps-from=flathub --repo=repo/iptvxs-repo build-flatpak packaging/flatpak/org.schelstraete.iptvxs.yml
 
       - name: Build bundle
         run: flatpak build-bundle repo/iptvxs-repo iptvxs.flatpak org.schelstraete.iptvxs master
