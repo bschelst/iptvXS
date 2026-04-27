@@ -94,8 +94,12 @@ modules:
     buildsystem: cmake-ninja
     config-opts:
       - -DIPTVXS_BUILD_TESTS=OFF
-    post-install:
-      - mkdir -p /app/lib/plugins/imageformats && ln -sf /usr/lib/plugins/imageformats/* /app/lib/plugins/imageformats/
     sources:
       - type: dir
         path: ../..
+
+  - name: imageformat-symlinks
+    buildsystem: simple
+    build-commands:
+      - mkdir -p /app/lib/plugins/imageformats
+      - ln -sf /usr/lib/plugins/imageformats/* /app/lib/plugins/imageformats/
