@@ -323,7 +323,7 @@ Item {
 
                     PlayerButton {
                         id: ccBtn
-                        visible: appViewModel && !appViewModel.player.isLive && appViewModel.subtitlesEnabled
+                        visible: appViewModel && appViewModel.subtitlesEnabled
                         text: "CC"
                         iconSize: 14
                         onClicked: subTrackPopup.visible = !subTrackPopup.visible

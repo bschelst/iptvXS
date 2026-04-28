@@ -29,6 +29,9 @@ PlayerViewModel::PlayerViewModel(QObject *parent)
                 if (dur <= 0.0 && !isLive_) {
                     isLive_ = true;
                     emit isLiveChanged();
+                } else if (dur > 0.0 && isLive_ && !currentUrl_.contains(QStringLiteral("/live/"))) {
+                    isLive_ = false;
+                    emit isLiveChanged();
                 }
             });
     connect(player_, &iptvxs::MpvPlayer::positionChanged, this,
