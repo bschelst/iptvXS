@@ -1071,6 +1071,19 @@ void AppViewModel::prefetchNextSeries(std::shared_ptr<SeriesPrefetchState> state
     client->fetchSeriesInfo(ch.externalId);
 }
 
+QVariantMap AppViewModel::channelInfo(int64_t channelId) const {
+    QVariantMap result;
+    if (!channelRepo_ || channelId <= 0) return result;
+    auto ch = channelRepo_->findById(channelId);
+    if (!ch) return result;
+    result[QStringLiteral("type")] = ch->type;
+    result[QStringLiteral("serverId")] = QVariant::fromValue(ch->serverId);
+    result[QStringLiteral("externalId")] = ch->externalId;
+    result[QStringLiteral("name")] = ch->name;
+    result[QStringLiteral("logoUrl")] = ch->logoUrl;
+    return result;
+}
+
 void AppViewModel::playChannelById(int64_t channelId) {
     if (!channelRepo_ || channelId <= 0) return;
     auto ch = channelRepo_->findById(channelId);

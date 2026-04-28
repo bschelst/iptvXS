@@ -185,6 +185,7 @@ public:
     Q_INVOKABLE void loadSubtitleResult(int index);
     Q_INVOKABLE void fetchSeriesEpisodes(int64_t serverId, const QString &seriesId,
                                           const QString &seriesName, const QString &logoUrl);
+    Q_INVOKABLE QVariantMap channelInfo(int64_t channelId) const;
     Q_INVOKABLE void playChannelById(int64_t channelId);
     Q_INVOKABLE void playChannelByName(const QString &name);
     Q_INVOKABLE void playSeriesEpisode(const QString &episodeId, const QString &ext,

@@ -191,7 +191,7 @@ ApplicationWindow {
             var savedTheme = appViewModel.theme
             if (savedTheme) Theme.applyTheme(savedTheme)
         }
-        focusSidebar()
+        focusCurrentViewPrimary()
     }
 
     // --- Single persistent video surface with PIP ---
