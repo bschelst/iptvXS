@@ -43,6 +43,21 @@
   <content_rating type="oars-1.1" />
 
   <releases>
+    <release version="0.3.6" date="2026-04-28">
+      <description>
+        <p>Netflix-style home page, controller navigation, and bug fixes.</p>
+        <ul>
+          <li>Netflix-style home page with Continue Watching, Favorites, Recently Added rows.</li>
+          <li>Google OAuth via gateway proxy with Steam overlay browser auth.</li>
+          <li>Full d-pad/controller navigation for Settings, TV Guide, Recordings.</li>
+          <li>Series episode cache in SQLite with resume-on-restart.</li>
+          <li>Fixed subtitle/audio track selection and language filtering.</li>
+          <li>Fixed QML color rendering across all views.</li>
+          <li>Play history: correct type detection, episode titles, delete button.</li>
+          <li>Player: seek bar with time labels, VOD Series/Movies header.</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.3.0" date="2026-04-26">
       <description>
         <p>Major UI polish, new features, and Steam Deck improvements.</p>
