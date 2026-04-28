@@ -460,7 +460,7 @@ void AppViewModel::setLogoCacheMaxMb(int mb) {
 }
 
 int AppViewModel::autoSyncInterval() const {
-    return settingsRepo_ ? settingsRepo_->getInt(QStringLiteral("auto_sync_hours"), 6) : 6;
+    return settingsRepo_ ? settingsRepo_->getInt(QStringLiteral("auto_sync_hours"), 24) : 24;
 }
 
 void AppViewModel::setAutoSyncInterval(int hours) {
@@ -471,7 +471,7 @@ void AppViewModel::setAutoSyncInterval(int hours) {
 }
 
 int AppViewModel::autoSyncEpgInterval() const {
-    return settingsRepo_ ? settingsRepo_->getInt(QStringLiteral("auto_sync_epg_hours"), 6) : 6;
+    return settingsRepo_ ? settingsRepo_->getInt(QStringLiteral("auto_sync_epg_hours"), 24) : 24;
 }
 
 void AppViewModel::setAutoSyncEpgInterval(int hours) {
