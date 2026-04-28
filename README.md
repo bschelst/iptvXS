@@ -274,7 +274,7 @@ iptvXS/
 
 ## Author
 
-**Schelstraete Bart** — [iptvxs.schelstraete.org](https://iptvxs.schelstraete.org) — [GitHub](https://github.com/bschelst/iptvXS)
+**Schelstraete Bart** — [www.schelstraete.org](https://www.schelstraete.org) — [GitHub](https://github.com/bschelst/iptvXS)
 
 ---
 
