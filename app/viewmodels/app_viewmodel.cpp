@@ -1028,6 +1028,15 @@ void AppViewModel::prefetchNextSeries(std::shared_ptr<SeriesPrefetchState> state
         return;
     }
 
+    // Skip if already cached — resume where we left off after restart
+    if (seriesCacheRepo_->find(state->serverId, ch.externalId)) {
+        state->completed.fetch_add(1);
+        QMetaObject::invokeMethod(this, [this, state]() {
+            prefetchNextSeries(state);
+        }, Qt::QueuedConnection);
+        return;
+    }
+
     auto srv = serverRepo_->findById(state->serverId);
     if (!srv) return;
 
