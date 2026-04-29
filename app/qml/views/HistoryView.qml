@@ -97,11 +97,10 @@ Item {
                 if (Window.window && Window.window.focusSidebar) Window.window.focusSidebar()
             }
             Keys.onRightPressed: {
-                // Activate delete action for current item
                 if (currentIndex >= 0 && appViewModel) {
-                    var item = appViewModel.history.get(currentIndex)
-                    if (item && item.historyId !== undefined)
-                        appViewModel.history.removeEntry(item.historyId)
+                    var idx = appViewModel.history.index(currentIndex, 0)
+                    var hid = appViewModel.history.data(idx, 257)  // IdRole
+                    if (hid) appViewModel.history.removeEntry(hid)
                 }
             }
             Keys.onReturnPressed: playCurrentItem()
@@ -115,12 +114,15 @@ Item {
 
             function playCurrentItem() {
                 if (currentIndex < 0 || !appViewModel) return
-                var item = appViewModel.history.get(currentIndex)
-                if (!item) return
-                if (item.channelId > 0) {
-                    appViewModel.playChannelById(item.channelId)
-                } else if (item.streamUrl) {
-                    appViewModel.player.play(item.streamUrl, item.channelName, item.channelLogo, 0)
+                var idx = appViewModel.history.index(currentIndex, 0)
+                var channelId = appViewModel.history.data(idx, 258)  // ChannelIdRole
+                var streamUrl = appViewModel.history.data(idx, 264)  // StreamUrlRole
+                var name = appViewModel.history.data(idx, 259)       // ChannelNameRole
+                var logo = appViewModel.history.data(idx, 260)       // ChannelLogoRole
+                if (channelId > 0) {
+                    appViewModel.playChannelById(channelId)
+                } else if (streamUrl) {
+                    appViewModel.player.play(streamUrl, name, logo, 0)
                     appViewModel.currentView = "player"
                 }
             }
@@ -247,7 +249,7 @@ Item {
                         font.pixelSize: 18
                         font.bold: true
                         color: Theme.textMuted
-                        visible: !histHov && !isFocused
+                        visible: !histHov && !(historyList.activeFocus && historyList.currentIndex === index)
                     }
 
                     Text {
@@ -255,7 +257,7 @@ Item {
                         font.pixelSize: 14
                         font.bold: true
                         color: delHistHov ? Theme.error : Theme.textMuted
-                        visible: histHov || isFocused
+                        visible: histHov || (historyList.activeFocus && historyList.currentIndex === index)
                         property bool delHistHov: false
 
                         MouseArea {
