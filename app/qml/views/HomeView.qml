@@ -314,7 +314,10 @@ Item {
             var posSecs = hist.data(idx, 265) || 0      // PositionSecsRole
             var totalDur = hist.data(idx, 266) || 0     // TotalDurationSecsRole
             var channelId = hist.data(idx, 258)  // ChannelIdRole (UserRole+2)
-            var dedupeKey = channelId > 0 ? "id:" + channelId : "url:" + hist.data(idx, 264)
+            var streamUrl = hist.data(idx, 264)  // StreamUrlRole
+            // Series: dedup by URL (each episode is unique). Others: dedup by channelId or URL.
+            var dedupeKey = (cType === "series" || !channelId || channelId <= 0)
+                ? "url:" + streamUrl : "id:" + channelId
             // Skip finished (>= 95% watched) — also mark dedup key as seen
             if (totalDur > 0 && posSecs >= totalDur * 0.95) { seen[dedupeKey] = true; continue }
             if (seen[dedupeKey]) continue
