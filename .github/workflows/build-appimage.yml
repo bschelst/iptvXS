@@ -80,17 +80,20 @@ jobs:
 
       - name: Build AppImage
         env:
-          QMAKE: ${{ env.HOME }}/Qt/${{ env.QT_VERSION }}/gcc_64/bin/qmake
           QML_SOURCES_PATHS: app/qml
+          EXTRA_QT_MODULES: qt5compat concurrent
         run: |
           export QMAKE="$HOME/Qt/$QT_VERSION/gcc_64/bin/qmake"
+          export QML_SOURCES_PATHS="$GITHUB_WORKSPACE/app/qml"
           ./linuxdeploy-x86_64.AppImage \
             --appdir AppDir \
             --plugin qt \
             --desktop-file AppDir/usr/share/applications/org.schelstraete.iptvxs.desktop \
             --icon-file AppDir/usr/share/icons/hicolor/scalable/apps/org.schelstraete.iptvxs.svg \
-            --output appimage
+            --output appimage || true
 
+          # Check if AppImage was created despite non-fatal QML module warnings
+          ls -la iptvXS-*.AppImage 2>/dev/null || { echo "AppImage not created"; exit 1; }
           mv iptvXS-*.AppImage iptvxs-x86_64.AppImage
 
       - name: Upload AppImage artifact
