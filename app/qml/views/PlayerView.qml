@@ -330,6 +330,14 @@ Item {
                     }
 
                     PlayerButton {
+                        id: audioBtn
+                        visible: appViewModel && appViewModel.player.audioTracks.length > 1
+                        text: "AUD"
+                        iconSize: 12
+                        onClicked: audioTrackPopup.visible = !audioTrackPopup.visible
+                    }
+
+                    PlayerButton {
                         id: episodeBtn
                         visible: appViewModel && appViewModel.hasActiveSeriesDialog()
                                  && !appViewModel.player.isLive
@@ -347,19 +355,6 @@ Item {
                     Rectangle {
                         width: 1; height: 28; color: "#40ffffff"
                         visible: ccBtn.visible || audioBtn.visible || episodeBtn.visible
-                    }
-
-                    PlayerButton {
-                        id: audioBtn
-                        visible: appViewModel && appViewModel.player.audioTracks.length > 1
-                        text: "AUD"
-                        iconSize: 12
-                        onClicked: audioTrackPopup.visible = !audioTrackPopup.visible
-                    }
-
-                    Rectangle {
-                        width: 1; height: 28; color: "#40ffffff"
-                        visible: audioBtn.visible
                     }
 
                     Rectangle {
@@ -691,6 +686,7 @@ Item {
         Rectangle {
             id: subTrackPopup
             visible: false
+            // controller focus handled in merged onVisibleChanged below
             anchors.right: parent.right
             anchors.bottom: controlsOverlay.top
             anchors.rightMargin: Theme.spacingLg
@@ -702,8 +698,10 @@ Item {
             z: 15
 
             onVisibleChanged: {
-                if (visible && appViewModel) {
-                    appViewModel.player.refreshSubtitleTracks()
+                if (visible) {
+                    if (appViewModel) appViewModel.player.refreshSubtitleTracks()
+                    subTrackList.forceActiveFocus()
+                    if (subTrackList.currentIndex < 0) subTrackList.currentIndex = 0
                 }
             }
 
@@ -759,6 +757,15 @@ Item {
                         id: subTrackList
                         anchors.fill: parent
                         clip: true
+                        keyNavigationEnabled: true
+                        highlightFollowsCurrentItem: true
+                        Keys.onReturnPressed: if (currentIndex >= 0 && currentItem) { appViewModel.player.selectSubtitleTrack(model[currentIndex].id); subTrackPopup.visible = false }
+                        Keys.onEnterPressed: Keys.onReturnPressed(event)
+                        Keys.onEscapePressed: subTrackPopup.visible = false
+                        Keys.onPressed: function(event) {
+                            if (event.key === Qt.Key_Select) { Keys.onReturnPressed(event); event.accepted = true }
+                            else if (event.key === Qt.Key_Back) { subTrackPopup.visible = false; event.accepted = true }
+                        }
                         model: {
                             if (!appViewModel) return []
                             var tracks = appViewModel.player.subtitleTracks
@@ -805,9 +812,14 @@ Item {
                                     text: {
                                         var lang = playerView.langName(modelData.lang)
                                         var title = modelData.title || ""
-                                        if (modelData.external) title = title ? title + " (ext)" : "(external)"
-                                        if (lang && title) return lang + " — " + title
-                                        if (lang) return lang
+                                        var suffix = modelData.external ? " (ext)" : ""
+                                        if (!title && modelData.external) title = "External #" + modelData.id
+                                        var label = ""
+                                        if (lang && title) label = lang + " — " + title
+                                        else if (lang) label = lang + " (#" + modelData.id + ")"
+                                        else if (title) label = title
+                                        else label = "Track " + modelData.id
+                                        return label + suffix
                                         if (title) return title
                                         return "Track " + modelData.id
                                     }
@@ -938,8 +950,9 @@ Item {
             color: "#e0202020"
 
             onVisibleChanged: {
-                if (visible && appViewModel)
-                    appViewModel.player.refreshAudioTracks()
+                if (visible) {
+                    if (appViewModel) appViewModel.player.refreshAudioTracks()
+                }
             }
             border.color: "#40ffffff"
             border.width: 1

@@ -207,7 +207,8 @@ ApplicationWindow {
 
     Rectangle {
         id: videoContainer
-        visible: _playing && (_inPlayer || pipMode)
+        visible: _playing
+        z: _inPlayer ? 0 : (pipMode ? 1000 : -1)
         color: "#000000"
         clip: pipMode
         radius: pipMode ? Theme.borderRadius : 0

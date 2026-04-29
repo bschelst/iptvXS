@@ -477,10 +477,7 @@ Item {
                 if (cardRow.isHistory) {
                     var hItem = continueWatchingModel.get(currentIndex)
                     if (!hItem) return
-                    if (hItem.channelType === "series" && hItem.channelId > 0) {
-                        homeView.openOrPlayChannel(hItem.channelId)
-                        return
-                    }
+                    // Always play directly — this IS the episode the user was watching
                     if (hItem.streamUrl) {
                         appViewModel.player.play(hItem.streamUrl, hItem.channelName,
                             hItem.channelLogo, hItem.channelId, "")
@@ -622,10 +619,7 @@ Item {
                             && mouse.y >= btnTop && mouse.y <= btnBottom) {
                         if (appViewModel) {
                             appViewModel.history.markFinished(Number(model.historyId))
-                            populateContinueWatching()
-                            // Reset scroll position after removing card
-                            var lv = posterDelegate.ListView.view
-                            if (lv) { lv.currentIndex = -1; lv.positionViewAtBeginning() }
+                            cwPopulateTimer.restart()
                         }
                         return
                     }

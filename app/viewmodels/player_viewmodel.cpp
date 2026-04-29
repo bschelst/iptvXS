@@ -361,17 +361,19 @@ QVariantList PlayerViewModel::audioTracks() const { return audioTracks_; }
 void PlayerViewModel::refreshAudioTracks() {
     audioTracks_.clear();
 
+    auto primaryAid = player_->getProperty(QStringLiteral("aid")).toInt();
     auto trackCount = player_->getProperty(QStringLiteral("track-list/count")).toInt();
     for (int i = 0; i < trackCount; ++i) {
         auto prefix = QStringLiteral("track-list/%1/").arg(i);
         auto type = player_->getProperty(prefix + QStringLiteral("type")).toString();
         if (type != QStringLiteral("audio")) continue;
 
+        auto trackId = player_->getProperty(prefix + QStringLiteral("id")).toInt();
         QVariantMap track;
-        track[QStringLiteral("id")] = player_->getProperty(prefix + QStringLiteral("id")).toInt();
+        track[QStringLiteral("id")] = trackId;
         track[QStringLiteral("title")] = player_->getProperty(prefix + QStringLiteral("title")).toString();
         track[QStringLiteral("lang")] = player_->getProperty(prefix + QStringLiteral("lang")).toString();
-        track[QStringLiteral("selected")] = player_->getProperty(prefix + QStringLiteral("selected")).toBool();
+        track[QStringLiteral("selected")] = (trackId == primaryAid);
         audioTracks_.append(track);
     }
 
