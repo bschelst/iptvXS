@@ -1,0 +1,92 @@
+name: Build AppImage
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            cmake ninja-build g++ \
+            qt6-base-dev qt6-declarative-dev qt6-multimedia-dev \
+            qt6-5compat-dev qml6-module-qt5compat-graphicaleffects \
+            qml6-module-qtquick-controls qml6-module-qtquick-layouts \
+            qml6-module-qtquick-window qml6-module-qtquick-dialogs \
+            qml6-module-qtqml-workerscript \
+            libqt6opengl6-dev libqt6sql6-sqlite libqt6dbus6 libqt6widgets6 \
+            libqt6concurrent6 libqt6network6 \
+            libmpv-dev libsdl2-dev ffmpeg \
+            libfuse2 file desktop-file-utils
+
+      - name: Build
+        env:
+          GATEWAY_API_KEY: ${{ secrets.IPTVXS_GATEWAY_API_KEY }}
+        run: |
+          cmake -S . -B build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INSTALL_PREFIX=/usr \
+            -DIPTVXS_GATEWAY_API_KEY="$GATEWAY_API_KEY" \
+            -DIPTVXS_GATEWAY_URL="https://iptvxs.schelstraete.org"
+          cmake --build build --parallel $(nproc)
+
+      - name: Prepare AppDir
+        run: |
+          mkdir -p AppDir/usr/bin
+          mkdir -p AppDir/usr/share/applications
+          mkdir -p AppDir/usr/share/icons/hicolor/scalable/apps
+          mkdir -p AppDir/usr/share/metainfo
+
+          cp build/app/iptvXS AppDir/usr/bin/
+          cp packaging/linux/org.schelstraete.iptvxs.desktop AppDir/usr/share/applications/
+          cp packaging/linux/org.schelstraete.iptvxs.desktop AppDir/
+          cp packaging/linux/org.schelstraete.iptvxs.svg AppDir/usr/share/icons/hicolor/scalable/apps/
+          cp packaging/linux/org.schelstraete.iptvxs.svg AppDir/org.schelstraete.iptvxs.svg
+          cp packaging/linux/org.schelstraete.iptvxs.metainfo.xml AppDir/usr/share/metainfo/
+
+      - name: Download linuxdeploy
+        run: |
+          wget -q https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
+          wget -q https://github.com/linuxdeploy/linuxdeploy-plugin-qt/releases/download/continuous/linuxdeploy-plugin-qt-x86_64.AppImage
+          chmod +x linuxdeploy-x86_64.AppImage linuxdeploy-plugin-qt-x86_64.AppImage
+
+      - name: Build AppImage
+        env:
+          QMAKE: /usr/bin/qmake6
+          QML_SOURCES_PATHS: app/qml
+        run: |
+          ./linuxdeploy-x86_64.AppImage \
+            --appdir AppDir \
+            --plugin qt \
+            --desktop-file AppDir/usr/share/applications/org.schelstraete.iptvxs.desktop \
+            --icon-file AppDir/usr/share/icons/hicolor/scalable/apps/org.schelstraete.iptvxs.svg \
+            --output appimage
+
+          mv iptvXS-*.AppImage iptvxs-x86_64.AppImage
+
+      - name: Upload AppImage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: iptvxs-appimage
+          path: iptvxs-x86_64.AppImage
+
+      - name: Upload AppImage to release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: iptvxs-x86_64.AppImage
