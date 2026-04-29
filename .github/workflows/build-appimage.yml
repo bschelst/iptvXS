@@ -78,22 +78,32 @@ jobs:
           wget -q https://github.com/linuxdeploy/linuxdeploy-plugin-qt/releases/download/continuous/linuxdeploy-plugin-qt-x86_64.AppImage
           chmod +x linuxdeploy-x86_64.AppImage linuxdeploy-plugin-qt-x86_64.AppImage
 
+      - name: Remove problematic Qt SQL driver
+        run: |
+          rm -f $HOME/Qt/$QT_VERSION/gcc_64/plugins/sqldrivers/libqsqlmimer.so
+
       - name: Build AppImage
         env:
-          QML_SOURCES_PATHS: app/qml
           EXTRA_QT_MODULES: qt5compat concurrent
+          NO_STRIP: 1
         run: |
           export QMAKE="$HOME/Qt/$QT_VERSION/gcc_64/bin/qmake"
           export QML_SOURCES_PATHS="$GITHUB_WORKSPACE/app/qml"
+          export DEPLOY_PLATFORM_THEMES=1
+
+          # linuxdeploy-plugin-qt returns error for missing platform QML modules
+          # (Windows/macOS/iOS) and our compiled-in QML module — these are non-fatal
           ./linuxdeploy-x86_64.AppImage \
             --appdir AppDir \
             --plugin qt \
             --desktop-file AppDir/usr/share/applications/org.schelstraete.iptvxs.desktop \
             --icon-file AppDir/usr/share/icons/hicolor/scalable/apps/org.schelstraete.iptvxs.svg \
-            --output appimage || true
+            --output appimage 2>&1 || true
 
-          # Check if AppImage was created despite non-fatal QML module warnings
-          ls -la iptvXS-*.AppImage 2>/dev/null || { echo "AppImage not created"; exit 1; }
+          ls -la iptvXS-*.AppImage 2>/dev/null || {
+            echo "::error::AppImage was not created — check linuxdeploy output above"
+            exit 1
+          }
           mv iptvXS-*.AppImage iptvxs-x86_64.AppImage
 
       - name: Upload AppImage artifact
