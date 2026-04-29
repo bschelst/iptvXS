@@ -56,7 +56,7 @@ public:
     QString channelName() const;
     QString channelLogo() const;
     iptvxs::MpvPlayer *mpvPlayer() const;
-    QString currentUrl() const;
+    Q_INVOKABLE QString currentUrl() const;
 
     Q_INVOKABLE void play(const QString &url, const QString &name = {},
                           const QString &logo = {}, int64_t channelId = 0,
