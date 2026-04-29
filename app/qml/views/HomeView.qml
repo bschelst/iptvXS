@@ -623,6 +623,9 @@ Item {
                         if (appViewModel) {
                             appViewModel.history.markFinished(Number(model.historyId))
                             populateContinueWatching()
+                            // Reset scroll position after removing card
+                            var lv = posterDelegate.ListView.view
+                            if (lv) { lv.currentIndex = -1; lv.positionViewAtBeginning() }
                         }
                         return
                     }
