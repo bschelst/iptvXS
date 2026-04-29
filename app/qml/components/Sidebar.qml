@@ -27,7 +27,6 @@ Rectangle {
         if (idx < 0) idx = 0
         idx = Math.max(0, Math.min(navigationItems.length - 1, idx + delta))
         activeItem = navigationItems[idx]
-        itemClicked(activeItem)
     }
 
     Keys.onUpPressed: navigate(-1)

@@ -29,6 +29,10 @@ static QFile *g_logFile = nullptr;
 static QMutex g_logMutex;
 
 static void appMessageHandler(QtMsgType type, const QMessageLogContext &, const QString &msg) {
+    // Suppress noisy warnings that aren't actionable
+    if (msg.contains(QStringLiteral("libcuda")) || msg.contains(QStringLiteral("CUDA")))
+        return;
+
     QMutexLocker lock(&g_logMutex);
 
     QString level;
@@ -93,6 +97,9 @@ int main(int argc, char *argv[]) {
     app.setQuitOnLastWindowClosed(true);
 
     QQuickStyle::setStyle("Basic");
+
+    // Ensure Qt finds imageformat plugins (WebP etc.) in Flatpak
+    app.addLibraryPath(QStringLiteral("/app/lib/plugins"));
 
     QString dataPath = localAppDataPath();
     QDir().mkpath(dataPath);

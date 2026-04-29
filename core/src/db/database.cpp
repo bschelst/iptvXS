@@ -250,6 +250,11 @@ std::vector<Database::Migration> Database::migrations() const {
              }
              return true;
          }},
+        {13, "Add position tracking to history", [](QSqlDatabase &db) -> bool {
+             QSqlQuery q(db);
+             return q.exec("ALTER TABLE history ADD COLUMN position_secs INTEGER DEFAULT 0")
+                 && q.exec("ALTER TABLE history ADD COLUMN total_duration_secs INTEGER DEFAULT 0");
+         }},
     };
 }
 

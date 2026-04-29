@@ -802,6 +802,29 @@ Item {
         color: "#C0000000"
         z: 200
 
+        property int focusedButton: 1  // 0=record, 1=watch
+        onVisibleChanged: if (visible) { focusedButton = 1; forceActiveFocus() }
+
+        Keys.onLeftPressed: focusedButton = 0
+        Keys.onRightPressed: focusedButton = 1
+        Keys.onReturnPressed: activateFocusedButton()
+        Keys.onEnterPressed: activateFocusedButton()
+        Keys.onEscapePressed: visible = false
+        Keys.onPressed: function(event) {
+            if (event.key === Qt.Key_Select || event.key === Qt.Key_Space) {
+                activateFocusedButton()
+                event.accepted = true
+            } else if (event.key === Qt.Key_Back || event.key === Qt.Key_B) {
+                visible = false
+                event.accepted = true
+            }
+        }
+
+        function activateFocusedButton() {
+            if (focusedButton === 0) recBtn.clicked()
+            else watchBtn.clicked()
+        }
+
         property string channelName: ""
         property string channelLogo: ""
         property string streamUrl: ""
@@ -1027,9 +1050,13 @@ Item {
 
                     Rectangle {
                         width: recBtnLabel.implicitWidth + Theme.spacingLg * 2
+                        id: recBtn
                         height: 36
                         radius: 18
-                        color: recBtnHov ? Theme.accentHover : Theme.accent
+                        color: recBtnHov || progDetailPopup.focusedButton === 0 ? Theme.accentHover : Theme.accent
+                        border.width: progDetailPopup.focusedButton === 0 ? 2 : 0
+                        border.color: "#ffffff"
+                        signal clicked()
 
                         property bool recBtnHov: false
 
@@ -1048,30 +1075,36 @@ Item {
                             cursorShape: Qt.PointingHandCursor
                             onEntered: parent.recBtnHov = true
                             onExited: parent.recBtnHov = false
-                            onClicked: {
-                                if (!appViewModel) return
-                                var leadMin = appViewModel.epgRecordingLeadTime || 0
-                                var overMin = appViewModel.epgRecordingOverrun || 0
-                                recConfirm.channelName = progDetailPopup.channelName
-                                recConfirm.channelLogo = progDetailPopup.channelLogo
-                                recConfirm.channelId = progDetailPopup.channelId
-                                recConfirm.progTitle = progDetailPopup.progTitle
-                                recConfirm.isLive = progDetailPopup.isLive
-                                recConfirm.startEpoch = Math.floor(progDetailPopup.progStart) - leadMin * 60
-                                recConfirm.endEpoch = Math.floor(progDetailPopup.progEnd) + overMin * 60
-                                recConfirm.leadMin = leadMin
-                                recConfirm.overMin = overMin
-                                progDetailPopup.visible = false
-                                recConfirm.visible = true
-                            }
+                            onClicked: recBtn.clicked()
+                        }
+
+                        onClicked: {
+                            if (!appViewModel) return
+                            var leadMin = appViewModel.epgRecordingLeadTime || 0
+                            var overMin = appViewModel.epgRecordingOverrun || 0
+                            recConfirm.channelName = progDetailPopup.channelName
+                            recConfirm.channelLogo = progDetailPopup.channelLogo
+                            recConfirm.channelId = progDetailPopup.channelId
+                            recConfirm.progTitle = progDetailPopup.progTitle
+                            recConfirm.isLive = progDetailPopup.isLive
+                            recConfirm.startEpoch = Math.floor(progDetailPopup.progStart) - leadMin * 60
+                            recConfirm.endEpoch = Math.floor(progDetailPopup.progEnd) + overMin * 60
+                            recConfirm.leadMin = leadMin
+                            recConfirm.overMin = overMin
+                            progDetailPopup.visible = false
+                            recConfirm.visible = true
                         }
                     }
 
                     Rectangle {
+                        id: watchBtn
                         width: watchBtnLabel.implicitWidth + Theme.spacingLg * 2
                         height: 36
                         radius: 18
-                        color: watchBtnHov ? Theme.accentHover : Theme.accent
+                        color: watchBtnHov || progDetailPopup.focusedButton === 1 ? Theme.accentHover : Theme.accent
+                        border.width: progDetailPopup.focusedButton === 1 ? 2 : 0
+                        border.color: "#ffffff"
+                        signal clicked()
 
                         property bool watchBtnHov: false
 
@@ -1090,17 +1123,19 @@ Item {
                             cursorShape: Qt.PointingHandCursor
                             onEntered: parent.watchBtnHov = true
                             onExited: parent.watchBtnHov = false
-                            onClicked: {
-                                if (appViewModel) {
-                                    appViewModel.player.play(progDetailPopup.streamUrl,
-                                        progDetailPopup.channelName,
-                                        progDetailPopup.channelLogo,
-                                        progDetailPopup.channelId,
-                                        progDetailPopup.epgChannelId)
-                                    appViewModel.currentView = "player"
-                                }
-                                progDetailPopup.visible = false
+                            onClicked: watchBtn.clicked()
+                        }
+
+                        onClicked: {
+                            if (appViewModel) {
+                                appViewModel.player.play(progDetailPopup.streamUrl,
+                                    progDetailPopup.channelName,
+                                    progDetailPopup.channelLogo,
+                                    progDetailPopup.channelId,
+                                    progDetailPopup.epgChannelId)
+                                appViewModel.currentView = "player"
                             }
+                            progDetailPopup.visible = false
                         }
                     }
                 }

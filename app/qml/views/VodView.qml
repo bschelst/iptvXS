@@ -760,7 +760,18 @@ Item {
                                 delegate: Item {
                                     width: 200
                                     height: 170
-                                    function activate() { posterCard.activate() }
+                                    function activate() {
+                                        if (!appViewModel) return
+                                        var channelId = Number(model.channelId)
+                                        if (!channelId || channelId <= 0) return
+                                        var ch = appViewModel.channelInfo(channelId)
+                                        if (ch && ch.type === "series" && ch.externalId) {
+                                            episodeDialog.seriesChannelId = channelId
+                                            appViewModel.fetchSeriesEpisodes(ch.serverId, ch.externalId, ch.name, ch.logoUrl)
+                                        } else {
+                                            appViewModel.playChannelById(channelId)
+                                        }
+                                    }
 
                                     Rectangle {
                                         id: posterCard

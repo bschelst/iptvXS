@@ -274,6 +274,15 @@ bool AppViewModel::initialize(const QString &dbPath) {
 
     connect(playerVm_, &PlayerViewModel::stateChanged, this, [this]() {
         if (playerVm_->playing() && historyRepo_) {
+            // Save position of previous entry before creating new one
+            if (lastHistoryEntryId_ > 0 && !playerVm_->isLive()) {
+                auto pos = static_cast<int>(playerVm_->position());
+                auto dur = static_cast<int>(playerVm_->duration());
+                if (dur > 0) {
+                    historyRepo_->updatePosition(lastHistoryEntryId_, pos, dur);
+                }
+            }
+
             auto url = playerVm_->currentUrl();
             auto name = playerVm_->channelName();
             if (name.isEmpty()) return;
@@ -284,9 +293,19 @@ bool AppViewModel::initialize(const QString &dbPath) {
             else if (playerVm_->isLive()) type = QStringLiteral("live");
             else type = QStringLiteral("vod");
 
-            qInfo("History: adding '%s' type=%s url=%s",
-                  qPrintable(name), qPrintable(type), qPrintable(url.left(80)));
             historyRepo_->addEntry(name, playerVm_->channelLogo(), type, url);
+
+            // Track the new entry ID (latest in DB)
+            auto recent = historyRepo_->findRecent(1, 0);
+            lastHistoryEntryId_ = recent.isEmpty() ? 0 : recent.first().id;
+        } else if (playerVm_->stopped() && historyRepo_ && lastHistoryEntryId_ > 0) {
+            // Save final position when playback stops
+            auto pos = static_cast<int>(playerVm_->position());
+            auto dur = static_cast<int>(playerVm_->duration());
+            if (dur > 0) {
+                historyRepo_->updatePosition(lastHistoryEntryId_, pos, dur);
+            }
+            lastHistoryEntryId_ = 0;
         }
     });
 
@@ -1252,7 +1271,15 @@ void AppViewModel::checkForUpdates() {
 }
 
 void AppViewModel::openGitHub() {
-    QDesktopServices::openUrl(QUrl(QStringLiteral("https://github.com/bschelst/iptvXS")));
+    const QString url = QStringLiteral("https://github.com/bschelst/iptvXS");
+    if (qEnvironmentVariableIsSet("GAMESCOPE_WAYLAND_DISPLAY")) {
+        QProcess::startDetached(QStringLiteral("flatpak-spawn"),
+                                {QStringLiteral("--host"),
+                                 QStringLiteral("steam"),
+                                 QStringLiteral("steam://openurl/") + url});
+    } else {
+        QDesktopServices::openUrl(QUrl(url));
+    }
 }
 
 void AppViewModel::openAuthUrlInSteamBrowser(const QString &url) {

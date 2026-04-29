@@ -2,10 +2,18 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import QtQuick.Window
 import app.iptvxs
 
 Item {
     id: historyView
+
+    function focusPrimary() {
+        if (historyList.count > 0) {
+            if (historyList.currentIndex < 0) historyList.currentIndex = 0
+            historyList.forceActiveFocus()
+        }
+    }
 
     ColumnLayout {
         anchors.fill: parent
@@ -83,6 +91,40 @@ Item {
             highlight: Rectangle { color: Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.13); radius: Theme.borderRadiusSmall }
             highlightFollowsCurrentItem: true
 
+            Keys.onUpPressed: { if (currentIndex > 0) currentIndex-- }
+            Keys.onDownPressed: { if (currentIndex < count - 1) currentIndex++ }
+            Keys.onLeftPressed: {
+                if (Window.window && Window.window.focusSidebar) Window.window.focusSidebar()
+            }
+            Keys.onRightPressed: {
+                // Activate delete action for current item
+                if (currentIndex >= 0 && appViewModel) {
+                    var item = appViewModel.history.get(currentIndex)
+                    if (item && item.historyId !== undefined)
+                        appViewModel.history.removeEntry(item.historyId)
+                }
+            }
+            Keys.onReturnPressed: playCurrentItem()
+            Keys.onEnterPressed: Keys.onReturnPressed(event)
+            Keys.onPressed: function(event) {
+                if (event.key === Qt.Key_Space || event.key === Qt.Key_Select) {
+                    playCurrentItem()
+                    event.accepted = true
+                }
+            }
+
+            function playCurrentItem() {
+                if (currentIndex < 0 || !appViewModel) return
+                var item = appViewModel.history.get(currentIndex)
+                if (!item) return
+                if (item.channelId > 0) {
+                    appViewModel.playChannelById(item.channelId)
+                } else if (item.streamUrl) {
+                    appViewModel.player.play(item.streamUrl, item.channelName, item.channelLogo, 0)
+                    appViewModel.currentView = "player"
+                }
+            }
+
             ScrollBar.vertical: ScrollBar {
                 active: true
                 policy: ScrollBar.AsNeeded
@@ -123,6 +165,9 @@ Item {
                 width: historyList.width
                 height: 64
                 color: histHov ? Theme.surfaceHover : "transparent"
+                border.width: historyList.activeFocus && historyList.currentIndex === index ? 2 : 0
+                border.color: historyList.activeFocus && historyList.currentIndex === index
+                    ? Theme.accent : "transparent"
                 property bool histHov: false
 
                 RowLayout {
@@ -195,12 +240,14 @@ Item {
                         }
                     }
 
+                    property bool isFocused: historyList.activeFocus && historyList.currentIndex === index
+
                     Text {
                         text: "\u203A"
                         font.pixelSize: 18
                         font.bold: true
                         color: Theme.textMuted
-                        visible: !histHov
+                        visible: !histHov && !isFocused
                     }
 
                     Text {
@@ -208,7 +255,7 @@ Item {
                         font.pixelSize: 14
                         font.bold: true
                         color: delHistHov ? Theme.error : Theme.textMuted
-                        visible: histHov
+                        visible: histHov || isFocused
                         property bool delHistHov: false
 
                         MouseArea {

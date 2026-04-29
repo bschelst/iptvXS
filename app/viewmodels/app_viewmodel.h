@@ -284,6 +284,7 @@ private:
     int autoSyncEpgCursor_{0};
     bool autoSyncInProgress_{false};
     bool autoSyncEpgInProgress_{false};
+    int64_t lastHistoryEntryId_{0};
 
     static QVariantList parseSeriesEpisodes(const QJsonObject &info,
                                               const QString &seriesName,

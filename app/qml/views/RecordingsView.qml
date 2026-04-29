@@ -8,6 +8,17 @@ import app.iptvxs
 Item {
     id: recordingsView
 
+    readonly property var filterValues: ["", "recording", "scheduled", "completed", "uploading", "uploaded", "failed"]
+
+    function cycleFilter(direction) {
+        if (!appViewModel) return
+        var current = appViewModel.recordingList.filterStatus
+        var idx = filterValues.indexOf(current)
+        if (idx < 0) idx = 0
+        idx = (idx + direction + filterValues.length) % filterValues.length
+        appViewModel.recordingList.filterStatus = filterValues[idx]
+    }
+
     function focusPrimary() {
         if (recordingSectionRepeater && recordingSectionRepeater.count > 0) {
             for (var i = 0; i < recordingSectionRepeater.count; i++) {
@@ -463,6 +474,15 @@ Item {
                                                 event.accepted = true
                                             } else if (event.key === Qt.Key_Down) {
                                                 recordingsView.focusAdjacentSection(sectionRepeaterIndex, cardIndex, 1)
+                                                event.accepted = true
+                                            } else if (event.key === Qt.Key_Y) {
+                                                manualRecordDialog.open()
+                                                event.accepted = true
+                                            } else if (event.key === Qt.Key_PageUp || event.key === Qt.Key_BracketLeft) {
+                                                recordingsView.cycleFilter(-1)
+                                                event.accepted = true
+                                            } else if (event.key === Qt.Key_PageDown || event.key === Qt.Key_BracketRight) {
+                                                recordingsView.cycleFilter(1)
                                                 event.accepted = true
                                             }
                                         }

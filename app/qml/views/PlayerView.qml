@@ -1041,6 +1041,18 @@ Item {
         Rectangle {
             id: autoNextOsd
             visible: appViewModel ? appViewModel.player.autoNextEnabled : false
+            focus: visible
+            onVisibleChanged: if (visible) forceActiveFocus()
+            Keys.onReturnPressed: if (appViewModel) appViewModel.player.cancelAutoNext()
+            Keys.onEnterPressed: if (appViewModel) appViewModel.player.cancelAutoNext()
+            Keys.onEscapePressed: if (appViewModel) appViewModel.player.cancelAutoNext()
+            Keys.onPressed: function(event) {
+                if (event.key === Qt.Key_Select || event.key === Qt.Key_Back
+                        || event.key === Qt.Key_B || event.key === Qt.Key_Space) {
+                    if (appViewModel) appViewModel.player.cancelAutoNext()
+                    event.accepted = true
+                }
+            }
             anchors.bottom: controlsOverlay.top
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.bottomMargin: Theme.spacingMd

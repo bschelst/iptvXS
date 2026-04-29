@@ -43,6 +43,10 @@ QVariant HistoryViewModel::data(const QModelIndex &index, int role) const {
     }
     case StreamUrlRole:
         return e.streamUrl;
+    case PositionSecsRole:
+        return e.positionSecs;
+    case TotalDurationSecsRole:
+        return e.totalDurationSecs;
     }
     return {};
 }
@@ -57,6 +61,8 @@ QHash<int, QByteArray> HistoryViewModel::roleNames() const {
         {WatchedAtRole, "watchedAt"},
         {DurationRole, "duration"},
         {StreamUrlRole, "streamUrl"},
+        {PositionSecsRole, "positionSecs"},
+        {TotalDurationSecsRole, "totalDurationSecs"},
     };
 }
 
@@ -76,6 +82,12 @@ void HistoryViewModel::loadMore() {
 void HistoryViewModel::removeEntry(int64_t id) {
     if (!repo_) return;
     repo_->removeEntry(id);
+    loadEntries();
+}
+
+void HistoryViewModel::markFinished(int64_t id) {
+    if (!repo_) return;
+    repo_->markFinished(id);
     loadEntries();
 }
 

@@ -14,8 +14,17 @@ Item {
     readonly property var allRows: [continueWatchingRow, favoritesRow, recentlyAddedRow, quickAccessRow]
 
     function focusPrimary() {
+        currentRowIndex = 0
         homeView.forceActiveFocus()
-        focusCurrentRow()
+        var rows = allRows
+        for (var i = 0; i < rows.length; i++) {
+            if (rows[i].visible) {
+                currentRowIndex = i
+                rows[i].cardListView.currentIndex = 0
+                rows[i].cardListView.forceActiveFocus()
+                return
+            }
+        }
     }
 
     function openOrPlayChannel(channelId) {
@@ -297,17 +306,29 @@ Item {
         if (!appViewModel || !appViewModel.history) return
         var hist = appViewModel.history
         var added = 0
+        var seen = {}
         for (var i = 0; i < hist.count && added < 20; i++) {
             var idx = hist.index(i, 0)
             var cType = hist.data(idx, 261)   // ChannelTypeRole (UserRole+5)
             if (cType === "live") continue
+            var posSecs = hist.data(idx, 265) || 0      // PositionSecsRole
+            var totalDur = hist.data(idx, 266) || 0     // TotalDurationSecsRole
+            // Skip finished (>= 95% watched)
+            if (totalDur > 0 && posSecs >= totalDur * 0.95) continue
+            var channelId = hist.data(idx, 258)  // ChannelIdRole (UserRole+2)
+            var dedupeKey = channelId > 0 ? "id:" + channelId : "url:" + hist.data(idx, 264)
+            if (seen[dedupeKey]) continue
+            seen[dedupeKey] = true
             continueWatchingModel.append({
-                channelId:   hist.data(idx, 258),  // ChannelIdRole (UserRole+2)
+                channelId:   channelId,
                 channelName: hist.data(idx, 259),  // ChannelNameRole (UserRole+3)
                 channelLogo: hist.data(idx, 260),  // ChannelLogoRole (UserRole+4)
                 channelType: cType,
                 streamUrl:   hist.data(idx, 264),  // StreamUrlRole (UserRole+8)
-                duration:    hist.data(idx, 263) || 0  // DurationRole (UserRole+7)
+                duration:    hist.data(idx, 263) || 0, // DurationRole (UserRole+7)
+                positionSecs: posSecs,
+                totalDurationSecs: totalDur,
+                historyId: hist.data(idx, 257)      // IdRole
             })
             added++
         }
@@ -535,7 +556,7 @@ Item {
 
                 // Progress bar for continue-watching items
                 Rectangle {
-                    visible: (model.duration || 0) > 0
+                    visible: (model.totalDurationSecs || 0) > 0
                     anchors.bottom: posterImgArea.bottom
                     anchors.left: parent.left
                     anchors.right: parent.right
@@ -543,7 +564,7 @@ Item {
                     color: Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.3)
 
                     Rectangle {
-                        width: parent.width * 0.4
+                        width: parent.width * Math.min(1.0, (model.positionSecs || 0) / Math.max(1, model.totalDurationSecs || 1))
                         height: parent.height
                         color: Theme.accent
                         radius: 1
@@ -604,6 +625,39 @@ Item {
                 scale: posterCard.cardHovered ? 1.03 : 1.0
                 Behavior on scale {
                     NumberAnimation { duration: Theme.animFast; easing.type: Easing.OutCubic }
+                }
+            }
+
+            // Mark as finished button — outside posterCard layer to receive mouse events
+            Rectangle {
+                visible: posterCard.cardHovered && (model.historyId || 0) > 0
+                anchors.top: posterCard.top
+                anchors.right: posterCard.right
+                anchors.margins: 10
+                width: 26; height: 26; radius: 13
+                color: markFinishedHov ? Theme.accent : "#C0000000"
+                z: 200
+                property bool markFinishedHov: false
+
+                Text {
+                    anchors.centerIn: parent
+                    text: "✓"
+                    font.pixelSize: 14
+                    font.bold: true
+                    color: "#ffffff"
+                }
+
+                MouseArea {
+                    anchors.fill: parent
+                    anchors.margins: -6
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onEntered: parent.markFinishedHov = true
+                    onExited: parent.markFinishedHov = false
+                    onClicked: {
+                        if (appViewModel && model.historyId)
+                            appViewModel.history.markFinished(model.historyId)
+                    }
                 }
             }
         }

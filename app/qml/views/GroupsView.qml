@@ -2,6 +2,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import QtQuick.Window
 import app.iptvxs
 
 Item {
@@ -9,6 +10,22 @@ Item {
 
     property int selectedGroupId: 0
     property string selectedGroupName: ""
+
+    function focusPrimary() {
+        if (groupListView.count > 0) {
+            if (groupListView.currentIndex < 0) groupListView.currentIndex = 0
+            groupListView.forceActiveFocus()
+        }
+    }
+
+    function focusGroupList() {
+        if (groupListView.count > 0) {
+            if (groupListView.currentIndex < 0) groupListView.currentIndex = 0
+            groupListView.forceActiveFocus()
+        } else if (Window.window && Window.window.focusSidebar) {
+            Window.window.focusSidebar()
+        }
+    }
 
     RowLayout {
         anchors.fill: parent
@@ -102,6 +119,41 @@ Item {
                     Layout.fillHeight: true
                     clip: true
                     model: groupListModel
+                    keyNavigationEnabled: true
+                    highlightFollowsCurrentItem: false
+
+                    Keys.onUpPressed: {
+                        if (currentIndex > 0) currentIndex--
+                    }
+                    Keys.onDownPressed: { if (currentIndex < count - 1) currentIndex++ }
+                    Keys.onLeftPressed: {
+                        if (Window.window && Window.window.focusSidebar)
+                            Window.window.focusSidebar()
+                    }
+                    Keys.onRightPressed: {
+                        if (memberListView.count > 0) {
+                            if (memberListView.currentIndex < 0) memberListView.currentIndex = 0
+                            memberListView.forceActiveFocus()
+                        }
+                    }
+                    Keys.onReturnPressed: {
+                        if (currentIndex >= 0 && currentIndex < count) {
+                            var item = groupListModel.get(currentIndex)
+                            selectedGroupId = item.gid
+                            selectedGroupName = item.gname
+                            reloadMembers()
+                        }
+                    }
+                    Keys.onEnterPressed: Keys.onReturnPressed(event)
+                    Keys.onPressed: function(event) {
+                        if (event.key === Qt.Key_Select) {
+                            Keys.onReturnPressed(event)
+                            event.accepted = true
+                        } else if (event.key === Qt.Key_Y) {
+                            createGroupDialog.open()
+                            event.accepted = true
+                        }
+                    }
 
                     delegate: Item {
                         width: groupListView.width
@@ -111,6 +163,9 @@ Item {
                             anchors.fill: parent
                             color: selectedGroupId === model.gid
                                 ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.15) : grpHov ? Theme.surfaceHover : "transparent"
+                            border.width: groupListView.activeFocus && groupListView.currentIndex === index ? 2 : 0
+                            border.color: groupListView.activeFocus && groupListView.currentIndex === index
+                                ? Theme.accent : "transparent"
                             property bool grpHov: false
 
                             Rectangle {
@@ -289,8 +344,28 @@ Item {
                 clip: true
                 model: memberListModel
                 spacing: 6
+                keyNavigationEnabled: true
+                highlightFollowsCurrentItem: false
 
                 ScrollBar.vertical: ScrollBar { active: true; policy: ScrollBar.AsNeeded }
+
+                Keys.onUpPressed: { if (currentIndex > 0) currentIndex-- }
+                Keys.onDownPressed: { if (currentIndex < count - 1) currentIndex++ }
+                Keys.onLeftPressed: groupsView.focusGroupList()
+                Keys.onReturnPressed: {
+                    if (currentIndex >= 0 && currentIndex < count && appViewModel) {
+                        var item = memberListModel.get(currentIndex)
+                        appViewModel.player.play(item.mstreamUrl, item.mname, item.mlogoUrl, item.mchannelId)
+                        appViewModel.currentView = "player"
+                    }
+                }
+                Keys.onEnterPressed: Keys.onReturnPressed(event)
+                Keys.onPressed: function(event) {
+                    if (event.key === Qt.Key_Select) {
+                        Keys.onReturnPressed(event)
+                        event.accepted = true
+                    }
+                }
 
                 delegate: Rectangle {
                     width: memberListView.width - 24
@@ -298,8 +373,10 @@ Item {
                     x: 12
                     radius: 8
                     color: memHov ? Theme.surfaceHover : Theme.surfaceElevated
-                    border.color: memHov ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.25) : "transparent"
-                    border.width: 1
+                    border.color: (memberListView.activeFocus && memberListView.currentIndex === index)
+                        ? Theme.accent
+                        : memHov ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.25) : "transparent"
+                    border.width: (memberListView.activeFocus && memberListView.currentIndex === index) ? 2 : 1
                     property bool memHov: false
 
                     Rectangle {

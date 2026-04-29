@@ -36,6 +36,22 @@ void HistoryRepository::addEntry(const QString &name, const QString &logo,
     query.exec();
 }
 
+void HistoryRepository::updatePosition(int64_t id, int positionSecs, int totalDurationSecs) {
+    QSqlQuery query(db_);
+    query.prepare("UPDATE history SET position_secs = ?, total_duration_secs = ? WHERE id = ?");
+    query.addBindValue(positionSecs);
+    query.addBindValue(totalDurationSecs);
+    query.addBindValue(QVariant::fromValue(id));
+    query.exec();
+}
+
+void HistoryRepository::markFinished(int64_t id) {
+    QSqlQuery query(db_);
+    query.prepare("UPDATE history SET position_secs = total_duration_secs WHERE id = ?");
+    query.addBindValue(QVariant::fromValue(id));
+    query.exec();
+}
+
 QVector<HistoryEntry> HistoryRepository::findRecent(int limit, int offset) const {
     QSqlQuery query(db_);
     query.prepare(
@@ -44,7 +60,8 @@ QVector<HistoryEntry> HistoryRepository::findRecent(int limit, int offset) const
         "COALESCE(NULLIF(h.logo_url, ''), c.logo_url, ''), "
         "COALESCE(NULLIF(h.type, ''), c.type, 'live'), "
         "h.watched_at, h.duration_secs, "
-        "COALESCE(h.stream_url, c.stream_url, '') "
+        "COALESCE(h.stream_url, c.stream_url, ''), "
+        "h.position_secs, h.total_duration_secs "
         "FROM history h "
         "LEFT JOIN channels c ON c.id = h.channel_id AND h.channel_id > 0 "
         "ORDER BY h.watched_at DESC "
@@ -64,6 +81,8 @@ QVector<HistoryEntry> HistoryRepository::findRecent(int limit, int offset) const
             e.watchedAt = query.value(5).toLongLong();
             e.durationSecs = query.value(6).toInt();
             e.streamUrl = query.value(7).toString();
+            e.positionSecs = query.value(8).toInt();
+            e.totalDurationSecs = query.value(9).toInt();
             entries.append(e);
         }
     }

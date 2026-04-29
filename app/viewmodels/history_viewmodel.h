@@ -22,7 +22,9 @@ public:
         ChannelTypeRole,
         WatchedAtRole,
         DurationRole,
-        StreamUrlRole
+        StreamUrlRole,
+        PositionSecsRole,
+        TotalDurationSecsRole
     };
 
     explicit HistoryViewModel(QObject *parent = nullptr);
@@ -39,6 +41,7 @@ public:
     Q_INVOKABLE void refresh();
     Q_INVOKABLE void loadMore();
     Q_INVOKABLE void removeEntry(int64_t id);
+    Q_INVOKABLE void markFinished(int64_t id);
     Q_INVOKABLE void clearHistory();
 
 signals:
