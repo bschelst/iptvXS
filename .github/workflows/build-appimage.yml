@@ -8,31 +8,42 @@ on:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  QT_VERSION: '6.7.3'
 
 permissions:
   contents: write
 
 jobs:
   build:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-22.04
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install dependencies
+      - name: Install system dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y \
             cmake ninja-build g++ \
-            qt6-base-dev qt6-declarative-dev qt6-multimedia-dev \
-            qt6-5compat-dev qml6-module-qt5compat-graphicaleffects \
-            qml6-module-qtquick-controls qml6-module-qtquick-layouts \
-            qml6-module-qtquick-window qml6-module-qtquick-dialogs \
-            qml6-module-qtqml-workerscript \
-            libqt6opengl6-dev libqt6sql6-sqlite libqt6dbus6 libqt6widgets6 \
-            libqt6concurrent6 libqt6network6 \
             libmpv-dev libsdl2-dev ffmpeg \
-            libfuse2 file desktop-file-utils
+            libgl1-mesa-dev libxkbcommon-dev libxkbcommon-x11-0 \
+            libxcb-xinerama0 libxcb-cursor0 libxcb-icccm4 libxcb-image0 \
+            libxcb-keysyms1 libxcb-render-util0 libxcb-shape0 \
+            libdbus-1-dev libfontconfig1-dev libfreetype6-dev \
+            libfuse2 file desktop-file-utils \
+            python3-pip
+
+      - name: Install Qt via aqtinstall
+        run: |
+          pip3 install aqtinstall
+          aqt install-qt linux desktop $QT_VERSION gcc_64 \
+            -m qt5compat qtmultimedia qtshadertools \
+            --outputdir $HOME/Qt
+          echo "$HOME/Qt/$QT_VERSION/gcc_64/bin" >> $GITHUB_PATH
+          echo "Qt6_DIR=$HOME/Qt/$QT_VERSION/gcc_64/lib/cmake/Qt6" >> $GITHUB_ENV
+          echo "CMAKE_PREFIX_PATH=$HOME/Qt/$QT_VERSION/gcc_64" >> $GITHUB_ENV
+          echo "LD_LIBRARY_PATH=$HOME/Qt/$QT_VERSION/gcc_64/lib:$LD_LIBRARY_PATH" >> $GITHUB_ENV
+          echo "QML2_IMPORT_PATH=$HOME/Qt/$QT_VERSION/gcc_64/qml" >> $GITHUB_ENV
 
       - name: Build
         env:
@@ -41,6 +52,7 @@ jobs:
           cmake -S . -B build \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_INSTALL_PREFIX=/usr \
+            -DCMAKE_PREFIX_PATH="$HOME/Qt/$QT_VERSION/gcc_64" \
             -DIPTVXS_GATEWAY_API_KEY="$GATEWAY_API_KEY" \
             -DIPTVXS_GATEWAY_URL="https://iptvxs.schelstraete.org"
           cmake --build build --parallel $(nproc)
@@ -67,9 +79,10 @@ jobs:
 
       - name: Build AppImage
         env:
-          QMAKE: /usr/bin/qmake6
+          QMAKE: ${{ env.HOME }}/Qt/${{ env.QT_VERSION }}/gcc_64/bin/qmake
           QML_SOURCES_PATHS: app/qml
         run: |
+          export QMAKE="$HOME/Qt/$QT_VERSION/gcc_64/bin/qmake"
           ./linuxdeploy-x86_64.AppImage \
             --appdir AppDir \
             --plugin qt \

@@ -79,11 +79,16 @@ Item {
                         }
 
                         Rectangle {
+                            id: addGroupBtn
                             Layout.preferredWidth: 28
                             Layout.preferredHeight: 28
                             radius: 14
-                            color: addBtnHov ? Theme.accent : Theme.accentHover
+                            color: addBtnHov || addGroupBtn.activeFocus ? Theme.accent : Theme.accentHover
+                            border.width: addGroupBtn.activeFocus ? 2 : 0
+                            border.color: "#ffffff"
                             property bool addBtnHov: false
+                            focus: true
+                            activeFocusOnTab: true
 
                             Text {
                                 anchors.centerIn: parent
@@ -91,6 +96,24 @@ Item {
                                 font.pixelSize: 16
                                 font.bold: true
                                 color: Theme.textOnAccent
+                            }
+
+                            Keys.onReturnPressed: createGroupDialog.open()
+                            Keys.onEnterPressed: createGroupDialog.open()
+                            Keys.onDownPressed: {
+                                if (groupListView.count > 0) {
+                                    if (groupListView.currentIndex < 0) groupListView.currentIndex = 0
+                                    groupListView.forceActiveFocus()
+                                }
+                            }
+                            Keys.onLeftPressed: {
+                                if (Window.window && Window.window.focusSidebar) Window.window.focusSidebar()
+                            }
+                            Keys.onPressed: function(event) {
+                                if (event.key === Qt.Key_Select || event.key === Qt.Key_Space) {
+                                    createGroupDialog.open()
+                                    event.accepted = true
+                                }
                             }
 
                             MouseArea {
@@ -124,6 +147,7 @@ Item {
 
                     Keys.onUpPressed: {
                         if (currentIndex > 0) currentIndex--
+                        else addGroupBtn.forceActiveFocus()
                     }
                     Keys.onDownPressed: { if (currentIndex < count - 1) currentIndex++ }
                     Keys.onLeftPressed: {
