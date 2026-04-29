@@ -1,4 +1,8 @@
-qt_policy(SET QTP0004 OLD)
+if(COMMAND qt_policy)
+    if(POLICY QTP0004)
+        qt_policy(SET QTP0004 OLD)
+    endif()
+endif()
 
 if(WIN32)
     qt_add_executable(iptvXS

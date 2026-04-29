@@ -29,6 +29,7 @@ jobs:
             libgl1-mesa-dev libxkbcommon-dev libxkbcommon-x11-0 \
             libxcb-xinerama0 libxcb-cursor0 libxcb-icccm4 libxcb-image0 \
             libxcb-keysyms1 libxcb-render-util0 libxcb-shape0 \
+            libvulkan-dev \
             libdbus-1-dev libfontconfig1-dev libfreetype6-dev \
             libfuse2 file desktop-file-utils \
             python3-pip
