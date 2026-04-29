@@ -290,7 +290,7 @@ Item {
                         property var rowItems: appViewModel
                             ? ((appViewModel.recordingList.modelRevision, appViewModel.recordingList.recordingsForSection(sectionName)))
                             : []
-                        property int currentCardIndex: 0
+                        property int currentCardIndex: -1
                         property alias rowFlickable: rowListView
 
                         function focusCardAt(i) {
