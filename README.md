@@ -13,6 +13,7 @@
 </p>
 <p>
 I created this app because I was a bit disappointed in the IPTV clients on Linux, SteamOS, and Android TV. Despite there being some good clients available, there are always some kind of issues with them, or you need to pay for basic functionality. On the other hand, managing a large number of channels was also problematic. Hence my attempt to create something better. Of course, at the end it's worse, but I tried :)
+  This has been made with a lot of open source software, e.g: QT, mpv, ffmpeg, etc. All credits to all those projects.
 </p>
 
 <p align="center">
