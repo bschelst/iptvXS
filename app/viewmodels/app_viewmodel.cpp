@@ -288,12 +288,13 @@ bool AppViewModel::initialize(const QString &dbPath) {
             if (name.isEmpty()) return;
 
             QString type;
-            if (url.contains(QStringLiteral("/series/"))) type = QStringLiteral("series");
+            if (url.contains(QStringLiteral("/live/"))) type = QStringLiteral("live");
+            else if (url.contains(QStringLiteral("/series/"))) type = QStringLiteral("series");
             else if (url.contains(QStringLiteral("/movie/"))) type = QStringLiteral("vod");
             else if (playerVm_->isLive()) type = QStringLiteral("live");
             else type = QStringLiteral("vod");
 
-            historyRepo_->addEntry(name, playerVm_->channelLogo(), type, url);
+            historyRepo_->addEntry(name, playerVm_->channelLogo(), type, url, 0, playerVm_->channelId());
 
             // Track the new entry ID (latest in DB)
             auto recent = historyRepo_->findRecent(1, 0);
@@ -1120,6 +1121,45 @@ void AppViewModel::playChannelById(int64_t channelId) {
     setCurrentView(QStringLiteral("player"));
 }
 
+void AppViewModel::playRecordingFromDrive(int64_t recordingId) {
+    if (!recordingRepo_ || !gdriveAuth_ || !playerVm_) return;
+
+    auto rec = recordingRepo_->findById(recordingId);
+    if (!rec || rec->gdriveFileId.isEmpty()) {
+        emit errorOccurred(QStringLiteral("Recording has no Google Drive file"));
+        return;
+    }
+
+    gdriveAuth_->refreshTokenIfNeeded();
+    auto token = gdriveAuth_->accessToken();
+    if (token.isEmpty()) {
+        emit errorOccurred(QStringLiteral("Not authenticated with Google Drive"));
+        return;
+    }
+
+    auto url = QStringLiteral("https://www.googleapis.com/drive/v3/files/%1?alt=media")
+                   .arg(rec->gdriveFileId);
+
+    auto *player = playerVm_->mpvPlayer();
+    if (player) {
+        player->setHttpHeaders({QStringLiteral("Authorization: Bearer %1").arg(token)});
+    }
+
+    auto channelName = rec->filePath.isEmpty()
+        ? QStringLiteral("Recording %1").arg(recordingId)
+        : QFileInfo(rec->filePath).baseName();
+
+    playerVm_->play(url, channelName, {}, 0);
+    setCurrentView(QStringLiteral("player"));
+
+    connect(playerVm_, &PlayerViewModel::stateChanged, this, [this, player]() {
+        if (playerVm_->stopped() && player) {
+            player->clearHttpHeaders();
+            disconnect(playerVm_, &PlayerViewModel::stateChanged, this, nullptr);
+        }
+    }, Qt::UniqueConnection);
+}
+
 void AppViewModel::playChannelByName(const QString &name) {
     if (!channelRepo_ || !serverRepo_ || name.isEmpty()) return;
     auto servers = serverRepo_->findAll();
@@ -1160,6 +1200,11 @@ void AppViewModel::clearActiveSeriesDialog() {
     activeSeriesServerId_ = 0;
     activeSeriesId_.clear();
     activeSeriesLogo_.clear();
+}
+
+void AppViewModel::reopenSeriesEpisodes() {
+    if (activeSeriesId_.isEmpty()) return;
+    fetchSeriesEpisodes(activeSeriesServerId_, activeSeriesId_, activeSeriesName_, activeSeriesLogo_);
 }
 
 bool AppViewModel::hasActiveSeriesDialog() const { return !activeSeriesId_.isEmpty(); }

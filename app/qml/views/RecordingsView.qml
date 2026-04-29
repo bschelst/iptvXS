@@ -408,18 +408,26 @@ Item {
 
                                         readonly property bool playable:
                                             (modelData.status === "completed" || modelData.status === "uploaded")
-                                            && modelData.filePath && modelData.filePath.length > 0
+                                            && ((modelData.filePath && modelData.filePath.length > 0)
+                                                || (modelData.gdriveFileId && modelData.gdriveFileId.length > 0))
                                         readonly property bool isUploading:
                                             modelData.status === "uploading" && appViewModel && appViewModel.gdrive.uploading
 
                                         function openRecording() {
                                             if (!appViewModel) return
                                             if (playable) {
-                                                appViewModel.pendingPlayUrl = modelData.filePath
-                                                appViewModel.pendingPlayName = modelData.programmeTitle && modelData.programmeTitle.length > 0
-                                                    ? modelData.programmeTitle
-                                                    : modelData.channelName
-                                                appViewModel.currentView = "player"
+                                                // Uploaded recordings: prefer Drive (local file likely deleted)
+                                                if (modelData.status === "uploaded" && modelData.gdriveFileId && modelData.gdriveFileId.length > 0) {
+                                                    appViewModel.playRecordingFromDrive(modelData.recordingId)
+                                                } else if (modelData.filePath && modelData.filePath.length > 0) {
+                                                    appViewModel.pendingPlayUrl = modelData.filePath
+                                                    appViewModel.pendingPlayName = modelData.programmeTitle && modelData.programmeTitle.length > 0
+                                                        ? modelData.programmeTitle
+                                                        : modelData.channelName
+                                                    appViewModel.currentView = "player"
+                                                } else if (modelData.gdriveFileId && modelData.gdriveFileId.length > 0) {
+                                                    appViewModel.playRecordingFromDrive(modelData.recordingId)
+                                                }
                                             } else if (modelData.status === "recording" && appViewModel.player.recording) {
                                                 appViewModel.player.stopStreamRecord()
                                             }

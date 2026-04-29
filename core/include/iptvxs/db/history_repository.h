@@ -29,7 +29,7 @@ public:
 
     void addEntry(int64_t channelId, int durationSecs = 0);
     void addEntry(const QString &name, const QString &logo, const QString &type,
-                  const QString &streamUrl = {}, int durationSecs = 0);
+                  const QString &streamUrl = {}, int durationSecs = 0, int64_t channelId = 0);
     void updatePosition(int64_t id, int positionSecs, int totalDurationSecs);
     void markFinished(int64_t id);
     QVector<HistoryEntry> findRecent(int limit = 100, int offset = 0) const;

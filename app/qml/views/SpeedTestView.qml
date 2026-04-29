@@ -2,10 +2,34 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import QtQuick.Window
 import app.iptvxs
 
 Item {
     id: root
+    focus: true
+
+    function focusPrimary() {
+        root.forceActiveFocus()
+    }
+
+    Keys.onLeftPressed: {
+        if (Window.window && Window.window.focusSidebar) Window.window.focusSidebar()
+    }
+    Keys.onReturnPressed: {
+        if (speedTest && !speedTest.running) {
+            sparklineData = []
+            sparklineCanvas.requestPaint()
+            speedTest.startInternetTest()
+        }
+    }
+    Keys.onEnterPressed: Keys.onReturnPressed(event)
+    Keys.onPressed: function(event) {
+        if (event.key === Qt.Key_Select || event.key === Qt.Key_Space) {
+            Keys.onReturnPressed(event)
+            event.accepted = true
+        }
+    }
 
     property var speedTest: appViewModel ? appViewModel.speedTest : null
     property var channelList: appViewModel ? appViewModel.channelList : null

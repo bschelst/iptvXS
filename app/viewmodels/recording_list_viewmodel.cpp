@@ -86,6 +86,8 @@ QVariant RecordingListViewModel::data(const QModelIndex &index, int role) const 
         return entry.dateSection;
     case ShowDateHeaderRole:
         return entry.showDateHeader;
+    case GdriveFileIdRole:
+        return rec.gdriveFileId;
     default:
         return {};
     }
@@ -111,6 +113,7 @@ QHash<int, QByteArray> RecordingListViewModel::roleNames() const {
         {ChannelLogoRole, "channelLogo"},
         {DateSectionRole, "dateSection"},
         {ShowDateHeaderRole, "showDateHeader"},
+        {GdriveFileIdRole, "gdriveFileId"},
     };
 }
 

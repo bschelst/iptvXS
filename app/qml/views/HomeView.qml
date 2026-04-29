@@ -313,10 +313,10 @@ Item {
             if (cType === "live") continue
             var posSecs = hist.data(idx, 265) || 0      // PositionSecsRole
             var totalDur = hist.data(idx, 266) || 0     // TotalDurationSecsRole
-            // Skip finished (>= 95% watched)
-            if (totalDur > 0 && posSecs >= totalDur * 0.95) continue
             var channelId = hist.data(idx, 258)  // ChannelIdRole (UserRole+2)
             var dedupeKey = channelId > 0 ? "id:" + channelId : "url:" + hist.data(idx, 264)
+            // Skip finished (>= 95% watched) — also mark dedup key as seen
+            if (totalDur > 0 && posSecs >= totalDur * 0.95) { seen[dedupeKey] = true; continue }
             if (seen[dedupeKey]) continue
             seen[dedupeKey] = true
             continueWatchingModel.append({
@@ -441,6 +441,7 @@ Item {
             rightMargin: Theme.spacingXl
             boundsBehavior: Flickable.StopAtBounds
             keyNavigationEnabled: true
+            currentIndex: -1
             highlightMoveDuration: 150
 
             model: cardRow.listModel
@@ -593,51 +594,66 @@ Item {
                 }
 
                 // Mouse interaction
-                MouseArea {
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
-                    onEntered: posterCard.cardHovered = true
-                    onExited: posterCard.cardHovered = false
-                    onClicked: {
-                        // Walk up to find the HomeCardRow parent
-                        var node = posterDelegate.parent
-                        while (node && !node.activateCard) node = node.parent
-                        if (node) node.activateCard(model.index)
-                    }
-                }
-
-                // Focus/hover border
-                Rectangle {
-                    anchors.fill: parent
-                    radius: posterCard.radius
-                    color: "transparent"
-                    border.width: 2
-                    border.color: {
-                        var lv = posterDelegate.ListView.view
-                        if (posterCard.cardHovered) return Theme.accent
-                        if (lv && lv.activeFocus && lv.currentIndex === model.index) return Theme.accent
-                        return "transparent"
-                    }
-                    z: 100
-                }
-
                 scale: posterCard.cardHovered ? 1.03 : 1.0
                 Behavior on scale {
                     NumberAnimation { duration: Theme.animFast; easing.type: Easing.OutCubic }
                 }
             }
 
-            // Mark as finished button — outside posterCard layer to receive mouse events
+            // Single hover/click area covering entire delegate
+            MouseArea {
+                id: posterMouseArea
+                anchors.fill: parent
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                onEntered: posterCard.cardHovered = true
+                onExited: posterCard.cardHovered = false
+                onClicked: function(mouse) {
+                    // Check if click is on the ✓ button area (top-right corner)
+                    var btnRight = posterDelegate.width - 4   // posterCard right edge
+                    var btnLeft = btnRight - 36               // 26px button + 10px margin
+                    var btnTop = 4                            // posterCard top + margin
+                    var btnBottom = btnTop + 36               // 26px button + 10px margin
+                    if ((model.historyId || 0) > 0
+                            && mouse.x >= btnLeft && mouse.x <= btnRight
+                            && mouse.y >= btnTop && mouse.y <= btnBottom) {
+                        if (appViewModel) {
+                            appViewModel.history.markFinished(Number(model.historyId))
+                            populateContinueWatching()
+                        }
+                        return
+                    }
+                    // Normal card click — play the content
+                    var node = posterDelegate.parent
+                    while (node && !node.activateCard) node = node.parent
+                    if (node) node.activateCard(index)
+                }
+            }
+
+            // Focus/hover border
+            Rectangle {
+                anchors.fill: posterCard
+                radius: posterCard.radius
+                color: "transparent"
+                border.width: 2
+                border.color: {
+                    var lv = posterDelegate.ListView.view
+                    if (posterCard.cardHovered) return Theme.accent
+                    if (lv && lv.activeFocus && lv.currentIndex === model.index) return Theme.accent
+                    return "transparent"
+                }
+                z: 100
+            }
+
+            // Mark as finished icon (visual only — click handled by posterMouseArea)
             Rectangle {
                 visible: posterCard.cardHovered && (model.historyId || 0) > 0
                 anchors.top: posterCard.top
                 anchors.right: posterCard.right
                 anchors.margins: 10
                 width: 26; height: 26; radius: 13
-                color: markFinishedHov ? Theme.accent : "#C0000000"
+                color: "#C0000000"
                 z: 200
-                property bool markFinishedHov: false
 
                 Text {
                     anchors.centerIn: parent
@@ -645,19 +661,6 @@ Item {
                     font.pixelSize: 14
                     font.bold: true
                     color: "#ffffff"
-                }
-
-                MouseArea {
-                    anchors.fill: parent
-                    anchors.margins: -6
-                    hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
-                    onEntered: parent.markFinishedHov = true
-                    onExited: parent.markFinishedHov = false
-                    onClicked: {
-                        if (appViewModel && model.historyId)
-                            appViewModel.history.markFinished(model.historyId)
-                    }
                 }
             }
         }

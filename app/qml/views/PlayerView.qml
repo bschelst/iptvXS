@@ -323,15 +323,30 @@ Item {
 
                     PlayerButton {
                         id: ccBtn
-                        visible: appViewModel && appViewModel.subtitlesEnabled
+                        visible: appViewModel && appViewModel.subtitlesEnabled && !appViewModel.player.isLive
                         text: "CC"
                         iconSize: 14
                         onClicked: subTrackPopup.visible = !subTrackPopup.visible
                     }
 
+                    PlayerButton {
+                        id: episodeBtn
+                        visible: appViewModel && appViewModel.hasActiveSeriesDialog()
+                                 && !appViewModel.player.isLive
+                        text: "EP"
+                        iconSize: 12
+                        onClicked: {
+                            if (appViewModel) {
+                                appViewModel.player.stop()
+                                appViewModel.reopenSeriesEpisodes()
+                                appViewModel.currentView = "vod_series"
+                            }
+                        }
+                    }
+
                     Rectangle {
                         width: 1; height: 28; color: "#40ffffff"
-                        visible: ccBtn.visible || audioBtn.visible
+                        visible: ccBtn.visible || audioBtn.visible || episodeBtn.visible
                     }
 
                     PlayerButton {

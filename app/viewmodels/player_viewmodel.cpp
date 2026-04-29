@@ -26,10 +26,13 @@ PlayerViewModel::PlayerViewModel(QObject *parent)
     connect(player_, &iptvxs::MpvPlayer::durationChanged, this,
             [this](double dur) {
                 emit durationChanged();
-                if (dur <= 0.0 && !isLive_) {
+                bool urlIsLive = currentUrl_.contains(QStringLiteral("/live/"));
+                bool urlIsVod = currentUrl_.contains(QStringLiteral("/movie/"))
+                             || currentUrl_.contains(QStringLiteral("/series/"));
+                if (dur <= 0.0 && !isLive_ && !urlIsVod) {
                     isLive_ = true;
                     emit isLiveChanged();
-                } else if (dur > 0.0 && isLive_ && !currentUrl_.contains(QStringLiteral("/live/"))) {
+                } else if (dur > 0.0 && isLive_ && !urlIsLive) {
                     isLive_ = false;
                     emit isLiveChanged();
                 }

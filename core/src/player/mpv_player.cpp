@@ -84,6 +84,38 @@ bool MpvPlayer::initialize() {
     return true;
 }
 
+void MpvPlayer::setHttpHeaders(const QStringList &headers) {
+    if (!mpv_) return;
+    QByteArrayList raw;
+    for (const auto &h : headers) raw.append(h.toUtf8());
+    std::vector<const char *> ptrs;
+    for (const auto &r : raw) ptrs.push_back(r.constData());
+    ptrs.push_back(nullptr);
+    mpv_node_list list{};
+    list.num = static_cast<int>(headers.size());
+    std::vector<mpv_node> nodes(list.num);
+    for (int i = 0; i < list.num; ++i) {
+        nodes[i].u.string = const_cast<char *>(ptrs[static_cast<size_t>(i)]);
+        nodes[i].format = MPV_FORMAT_STRING;
+    }
+    list.values = nodes.data();
+    mpv_node node{};
+    node.u.list = &list;
+    node.format = MPV_FORMAT_NODE_ARRAY;
+    mpv_set_property(mpv_, "http-header-fields", MPV_FORMAT_NODE, &node);
+}
+
+void MpvPlayer::clearHttpHeaders() {
+    if (!mpv_) return;
+    mpv_node_list list{};
+    list.num = 0;
+    list.values = nullptr;
+    mpv_node node{};
+    node.u.list = &list;
+    node.format = MPV_FORMAT_NODE_ARRAY;
+    mpv_set_property(mpv_, "http-header-fields", MPV_FORMAT_NODE, &node);
+}
+
 void MpvPlayer::play(const QString &url) {
     if (!mpv_) return;
 

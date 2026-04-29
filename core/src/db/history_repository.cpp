@@ -22,11 +22,12 @@ void HistoryRepository::addEntry(int64_t channelId, int durationSecs) {
 
 void HistoryRepository::addEntry(const QString &name, const QString &logo,
                                   const QString &type, const QString &streamUrl,
-                                  int durationSecs) {
+                                  int durationSecs, int64_t channelId) {
     QSqlQuery query(db_);
     query.prepare(
         "INSERT INTO history (channel_id, name, logo_url, type, stream_url, watched_at, duration_secs) "
-        "VALUES (0, ?, ?, ?, ?, ?, ?)");
+        "VALUES (?, ?, ?, ?, ?, ?, ?)");
+    query.addBindValue(QVariant::fromValue(channelId));
     query.addBindValue(name);
     query.addBindValue(logo);
     query.addBindValue(type);
@@ -47,7 +48,9 @@ void HistoryRepository::updatePosition(int64_t id, int positionSecs, int totalDu
 
 void HistoryRepository::markFinished(int64_t id) {
     QSqlQuery query(db_);
-    query.prepare("UPDATE history SET position_secs = total_duration_secs WHERE id = ?");
+    query.prepare("UPDATE history SET position_secs = CASE WHEN total_duration_secs > 0 THEN total_duration_secs ELSE 1 END, "
+                  "total_duration_secs = CASE WHEN total_duration_secs > 0 THEN total_duration_secs ELSE 1 END "
+                  "WHERE id = ?");
     query.addBindValue(QVariant::fromValue(id));
     query.exec();
 }

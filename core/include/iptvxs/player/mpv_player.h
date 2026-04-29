@@ -26,6 +26,8 @@ public:
     bool initialize();
 
     void play(const QString &url);
+    void setHttpHeaders(const QStringList &headers);
+    void clearHttpHeaders();
     void pause();
     void resume();
     void stop();

@@ -38,7 +38,8 @@ public:
         ProgrammeTitleRole,
         ChannelLogoRole,
         DateSectionRole,
-        ShowDateHeaderRole
+        ShowDateHeaderRole,
+        GdriveFileIdRole
     };
 
     explicit RecordingListViewModel(QObject *parent = nullptr);

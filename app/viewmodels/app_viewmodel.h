@@ -191,9 +191,11 @@ public:
     Q_INVOKABLE void playSeriesEpisode(const QString &episodeId, const QString &ext,
                                         const QString &title, const QString &logoUrl,
                                         int64_t channelId = 0);
+    Q_INVOKABLE void playRecordingFromDrive(int64_t recordingId);
     Q_INVOKABLE bool isCategoryHidden(int64_t categoryId) const;
     Q_INVOKABLE void setActiveSeriesDialog(const QString &name, int64_t serverId, const QString &seriesId, const QString &logoUrl);
     Q_INVOKABLE void clearActiveSeriesDialog();
+    Q_INVOKABLE void reopenSeriesEpisodes();
     Q_INVOKABLE bool hasActiveSeriesDialog() const;
     Q_INVOKABLE QString activeSeriesName() const;
     Q_INVOKABLE int64_t activeSeriesServerId() const;

@@ -803,7 +803,10 @@ Item {
         z: 200
 
         property int focusedButton: 1  // 0=record, 1=watch
-        onVisibleChanged: if (visible) { focusedButton = 1; forceActiveFocus() }
+        onVisibleChanged: {
+            if (visible) { focusedButton = 1; forceActiveFocus() }
+            else guideFlickable.forceActiveFocus()
+        }
 
         Keys.onLeftPressed: focusedButton = 0
         Keys.onRightPressed: focusedButton = 1

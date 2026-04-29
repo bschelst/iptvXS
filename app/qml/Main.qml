@@ -91,6 +91,7 @@ ApplicationWindow {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 source: "views/HomeView.qml"
+                asynchronous: false
 
                 Behavior on opacity {
                     NumberAnimation {
@@ -160,8 +161,12 @@ ApplicationWindow {
         function onCurrentViewChanged() {
             var view = appViewModel.currentView
             // Stop VOD playback when navigating away from player (no PIP for VOD)
-            if (view !== "player" && !appViewModel.player.stopped && !appViewModel.player.isLive) {
-                appViewModel.player.stop()
+            if (view !== "player" && !appViewModel.player.stopped) {
+                // Only keep playing for live TV PIP — stop everything else
+                var url = appViewModel.player.currentUrl()
+                if (!url || url.indexOf("/live/") < 0) {
+                    appViewModel.player.stop()
+                }
             }
             sidebar.activeItem = view
             var src = viewForName(view)
@@ -199,9 +204,10 @@ ApplicationWindow {
     property bool _playing: appViewModel && !appViewModel.player.stopped
     property bool pipMode: _playing && !_inPlayer && appViewModel.player.isLive
 
+
     Rectangle {
         id: videoContainer
-        visible: _playing
+        visible: _playing && (_inPlayer || pipMode)
         color: "#000000"
         clip: pipMode
         radius: pipMode ? Theme.borderRadius : 0

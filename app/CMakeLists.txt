@@ -1,7 +1,5 @@
-if(COMMAND qt_policy)
-    if(POLICY QTP0004)
-        qt_policy(SET QTP0004 OLD)
-    endif()
+if(Qt6_VERSION VERSION_GREATER_EQUAL "6.8")
+    qt_policy(SET QTP0004 OLD)
 endif()
 
 if(WIN32)
