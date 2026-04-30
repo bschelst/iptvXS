@@ -45,8 +45,7 @@ I created this app because I was a bit disappointed in the IPTV clients on Linux
 - Channel categories with search and filtering
 - **Channel Groups** — create custom playlists, add channels via built-in search picker
 - **Recently Added** filter — highlights channels added in the last 7 days
-- VOD Movies and VOD Series as separate sidebar entries
-- Netflix-style horizontal poster rows with category browsing
+- Horizontal poster rows with category browsing
 - Series support with season/episode picker
 - **Audio track selection** for multi-language VOD content
 - **Picture-in-Picture (PIP)** — draggable floating mini-player for live TV when navigating away
@@ -56,8 +55,7 @@ I created this app because I was a bit disappointed in the IPTV clients on Linux
   - Auto-next episode for series, resume local playback on stop
   - Enable/disable in Settings
 - **Favourites-first sorting** — favourite channels always appear at the top
-- Configurable grid layout (1–3 columns) for channel and VOD lists
-- Rounded card corners with accent hover borders
+
 
 ### Electronic Programme Guide (EPG)
 
@@ -66,7 +64,6 @@ I created this app because I was a bit disappointed in the IPTV clients on Linux
 - **Record from EPG** — one-click recording with confirmation dialog
 - **EPG recording padding** — configurable start-early / end-late (0–5 minutes)
 - Now/Next programme display in the player for live TV
-- Vertical scrollbar and keyboard/controller navigation
 - Channel search within the guide
 
 ### Recording
@@ -78,12 +75,10 @@ I created this app because I was a bit disappointed in the IPTV clients on Linux
 - **EPG padding** — start recording early, end late (configurable in Settings)
 - Recordings saved to `~/Videos/iptvXS/` (configurable)
 - **Storage quota** (default 2 GB) with visual usage bar
-- **Safe filenames** — channel names are sanitized with unique naming
-- Delete recordings with confirmation dialog
+- Delete recording
 - **Google Drive upload** with resumable chunked uploads and cross-session resume
 - **Retry failed uploads** directly from the Recordings view
 - **Auto-delete** local files after successful Google Drive upload
-- FFmpeg user-agent header for provider compatibility
 
 ### Subtitles
 
@@ -100,7 +95,6 @@ I created this app because I was a bit disappointed in the IPTV clients on Linux
 - **Denoising** via hqdn3d filter for cleaner picture
 - **Hardware decoding** modes (Auto Safe / Auto / Software)
 - **Deinterlace** toggle for interlaced content
-- Pulsing logo animation during stream loading
 
 ### Theming
 
@@ -118,7 +112,7 @@ I created this app because I was a bit disappointed in the IPTV clients on Linux
 
 ### Steam Deck & Controller Support
 
-- Full **D-pad/controller navigation** throughout the entire UI
+- **D-pad/controller navigation** throughout the entire UI
 - **External controller support** — USB and Bluetooth gamepads via SDL2 HIDAPI
 - **D-pad debounce** (120ms) prevents cursor double-jumping
 - **GameScope Google Drive auth** — Steam overlay browser integration with hint dialog
@@ -129,8 +123,7 @@ I created this app because I was a bit disappointed in the IPTV clients on Linux
 
 ### Settings & Management
 
-- **Version check** — automatic check for updates via gateway API
-- **About section** with current/latest version, author, GitHub link
+- **Version check** — automatic check for updates
 - **Database statistics** — server, channel, movie, series, recording counts
 - **Logo cache management** — auto-prune (30 days), configurable max size (100 MB – 2 GB), clear button
 - **Database reset** with full reconnection of all repositories
@@ -139,17 +132,6 @@ I created this app because I was a bit disappointed in the IPTV clients on Linux
 - Close-to-tray option
 - **Application log** with auto-refresh, level filtering, and search
 - **Database maintenance** — automatic daily cleanup of old EPG data, orphaned entries, and disabled server channels with manual trigger in Settings
-
-### UI Polish
-
-- **Home dashboard** — stats pills showing channel, movie, series, favorites, and recording counts (auto-updates on data changes)
-
-- **TopBar clock** with blinking colon separator
-- Styled hamburger menu icon (not emoji)
-- Sidebar separator lines properly isolated
-- Card hover borders visible over poster images
-- Scroll buttons hidden when content fits
-- Copyright headers on all source files
 
 ---
 
