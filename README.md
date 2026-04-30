@@ -50,6 +50,11 @@ I created this app because I was a bit disappointed in the IPTV clients on Linux
 - Series support with season/episode picker
 - **Audio track selection** for multi-language VOD content
 - **Picture-in-Picture (PIP)** — draggable floating mini-player for live TV when navigating away
+- **Chromecast casting** — cast live TV and VOD to any Chromecast device on the network
+  - Automatic device discovery via mDNS
+  - Local HLS proxy (ffmpeg remux, no transcoding overhead)
+  - Auto-next episode for series, resume local playback on stop
+  - Enable/disable in Settings
 - **Favourites-first sorting** — favourite channels always appear at the top
 - Configurable grid layout (1–3 columns) for channel and VOD lists
 - Rounded card corners with accent hover borders
@@ -133,8 +138,11 @@ I created this app because I was a bit disappointed in the IPTV clients on Linux
 - Configurable stream buffer time
 - Close-to-tray option
 - **Application log** with auto-refresh, level filtering, and search
+- **Database maintenance** — automatic daily cleanup of old EPG data, orphaned entries, and disabled server channels with manual trigger in Settings
 
 ### UI Polish
+
+- **Home dashboard** — stats pills showing channel, movie, series, favorites, and recording counts (auto-updates on data changes)
 
 - **TopBar clock** with blinking colon separator
 - Styled hamburger menu icon (not emoji)
@@ -161,6 +169,17 @@ wget https://github.com/bschelst/iptvXS/releases/latest/download/iptvxs.flatpak
 
 # Install
 flatpak install --user iptvxs.flatpak
+```
+
+### AppImage (Linux)
+
+```bash
+# Download from GitHub Releases
+wget https://github.com/bschelst/iptvXS/releases/latest/download/iptvXS-x86_64.AppImage
+
+# Make executable and run
+chmod +x iptvXS-x86_64.AppImage
+./iptvXS-x86_64.AppImage
 ```
 
 ### Windows
@@ -250,7 +269,8 @@ iptvXS/
 ├── core/                   # Core library (no UI dependency)
 │   ├── api/                # Xtream Codes & OpenSubtitles clients
 │   ├── cache/              # Logo cache manager with auto-prune
-│   ├── db/                 # SQLite repositories (14 tables, migrations)
+│   ├── cast/               # Chromecast: mDNS discovery, Cast V2 protocol, HLS proxy
+│   ├── db/                 # SQLite repositories (14 tables, migrations, maintenance)
 │   ├── gdrive/             # Google Drive OAuth & resumable upload
 │   ├── models/             # Data models
 │   ├── net/                # HTTP client & speed test runner
@@ -260,9 +280,9 @@ iptvXS/
 ├── tests/                  # Unit tests (GoogleTest)
 ├── packaging/
 │   ├── flatpak/            # Flatpak manifest
-│   ├── linux/              # AppStream metainfo, desktop file
+│   ├── linux/              # AppStream metainfo, desktop file, AppImage
 │   └── windows/            # Inno Setup installer
-└── .github/workflows/      # CI: Flatpak + Windows builds
+└── .github/workflows/      # CI: Flatpak + AppImage + Windows builds
 ```
 
 ---
