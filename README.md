@@ -31,7 +31,7 @@ I created this app because I was a bit disappointed in the IPTV clients on Linux
 
 <p align="center">
   <strong>Author:</strong> Schelstraete Bart &nbsp;|&nbsp;
-  <a href="https://iptvxs.schelstraete.org">iptvxs.schelstraete.org</a>
+  <a href="https://iptvxs.schelstraete.org">www.schelstraete.org</a>
 </p>
 
 ---
