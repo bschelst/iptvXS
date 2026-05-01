@@ -219,6 +219,15 @@ void PlayerViewModel::stop() {
     if (recording_) {
         stopStreamRecord();
     }
+    resetAutoNext();
+    if (!nextEpisodeUrl_.isEmpty() || !nextEpisodeName_.isEmpty() ||
+        !nextEpisodeLogo_.isEmpty() || nextEpisodeChannelId_ != 0) {
+        nextEpisodeUrl_.clear();
+        nextEpisodeName_.clear();
+        nextEpisodeLogo_.clear();
+        nextEpisodeChannelId_ = 0;
+        emit nextEpisodeNameChanged();
+    }
     uninhibitScreenSaver();
     player_->stop();
     channelName_.clear();

@@ -95,7 +95,6 @@ modules:
     buildsystem: cmake-ninja
     config-opts:
       - -DIPTVXS_BUILD_TESTS=OFF
-      - -DIPTVXS_GATEWAY_API_KEY=c93214de72ed21ef8a99e8ead5497b41e4bf1cf4aabbdd970469e91e87040246
     sources:
       - type: dir
         path: ../..

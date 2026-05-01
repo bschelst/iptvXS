@@ -24,7 +24,7 @@ Item {
             for (var i = 0; i < recordingSectionRepeater.count; i++) {
                 var section = recordingSectionRepeater.itemAt(i)
                 if (section && section.rowItems && section.rowItems.length > 0) {
-                    section.focusCardAt(section.currentCardIndex >= 0 ? section.currentCardIndex : 0)
+                    section.focusCardAt(0)
                     return
                 }
             }
@@ -32,6 +32,33 @@ Item {
         if (newRecButton) {
             newRecButton.forceActiveFocus()
         }
+    }
+
+    function focusFilterStrip() {
+        if (filterRepeater && filterRepeater.count > 0) {
+            var currentFilter = appViewModel ? appViewModel.recordingList.filterStatus : ""
+            for (var i = 0; i < filterRepeater.count; i++) {
+                var filterItem = filterRepeater.itemAt(i)
+                if (filterItem && filterItem.filterValue === currentFilter) {
+                    filterItem.forceActiveFocus()
+                    return
+                }
+            }
+            var firstFilter = filterRepeater.itemAt(0)
+            if (firstFilter) {
+                firstFilter.forceActiveFocus()
+                return
+            }
+        }
+        if (newRecButton) newRecButton.forceActiveFocus()
+    }
+
+    function focusHeaderStrip() {
+        if (newRecButton) {
+            newRecButton.forceActiveFocus()
+            return
+        }
+        focusFilterStrip()
     }
 
     function focusAdjacentSection(sectionIdx, currentCardIdx, delta) {
@@ -46,6 +73,10 @@ Item {
                 ensureSectionVisible(section)
                 return
             }
+        }
+        if (delta < 0) {
+            recordingsView.focusFilterStrip()
+            recordingsFlickable.contentY = 0
         }
     }
 
@@ -152,7 +183,9 @@ Item {
                     Layout.preferredWidth: newRecBtnText.implicitWidth + Theme.spacingLg
                     Layout.preferredHeight: 32
                     radius: 16
-                    color: newRecBtnHov ? Theme.accent : Theme.accentHover
+                    color: newRecBtnHov || newRecButton.activeFocus ? Theme.accent : Theme.accentHover
+                    focus: false
+                    activeFocusOnTab: true
 
                     property bool newRecBtnHov: false
 
@@ -187,6 +220,15 @@ Item {
                                 Window.window.focusSidebar()
                             }
                             event.accepted = true
+                        } else if (event.key === Qt.Key_Right) {
+                            if (filterRepeater && filterRepeater.count > 0) {
+                                var firstFilter = filterRepeater.itemAt(0)
+                                if (firstFilter) firstFilter.forceActiveFocus()
+                            }
+                            event.accepted = true
+                        } else if (event.key === Qt.Key_Up) {
+                            focusHeaderStrip()
+                            event.accepted = true
                         }
                     }
                 }
@@ -197,6 +239,7 @@ Item {
                     spacing: Theme.spacingXs
 
                     Repeater {
+                        id: filterRepeater
                         model: [
                             { label: "All", value: "" },
                             { label: "Recording", value: "recording" },
@@ -208,9 +251,11 @@ Item {
                         ]
 
                         Rectangle {
+                            id: filterChip
                             width: filterLabel.implicitWidth + Theme.spacingMd * 2
                             height: 28
                             radius: 14
+                            property string filterValue: modelData.value
                             color: {
                                 var current = appViewModel ? appViewModel.recordingList.filterStatus : ""
                                 return current === modelData.value ? Theme.accent : (filterBtnHovered ? Theme.surfaceHover : "transparent")
@@ -245,6 +290,41 @@ Item {
                                     if (appViewModel) {
                                         appViewModel.recordingList.filterStatus = modelData.value
                                     }
+                                }
+                            }
+
+                            Keys.onLeftPressed: {
+                                if (index > 0) {
+                                    var prev = filterRepeater.itemAt(index - 1)
+                                    if (prev) prev.forceActiveFocus()
+                                } else if (newRecButton) {
+                                    newRecButton.forceActiveFocus()
+                                }
+                            }
+                            Keys.onRightPressed: {
+                                if (index < filterRepeater.count - 1) {
+                                    var next = filterRepeater.itemAt(index + 1)
+                                    if (next) next.forceActiveFocus()
+                                }
+                            }
+                            Keys.onDownPressed: {
+                                recordingsView.focusPrimary()
+                            }
+                            Keys.onUpPressed: {
+                                recordingsView.focusHeaderStrip()
+                            }
+                            Keys.onReturnPressed: {
+                                if (appViewModel) {
+                                    appViewModel.recordingList.filterStatus = modelData.value
+                                }
+                            }
+                            Keys.onEnterPressed: Keys.onReturnPressed(event)
+                            Keys.onPressed: function(event) {
+                                if (event.key === Qt.Key_Select || event.key === Qt.Key_Space) {
+                                    if (appViewModel) {
+                                        appViewModel.recordingList.filterStatus = modelData.value
+                                    }
+                                    event.accepted = true
                                 }
                             }
                         }
@@ -293,14 +373,14 @@ Item {
                         property int currentCardIndex: -1
                         property alias rowFlickable: rowListView
 
-                        function focusCardAt(i) {
-                            if (!rowRepeater || rowItems.length <= 0) return
-                            currentCardIndex = Math.max(0, Math.min(i, rowItems.length - 1))
-                            var item = rowRepeater.itemAt(currentCardIndex)
-                            if (item) {
-                                item.forceActiveFocus()
-                                recordingsView.ensureCardVisible(recordingSection, currentCardIndex)
-                                recordingsView.ensureSectionVisible(recordingSection)
+                                        function focusCardAt(i) {
+                                            if (!rowRepeater || rowItems.length <= 0) return
+                                            currentCardIndex = Math.max(0, Math.min(i, rowItems.length - 1))
+                                            var item = rowRepeater.itemAt(currentCardIndex)
+                                            if (item) {
+                                                item.forceActiveFocus()
+                                                recordingsView.ensureCardVisible(recordingSection, currentCardIndex)
+                                                recordingsView.ensureSectionVisible(recordingSection)
                             }
                         }
 
@@ -325,11 +405,14 @@ Item {
                                 spacing: 4
 
                                 Rectangle {
+                                    id: recScrollLeftBtn
                                     width: 28
                                     height: 28
                                     radius: 14
-                                    color: recScrollLeftHov ? Theme.surfaceHover : "transparent"
+                                    color: recScrollLeftHov || recScrollLeftBtn.activeFocus ? Theme.surfaceHover : "transparent"
                                     property bool recScrollLeftHov: false
+                                    focus: false
+                                    activeFocusOnTab: true
 
                                     Text {
                                         anchors.centerIn: parent
@@ -347,14 +430,35 @@ Item {
                                             onExited: parent.recScrollLeftHov = false
                                             onClicked: rowListView.contentX = Math.max(rowListView.contentX - 260, 0)
                                         }
+
+                                        Keys.onRightPressed: {
+                                            if (recScrollRightBtn) recScrollRightBtn.forceActiveFocus()
+                                        }
+                                        Keys.onDownPressed: {
+                                            if (rowRepeater && rowRepeater.count > 0) {
+                                                if (recordingSection.currentCardIndex < 0) recordingSection.currentCardIndex = 0
+                                                recordingSection.focusCardAt(recordingSection.currentCardIndex)
+                                            }
+                                        }
+                                        Keys.onReturnPressed: rowListView.contentX = Math.max(rowListView.contentX - 260, 0)
+                                        Keys.onEnterPressed: Keys.onReturnPressed(event)
+                                        Keys.onPressed: function(event) {
+                                            if (event.key === Qt.Key_Select || event.key === Qt.Key_Space) {
+                                                rowListView.contentX = Math.max(rowListView.contentX - 260, 0)
+                                                event.accepted = true
+                                            }
+                                        }
                                 }
 
                                 Rectangle {
+                                    id: recScrollRightBtn
                                     width: 28
                                     height: 28
                                     radius: 14
-                                    color: recScrollRightHov ? Theme.surfaceHover : "transparent"
+                                    color: recScrollRightHov || recScrollRightBtn.activeFocus ? Theme.surfaceHover : "transparent"
                                     property bool recScrollRightHov: false
+                                    focus: false
+                                    activeFocusOnTab: true
 
                                     Text {
                                         anchors.centerIn: parent
@@ -373,6 +477,28 @@ Item {
                                             onClicked: rowListView.contentX = Math.min(
                                                 rowListView.contentX + 260,
                                                 Math.max(0, rowListView.contentWidth - rowListView.width))
+                                        }
+
+                                        Keys.onLeftPressed: {
+                                            if (recScrollLeftBtn) recScrollLeftBtn.forceActiveFocus()
+                                        }
+                                        Keys.onDownPressed: {
+                                            if (rowRepeater && rowRepeater.count > 0) {
+                                                if (recordingSection.currentCardIndex < 0) recordingSection.currentCardIndex = 0
+                                                recordingSection.focusCardAt(recordingSection.currentCardIndex)
+                                            }
+                                        }
+                                        Keys.onReturnPressed: rowListView.contentX = Math.min(
+                                            rowListView.contentX + 260,
+                                            Math.max(0, rowListView.contentWidth - rowListView.width))
+                                        Keys.onEnterPressed: Keys.onReturnPressed(event)
+                                        Keys.onPressed: function(event) {
+                                            if (event.key === Qt.Key_Select || event.key === Qt.Key_Space) {
+                                                rowListView.contentX = Math.min(
+                                                    rowListView.contentX + 260,
+                                                    Math.max(0, rowListView.contentWidth - rowListView.width))
+                                                event.accepted = true
+                                            }
                                         }
                                 }
                             }
@@ -405,11 +531,14 @@ Item {
                                         activeFocusOnTab: true
 
                                         property int cardIndex: index
+                                        property bool actionFocusMode: false
+                                        property bool cardHovered: false
 
-                                        readonly property bool playable:
+                                        readonly property bool playable: Boolean(
                                             (modelData.status === "completed" || modelData.status === "uploaded")
                                             && ((modelData.filePath && modelData.filePath.length > 0)
                                                 || (modelData.gdriveFileId && modelData.gdriveFileId.length > 0))
+                                        )
                                         readonly property bool isUploading:
                                             modelData.status === "uploading" && appViewModel && appViewModel.gdrive.uploading
 
@@ -455,6 +584,46 @@ Item {
                                             appViewModel.recordingList.togglePin(modelData.recordingId)
                                         }
 
+                                        function focusCard() {
+                                            recordingSection.currentCardIndex = cardIndex
+                                            recordingCard.forceActiveFocus()
+                                            actionFocusMode = false
+                                        }
+
+                                        function focusFirstAction() {
+                                            if (recordingCard.playable && openBtn.visible) {
+                                                openBtn.forceActiveFocus()
+                                                actionFocusMode = true
+                                                return true
+                                            }
+                                            if (moreBtn) {
+                                                moreBtn.forceActiveFocus()
+                                                actionFocusMode = true
+                                                return true
+                                            }
+                                            return false
+                                        }
+
+                                        function focusNextCard() {
+                                            if (cardIndex < rowItems.length - 1) {
+                                                recordingSection.focusCardAt(cardIndex + 1)
+                                                return true
+                                            }
+                                            return false
+                                        }
+
+                                        function focusPrevCard() {
+                                            if (cardIndex > 0) {
+                                                recordingSection.focusCardAt(cardIndex - 1)
+                                                return true
+                                            }
+                                            return false
+                                        }
+
+                                        function focusSection(delta) {
+                                            recordingsView.focusAdjacentSection(sectionRepeaterIndex, cardIndex, delta)
+                                        }
+
                                         Keys.onPressed: function(event) {
                                             if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter
                                                     || event.key === Qt.Key_Space || event.key === Qt.Key_Select) {
@@ -464,8 +633,18 @@ Item {
                                                 requestDelete()
                                                 event.accepted = true
                                             } else if (event.key === Qt.Key_Left) {
-                                                if (cardIndex > 0) {
-                                                    recordingSection.focusCardAt(cardIndex - 1)
+                                                if (recordingActionsPopup.visible) {
+                                                    recordingActionsPopup.closeAndReturn()
+                                                } else if (actionFocusMode) {
+                                                    if (moreBtn.activeFocus) {
+                                                        if (openBtn.visible) openBtn.forceActiveFocus()
+                                                        else recordingCard.forceActiveFocus()
+                                                    } else {
+                                                        recordingCard.forceActiveFocus()
+                                                    }
+                                                    actionFocusMode = false
+                                                } else if (cardIndex > 0) {
+                                                    focusPrevCard()
                                                 } else {
                                                     if (Window.window && Window.window.focusSidebar) {
                                                         Window.window.focusSidebar()
@@ -473,15 +652,47 @@ Item {
                                                 }
                                                 event.accepted = true
                                             } else if (event.key === Qt.Key_Right) {
-                                                if (cardIndex < rowItems.length - 1) {
-                                                    recordingSection.focusCardAt(cardIndex + 1)
+                                                if (recordingActionsPopup.visible) {
+                                                    event.accepted = true
+                                                    return
+                                                } else if (actionFocusMode) {
+                                                    if (openBtn.activeFocus && moreBtn.visible) {
+                                                        moreBtn.forceActiveFocus()
+                                                    } else if (moreBtn.activeFocus) {
+                                                        recordingActionsPopup.open()
+                                                    } else if (openBtn.visible) {
+                                                        openBtn.forceActiveFocus()
+                                                    }
+                                                } else if (focusFirstAction()) {
+                                                    actionFocusMode = true
+                                                } else if (cardIndex < rowItems.length - 1) {
+                                                    focusNextCard()
                                                 }
                                                 event.accepted = true
                                             } else if (event.key === Qt.Key_Up) {
-                                                recordingsView.focusAdjacentSection(sectionRepeaterIndex, cardIndex, -1)
+                                                if (recordingActionsPopup.visible) {
+                                                    event.accepted = true
+                                                    return
+                                                } else if (actionFocusMode) {
+                                                    recordingCard.forceActiveFocus()
+                                                    actionFocusMode = false
+                                                } else if (sectionIdx === 0) {
+                                                    recordingsView.focusFilterStrip()
+                                                } else {
+                                                    recordingsView.focusAdjacentSection(sectionRepeaterIndex, cardIndex, -1)
+                                                }
                                                 event.accepted = true
                                             } else if (event.key === Qt.Key_Down) {
-                                                recordingsView.focusAdjacentSection(sectionRepeaterIndex, cardIndex, 1)
+                                                if (recordingActionsPopup.visible) {
+                                                    event.accepted = true
+                                                    return
+                                                } else if (actionFocusMode) {
+                                                    recordingsView.focusAdjacentSection(sectionRepeaterIndex, cardIndex, 1)
+                                                } else if (!focusFirstAction()) {
+                                                    recordingsView.focusAdjacentSection(sectionRepeaterIndex, cardIndex, 1)
+                                                } else {
+                                                    actionFocusMode = true
+                                                }
                                                 event.accepted = true
                                             } else if (event.key === Qt.Key_Y) {
                                                 manualRecordDialog.open()
@@ -501,9 +712,11 @@ Item {
                                             anchors.fill: parent
                                             hoverEnabled: true
                                             onEntered: {
+                                                recordingCard.cardHovered = true
                                                 recordingSection.currentCardIndex = cardIndex
                                                 recordingCard.forceActiveFocus()
                                             }
+                                            onExited: recordingCard.cardHovered = false
                                             onClicked: {
                                                 recordingSection.currentCardIndex = cardIndex
                                                 openRecording()
@@ -647,129 +860,380 @@ Item {
                                                 }
 
                                                 Rectangle {
+                                                    id: actionStrip
+                                                    readonly property bool actionStripVisible: recordingCard.activeFocus
+                                                        || recordingCard.actionFocusMode
+                                                        || recordingCard.cardHovered
+                                                        || recordingSection.currentCardIndex === cardIndex
                                                     Layout.fillWidth: true
-                                                    Layout.preferredHeight: modelData.status === "uploaded" && modelData.filePath && modelData.filePath.length > 0 ? 78 : 50
+                                                    Layout.preferredHeight: actionStripVisible ? 36 : 0
+                                                    visible: actionStripVisible
                                                     radius: 12
                                                     color: Theme.surfaceElevated
                                                     border.width: 1
-                                                    border.color: Theme.surfaceBorder
+                                                    border.color: recordingCard.actionFocusMode ? Theme.accent : Theme.surfaceBorder
                                                     clip: true
 
-                                                    ColumnLayout {
+                                                    RowLayout {
                                                         anchors.fill: parent
-                                                        anchors.margins: Theme.spacingSm
+                                                        anchors.margins: Theme.spacingXs
                                                         spacing: Theme.spacingXs
 
-                                                        RowLayout {
-                                                            Layout.fillWidth: true
-                                                            spacing: Theme.spacingXs
-
-                                                            Rectangle {
-                                                                visible: recordingCard.playable
-                                                                Layout.preferredWidth: 58
-                                                                Layout.preferredHeight: 28
-                                                                radius: 14
-                                                                color: openHov ? Theme.accentHover : Theme.accent
-                                                                property bool openHov: false
-                                                                Text {
-                                                                    anchors.centerIn: parent
-                                                                    text: "Open"
-                                                                    font.pixelSize: Theme.fontSizeXs
-                                                                    font.bold: true
-                                                                    color: Theme.textOnAccent
-                                                                }
-                                                                MouseArea {
-                                                                    anchors.fill: parent
-                                                                    hoverEnabled: true
-                                                                    cursorShape: Qt.PointingHandCursor
-                                                                    onEntered: parent.openHov = true
-                                                                    onExited: parent.openHov = false
-                                                                    onClicked: recordingCard.openRecording()
-                                                                }
-                                                            }
-
-                                                            Rectangle {
-                                                                Layout.preferredWidth: 52
-                                                                Layout.preferredHeight: 28
-                                                                radius: 14
-                                                                color: modelData.pinned ? Theme.accent : (pinHov ? Theme.surfaceHover : Theme.surfaceElevated)
-                                                                border.width: 1
-                                                                border.color: modelData.pinned ? Theme.accent : Theme.surfaceBorder
-                                                                property bool pinHov: false
-                                                                Text {
-                                                                    anchors.centerIn: parent
-                                                                    text: modelData.pinned ? "Pinned" : "Pin"
-                                                                    font.pixelSize: Theme.fontSizeXs
-                                                                    font.bold: true
-                                                                    color: modelData.pinned ? Theme.textOnAccent : Theme.textPrimary
-                                                                }
-                                                                MouseArea {
-                                                                    anchors.fill: parent
-                                                                    hoverEnabled: true
-                                                                    cursorShape: Qt.PointingHandCursor
-                                                                    onEntered: parent.pinHov = true
-                                                                    onExited: parent.pinHov = false
-                                                                    onClicked: recordingCard.togglePinned()
-                                                                }
-                                                            }
-
-                                                            Rectangle {
-                                                                Layout.preferredWidth: 54
-                                                                Layout.preferredHeight: 28
-                                                                radius: 14
-                                                                color: deleteHov ? Theme.error : Theme.error
-                                                                border.width: 1
-                                                                border.color: Theme.error
-                                                                property bool deleteHov: false
-                                                                Text {
-                                                                    anchors.centerIn: parent
-                                                                    text: "Delete"
-                                                                    font.pixelSize: Theme.fontSizeXs
-                                                                    font.bold: true
-                                                                    color: Theme.textOnAccent
-                                                                }
-                                                                MouseArea {
-                                                                    anchors.fill: parent
-                                                                    hoverEnabled: true
-                                                                    cursorShape: Qt.PointingHandCursor
-                                                                    onEntered: parent.deleteHov = true
-                                                                    onExited: parent.deleteHov = false
-                                                                    onClicked: recordingCard.requestDelete()
-                                                                }
-                                                            }
-                                                        }
-
                                                         Rectangle {
-                                                            visible: modelData.status === "uploaded" && modelData.filePath && modelData.filePath.length > 0
-                                                            Layout.fillWidth: true
-                                                            Layout.preferredHeight: 26
-                                                            Layout.bottomMargin: Theme.spacingSm
+                                                            id: openBtn
+                                                            visible: recordingCard.playable
+                                                            Layout.preferredWidth: 60
+                                                            Layout.preferredHeight: 28
                                                             radius: 14
-                                                            color: localDeleteHov ? Theme.surfaceHover : Theme.surfaceElevated
-                                                            border.width: 1
-                                                            border.color: Theme.surfaceBorder
-                                                            property bool localDeleteHov: false
+                                                            color: openHov ? Theme.accentHover : Theme.accent
+                                                            focus: true
+                                                            activeFocusOnTab: true
+                                                            property bool openHov: false
+                                                            onActiveFocusChanged: recordingCard.actionFocusMode = activeFocus
+                                                            border.width: activeFocus ? 2 : 1
+                                                            border.color: activeFocus ? Theme.textOnAccent : Theme.surfaceBorder
+                                                            scale: activeFocus ? 1.03 : 1.0
 
                                                             Text {
                                                                 anchors.centerIn: parent
-                                                                text: "Delete File"
-                                                                font.pixelSize: Theme.fontSizeXs
+                                                                text: "Open"
+                                                                font.pixelSize: 11
                                                                 font.bold: true
-                                                                color: Theme.textPrimary
+                                                                color: "#000000"
                                                             }
 
                                                             MouseArea {
                                                                 anchors.fill: parent
                                                                 hoverEnabled: true
                                                                 cursorShape: Qt.PointingHandCursor
-                                                                onEntered: parent.localDeleteHov = true
-                                                                onExited: parent.localDeleteHov = false
-                                                                onClicked: {
+                                                                onEntered: parent.openHov = true
+                                                                onExited: parent.openHov = false
+                                                                onClicked: recordingCard.openRecording()
+                                                            }
+
+                                                            Keys.onLeftPressed: {
+                                                                recordingCard.forceActiveFocus()
+                                                                recordingCard.actionFocusMode = false
+                                                            }
+                                                            Keys.onRightPressed: {
+                                                                if (moreBtn.visible) {
+                                                                    moreBtn.forceActiveFocus()
+                                                                } else if (!recordingCard.focusNextCard()) {
+                                                                    recordingCard.forceActiveFocus()
+                                                                    recordingCard.actionFocusMode = false
+                                                                }
+                                                            }
+                                                            Keys.onUpPressed: {
+                                                                recordingCard.forceActiveFocus()
+                                                                recordingCard.actionFocusMode = false
+                                                            }
+                                                            Keys.onDownPressed: {
+                                                                recordingSection.focusCardAt(cardIndex)
+                                                            }
+                                                        }
+
+                                                        Rectangle {
+                                                            id: moreBtn
+                                                            Layout.preferredWidth: 62
+                                                            Layout.preferredHeight: 28
+                                                            radius: 14
+                                                            color: moreHov || activeFocus ? Theme.surfaceHover : Theme.surface
+                                                            border.width: activeFocus ? 2 : 1
+                                                            border.color: activeFocus ? Theme.accent : Theme.surfaceBorder
+                                                            focus: true
+                                                            activeFocusOnTab: true
+                                                            property bool moreHov: false
+                                                            onActiveFocusChanged: recordingCard.actionFocusMode = activeFocus
+                                                            scale: activeFocus ? 1.03 : 1.0
+
+                                                            Text {
+                                                                anchors.centerIn: parent
+                                                                text: "More"
+                                                                font.pixelSize: 11
+                                                                font.bold: true
+                                                                color: "#ffffff"
+                                                            }
+
+                                                            MouseArea {
+                                                                anchors.fill: parent
+                                                                hoverEnabled: true
+                                                                cursorShape: Qt.PointingHandCursor
+                                                                onEntered: parent.moreHov = true
+                                                                onExited: parent.moreHov = false
+                                                                onClicked: recordingActionsPopup.open()
+                                                            }
+
+                                                            Keys.onLeftPressed: {
+                                                                if (openBtn.visible) openBtn.forceActiveFocus()
+                                                                else {
+                                                                    recordingCard.forceActiveFocus()
+                                                                    recordingCard.actionFocusMode = false
+                                                                }
+                                                            }
+                                                            Keys.onRightPressed: {
+                                                                recordingActionsPopup.open()
+                                                            }
+                                                            Keys.onUpPressed: {
+                                                                recordingCard.forceActiveFocus()
+                                                                recordingCard.actionFocusMode = false
+                                                            }
+                                                            Keys.onDownPressed: {
+                                                                recordingSection.focusCardAt(cardIndex)
+                                                            }
+                                                            Keys.onReturnPressed: recordingActionsPopup.open()
+                                                            Keys.onEnterPressed: Keys.onReturnPressed(event)
+                                                            Keys.onPressed: function(event) {
+                                                                if (event.key === Qt.Key_Select || event.key === Qt.Key_Space) {
+                                                                    recordingActionsPopup.open()
+                                                                    event.accepted = true
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
+
+                                                Popup {
+                                                    id: recordingActionsPopup
+                                                    parent: recordingsView
+                                                    modal: false
+                                                    focus: true
+                                                    closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutsideParent
+                                                    x: {
+                                                        var cardPos = recordingCard.mapToItem(recordingsView, 0, 0)
+                                                        return Math.max(4, Math.min(recordingsView.width - width - 4, cardPos.x + moreBtn.x))
+                                                    }
+                                                    y: {
+                                                        var popupH = popupColumn ? popupColumn.implicitHeight + (recordingActionsPopup.padding * 2) : 0
+                                                        if (popupH <= 0) {
+                                                            popupH = deleteFileAction.visible ? 156 : 108
+                                                        }
+                                                        var cardPos = recordingCard.mapToItem(recordingsView, 0, 0)
+                                                        var below = cardPos.y + actionStrip.y + actionStrip.height + 4
+                                                        var above = cardPos.y + actionStrip.y - popupH - 4
+                                                        if (below + popupH <= recordingsView.height - 8) {
+                                                            return below
+                                                        }
+                                                        return Math.max(4, above)
+                                                    }
+                                                    width: 190
+                                                    padding: 10
+
+                                                    background: Rectangle {
+                                                        radius: 16
+                                                        color: Theme.surfaceElevated
+                                                        border.color: Theme.surfaceBorder
+                                                        border.width: 1
+                                                    }
+
+                                                    function closeAndReturn() {
+                                                        recordingActionsPopup.close()
+                                                        if (moreBtn) moreBtn.forceActiveFocus()
+                                                        recordingCard.actionFocusMode = false
+                                                    }
+
+                                                    function firstActionItem() {
+                                                        if (pinAction.visible) return pinAction
+                                                        if (deleteAction.visible) return deleteAction
+                                                        if (deleteFileAction.visible) return deleteFileAction
+                                                        return null
+                                                    }
+
+                                                    property int actionIndex: 0
+
+                                                    function maxActionIndex() {
+                                                        return deleteFileAction.visible ? 2 : 1
+                                                    }
+
+                                                    function actionItemForIndex(idx) {
+                                                        if (idx === 0) return pinAction
+                                                        if (idx === 1) return deleteAction
+                                                        if (idx === 2 && deleteFileAction.visible) return deleteFileAction
+                                                        return null
+                                                    }
+
+                                                    function selectAction(idx) {
+                                                        var maxIdx = maxActionIndex()
+                                                        actionIndex = Math.max(0, Math.min(maxIdx, idx))
+                                                        var item = actionItemForIndex(actionIndex)
+                                                        if (item) item.forceActiveFocus()
+                                                    }
+
+                                                    onOpened: {
+                                                        actionIndex = 0
+                                                        selectAction(0)
+                                                    }
+                                                    onClosed: {
+                                                        recordingCard.actionFocusMode = false
+                                                        actionIndex = 0
+                                                        Qt.callLater(function() {
+                                                            if (!recordingCard || !recordingCard.visible) return
+                                                            if (moreBtn && moreBtn.visible) moreBtn.forceActiveFocus()
+                                                            else recordingCard.forceActiveFocus()
+                                                        })
+                                                    }
+
+                                                    contentItem: FocusScope {
+                                                        id: popupFocusRoot
+                                                        implicitWidth: 170
+                                                        implicitHeight: popupColumn.implicitHeight
+                                                        focus: true
+
+                                                        Keys.onUpPressed: {
+                                                            if (actionIndex > 0) selectAction(actionIndex - 1)
+                                                        }
+                                                        Keys.onDownPressed: {
+                                                            if (actionIndex < maxActionIndex()) selectAction(actionIndex + 1)
+                                                        }
+                                                        Keys.onLeftPressed: recordingActionsPopup.closeAndReturn()
+                                                        Keys.onRightPressed: recordingActionsPopup.closeAndReturn()
+                                                        Keys.onReturnPressed: {
+                                                            var item = actionItemForIndex(actionIndex)
+                                                            if (item && item.activateAction) item.activateAction()
+                                                        }
+                                                        Keys.onEnterPressed: Keys.onReturnPressed(event)
+                                                        Keys.onPressed: function(event) {
+                                                            if (event.key === Qt.Key_Select || event.key === Qt.Key_Space) {
+                                                                var item = actionItemForIndex(actionIndex)
+                                                                if (item && item.activateAction) item.activateAction()
+                                                                event.accepted = true
+                                                            } else if (event.key === Qt.Key_Back || event.key === Qt.Key_B || event.key === Qt.Key_Escape) {
+                                                                recordingActionsPopup.closeAndReturn()
+                                                                event.accepted = true
+                                                            }
+                                                        }
+
+                                                        Column {
+                                                            id: popupColumn
+                                                            width: parent.width
+                                                            spacing: 8
+
+                                                        Rectangle {
+                                                                id: pinAction
+                                                                width: parent.width
+                                                                height: 40
+                                                                radius: 12
+                                                                property bool selected: recordingActionsPopup.actionIndex === 0
+                                                                color: pinActionHov || selected ? Theme.accent : Theme.surface
+                                                                border.width: selected ? 2 : 1
+                                                                border.color: selected ? Theme.textOnAccent : (modelData.pinned ? Theme.accent : Theme.surfaceBorder)
+                                                                property bool pinActionHov: false
+                                                                scale: selected ? 1.01 : 1.0
+
+                                                                Text {
+                                                                    anchors.verticalCenter: parent.verticalCenter
+                                                                    anchors.left: parent.left
+                                                                    anchors.leftMargin: 14
+                                                                    text: modelData.pinned ? "Unpin" : "Pin"
+                                                                    font.pixelSize: 11
+                                                                    font.bold: true
+                                                                    color: (pinAction.pinActionHov || pinAction.selected) ? "#000000" : "#ffffff"
+                                                                }
+
+                                                                MouseArea {
+                                                                    anchors.fill: parent
+                                                                    hoverEnabled: true
+                                                                    cursorShape: Qt.PointingHandCursor
+                                                                    onEntered: parent.pinActionHov = true
+                                                                    onExited: parent.pinActionHov = false
+                                                                    onClicked: {
+                                                                        recordingActionsPopup.selectAction(0)
+                                                                        recordingCard.togglePinned()
+                                                                        recordingActionsPopup.closeAndReturn()
+                                                                    }
+                                                                }
+                                                                function activateAction() {
+                                                                    recordingCard.togglePinned()
+                                                                    recordingActionsPopup.closeAndReturn()
+                                                                }
+                                                            }
+
+                                                        Rectangle {
+                                                                id: deleteAction
+                                                                width: parent.width
+                                                                height: 40
+                                                                radius: 12
+                                                                property bool selected: recordingActionsPopup.actionIndex === 1
+                                                                color: deleteActionHov || selected ? Theme.error : "#3a1010"
+                                                                border.width: selected ? 2 : 1
+                                                                border.color: selected ? "#ffffff" : Theme.error
+                                                                property bool deleteActionHov: false
+                                                                scale: selected ? 1.01 : 1.0
+
+                                                                Text {
+                                                                    anchors.verticalCenter: parent.verticalCenter
+                                                                    anchors.left: parent.left
+                                                                    anchors.leftMargin: 14
+                                                                    text: "Delete Recording"
+                                                                    font.pixelSize: 11
+                                                                    font.bold: true
+                                                                    color: "#ffffff"
+                                                                }
+
+                                                                MouseArea {
+                                                                    anchors.fill: parent
+                                                                    hoverEnabled: true
+                                                                    cursorShape: Qt.PointingHandCursor
+                                                                    onEntered: parent.deleteActionHov = true
+                                                                    onExited: parent.deleteActionHov = false
+                                                                    onClicked: {
+                                                                        recordingActionsPopup.selectAction(1)
+                                                                        recordingCard.requestDelete()
+                                                                        recordingActionsPopup.closeAndReturn()
+                                                                    }
+                                                                }
+                                                                function activateAction() {
+                                                                    recordingCard.requestDelete()
+                                                                    recordingActionsPopup.closeAndReturn()
+                                                                }
+                                                            }
+
+                                                        Rectangle {
+                                                                id: deleteFileAction
+                                                                visible: modelData.status === "uploaded"
+                                                                    && modelData.filePath && modelData.filePath.length > 0
+                                                                width: parent.width
+                                                                height: 40
+                                                                radius: 12
+                                                                property bool selected: recordingActionsPopup.actionIndex === 2
+                                                                color: deleteFileActionHov || selected ? Theme.surfaceHover : Theme.surface
+                                                                border.width: selected ? 2 : 1
+                                                                border.color: selected ? Theme.accent : Theme.surfaceBorder
+                                                                property bool deleteFileActionHov: false
+                                                                scale: selected ? 1.01 : 1.0
+
+                                                                Text {
+                                                                    anchors.verticalCenter: parent.verticalCenter
+                                                                    anchors.left: parent.left
+                                                                    anchors.leftMargin: 14
+                                                                    text: "Delete File"
+                                                                    font.pixelSize: 11
+                                                                    font.bold: true
+                                                                    color: "#ffffff"
+                                                                }
+
+                                                                MouseArea {
+                                                                    anchors.fill: parent
+                                                                    hoverEnabled: true
+                                                                    cursorShape: Qt.PointingHandCursor
+                                                                    onEntered: parent.deleteFileActionHov = true
+                                                                    onExited: parent.deleteFileActionHov = false
+                                                                    onClicked: {
+                                                                        recordingActionsPopup.selectAction(2)
+                                                                        deleteLocalDialog.recordingId = modelData.recordingId
+                                                                        deleteLocalDialog.recordingName = modelData.programmeTitle && modelData.programmeTitle.length > 0
+                                                                            ? modelData.programmeTitle
+                                                                            : modelData.channelName
+                                                                        deleteLocalDialog.visible = true
+                                                                        recordingActionsPopup.closeAndReturn()
+                                                                    }
+                                                                }
+                                                                function activateAction() {
                                                                     deleteLocalDialog.recordingId = modelData.recordingId
                                                                     deleteLocalDialog.recordingName = modelData.programmeTitle && modelData.programmeTitle.length > 0
                                                                         ? modelData.programmeTitle
                                                                         : modelData.channelName
                                                                     deleteLocalDialog.visible = true
+                                                                    recordingActionsPopup.closeAndReturn()
                                                                 }
                                                             }
                                                         }
@@ -784,14 +1248,19 @@ Item {
                     }
                 }
 
-                Text {
-                    anchors.centerIn: parent
+                Item {
+                    width: parent.width
+                    height: 160
                     visible: recordingsColumn.children.length <= 0 || (appViewModel && appViewModel.recordingList.count === 0)
-                    text: "No recordings yet.\nUse the record button on any channel\nor click '+ Record' to schedule one."
-                    font.pixelSize: Theme.fontSizeMd
-                    color: Theme.textMuted
-                    horizontalAlignment: Text.AlignHCenter
-                    lineHeight: 1.5
+
+                    Text {
+                        anchors.centerIn: parent
+                        text: "No recordings yet.\nUse the record button on any channel\nor click '+ Record' to schedule one."
+                        font.pixelSize: Theme.fontSizeMd
+                        color: Theme.textMuted
+                        horizontalAlignment: Text.AlignHCenter
+                        lineHeight: 1.5
+                    }
                 }
             }
         }
@@ -1211,6 +1680,13 @@ Item {
 
         onClosed: {
             channelChoices = []
+            Qt.callLater(function() {
+                if (newRecButton) {
+                    newRecButton.forceActiveFocus()
+                } else {
+                    recordingsView.focusPrimary()
+                }
+            })
         }
     }
 
@@ -1224,9 +1700,24 @@ Item {
         property int recordingId: 0
         property string recordingName: ""
 
+        function closeDialog() {
+            visible = false
+            Qt.callLater(function() {
+                recordingsView.focusPrimary()
+            })
+        }
+
+        onVisibleChanged: {
+            if (visible) {
+                Qt.callLater(function() {
+                    if (cancelBtn) cancelBtn.forceActiveFocus()
+                })
+            }
+        }
+
         MouseArea {
             anchors.fill: parent
-            onClicked: deleteConfirmDialog.visible = false
+            onClicked: deleteConfirmDialog.closeDialog()
         }
 
         Rectangle {
@@ -1278,6 +1769,7 @@ Item {
                     Item { Layout.fillWidth: true }
 
                     Rectangle {
+                        id: cancelBtn
                         width: cancelBtnText.implicitWidth + 24
                         height: 36
                         radius: Theme.borderRadius
@@ -1285,6 +1777,8 @@ Item {
                         border.color: Theme.surfaceBorder
                         border.width: 1
                         property bool cancelBtnHov: false
+                        focus: false
+                        activeFocusOnTab: true
 
                         Text {
                             id: cancelBtnText
@@ -1300,17 +1794,34 @@ Item {
                             cursorShape: Qt.PointingHandCursor
                             onEntered: parent.cancelBtnHov = true
                             onExited: parent.cancelBtnHov = false
-                            onClicked: deleteConfirmDialog.visible = false
+                            onClicked: deleteConfirmDialog.closeDialog()
+                        }
+
+                        Keys.onRightPressed: deleteBtn.forceActiveFocus()
+                        Keys.onReturnPressed: deleteConfirmDialog.closeDialog()
+                        Keys.onEnterPressed: Keys.onReturnPressed(event)
+                        Keys.onPressed: function(event) {
+                            if (event.key === Qt.Key_Select || event.key === Qt.Key_Space) {
+                                deleteConfirmDialog.closeDialog()
+                                event.accepted = true
+                            } else if (event.key === Qt.Key_B || event.key === Qt.Key_Escape
+                                    || event.key === Qt.Key_Back) {
+                                deleteConfirmDialog.closeDialog()
+                                event.accepted = true
+                            }
                         }
                     }
 
                     Rectangle {
+                        id: deleteBtn
                         width: deleteBtnText.implicitWidth + 24
                         height: 36
                         radius: Theme.borderRadius
                         color: deleteBtnHov ? Qt.darker(Theme.error, 1.2) : Theme.error
 
                         property bool deleteBtnHov: false
+                        focus: false
+                        activeFocusOnTab: true
 
                         Text {
                             id: deleteBtnText
@@ -1332,7 +1843,31 @@ Item {
                                     appViewModel.recordingList.deleteRecordingWithFile(deleteConfirmDialog.recordingId)
                                     appViewModel.recordingList.refresh()
                                 }
-                                deleteConfirmDialog.visible = false
+                                deleteConfirmDialog.closeDialog()
+                            }
+                        }
+
+                        Keys.onLeftPressed: cancelBtn.forceActiveFocus()
+                        Keys.onReturnPressed: {
+                            if (appViewModel) {
+                                appViewModel.recordingList.deleteRecordingWithFile(deleteConfirmDialog.recordingId)
+                                appViewModel.recordingList.refresh()
+                            }
+                            deleteConfirmDialog.closeDialog()
+                        }
+                        Keys.onEnterPressed: Keys.onReturnPressed(event)
+                        Keys.onPressed: function(event) {
+                            if (event.key === Qt.Key_Select || event.key === Qt.Key_Space) {
+                                if (appViewModel) {
+                                    appViewModel.recordingList.deleteRecordingWithFile(deleteConfirmDialog.recordingId)
+                                    appViewModel.recordingList.refresh()
+                                }
+                                deleteConfirmDialog.closeDialog()
+                                event.accepted = true
+                            } else if (event.key === Qt.Key_B || event.key === Qt.Key_Escape
+                                    || event.key === Qt.Key_Back) {
+                                deleteConfirmDialog.closeDialog()
+                                event.accepted = true
                             }
                         }
                     }
@@ -1351,9 +1886,24 @@ Item {
         property int recordingId: 0
         property string recordingName: ""
 
+        function closeDialog() {
+            visible = false
+            Qt.callLater(function() {
+                recordingsView.focusPrimary()
+            })
+        }
+
+        onVisibleChanged: {
+            if (visible) {
+                Qt.callLater(function() {
+                    if (cancelLocalBtn) cancelLocalBtn.forceActiveFocus()
+                })
+            }
+        }
+
         MouseArea {
             anchors.fill: parent
-            onClicked: deleteLocalDialog.visible = false
+            onClicked: deleteLocalDialog.closeDialog()
         }
 
         Rectangle {
@@ -1405,6 +1955,7 @@ Item {
                     Item { Layout.fillWidth: true }
 
                     Rectangle {
+                        id: cancelLocalBtn
                         width: cancelLocalBtnText.implicitWidth + 24
                         height: 36
                         radius: Theme.borderRadius
@@ -1412,6 +1963,8 @@ Item {
                         border.color: Theme.surfaceBorder
                         border.width: 1
                         property bool cancelLocalBtnHov: false
+                        focus: false
+                        activeFocusOnTab: true
 
                         Text {
                             id: cancelLocalBtnText
@@ -1427,17 +1980,34 @@ Item {
                             cursorShape: Qt.PointingHandCursor
                             onEntered: parent.cancelLocalBtnHov = true
                             onExited: parent.cancelLocalBtnHov = false
-                            onClicked: deleteLocalDialog.visible = false
+                            onClicked: deleteLocalDialog.closeDialog()
+                        }
+
+                        Keys.onRightPressed: deleteLocalBtn.forceActiveFocus()
+                        Keys.onReturnPressed: deleteLocalDialog.closeDialog()
+                        Keys.onEnterPressed: Keys.onReturnPressed(event)
+                        Keys.onPressed: function(event) {
+                            if (event.key === Qt.Key_Select || event.key === Qt.Key_Space) {
+                                deleteLocalDialog.closeDialog()
+                                event.accepted = true
+                            } else if (event.key === Qt.Key_B || event.key === Qt.Key_Escape
+                                    || event.key === Qt.Key_Back) {
+                                deleteLocalDialog.closeDialog()
+                                event.accepted = true
+                            }
                         }
                     }
 
                     Rectangle {
+                        id: deleteLocalBtn
                         width: deleteLocalBtnText.implicitWidth + 24
                         height: 36
                         radius: Theme.borderRadius
                         color: deleteLocalBtnHov ? Qt.darker(Theme.error, 1.2) : Theme.error
 
                         property bool deleteLocalBtnHov: false
+                        focus: false
+                        activeFocusOnTab: true
 
                         Text {
                             id: deleteLocalBtnText
@@ -1458,7 +2028,29 @@ Item {
                                 if (appViewModel) {
                                     appViewModel.recordingList.deleteLocalFile(deleteLocalDialog.recordingId)
                                 }
-                                deleteLocalDialog.visible = false
+                                deleteLocalDialog.closeDialog()
+                            }
+                        }
+
+                        Keys.onLeftPressed: cancelLocalBtn.forceActiveFocus()
+                        Keys.onReturnPressed: {
+                            if (appViewModel) {
+                                appViewModel.recordingList.deleteLocalFile(deleteLocalDialog.recordingId)
+                            }
+                            deleteLocalDialog.closeDialog()
+                        }
+                        Keys.onEnterPressed: Keys.onReturnPressed(event)
+                        Keys.onPressed: function(event) {
+                            if (event.key === Qt.Key_Select || event.key === Qt.Key_Space) {
+                                if (appViewModel) {
+                                    appViewModel.recordingList.deleteLocalFile(deleteLocalDialog.recordingId)
+                                }
+                                deleteLocalDialog.closeDialog()
+                                event.accepted = true
+                            } else if (event.key === Qt.Key_B || event.key === Qt.Key_Escape
+                                    || event.key === Qt.Key_Back) {
+                                deleteLocalDialog.closeDialog()
+                                event.accepted = true
                             }
                         }
                     }

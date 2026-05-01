@@ -34,18 +34,18 @@ Item {
 
     function focusPrimary() {
         if (vodGrid.visible) {
-            if (vodGrid.count > 0 && vodGrid.currentIndex < 0) vodGrid.currentIndex = 0
+            if (vodGrid.count > 0) vodGrid.currentIndex = 0
             vodGrid.forceActiveFocus()
             return
         }
         if (categoryGrid.visible) {
-            if (categoryGrid.count > 0 && categoryGrid.currentIndex < 0) categoryGrid.currentIndex = 0
+            if (categoryGrid.count > 0) categoryGrid.currentIndex = 0
             categoryGrid.forceActiveFocus()
             return
         }
         var row = firstVisibleVodRow()
         if (row) {
-            if (row.currentIndex < 0 && row.count > 0) row.currentIndex = 0
+            if (row.count > 0) row.currentIndex = 0
             row.forceActiveFocus()
             return
         }
@@ -56,6 +56,14 @@ Item {
         if (vodCategoryList.count > 0) {
             if (vodCategoryList.currentIndex < 0) vodCategoryList.currentIndex = 0
             vodCategoryList.forceActiveFocus()
+        } else if (Window.window && Window.window.focusSidebar) {
+            Window.window.focusSidebar()
+        }
+    }
+
+    function focusSearchField() {
+        if (vodSearch) {
+            vodSearch.forceActiveFocus()
         } else if (Window.window && Window.window.focusSidebar) {
             Window.window.focusSidebar()
         }
@@ -80,6 +88,8 @@ Item {
         }
         if (delta > 0) {
             loadMoreVodRows()
+        } else if (delta < 0) {
+            focusSearchField()
         }
     }
 
@@ -270,6 +280,11 @@ Item {
                             clip: true
                             selectByMouse: true
 
+                            onActiveFocusChanged: {
+                                if (activeFocus) Qt.inputMethod.show()
+                                else Qt.inputMethod.hide()
+                            }
+
                             Text {
                                 anchors.verticalCenter: parent.verticalCenter
                                 text: "Filter categories..."
@@ -282,12 +297,15 @@ Item {
                 }
 
                 Rectangle {
+                    id: allVodBtn
                     Layout.fillWidth: true
                     Layout.preferredHeight: 36
                     color: selectedCategoryId === 0
                         ? Theme.accentGlow : allVodCatHov ? Theme.surfaceHover : "transparent"
 
                     property bool allVodCatHov: false
+                    focus: false
+                    activeFocusOnTab: true
 
                     Text {
                         anchors.left: parent.left
@@ -307,6 +325,21 @@ Item {
                         onEntered: parent.allVodCatHov = true
                         onExited: parent.allVodCatHov = false
                         onClicked: selectCategory(0)
+                    }
+
+                    Keys.onDownPressed: {
+                        if (vodCategoryList.count > 0) {
+                            if (vodCategoryList.currentIndex < 0) vodCategoryList.currentIndex = 0
+                            vodCategoryList.forceActiveFocus()
+                        }
+                    }
+                    Keys.onReturnPressed: selectCategory(0)
+                    Keys.onEnterPressed: Keys.onReturnPressed(event)
+                    Keys.onPressed: function(event) {
+                        if (event.key === Qt.Key_Select || event.key === Qt.Key_Space) {
+                            selectCategory(0)
+                            event.accepted = true
+                        }
                     }
                 }
 
@@ -337,8 +370,13 @@ Item {
                         background: Rectangle { implicitWidth: 4; color: "transparent" }
                     }
 
-                    Keys.onUpPressed: selectCategoryAt(currentIndex - 1)
-                    Keys.onDownPressed: selectCategoryAt(currentIndex + 1)
+                    Keys.onUpPressed: {
+                        if (currentIndex > 0) currentIndex--
+                        else if (allVodBtn) allVodBtn.forceActiveFocus()
+                    }
+                    Keys.onDownPressed: {
+                        if (currentIndex < count - 1) currentIndex++
+                    }
                     Keys.onReturnPressed: if (currentIndex >= 0) selectCategory(appViewModel.categoryList.categoryIdAt(currentIndex))
                     Keys.onEnterPressed: Keys.onReturnPressed(event)
                     Keys.onRightPressed: vodView.focusPrimary()
@@ -398,12 +436,15 @@ Item {
                             anchors.rightMargin: 4
                             anchors.verticalCenter: parent.verticalCenter
                             spacing: 2
-                            opacity: vodCatHov ? 1.0 : 0.0
-                            enabled: vodCatHov
+                            opacity: (vodCatHov || vodRenameBtn.vodCatRenameHov || vodFavBtn.vodCatFavHov || vodVisBtn.vodCatVisHov) ? 1.0 : 0.0
+                            enabled: true
 
                             Rectangle {
+                                id: vodRenameBtn
                                 width: 22; height: 22; radius: 11
                                 color: vodCatRenameHov ? Theme.surfaceHover : "transparent"
+                                focus: false
+                                activeFocusOnTab: true
                                 property bool vodCatRenameHov: false
 
                                 Text {
@@ -425,11 +466,29 @@ Item {
                                         vodRenameDialog.open()
                                     }
                                 }
+
+                                onActiveFocusChanged: parent.vodCatRenameHov = activeFocus
+
+                                Keys.onReturnPressed: {
+                                    vodRenameDialog.categoryId = model.categoryId
+                                    vodRenameDialog.originalName = model.name
+                                    vodRenameDialog.open()
+                                }
+                                Keys.onEnterPressed: Keys.onReturnPressed(event)
+                                Keys.onPressed: function(event) {
+                                    if (event.key === Qt.Key_Select || event.key === Qt.Key_Space) {
+                                        Keys.onReturnPressed(event)
+                                        event.accepted = true
+                                    }
+                                }
                             }
 
                             Rectangle {
+                                id: vodFavBtn
                                 width: 22; height: 22; radius: 11
                                 color: vodCatFavHov ? Theme.surfaceHover : "transparent"
+                                focus: false
+                                activeFocusOnTab: true
                                 property bool vodCatFavHov: false
 
                                 Text {
@@ -448,15 +507,34 @@ Item {
                                     onClicked: {
                                         if (appViewModel) {
                                             appViewModel.categoryList.toggleFavorite(model.categoryId)
-                                            Qt.callLater(reloadVodRows)
+                                            Qt.callLater(vodView.reloadVodRows)
                                         }
+                                    }
+                                }
+
+                                onActiveFocusChanged: parent.vodCatFavHov = activeFocus
+
+                                Keys.onReturnPressed: {
+                                    if (appViewModel) {
+                                        appViewModel.categoryList.toggleFavorite(model.categoryId)
+                                        Qt.callLater(vodView.reloadVodRows)
+                                    }
+                                }
+                                Keys.onEnterPressed: Keys.onReturnPressed(event)
+                                Keys.onPressed: function(event) {
+                                    if (event.key === Qt.Key_Select || event.key === Qt.Key_Space) {
+                                        Keys.onReturnPressed(event)
+                                        event.accepted = true
                                     }
                                 }
                             }
 
                             Rectangle {
+                                id: vodVisBtn
                                 width: 22; height: 22; radius: 11
                                 color: vodCatVisHov ? Theme.surfaceHover : "transparent"
+                                focus: false
+                                activeFocusOnTab: true
                                 property bool vodCatVisHov: false
 
                                 Text {
@@ -475,8 +553,24 @@ Item {
                                     onClicked: {
                                         if (appViewModel) {
                                             appViewModel.categoryList.toggleHidden(model.categoryId)
-                                            Qt.callLater(reloadVodRows)
+                                            Qt.callLater(vodView.reloadVodRows)
                                         }
+                                    }
+                                }
+
+                                onActiveFocusChanged: parent.vodCatVisHov = activeFocus
+
+                                Keys.onReturnPressed: {
+                                    if (appViewModel) {
+                                        appViewModel.categoryList.toggleHidden(model.categoryId)
+                                        Qt.callLater(vodView.reloadVodRows)
+                                    }
+                                }
+                                Keys.onEnterPressed: Keys.onReturnPressed(event)
+                                Keys.onPressed: function(event) {
+                                    if (event.key === Qt.Key_Select || event.key === Qt.Key_Space) {
+                                        Keys.onReturnPressed(event)
+                                        event.accepted = true
                                     }
                                 }
                             }
@@ -554,14 +648,19 @@ Item {
                                 opacity: 0.5
                             }
 
-                            TextInput {
-                                id: vodSearch
-                                anchors.verticalCenter: parent.verticalCenter
-                                width: parent.width - 30
-                                font.pixelSize: Theme.fontSizeSm
+                                TextInput {
+                                    id: vodSearch
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    width: parent.width - 30
+                                    font.pixelSize: Theme.fontSizeSm
                                 color: Theme.textPrimary
                                 clip: true
                                 selectByMouse: true
+
+                                onActiveFocusChanged: {
+                                    if (activeFocus) Qt.inputMethod.show()
+                                    else Qt.inputMethod.hide()
+                                }
 
                                 Text {
                                     anchors.verticalCenter: parent.verticalCenter
@@ -572,6 +671,16 @@ Item {
                                 }
 
                                 onTextChanged: vodSearchTimer.restart()
+
+                                Keys.onLeftPressed: {
+                                    vodView.focusCategorySidebar()
+                                }
+                                Keys.onRightPressed: {
+                                    vodView.focusPrimary()
+                                }
+                                Keys.onDownPressed: {
+                                    vodView.focusPrimary()
+                                }
 
                                 Timer {
                                     id: vodSearchTimer
@@ -976,7 +1085,7 @@ Item {
                 cellWidth: 210
                 cellHeight: 180
                 clip: true
-                focus: visible
+                focus: visible && !vodSearch.activeFocus
                 keyNavigationEnabled: true
                 highlight: Rectangle {
                     color: Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.19)
@@ -991,6 +1100,11 @@ Item {
 
                 Keys.onReturnPressed: playCurrentItem()
                 Keys.onEnterPressed: playCurrentItem()
+                Keys.onUpPressed: {
+                    if (currentIndex >= 0 && currentIndex < cols) {
+                        vodView.focusSearchField()
+                    }
+                }
                 Keys.onLeftPressed: {
                     if (currentIndex > 0 && (currentIndex % cols) !== 0) {
                         currentIndex--
@@ -1253,6 +1367,8 @@ Item {
                                 Layout.preferredHeight: 28
                                 radius: 14
                                 color: searchFavHov ? Theme.surfaceHover : "transparent"
+                                focus: false
+                                activeFocusOnTab: true
                                 property bool searchFavHov: false
                                 property bool isFav: appViewModel ? appViewModel.favoriteList.isFavorite(model.channelId) : false
 
@@ -1274,6 +1390,22 @@ Item {
                                             appViewModel.favoriteList.toggleFavorite(model.channelId)
                                             parent.isFav = !parent.isFav
                                         }
+                                    }
+                                }
+
+                                onActiveFocusChanged: parent.searchFavHov = activeFocus
+
+                                Keys.onReturnPressed: {
+                                    if (appViewModel) {
+                                        appViewModel.favoriteList.toggleFavorite(model.channelId)
+                                        parent.isFav = !parent.isFav
+                                    }
+                                }
+                                Keys.onEnterPressed: Keys.onReturnPressed(event)
+                                Keys.onPressed: function(event) {
+                                    if (event.key === Qt.Key_Select || event.key === Qt.Key_Space) {
+                                        Keys.onReturnPressed(event)
+                                        event.accepted = true
                                     }
                                 }
                             }
@@ -1356,11 +1488,24 @@ Item {
         property int selectedSeason: 0
         property int seriesChannelId: 0
 
+        function closeDialog() {
+            episodeDialog.visible = false
+            if (appViewModel) appViewModel.clearActiveSeriesDialog()
+            Qt.callLater(function() {
+                vodView.focusPrimary()
+            })
+        }
+
         MouseArea {
             anchors.fill: parent
-            onClicked: {
-                episodeDialog.visible = false
-                if (appViewModel) appViewModel.clearActiveSeriesDialog()
+            onClicked: episodeDialog.closeDialog()
+        }
+
+        Keys.onPressed: function(event) {
+            if (event.key === Qt.Key_Escape || event.key === Qt.Key_Back
+                    || event.key === Qt.Key_B || event.key === Qt.Key_Delete) {
+                episodeDialog.closeDialog()
+                event.accepted = true
             }
         }
 
@@ -1413,10 +1558,7 @@ Item {
                             cursorShape: Qt.PointingHandCursor
                             onEntered: parent.closeBtnHov = true
                             onExited: parent.closeBtnHov = false
-                            onClicked: {
-                                episodeDialog.visible = false
-                                if (appViewModel) appViewModel.clearActiveSeriesDialog()
-                            }
+                            onClicked: episodeDialog.closeDialog()
                         }
                     }
                 }
@@ -1437,6 +1579,8 @@ Item {
                             border.color: episodeDialog.selectedSeason === index
                                 ? Theme.accent : Theme.surfaceBorder
                             border.width: 1
+                            focus: false
+                            activeFocusOnTab: true
                             property bool seasonTabHov: false
 
                             Text {
@@ -1456,6 +1600,15 @@ Item {
                                 onEntered: parent.seasonTabHov = true
                                 onExited: parent.seasonTabHov = false
                                 onClicked: episodeDialog.selectedSeason = index
+                            }
+
+                            Keys.onReturnPressed: episodeDialog.selectedSeason = index
+                            Keys.onEnterPressed: Keys.onReturnPressed(event)
+                            Keys.onPressed: function(event) {
+                                if (event.key === Qt.Key_Select || event.key === Qt.Key_Space) {
+                                    episodeDialog.selectedSeason = index
+                                    event.accepted = true
+                                }
                             }
                         }
                     }
@@ -1478,8 +1631,7 @@ Item {
                     Keys.onReturnPressed: playEpisode(currentIndex)
                     Keys.onEnterPressed: playEpisode(currentIndex)
                     Keys.onEscapePressed: {
-                        episodeDialog.visible = false
-                        if (appViewModel) appViewModel.clearActiveSeriesDialog()
+                        episodeDialog.closeDialog()
                     }
                     Keys.onLeftPressed: {
                         if (episodeDialog.selectedSeason > 0) episodeDialog.selectedSeason--
@@ -1505,9 +1657,11 @@ Item {
                             if (nextEp.title) nextTitle += " - " + nextEp.title
                             var nextUrl = appViewModel.buildSeriesEpisodeUrl(nextEp.id, nextEp.ext)
                             appViewModel.player.setNextEpisode(nextUrl, nextTitle, nextEp.logoUrl || "", episodeDialog.seriesChannelId)
+                            if (appViewModel.chromecast.connected)
+                                appViewModel.chromecast.setNextEpisode(nextUrl, nextTitle)
                         }
 
-                        episodeDialog.visible = false
+                        episodeDialog.closeDialog()
                     }
 
                     ScrollBar.vertical: ScrollBar {
@@ -1607,6 +1761,8 @@ Item {
                                         if (nextEp.title) nextTitle += " - " + nextEp.title
                                         var nextUrl = appViewModel.buildSeriesEpisodeUrl(nextEp.id, nextEp.ext)
                                         appViewModel.player.setNextEpisode(nextUrl, nextTitle, nextEp.logoUrl || "", episodeDialog.seriesChannelId)
+                            if (appViewModel.chromecast.connected)
+                                appViewModel.chromecast.setNextEpisode(nextUrl, nextTitle)
                                     }
 
                                     episodeDialog.visible = false
@@ -1751,7 +1907,12 @@ Item {
             vodRenameInput.forceActiveFocus()
             vodRenameInput.selectAll()
         }
-        function close() { visible = false }
+        function close() {
+            visible = false
+            Qt.callLater(function() {
+                vodView.focusPrimary()
+            })
+        }
 
         MouseArea { anchors.fill: parent; onClicked: vodRenameDialog.close() }
 
@@ -1808,7 +1969,7 @@ Item {
                             if (appViewModel && vodRenameDialog.categoryId > 0) {
                                 appViewModel.categoryList.renameCategory(vodRenameDialog.categoryId, vodRenameInput.text)
                                 vodRenameDialog.close()
-                                Qt.callLater(reloadVodRows)
+                                Qt.callLater(vodView.reloadVodRows)
                             }
                         }
                         Keys.onEscapePressed: vodRenameDialog.close()
@@ -1836,7 +1997,7 @@ Item {
                                 if (appViewModel && vodRenameDialog.categoryId > 0) {
                                     appViewModel.categoryList.renameCategory(vodRenameDialog.categoryId, "")
                                     vodRenameDialog.close()
-                                    Qt.callLater(reloadVodRows)
+                                    Qt.callLater(vodView.reloadVodRows)
                                 }
                             }
                         }
@@ -1877,7 +2038,7 @@ Item {
                                 if (appViewModel && vodRenameDialog.categoryId > 0) {
                                     appViewModel.categoryList.renameCategory(vodRenameDialog.categoryId, vodRenameInput.text)
                                     vodRenameDialog.close()
-                                    Qt.callLater(reloadVodRows)
+                                    Qt.callLater(vodView.reloadVodRows)
                                 }
                             }
                         }

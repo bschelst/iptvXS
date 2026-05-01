@@ -13,10 +13,10 @@ Item {
         guideListView.model = null
     }
 
-    readonly property int channelColumnWidth: 200
+    readonly property int channelColumnWidth: 248
     readonly property real pixelsPerSecond: 0.08
-    readonly property int rowHeight: 84
-    readonly property int timeHeaderHeight: 40
+    readonly property int rowHeight: 116
+    readonly property int timeHeaderHeight: 34
 
     // --- Controller / d-pad navigation state ---
     property int currentChannelIndex: 0
@@ -79,6 +79,14 @@ Item {
         progDetailPopup.visible = true
     }
 
+    function focusHeaderControls() {
+        if (epgPrevBtn) {
+            epgPrevBtn.forceActiveFocus()
+        } else if (epgSearch) {
+            epgSearch.forceActiveFocus()
+        }
+    }
+
     ColumnLayout {
         anchors.fill: parent
         spacing: 0
@@ -136,6 +144,11 @@ Item {
                             clip: true
                             selectByMouse: true
 
+                            onActiveFocusChanged: {
+                                if (activeFocus) Qt.inputMethod.show()
+                                else Qt.inputMethod.hide()
+                            }
+
                             Text {
                                 anchors.verticalCenter: parent.verticalCenter
                                 text: "Search channels..."
@@ -145,6 +158,13 @@ Item {
                             }
 
                             onTextChanged: epgSearchTimer.restart()
+
+                            Keys.onRightPressed: {
+                                epgView.focusPrimary()
+                            }
+                            Keys.onDownPressed: {
+                                epgView.focusPrimary()
+                            }
 
                             Timer {
                                 id: epgSearchTimer
@@ -225,11 +245,14 @@ Item {
                 Item { Layout.fillWidth: true }
 
                 Rectangle {
+                    id: epgPrevBtn
                     Layout.preferredWidth: 32
                     Layout.preferredHeight: 32
                     radius: Theme.borderRadiusSmall
-                    color: prevHovered ? Theme.surfaceHover : "transparent"
+                    color: prevHovered || epgPrevBtn.activeFocus ? Theme.surfaceHover : "transparent"
                     property bool prevHovered: false
+                    focus: false
+                    activeFocusOnTab: true
 
                     Text {
                         anchors.centerIn: parent
@@ -249,6 +272,23 @@ Item {
                             if (appViewModel) appViewModel.epg.shiftTime(-2)
                         }
                     }
+
+                    Keys.onRightPressed: {
+                        if (epgNextBtn) epgNextBtn.forceActiveFocus()
+                    }
+                    Keys.onDownPressed: {
+                        if (guideFlickable) guideFlickable.forceActiveFocus()
+                    }
+                    Keys.onReturnPressed: {
+                        if (appViewModel) appViewModel.epg.shiftTime(-2)
+                    }
+                    Keys.onEnterPressed: Keys.onReturnPressed(event)
+                    Keys.onPressed: function(event) {
+                        if (event.key === Qt.Key_Select || event.key === Qt.Key_Space) {
+                            if (appViewModel) appViewModel.epg.shiftTime(-2)
+                            event.accepted = true
+                        }
+                    }
                 }
 
                 Text {
@@ -265,11 +305,14 @@ Item {
                 }
 
                 Rectangle {
+                    id: epgNextBtn
                     Layout.preferredWidth: 32
                     Layout.preferredHeight: 32
                     radius: Theme.borderRadiusSmall
-                    color: nextHovered ? Theme.surfaceHover : "transparent"
+                    color: nextHovered || epgNextBtn.activeFocus ? Theme.surfaceHover : "transparent"
                     property bool nextHovered: false
+                    focus: false
+                    activeFocusOnTab: true
 
                     Text {
                         anchors.centerIn: parent
@@ -289,6 +332,26 @@ Item {
                             if (appViewModel) appViewModel.epg.shiftTime(2)
                         }
                     }
+
+                    Keys.onLeftPressed: {
+                        if (epgPrevBtn) epgPrevBtn.forceActiveFocus()
+                    }
+                    Keys.onRightPressed: {
+                        if (epgSyncBtn) epgSyncBtn.forceActiveFocus()
+                    }
+                    Keys.onDownPressed: {
+                        if (guideFlickable) guideFlickable.forceActiveFocus()
+                    }
+                    Keys.onReturnPressed: {
+                        if (appViewModel) appViewModel.epg.shiftTime(2)
+                    }
+                    Keys.onEnterPressed: Keys.onReturnPressed(event)
+                    Keys.onPressed: function(event) {
+                        if (event.key === Qt.Key_Select || event.key === Qt.Key_Space) {
+                            if (appViewModel) appViewModel.epg.shiftTime(2)
+                            event.accepted = true
+                        }
+                    }
                 }
 
                 Item { Layout.fillWidth: true }
@@ -301,11 +364,14 @@ Item {
                 }
 
                 Rectangle {
+                    id: epgSyncBtn
                     Layout.preferredWidth: 80
                     Layout.preferredHeight: 32
                     radius: Theme.borderRadiusSmall
-                    color: syncHovered ? Theme.accentHover : Theme.accent
+                    color: syncHovered || epgSyncBtn.activeFocus ? Theme.accentHover : Theme.accent
                     opacity: appViewModel && appViewModel.epg.syncing ? 0.5 : 1.0
+                    focus: false
+                    activeFocusOnTab: true
 
                     property bool syncHovered: false
 
@@ -331,6 +397,28 @@ Item {
                                     appViewModel.epg.syncEpg(epgUrl)
                                 }
                             }
+                        }
+                    }
+
+                    Keys.onLeftPressed: {
+                        if (epgNextBtn) epgNextBtn.forceActiveFocus()
+                    }
+                    Keys.onDownPressed: {
+                        if (guideFlickable) guideFlickable.forceActiveFocus()
+                    }
+                    Keys.onReturnPressed: {
+                        if (appViewModel && serverPicker.currentValue > 0) {
+                            var epgUrl = appViewModel.serverList.epgUrlAt(serverPicker.currentIndex)
+                            if (epgUrl.length > 0) {
+                                appViewModel.epg.syncEpg(epgUrl)
+                            }
+                        }
+                    }
+                    Keys.onEnterPressed: Keys.onReturnPressed(event)
+                    Keys.onPressed: function(event) {
+                        if (event.key === Qt.Key_Select || event.key === Qt.Key_Space) {
+                            Keys.onReturnPressed(event)
+                            event.accepted = true
                         }
                     }
                 }
@@ -418,67 +506,104 @@ Item {
                     interactive: false
                     contentY: guideListView.contentY
 
+                    WheelHandler {
+                        acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
+                        target: null
+                        onWheel: function(event) {
+                            if (!guideListView) return
+                            var delta = event.angleDelta.y !== 0 ? event.angleDelta.y : event.pixelDelta.y
+                            if (delta === 0) return
+                            guideListView.contentY = Math.max(0, Math.min(
+                                guideListView.contentY - delta,
+                                guideListView.contentHeight - guideListView.height))
+                            event.accepted = true
+                        }
+                    }
+
                     delegate: Rectangle {
                         width: channelColumnWidth
                         height: rowHeight
-                        color: (guideFlickable.activeFocus && channelColumnFocused && index === currentChannelIndex)
-                            ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.15) : "transparent"
-                        border.width: (guideFlickable.activeFocus && channelColumnFocused && index === currentChannelIndex) ? 2 : 0
-                        border.color: (guideFlickable.activeFocus && channelColumnFocused && index === currentChannelIndex)
-                            ? Theme.accent : "transparent"
+                        color: {
+                            var stripe = (index % 2 === 0)
+                                ? "transparent"
+                                : Qt.rgba(Theme.textPrimary.r, Theme.textPrimary.g, Theme.textPrimary.b, 0.015)
+                            if (guideFlickable.activeFocus && index === currentChannelIndex) {
+                                return Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, channelColumnFocused ? 0.10 : 0.05)
+                            }
+                            return stripe
+                        }
+                        border.width: (guideFlickable.activeFocus && index === currentChannelIndex) ? 1 : 0
+                        border.color: (guideFlickable.activeFocus && index === currentChannelIndex)
+                            ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.45) : "transparent"
 
                         Rectangle {
                             anchors.bottom: parent.bottom
                             width: parent.width
                             height: 1
                             color: Theme.surfaceBorder
+                            opacity: 0.28
+                        }
+
+                        Rectangle {
+                            visible: guideFlickable.activeFocus && index === currentChannelIndex
+                            anchors.left: parent.left
+                            anchors.top: parent.top
+                            anchors.bottom: parent.bottom
+                            width: 4
+                            radius: 2
+                            color: Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.85)
                         }
 
                         RowLayout {
                             anchors.fill: parent
-                            anchors.margins: Theme.spacingSm
-                            spacing: Theme.spacingSm
+                            anchors.margins: Theme.spacingMd
+                            spacing: Theme.spacingMd
 
                             Rectangle {
-                                Layout.preferredWidth: 36
-                                Layout.preferredHeight: 36
-                                radius: Theme.borderRadiusSmall
+                                Layout.preferredWidth: 48
+                                Layout.preferredHeight: 48
+                                radius: 12
                                 color: Theme.surfaceElevated
+                                border.color: Qt.rgba(Theme.textPrimary.r, Theme.textPrimary.g, Theme.textPrimary.b, 0.08)
+                                border.width: 1
                                 clip: true
 
                                 Image {
                                     anchors.fill: parent
-                                    anchors.margins: 4
+                                    anchors.margins: 6
                                     source: model.channelLogo || ""
                                     fillMode: Image.PreserveAspectFit
                                     asynchronous: true
                                     visible: status === Image.Ready
+                                    sourceSize.width: 104
+                                    sourceSize.height: 104
                                 }
 
                                 Text {
                                     anchors.centerIn: parent
                                     text: "📺"
-                                    font.pixelSize: Theme.fontSizeXs
+                                    font.pixelSize: 15
                                     visible: !model.channelLogo
                                 }
                             }
 
-                            RowLayout {
+                            ColumnLayout {
                                 Layout.fillWidth: true
-                                spacing: 4
+                                spacing: 1
 
                                 Text {
                                     visible: model.isFavorite === true
-                                    text: "★"
-                                    font.pixelSize: Theme.fontSizeSm
-                                    color: Theme.warning
+                                    text: "★ Favorite"
+                                    font.pixelSize: Theme.fontSizeXs
+                                    font.bold: true
+                                    color: Qt.rgba(Theme.warning.r, Theme.warning.g, Theme.warning.b, 0.85)
                                 }
 
                                 Text {
                                     text: model.channelName
                                     font.pixelSize: Theme.fontSizeSm
                                     color: Theme.textPrimary
-                                    font.bold: model.isFavorite === true
+                                    font.bold: true
                                     elide: Text.ElideRight
                                     Layout.fillWidth: true
                                 }
@@ -510,6 +635,36 @@ Item {
                 flickableDirection: Flickable.HorizontalFlick
                 focus: true
 
+                WheelHandler {
+                    acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
+                    target: null
+                    onWheel: function(event) {
+                        if (!guideFlickable) return
+
+                        var pixelX = event.pixelDelta.x
+                        var pixelY = event.pixelDelta.y
+                        var angleX = event.angleDelta.x
+                        var angleY = event.angleDelta.y
+
+                        var deltaX = pixelX !== 0 ? pixelX : angleX / 6
+                        var deltaY = pixelY !== 0 ? pixelY : angleY / 6
+
+                        if (deltaY !== 0) {
+                            guideListView.contentY = Math.max(0, Math.min(
+                                guideListView.contentY - deltaY,
+                                guideListView.contentHeight - guideListView.height))
+                        }
+
+                        if (deltaX !== 0) {
+                            guideFlickable.contentX = Math.max(0, Math.min(
+                                guideFlickable.contentX - deltaX,
+                                guideFlickable.contentWidth - guideFlickable.width))
+                        }
+
+                        event.accepted = true
+                    }
+                }
+
                 Keys.onUpPressed: {
                     if (currentChannelIndex > 0) {
                         currentChannelIndex--
@@ -521,6 +676,8 @@ Item {
                             ensureProgrammeVisible()
                         }
                         ensureChannelVisible()
+                    } else {
+                        focusHeaderControls()
                     }
                 }
                 Keys.onDownPressed: {
@@ -607,10 +764,24 @@ Item {
                         property int channelRowIndex: index
 
                         Rectangle {
+                            anchors.fill: parent
+                            color: {
+                                var stripe = (index % 2 === 0)
+                                    ? "transparent"
+                                    : Qt.rgba(Theme.textPrimary.r, Theme.textPrimary.g, Theme.textPrimary.b, 0.015)
+                                if (guideFlickable.activeFocus && index === currentChannelIndex) {
+                                return Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, channelColumnFocused ? 0.08 : 0.04)
+                                }
+                                return stripe
+                            }
+                        }
+
+                        Rectangle {
                             anchors.bottom: parent.bottom
                             width: parent.width
                             height: 1
                             color: Theme.surfaceBorder
+                            opacity: 0.24
                         }
 
                         Item {
@@ -632,13 +803,26 @@ Item {
                                     x: (progStart - appViewModel.epg.timeWindowStart) * pixelsPerSecond
                                     width: Math.max(duration * pixelsPerSecond - 1, 2)
                                     height: rowHeight - 1
-                                    radius: Theme.borderRadiusSmall
-                                    color: isFocused ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.2)
+                                    radius: Theme.borderRadiusSmall + 1
+                                    color: isFocused ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.12)
                                         : progHovered ? Theme.surfaceHover : Theme.surfaceElevated
-                                    border.color: isFocused ? Theme.accent : Theme.surfaceBorder
-                                    border.width: isFocused ? 2 : 1
+                                    border.color: isFocused
+                                        ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.65)
+                                        : (progHovered ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.28) : Qt.rgba(Theme.surfaceBorder.r, Theme.surfaceBorder.g, Theme.surfaceBorder.b, 0.55))
+                                    border.width: 1
 
                                     property bool progHovered: false
+
+                                    Rectangle {
+                                        visible: isFocused || progHovered
+                                        anchors.left: parent.left
+                                        anchors.top: parent.top
+                                        anchors.bottom: parent.bottom
+                                        width: 3
+                                        radius: parent.radius
+                                        color: Theme.accent
+                                        opacity: isFocused ? 0.95 : 0.45
+                                    }
 
                                     Behavior on color {
                                         ColorAnimation { duration: Theme.animFast }
@@ -646,26 +830,29 @@ Item {
 
                                     ColumnLayout {
                                         anchors.fill: parent
-                                        anchors.margins: Theme.spacingXs
-                                        spacing: 1
+                                        anchors.margins: Theme.spacingSm
+                                        spacing: isFocused || progHovered ? 2 : 0
 
                                         Text {
                                             text: modelData.title || ""
-                                            font.pixelSize: Theme.fontSizeXs
+                                            font.pixelSize: Theme.fontSizeSm
                                             font.bold: true
                                             color: Theme.textPrimary
                                             elide: Text.ElideRight
                                             Layout.fillWidth: true
+                                            wrapMode: Text.NoWrap
                                         }
 
                                         Text {
+                                            visible: isFocused || progHovered
                                             text: {
                                                 var s = new Date(modelData.startTime * 1000)
                                                 var e = new Date(modelData.endTime * 1000)
                                                 return Qt.formatTime(s, "HH:mm") + " - " + Qt.formatTime(e, "HH:mm")
                                             }
-                                            font.pixelSize: 10
+                                            font.pixelSize: Theme.fontSizeXs
                                             color: Theme.textMuted
+                                            opacity: 0.85
                                             Layout.fillWidth: true
                                         }
                                     }

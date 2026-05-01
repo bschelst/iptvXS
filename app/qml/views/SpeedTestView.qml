@@ -34,7 +34,10 @@ Item {
     property var speedTest: appViewModel ? appViewModel.speedTest : null
     property var channelList: appViewModel ? appViewModel.channelList : null
     property var sparklineData: []
-    property int maxDataPoints: 60
+    property int samplesPerSecond: 4
+    property int sparklineSampleCount: speedTest
+        ? Math.max(2, Math.ceil((speedTest.duration * samplesPerSecond) + 1))
+        : 61
 
     Component.onCompleted: {
         if (channelList && channelList.rowCount() === 0
@@ -53,10 +56,11 @@ Item {
         running: speedTest ? speedTest.running : false
         onTriggered: {
             if (!speedTest) return
+            var maxDataPoints = root.sparklineSampleCount
             var d = root.sparklineData.slice()
             d.push(speedTest.currentMbps)
-            if (d.length > root.maxDataPoints) {
-                d = d.slice(d.length - root.maxDataPoints)
+            if (d.length > maxDataPoints) {
+                d = d.slice(d.length - maxDataPoints)
             }
             root.sparklineData = d
             sparklineCanvas.requestPaint()
@@ -314,7 +318,8 @@ Item {
                             var padding = 4
                             var w = width - leftMargin - padding
                             var h = height - padding * 2
-                            var stepX = w / (root.maxDataPoints - 1)
+                            var durationPoints = Math.max(2, root.sparklineSampleCount)
+                            var stepX = w / (durationPoints - 1)
 
                             var accentColor = Theme.accent
                             var gradient = ctx.createLinearGradient(0, padding, 0, height - padding)
@@ -354,7 +359,7 @@ Item {
                                 ctx.lineTo(x, y)
                             }
 
-                            ctx.lineTo(leftMargin + (data.length - 1) * stepX, height - padding)
+                            ctx.lineTo(leftMargin + Math.max(0, data.length - 1) * stepX, height - padding)
                             ctx.closePath()
                             ctx.fillStyle = gradient
                             ctx.fill()
@@ -369,6 +374,36 @@ Item {
                             ctx.strokeStyle = accentColor
                             ctx.lineWidth = 2
                             ctx.stroke()
+                        }
+                    }
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 0
+
+                        Text {
+                            text: "0s"
+                            font.pixelSize: Theme.fontSizeXs
+                            color: Theme.textMuted
+                        }
+
+                        Item { Layout.fillWidth: true }
+
+                        Text {
+                            text: {
+                                var dur = speedTest ? speedTest.duration : 10
+                                return Math.round(dur / 2) + "s"
+                            }
+                            font.pixelSize: Theme.fontSizeXs
+                            color: Theme.textMuted
+                        }
+
+                        Item { Layout.fillWidth: true }
+
+                        Text {
+                            text: speedTest ? speedTest.duration + "s" : "10s"
+                            font.pixelSize: Theme.fontSizeXs
+                            color: Theme.textMuted
                         }
                     }
                 }

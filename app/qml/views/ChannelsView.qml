@@ -23,13 +23,13 @@ Item {
 
     function focusPrimary() {
         if (channelGrid.visible) {
-            if (channelGrid.count > 0 && channelGrid.currentIndex < 0) channelGrid.currentIndex = 0
+            if (channelGrid.count > 0) channelGrid.currentIndex = 0
             channelGrid.forceActiveFocus()
             return
         }
         var row = firstVisibleChannelRow()
         if (row) {
-            if (row.currentIndex < 0 && row.count > 0) row.currentIndex = 0
+            if (row.count > 0) row.currentIndex = 0
             row.forceActiveFocus()
             return
         }
@@ -40,6 +40,14 @@ Item {
         if (categoryList.count > 0) {
             if (categoryList.currentIndex < 0) categoryList.currentIndex = 0
             categoryList.forceActiveFocus()
+        } else if (Window.window && Window.window.focusSidebar) {
+            Window.window.focusSidebar()
+        }
+    }
+
+    function focusSearchField() {
+        if (chSearchInput) {
+            chSearchInput.forceActiveFocus()
         } else if (Window.window && Window.window.focusSidebar) {
             Window.window.focusSidebar()
         }
@@ -63,6 +71,8 @@ Item {
         }
         if (delta > 0) {
             loadMoreChannelRows()
+        } else if (delta < 0) {
+            focusSearchField()
         }
     }
 
@@ -247,6 +257,11 @@ Item {
                             clip: true
                             selectByMouse: true
 
+                            onActiveFocusChanged: {
+                                if (activeFocus) Qt.inputMethod.show()
+                                else Qt.inputMethod.hide()
+                            }
+
                             Text {
                                 anchors.verticalCenter: parent.verticalCenter
                                 text: "Filter categories..."
@@ -259,12 +274,15 @@ Item {
                 }
 
                 Rectangle {
+                    id: allChannelsBtn
                     Layout.fillWidth: true
                     Layout.preferredHeight: 36
                     color: selectedCategoryId === 0
                         ? Theme.accentGlow : allCatHovered ? Theme.surfaceHover : "transparent"
 
                     property bool allCatHovered: false
+                    focus: false
+                    activeFocusOnTab: true
 
                     Text {
                         anchors.left: parent.left
@@ -285,6 +303,21 @@ Item {
                         onExited: parent.allCatHovered = false
                         onClicked: selectCategory(0)
                     }
+
+                    Keys.onDownPressed: {
+                        if (categoryList.count > 0) {
+                            if (categoryList.currentIndex < 0) categoryList.currentIndex = 0
+                            categoryList.forceActiveFocus()
+                        }
+                    }
+                    Keys.onReturnPressed: selectCategory(0)
+                    Keys.onEnterPressed: Keys.onReturnPressed(event)
+                    Keys.onPressed: function(event) {
+                        if (event.key === Qt.Key_Select || event.key === Qt.Key_Space) {
+                            selectCategory(0)
+                            event.accepted = true
+                        }
+                    }
                 }
 
                 ListView {
@@ -292,8 +325,6 @@ Item {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     clip: true
-                    highlightFollowsCurrentItem: false
-                    highlight: null
                     model: appViewModel ? appViewModel.categoryList : null
 
                     function selectCategoryAt(index) {
@@ -316,8 +347,13 @@ Item {
                         background: Rectangle { implicitWidth: 4; color: "transparent" }
                     }
 
-                    Keys.onUpPressed: selectCategoryAt(currentIndex - 1)
-                    Keys.onDownPressed: selectCategoryAt(currentIndex + 1)
+                    Keys.onUpPressed: {
+                        if (currentIndex > 0) currentIndex--
+                        else if (allChannelsBtn) allChannelsBtn.forceActiveFocus()
+                    }
+                    Keys.onDownPressed: {
+                        if (currentIndex < count - 1) currentIndex++
+                    }
                     Keys.onReturnPressed: if (currentIndex >= 0) selectCategory(appViewModel.categoryList.categoryIdAt(currentIndex))
                     Keys.onEnterPressed: Keys.onReturnPressed(event)
                     Keys.onRightPressed: channelsView.focusPrimary()
@@ -432,7 +468,7 @@ Item {
                                     onClicked: {
                                         if (appViewModel) {
                                             appViewModel.categoryList.toggleFavorite(model.categoryId)
-                                            Qt.callLater(reloadChannelRows)
+                                            Qt.callLater(channelsView.reloadChannelRows)
                                         }
                                     }
                                 }
@@ -460,7 +496,7 @@ Item {
                                     onClicked: {
                                         if (appViewModel) {
                                             appViewModel.categoryList.toggleHidden(model.categoryId)
-                                            Qt.callLater(reloadChannelRows)
+                                            Qt.callLater(channelsView.reloadChannelRows)
                                         }
                                     }
                                 }
@@ -534,32 +570,47 @@ Item {
                                 anchors.verticalCenter: parent.verticalCenter
                             }
 
-                            TextInput {
-                                id: chSearchInput
-                                width: parent.width - 30
-                                anchors.verticalCenter: parent.verticalCenter
-                                font.pixelSize: Theme.fontSizeSm
+                        TextInput {
+                            id: chSearchInput
+                            width: parent.width - 30
+                            anchors.verticalCenter: parent.verticalCenter
+                            font.pixelSize: Theme.fontSizeSm
                                 color: Theme.textPrimary
                                 clip: true
                                 selectByMouse: true
 
-                                onTextChanged: {
-                                    if (appViewModel) {
-                                        appViewModel.channelList.typeFilter = "live"
-                                        appViewModel.channelList.searchQuery = text
-                                    }
+                                onActiveFocusChanged: {
+                                    if (activeFocus) Qt.inputMethod.show()
+                                    else Qt.inputMethod.hide()
                                 }
 
-                                Text {
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    text: "Search channels..."
+                            onTextChanged: {
+                                if (appViewModel) {
+                                    appViewModel.channelList.typeFilter = "live"
+                                    appViewModel.channelList.searchQuery = text
+                                }
+                            }
+
+                            Text {
+                                anchors.verticalCenter: parent.verticalCenter
+                                text: "Search channels..."
                                     font.pixelSize: Theme.fontSizeSm
                                     color: Theme.textMuted
-                                    visible: !chSearchInput.text && !chSearchInput.activeFocus
-                                }
+                                visible: !chSearchInput.text && !chSearchInput.activeFocus
+                            }
+
+                            Keys.onLeftPressed: {
+                                channelsView.focusCategorySidebar()
+                            }
+                            Keys.onRightPressed: {
+                                channelsView.focusPrimary()
+                            }
+                            Keys.onDownPressed: {
+                                channelsView.focusPrimary()
                             }
                         }
                     }
+                }
 
                     Rectangle {
                         Layout.preferredWidth: newFilterRow.implicitWidth + 24
@@ -931,14 +982,20 @@ Item {
                 cellWidth: 210
                 cellHeight: 200
                 clip: true
-                focus: visible
+                focus: visible && !chSearchInput.activeFocus
                 keyNavigationEnabled: true
+                property int cols: Math.max(1, Math.floor(width / cellWidth))
                 model: appViewModel ? appViewModel.channelList : null
 
                 Keys.onReturnPressed: function(event) { playCurrentItem(); event.accepted = true }
                 Keys.onEnterPressed: function(event) { playCurrentItem(); event.accepted = true }
+                Keys.onUpPressed: {
+                    if (currentIndex >= 0 && currentIndex < cols) {
+                        channelsView.focusSearchField()
+                    }
+                }
                 Keys.onLeftPressed: {
-                    if (currentIndex % Math.floor(width / cellWidth) === 0)
+                    if (currentIndex % cols === 0)
                         channelsView.focusCategorySidebar()
                     else
                         moveCurrentIndexLeft()
@@ -1177,7 +1234,16 @@ Item {
             renameInput.forceActiveFocus()
             renameInput.selectAll()
         }
-        function close() { visible = false }
+        function close() {
+            visible = false
+            Qt.callLater(function() {
+                if (categoryList && categoryList.count > 0) {
+                    categoryList.forceActiveFocus()
+                } else {
+                    focusCategorySidebar()
+                }
+            })
+        }
 
         MouseArea { anchors.fill: parent; onClicked: renameDialog.close() }
 
@@ -1234,7 +1300,7 @@ Item {
                             if (appViewModel && renameDialog.categoryId > 0) {
                                 appViewModel.categoryList.renameCategory(renameDialog.categoryId, renameInput.text)
                                 renameDialog.close()
-                                Qt.callLater(reloadChannelRows)
+                                Qt.callLater(channelsView.reloadChannelRows)
                             }
                         }
                         Keys.onEscapePressed: renameDialog.close()
@@ -1263,7 +1329,7 @@ Item {
                                 if (appViewModel && renameDialog.categoryId > 0) {
                                     appViewModel.categoryList.renameCategory(renameDialog.categoryId, "")
                                     renameDialog.close()
-                                    Qt.callLater(reloadChannelRows)
+                                    Qt.callLater(channelsView.reloadChannelRows)
                                 }
                             }
                         }
@@ -1299,7 +1365,7 @@ Item {
                                 if (appViewModel && renameDialog.categoryId > 0) {
                                     appViewModel.categoryList.renameCategory(renameDialog.categoryId, renameInput.text)
                                     renameDialog.close()
-                                    Qt.callLater(reloadChannelRows)
+                                    Qt.callLater(channelsView.reloadChannelRows)
                                 }
                             }
                         }
@@ -1320,8 +1386,36 @@ Item {
         property var channelId: 0
         property string channelName: ""
 
-        function open() { visible = true; refreshGroupOptions() }
-        function close() { visible = false }
+        function toggleGroupAt(index) {
+            if (!appViewModel || index < 0 || index >= groupOptionsModel.count) return
+            var item = groupOptionsModel.get(index)
+            if (!item) return
+            if (item.inGroup) {
+                appViewModel.groupList.removeChannel(item.gid, addToGroupPopup.channelId)
+            } else {
+                appViewModel.groupList.addChannel(item.gid, addToGroupPopup.channelId)
+            }
+            addToGroupPopup.refreshGroupOptions()
+        }
+
+        function open() {
+            visible = true
+            refreshGroupOptions()
+            Qt.callLater(function() {
+                if (groupOptionsList && groupOptionsModel.count > 0) {
+                    if (groupOptionsList.currentIndex < 0) groupOptionsList.currentIndex = 0
+                    groupOptionsList.forceActiveFocus()
+                } else if (doneBtn) {
+                    doneBtn.forceActiveFocus()
+                }
+            })
+        }
+        function close() {
+            visible = false
+            Qt.callLater(function() {
+                focusPrimary()
+            })
+        }
 
         MouseArea { anchors.fill: parent; onClicked: addToGroupPopup.close() }
 
@@ -1387,6 +1481,36 @@ Item {
                     Layout.preferredHeight: Math.min(contentHeight, 200)
                     clip: true
                     model: groupOptionsModel
+                    keyNavigationEnabled: true
+                    currentIndex: -1
+                    highlightFollowsCurrentItem: true
+
+                    Keys.onUpPressed: {
+                        if (currentIndex > 0) {
+                            currentIndex--
+                        } else if (doneBtn) {
+                            doneBtn.forceActiveFocus()
+                        }
+                    }
+                    Keys.onDownPressed: {
+                        if (currentIndex < count - 1) {
+                            if (currentIndex < 0) currentIndex = 0
+                            else currentIndex++
+                        } else if (doneBtn) {
+                            doneBtn.forceActiveFocus()
+                        }
+                    }
+                    Keys.onReturnPressed: addToGroupPopup.toggleGroupAt(currentIndex)
+                    Keys.onEnterPressed: addToGroupPopup.toggleGroupAt(currentIndex)
+                    Keys.onPressed: function(event) {
+                        if (event.key === Qt.Key_Select || event.key === Qt.Key_Space) {
+                            addToGroupPopup.toggleGroupAt(currentIndex)
+                            event.accepted = true
+                        } else if (event.key === Qt.Key_Back || event.key === Qt.Key_B || event.key === Qt.Key_Escape) {
+                            addToGroupPopup.close()
+                            event.accepted = true
+                        }
+                    }
 
                     delegate: Rectangle {
                         width: groupOptionsList.width
@@ -1434,15 +1558,7 @@ Item {
                             cursorShape: Qt.PointingHandCursor
                             onEntered: parent.grpOptHov = true
                             onExited: parent.grpOptHov = false
-                            onClicked: {
-                                if (!appViewModel) return
-                                if (model.inGroup) {
-                                    appViewModel.groupList.removeChannel(model.gid, addToGroupPopup.channelId)
-                                } else {
-                                    appViewModel.groupList.addChannel(model.gid, addToGroupPopup.channelId)
-                                }
-                                addToGroupPopup.refreshGroupOptions()
-                            }
+                            onClicked: addToGroupPopup.toggleGroupAt(index)
                         }
                     }
                 }
@@ -1457,6 +1573,7 @@ Item {
                 }
 
                 Rectangle {
+                    id: doneBtn
                     Layout.alignment: Qt.AlignRight
                     width: doneLabel.implicitWidth + 24
                     height: 32
@@ -1468,6 +1585,20 @@ Item {
 
                     Text { id: doneLabel; anchors.centerIn: parent; text: "Done"; font.pixelSize: Theme.fontSizeSm; color: Theme.textSecondary }
                     MouseArea { anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onEntered: parent.doneHov = true; onExited: parent.doneHov = false; onClicked: addToGroupPopup.close() }
+                    Keys.onReturnPressed: addToGroupPopup.close()
+                    Keys.onEnterPressed: Keys.onReturnPressed(event)
+                    Keys.onPressed: function(event) {
+                        if (event.key === Qt.Key_Select || event.key === Qt.Key_Space
+                                || event.key === Qt.Key_B || event.key === Qt.Key_Escape) {
+                            addToGroupPopup.close()
+                            event.accepted = true
+                        } else if (event.key === Qt.Key_Up) {
+                            if (groupOptionsList && groupOptionsModel.count > 0) {
+                                groupOptionsList.forceActiveFocus()
+                            }
+                            event.accepted = true
+                        }
+                    }
                 }
             }
         }

@@ -28,6 +28,7 @@
 #include "iptvxs/db/channel_group_repository.h"
 #include "iptvxs/db/series_cache_repository.h"
 #include "iptvxs/cache/logo_cache.h"
+#include "iptvxs/cast/chromecast_manager.h"
 
 #include "category_list_viewmodel.h"
 #include "group_list_viewmodel.h"
@@ -92,6 +93,8 @@ class AppViewModel : public QObject {
     Q_PROPERTY(int logoCacheMaxMb READ logoCacheMaxMb WRITE setLogoCacheMaxMb NOTIFY logoCacheMaxMbChanged)
     Q_PROPERTY(QString latestVersion READ latestVersion NOTIFY latestVersionChanged)
     Q_PROPERTY(bool updateAvailable READ updateAvailable NOTIFY latestVersionChanged)
+    Q_PROPERTY(iptvxs::ChromecastManager *chromecast READ chromecast CONSTANT)
+    Q_PROPERTY(bool chromecastEnabled READ chromecastEnabled WRITE setChromecastEnabled NOTIFY chromecastEnabledChanged)
 
 public:
     explicit AppViewModel(QObject *parent = nullptr);
@@ -122,6 +125,9 @@ public:
     LogViewModel *log() const;
     GroupListViewModel *groupList() const;
     iptvxs::LogoCache *logoCache() const;
+    iptvxs::ChromecastManager *chromecast() const;
+    bool chromecastEnabled() const;
+    void setChromecastEnabled(bool enabled);
     int logoCacheMaxMb() const;
     void setLogoCacheMaxMb(int mb);
 
@@ -208,6 +214,7 @@ public:
     Q_INVOKABLE QString nextProgrammeTitle(const QString &epgChannelId) const;
     Q_INVOKABLE QString nextProgrammeTime(const QString &epgChannelId) const;
     Q_INVOKABLE QVariantMap databaseStats() const;
+    Q_INVOKABLE QVariantMap runMaintenance();
 
 signals:
     void databaseReadyChanged();
@@ -241,6 +248,7 @@ signals:
     void seriesEpisodesReady(const QString &seriesName, const QVariantList &seasons);
     void latestVersionChanged();
     void logoCacheMaxMbChanged();
+    void chromecastEnabledChanged();
     void showAuthHint(const QString &url);
 
 public slots:
@@ -305,6 +313,7 @@ private:
     std::unique_ptr<iptvxs::HistoryRepository> historyRepo_;
     std::unique_ptr<iptvxs::ChannelGroupRepository> groupRepo_;
     std::unique_ptr<iptvxs::LogoCache> logoCache_;
+    iptvxs::ChromecastManager *chromecastMgr_;
     std::unique_ptr<iptvxs::SeriesCacheRepository> seriesCacheRepo_;
     std::unique_ptr<iptvxs::OpenSubtitlesClient> subtitlesClient_;
     QVector<iptvxs::SubtitleResult> lastSubResults_;

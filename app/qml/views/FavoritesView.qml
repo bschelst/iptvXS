@@ -2,10 +2,18 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import QtQuick.Window
 import app.iptvxs
 
 Item {
     id: favoritesView
+
+    function focusPrimary() {
+        if (favoritesList.count > 0) {
+            if (favoritesList.currentIndex < 0) favoritesList.currentIndex = 0
+            favoritesList.forceActiveFocus()
+        }
+    }
 
     ColumnLayout {
         anchors.fill: parent
@@ -48,10 +56,37 @@ Item {
             clip: true
             model: appViewModel ? appViewModel.favoriteList : null
             spacing: Theme.spacingXs
+            keyNavigationEnabled: true
+            highlightFollowsCurrentItem: true
+            currentIndex: -1
 
             ScrollBar.vertical: ScrollBar {
                 active: true
                 policy: ScrollBar.AsNeeded
+            }
+
+            Keys.onUpPressed: { if (currentIndex > 0) currentIndex-- }
+            Keys.onDownPressed: { if (currentIndex < count - 1) currentIndex++ }
+            Keys.onLeftPressed: {
+                if (Window.window && Window.window.focusSidebar) Window.window.focusSidebar()
+            }
+            Keys.onReturnPressed: activateCurrentItem()
+            Keys.onEnterPressed: activateCurrentItem()
+            Keys.onPressed: function(event) {
+                if (event.key === Qt.Key_Select || event.key === Qt.Key_Space) {
+                    activateCurrentItem()
+                    event.accepted = true
+                } else if (event.key === Qt.Key_Delete || event.key === Qt.Key_X) {
+                    if (currentIndex >= 0 && currentItem && appViewModel) {
+                        appViewModel.favoriteList.toggleFavorite(currentItem.itemChannelId)
+                    }
+                    event.accepted = true
+                }
+            }
+
+            function activateCurrentItem() {
+                if (currentIndex < 0 || !currentItem || !appViewModel) return
+                currentItem.activate()
             }
 
             delegate: Rectangle {
@@ -60,10 +95,26 @@ Item {
                 x: Theme.spacingMd
                 radius: Theme.borderRadius
                 color: favHovered ? Theme.surfaceHover : Theme.surfaceElevated
-                border.color: favHovered ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.25) : "transparent"
-                border.width: 1
+                border.color: {
+                    if (favoritesList.activeFocus && favoritesList.currentIndex === index) return Theme.accent
+                    if (favHovered) return Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.25)
+                    return "transparent"
+                }
+                border.width: (favoritesList.activeFocus && favoritesList.currentIndex === index) ? 2 : 1
 
                 property bool favHovered: false
+                property int itemChannelId: model.channelId || 0
+
+                function activate() {
+                    if (!appViewModel) return
+                    if (model.type === "series") {
+                        favEpDialog.seriesChannelId = model.channelId
+                        appViewModel.fetchSeriesEpisodes(model.serverId, model.externalId, model.name, model.logoUrl)
+                    } else {
+                        appViewModel.player.play(model.streamUrl, model.name, model.logoUrl, model.channelId)
+                        appViewModel.currentView = "player"
+                    }
+                }
 
                 Behavior on color {
                     ColorAnimation { duration: Theme.animFast }
@@ -136,10 +187,11 @@ Item {
 
                         Text {
                             anchors.centerIn: parent
-                            text: "✕"
+                            text: "\u232B"
                             font.pixelSize: Theme.fontSizeMd
                             font.bold: true
-                            color: parent.removeHovered ? Theme.error : Theme.textMuted
+                            font.family: "DejaVu Sans"
+                            color: parent.removeHovered ? "#ffffff" : Theme.textMuted
                         }
 
                         MouseArea {
@@ -215,7 +267,26 @@ Item {
         property int selectedSeason: 0
         property int seriesChannelId: 0
 
-        MouseArea { anchors.fill: parent; onClicked: favEpDialog.visible = false }
+        function closeDialog() {
+            visible = false
+            Qt.callLater(function() {
+                if (favoritesList && favoritesList.count > 0) {
+                    if (favoritesList.currentIndex < 0) favoritesList.currentIndex = 0
+                    favoritesList.forceActiveFocus()
+                } else if (favoritesView && favoritesView.focusPrimary) {
+                    favoritesView.focusPrimary()
+                }
+            })
+        }
+
+        onVisibleChanged: {
+            if (visible) {
+                favEpList.currentIndex = 0
+                favEpList.forceActiveFocus()
+            }
+        }
+
+        MouseArea { anchors.fill: parent; onClicked: favEpDialog.closeDialog() }
 
         Rectangle {
             anchors.centerIn: parent
@@ -245,7 +316,7 @@ Item {
                         color: favCloseHov ? Theme.surfaceHover : "transparent"
                         property bool favCloseHov: false
                         Text { anchors.centerIn: parent; text: "\u2715"; font.pixelSize: 16; font.bold: true; color: Theme.textSecondary }
-                        MouseArea { anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onEntered: parent.favCloseHov = true; onExited: parent.favCloseHov = false; onClicked: favEpDialog.visible = false }
+                        MouseArea { anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onEntered: parent.favCloseHov = true; onExited: parent.favCloseHov = false; onClicked: favEpDialog.closeDialog() }
                     }
                 }
 
@@ -268,10 +339,49 @@ Item {
                     Layout.fillWidth: true; Layout.fillHeight: true; clip: true; spacing: 4
                     model: favEpDialog.seasonsData.length > 0 ? favEpDialog.seasonsData[favEpDialog.selectedSeason].episodes : []
                     ScrollBar.vertical: ScrollBar { active: true; policy: ScrollBar.AsNeeded }
+                    keyNavigationEnabled: true
+                    highlightFollowsCurrentItem: true
+                    currentIndex: 0
+
+                    Keys.onReturnPressed: playFavEpisode(currentIndex)
+                    Keys.onEnterPressed: playFavEpisode(currentIndex)
+                    Keys.onEscapePressed: favEpDialog.closeDialog()
+                    Keys.onPressed: function(event) {
+                        if (event.key === Qt.Key_Select || event.key === Qt.Key_Space) {
+                            playFavEpisode(currentIndex)
+                            event.accepted = true
+                        } else if (event.key === Qt.Key_Back || event.key === Qt.Key_B) {
+                            favEpDialog.closeDialog()
+                            event.accepted = true
+                        } else if (event.key === Qt.Key_Left) {
+                            if (favEpDialog.selectedSeason > 0) favEpDialog.selectedSeason--
+                            event.accepted = true
+                        } else if (event.key === Qt.Key_Right) {
+                            if (favEpDialog.selectedSeason < favEpDialog.seasonsData.length - 1) favEpDialog.selectedSeason++
+                            event.accepted = true
+                        }
+                    }
+
+                    function playFavEpisode(idx) {
+                        if (idx < 0 || !appViewModel) return
+                        var ep = favEpDialog.seasonsData[favEpDialog.selectedSeason].episodes[idx]
+                        var ext = ep.containerExtension || ep.ext || "mkv"
+                        var url = appViewModel.buildSeriesEpisodeUrl(ep.id, ext)
+                        if (url) {
+                            appViewModel.player.play(url, ep.title || favEpDialog.seriesTitle, "", favEpDialog.seriesChannelId)
+                            appViewModel.currentView = "player"
+                            favEpDialog.closeDialog()
+                        }
+                    }
 
                     delegate: Rectangle {
                         width: favEpList.width; height: 44; radius: Theme.borderRadiusSmall
-                        color: favEpHov ? Theme.surfaceHover : Theme.surface
+                        color: {
+                            if (favEpList.activeFocus && favEpList.currentIndex === index) return Theme.surfaceHover
+                            return favEpHov ? Theme.surfaceHover : Theme.surface
+                        }
+                        border.width: (favEpList.activeFocus && favEpList.currentIndex === index) ? 2 : 0
+                        border.color: Theme.accent
                         property bool favEpHov: false
 
                         Row {
@@ -329,7 +439,7 @@ Item {
                                     var title = ep.title || favEpDialog.seriesTitle
                                     appViewModel.player.play(url, title, "", favEpDialog.seriesChannelId)
                                     appViewModel.currentView = "player"
-                                    favEpDialog.visible = false
+                                    favEpDialog.closeDialog()
                                 }
                             }
                         }

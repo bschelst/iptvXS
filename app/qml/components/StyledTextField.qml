@@ -9,6 +9,10 @@ Rectangle {
     property alias text: textInput.text
     property alias placeholderText: placeholder.text
     property alias echoMode: textInput.echoMode
+    property Item nextItem: null
+    property Item prevItem: null
+    property Item escapeItem: null
+    property bool autoShowInputMethod: true
 
     height: 40
     radius: Theme.borderRadius
@@ -32,6 +36,28 @@ Rectangle {
         selectByMouse: true
         selectionColor: Theme.accent
         selectedTextColor: "#ffffff"
+
+        onActiveFocusChanged: {
+            if (!root.autoShowInputMethod) return
+            if (activeFocus) {
+                Qt.inputMethod.show()
+            } else {
+                Qt.inputMethod.hide()
+            }
+        }
+
+        Keys.onUpPressed: {
+            if (root.prevItem) {
+                root.prevItem.forceActiveFocus()
+            } else if (root.escapeItem) {
+                root.escapeItem.forceActiveFocus()
+            }
+        }
+        Keys.onDownPressed: {
+            if (root.nextItem) {
+                root.nextItem.forceActiveFocus()
+            }
+        }
 
         Text {
             id: placeholder

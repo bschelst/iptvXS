@@ -34,6 +34,8 @@ add_library(iptvxs-core STATIC
     src/db/category_settings_repository.cpp
     src/db/series_cache_repository.cpp
     src/cache/logo_cache.cpp
+    src/cast/chromecast_manager.cpp
+    src/cast/hls_proxy.cpp
     include/iptvxs/db/database.h
     include/iptvxs/db/settings_repository.h
     include/iptvxs/db/server_repository.h
@@ -58,6 +60,8 @@ add_library(iptvxs-core STATIC
     include/iptvxs/db/series_cache_repository.h
     include/iptvxs/models/channel_group.h
     include/iptvxs/cache/logo_cache.h
+    include/iptvxs/cast/chromecast_manager.h
+    include/iptvxs/cast/hls_proxy.h
 )
 
 target_include_directories(iptvxs-core
@@ -81,7 +85,16 @@ set(IPTVXS_GDRIVE_CLIENT_ID
 set(IPTVXS_GDRIVE_CLIENT_SECRET
     "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"
     CACHE STRING "Google Drive OAuth 2.0 Desktop client secret (non-confidential for Desktop clients)")
-set(IPTVXS_GATEWAY_API_KEY "c93214de72ed21ef8a99e8ead5497b41e4bf1cf4aabbdd970469e91e87040246" CACHE STRING "API key for the iptvXS gateway")
+# Read gateway API key from .secrets file if not provided via -D flag
+set(IPTVXS_GATEWAY_API_KEY "" CACHE STRING "API key for the iptvXS gateway")
+if(NOT IPTVXS_GATEWAY_API_KEY AND EXISTS "${CMAKE_SOURCE_DIR}/.secrets")
+    file(STRINGS "${CMAKE_SOURCE_DIR}/.secrets" _secrets_lines)
+    foreach(_line ${_secrets_lines})
+        if(_line MATCHES "^IPTVXS_GATEWAY_API_KEY=(.+)$")
+            set(IPTVXS_GATEWAY_API_KEY "${CMAKE_MATCH_1}" CACHE STRING "" FORCE)
+        endif()
+    endforeach()
+endif()
 set(IPTVXS_GATEWAY_URL "https://iptvxs.schelstraete.org" CACHE STRING "iptvXS gateway URL")
 
 target_compile_definitions(iptvxs-core

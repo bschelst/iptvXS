@@ -18,10 +18,17 @@ Item {
         homeView.forceActiveFocus()
         var rows = allRows
         for (var i = 0; i < rows.length; i++) {
-            if (rows[i].visible) {
-                currentRowIndex = i
+            if (rows[i] && rows[i].visible && rows[i].cardListView && rows[i].cardListView.count > 0) {
+                currentRowIndex = allRows.indexOf(rows[i])
                 rows[i].cardListView.currentIndex = 0
                 rows[i].cardListView.forceActiveFocus()
+                return
+            }
+        }
+        for (var j = 0; j < allRows.length; j++) {
+            if (allRows[j] && allRows[j].visible) {
+                currentRowIndex = j
+                allRows[j].cardListView.forceActiveFocus()
                 return
             }
         }
@@ -186,6 +193,82 @@ Item {
                     }
 
                     Item { Layout.fillWidth: true }
+
+                    Row {
+                        spacing: 6
+                        visible: appViewModel && appViewModel.databaseReady
+
+                        property int statsRevision: 0
+
+                        Connections {
+                            target: appViewModel ? appViewModel.serverList : null
+                            function onCountChanged() { parent.statsRevision++ }
+                            function onSyncFinished() { parent.statsRevision++ }
+                            function onDataChanged() { parent.statsRevision++ }
+                        }
+                        Connections {
+                            target: appViewModel ? appViewModel.favoriteList : null
+                            function onCountChanged() { parent.statsRevision++ }
+                        }
+                        Connections {
+                            target: appViewModel ? appViewModel.recordingList : null
+                            function onCountChanged() { parent.statsRevision++ }
+                        }
+
+                        Repeater {
+                            model: {
+                                var _ = parent.statsRevision
+                                if (!appViewModel || !appViewModel.databaseReady) return []
+                                var s = appViewModel.databaseStats()
+                                var items = []
+                                if (s.channels > 0) items.push({ icon: "▭", value: s.channels, label: "channels" })
+                                if (s.movies > 0) items.push({ icon: "▶", value: s.movies, label: "movies" })
+                                if (s.series > 0) items.push({ icon: "◫", value: s.series, label: "series" })
+                                if (s.favourites > 0) items.push({ icon: "★", value: s.favourites, label: "favorites" })
+                                if (s.recordings > 0) items.push({ icon: "●", value: s.recordings, label: "recordings" })
+                                return items
+                            }
+
+                            Rectangle {
+                                height: 28
+                                width: statRow.implicitWidth + 14
+                                radius: 14
+                                color: Theme.surfaceElevated
+                                border.color: Theme.surfaceBorder
+                                border.width: 1
+
+                                Row {
+                                    id: statRow
+                                    anchors.centerIn: parent
+                                    spacing: 4
+
+                    Text {
+                        text: modelData.icon
+                        font.pixelSize: 11
+                        font.family: "DejaVu Sans"
+                        font.weight: Font.DemiBold
+                        color: Theme.textPrimary
+                        anchors.verticalCenter: parent.verticalCenter
+                    }
+
+                                    Text {
+                                        text: modelData.value.toLocaleString()
+                                        font.pixelSize: Theme.fontSizeXs
+                                        font.bold: true
+                                        color: Theme.textPrimary
+                                        anchors.verticalCenter: parent.verticalCenter
+                                    }
+
+                                    Text {
+                                        text: modelData.label
+                                        font.pixelSize: Theme.fontSizeXs
+                                        color: Theme.textMuted
+                                        anchors.verticalCenter: parent.verticalCenter
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
 
@@ -342,11 +425,11 @@ Item {
     // ======================================================================
     ListModel {
         id: quickAccessModel
-        ListElement { title: "Add Server";      desc: "Connect to Xtream or M3U"; icon: "\uD83D\uDD17"; target: "servers";    accentR: 0.424; accentG: 0.361; accentB: 0.906 }
-        ListElement { title: "Browse Channels"; desc: "Explore your library";      icon: "\uD83D\uDCFA"; target: "channels";   accentR: 0.0;   accentG: 0.808; accentB: 0.788 }
-        ListElement { title: "TV Guide";        desc: "Check what's on now";       icon: "\uD83D\uDCC5"; target: "epg";        accentR: 0.992; accentG: 0.475; accentB: 0.659 }
-        ListElement { title: "Recordings";      desc: "Manage your recordings";    icon: "\u23FA";       target: "recordings"; accentR: 1.0;   accentG: 0.420; accentB: 0.420 }
-        ListElement { title: "Speed Test";      desc: "Check your connection";     icon: "\u26A1";       target: "speedtest";  accentR: 0.992; accentG: 0.796; accentB: 0.431 }
+        ListElement { title: "Add Server";      desc: "Connect to Xtream or M3U"; icon: "\u2194";       target: "servers";    accentR: 0.424; accentG: 0.361; accentB: 0.906 }
+        ListElement { title: "Browse Channels"; desc: "Explore your library";      icon: "\u25AD";       target: "channels";   accentR: 0.0;   accentG: 0.808; accentB: 0.788 }
+        ListElement { title: "TV Guide";        desc: "Check what's on now";       icon: "\u25A6";       target: "epg";        accentR: 0.992; accentG: 0.475; accentB: 0.659 }
+        ListElement { title: "Recordings";      desc: "Manage your recordings";    icon: "\u25CF";       target: "recordings"; accentR: 1.0;   accentG: 0.420; accentB: 0.420 }
+        ListElement { title: "Speed Test";      desc: "Check your connection";     icon: "\u21AF";       target: "speedtest";  accentR: 0.992; accentG: 0.796; accentB: 0.431 }
         ListElement { title: "Settings";        desc: "Customize your experience"; icon: "\u2699";       target: "settings";   accentR: 0.635; accentG: 0.608; accentB: 0.996 }
     }
 
@@ -396,9 +479,12 @@ Item {
                 visible: cardLv.contentWidth > cardLv.width - cardLv.leftMargin - cardLv.rightMargin
 
                 Rectangle {
+                    id: rowScrollLeftBtn
                     width: 28; height: 28; radius: 14
-                    color: slHov ? Theme.surfaceHover : "transparent"
+                    color: slHov || rowScrollLeftBtn.activeFocus ? Theme.surfaceHover : "transparent"
                     property bool slHov: false
+                    focus: false
+                    activeFocusOnTab: true
 
                     Text {
                         anchors.centerIn: parent; text: "\u2039"
@@ -410,12 +496,33 @@ Item {
                         onEntered: parent.slHov = true; onExited: parent.slHov = false
                         onClicked: cardLv.contentX = Math.max(cardLv.contentX - 216, -cardLv.leftMargin)
                     }
+
+                    Keys.onRightPressed: {
+                        if (rowScrollRightBtn) rowScrollRightBtn.forceActiveFocus()
+                    }
+                    Keys.onDownPressed: {
+                        if (cardLv.count > 0) {
+                            if (cardLv.currentIndex < 0) cardLv.currentIndex = 0
+                            cardLv.forceActiveFocus()
+                        }
+                    }
+                    Keys.onReturnPressed: cardLv.contentX = Math.max(cardLv.contentX - 216, -cardLv.leftMargin)
+                    Keys.onEnterPressed: Keys.onReturnPressed(event)
+                    Keys.onPressed: function(event) {
+                        if (event.key === Qt.Key_Select || event.key === Qt.Key_Space) {
+                            cardLv.contentX = Math.max(cardLv.contentX - 216, -cardLv.leftMargin)
+                            event.accepted = true
+                        }
+                    }
                 }
 
                 Rectangle {
+                    id: rowScrollRightBtn
                     width: 28; height: 28; radius: 14
-                    color: srHov ? Theme.surfaceHover : "transparent"
+                    color: srHov || rowScrollRightBtn.activeFocus ? Theme.surfaceHover : "transparent"
                     property bool srHov: false
+                    focus: false
+                    activeFocusOnTab: true
 
                     Text {
                         anchors.centerIn: parent; text: "\u203A"
@@ -427,6 +534,26 @@ Item {
                         onEntered: parent.srHov = true; onExited: parent.srHov = false
                         onClicked: cardLv.contentX = Math.min(cardLv.contentX + 216,
                             cardLv.contentWidth - cardLv.width + cardLv.rightMargin)
+                    }
+
+                    Keys.onLeftPressed: {
+                        if (rowScrollLeftBtn) rowScrollLeftBtn.forceActiveFocus()
+                    }
+                    Keys.onDownPressed: {
+                        if (cardLv.count > 0) {
+                            if (cardLv.currentIndex < 0) cardLv.currentIndex = 0
+                            cardLv.forceActiveFocus()
+                        }
+                    }
+                    Keys.onReturnPressed: cardLv.contentX = Math.min(cardLv.contentX + 216,
+                        cardLv.contentWidth - cardLv.width + cardLv.rightMargin)
+                    Keys.onEnterPressed: Keys.onReturnPressed(event)
+                    Keys.onPressed: function(event) {
+                        if (event.key === Qt.Key_Select || event.key === Qt.Key_Space) {
+                            cardLv.contentX = Math.min(cardLv.contentX + 216,
+                                cardLv.contentWidth - cardLv.width + cardLv.rightMargin)
+                            event.accepted = true
+                        }
                     }
                 }
             }
@@ -509,11 +636,11 @@ Item {
             // Expose channelId for activateCurrentCard
             property var itemChannelId: model.channelId || 0
 
-            Rectangle {
-                id: posterCard
-                anchors.fill: parent
-                anchors.margins: 4
-                radius: 10
+                Rectangle {
+                    id: posterCard
+                    anchors.fill: parent
+                    anchors.margins: 4
+                    radius: 10
                 color: Theme.surfaceElevated
                 clip: true
                 layer.enabled: true
@@ -594,7 +721,10 @@ Item {
                 }
 
                 // Mouse interaction
-                scale: posterCard.cardHovered ? 1.03 : 1.0
+                scale: {
+                    var lv = posterDelegate.ListView.view
+                    return (posterCard.cardHovered && lv && lv.activeFocus) ? 1.03 : 1.0
+                }
                 Behavior on scale {
                     NumberAnimation { duration: Theme.animFast; easing.type: Easing.OutCubic }
                 }
@@ -638,7 +768,7 @@ Item {
                 border.width: 2
                 border.color: {
                     var lv = posterDelegate.ListView.view
-                    if (posterCard.cardHovered) return Theme.accent
+                    if (posterCard.cardHovered && lv && lv.activeFocus) return Theme.accent
                     if (lv && lv.activeFocus && lv.currentIndex === model.index) return Theme.accent
                     return "transparent"
                 }
@@ -647,7 +777,10 @@ Item {
 
             // Mark as finished icon (visual only — click handled by posterMouseArea)
             Rectangle {
-                visible: posterCard.cardHovered && (model.historyId || 0) > 0
+                visible: {
+                    var lv = posterDelegate.ListView.view
+                    return posterCard.cardHovered && lv && lv.activeFocus && (model.historyId || 0) > 0
+                }
                 anchors.top: posterCard.top
                 anchors.right: posterCard.right
                 anchors.margins: 10
@@ -692,7 +825,9 @@ Item {
                 border.color: {
                     var lv = qaDelegate.ListView.view
                     if (lv && lv.activeFocus && lv.currentIndex === index) return Theme.accent
-                    if (qaCard.cardHovered) return Qt.rgba(model.accentR, model.accentG, model.accentB, 0.25)
+                    if (qaCard.cardHovered && lv && lv.activeFocus) {
+                        return Qt.rgba(model.accentR, model.accentG, model.accentB, 0.25)
+                    }
                     return Theme.surfaceBorder
                 }
 
@@ -701,7 +836,10 @@ Item {
                 Behavior on color { ColorAnimation { duration: Theme.animFast } }
                 Behavior on border.color { ColorAnimation { duration: Theme.animFast } }
 
-                scale: cardHovered ? 1.03 : 1.0
+                scale: {
+                    var lv = qaDelegate.ListView.view
+                    return (cardHovered && lv && lv.activeFocus) ? 1.03 : 1.0
+                }
                 Behavior on scale {
                     NumberAnimation { duration: Theme.animFast; easing.type: Easing.OutCubic }
                 }
@@ -721,6 +859,9 @@ Item {
                             anchors.centerIn: parent
                             text: model.icon
                             font.pixelSize: Theme.fontSizeMd
+                            font.family: "DejaVu Sans"
+                            font.weight: Font.DemiBold
+                            color: Theme.textPrimary
                         }
                     }
 

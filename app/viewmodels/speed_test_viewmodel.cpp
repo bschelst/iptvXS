@@ -2,6 +2,7 @@
 #include "speed_test_viewmodel.h"
 
 #include <QRandomGenerator>
+#include <QTimer>
 #include <algorithm>
 #include <numeric>
 
@@ -27,6 +28,7 @@ void SpeedTestViewModel::setRunner(iptvxs::SpeedTestRunner *runner) {
                 bytesReceived_ = result.bytesReceived;
                 elapsedMs_ = result.elapsedMs;
                 running_ = false;
+                internetTestActive_ = false;
                 hasResult_ = true;
                 emit resultMbpsChanged();
                 emit bytesReceivedChanged();
@@ -37,6 +39,16 @@ void SpeedTestViewModel::setRunner(iptvxs::SpeedTestRunner *runner) {
 
     connect(runner_, &iptvxs::SpeedTestRunner::errorOccurred, this,
             [this](const QString &msg) {
+                if (internetTestActive_ && internetTestIndex_ + 1 < internetTestUrls_.size()
+                        && shouldRetryInternetError(msg)) {
+                    internetTestIndex_++;
+                    QTimer::singleShot(250, this, [this]() {
+                        startInternetTestAttempt();
+                    });
+                    return;
+                }
+
+                internetTestActive_ = false;
                 errorMessage_ = msg;
                 running_ = false;
                 emit errorMessageChanged();
@@ -135,10 +147,17 @@ void SpeedTestViewModel::setDuration(int secs) {
 }
 
 void SpeedTestViewModel::startTest(const QString &streamUrl) {
+    startTestInternal(streamUrl, false);
+}
+
+void SpeedTestViewModel::startTestInternal(const QString &streamUrl, bool internetTest) {
     if (!runner_ || streamUrl.isEmpty()) {
         return;
     }
 
+    if (!internetTest) {
+        internetTestActive_ = false;
+    }
     errorMessage_.clear();
     currentMbps_ = 0.0;
     resultMbps_ = 0.0;
@@ -174,16 +193,19 @@ void SpeedTestViewModel::startTestForChannel(qint64 channelId) {
 }
 
 void SpeedTestViewModel::startInternetTest() {
-    static const QStringList testUrls = {
+    internetTestUrls_ = {
         QStringLiteral("https://ash-speed.hetzner.com/100MB.bin"),
         QStringLiteral("https://proof.ovh.net/files/100Mb.dat"),
         QStringLiteral("https://speedtest.tele2.net/100MB.zip"),
     };
-    int idx = QRandomGenerator::global()->bounded(testUrls.size());
-    startTest(testUrls.at(idx));
+    std::shuffle(internetTestUrls_.begin(), internetTestUrls_.end(), *QRandomGenerator::global());
+    internetTestIndex_ = 0;
+    internetTestActive_ = true;
+    startInternetTestAttempt();
 }
 
 void SpeedTestViewModel::stopTest() {
+    internetTestActive_ = false;
     if (runner_) {
         runner_->stop();
     }
@@ -197,4 +219,20 @@ QString SpeedTestViewModel::formatBytes(qint64 bytes) {
         return QStringLiteral("%1 KB").arg(bytes / 1024.0, 0, 'f', 1);
     }
     return QStringLiteral("%1 MB").arg(bytes / (1024.0 * 1024.0), 0, 'f', 1);
+}
+
+void SpeedTestViewModel::startInternetTestAttempt() {
+    if (internetTestIndex_ < 0 || internetTestIndex_ >= internetTestUrls_.size()) {
+        internetTestActive_ = false;
+        return;
+    }
+    startTestInternal(internetTestUrls_.at(internetTestIndex_), true);
+}
+
+bool SpeedTestViewModel::shouldRetryInternetError(const QString &message) const {
+    const auto msg = message.toLower();
+    return msg.contains(QStringLiteral("connection refused"))
+        || msg.contains(QStringLiteral("timeout"))
+        || msg.contains(QStringLiteral("temporarily"))
+        || msg.contains(QStringLiteral("network"));
 }

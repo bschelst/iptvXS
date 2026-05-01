@@ -130,7 +130,6 @@ void SpeedTestRunner::cleanup() {
 
     for (auto *reply : replies_) {
         reply->disconnect(this);
-        reply->abort();
         reply->deleteLater();
     }
     replies_.clear();

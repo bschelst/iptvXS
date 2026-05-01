@@ -15,6 +15,14 @@ Item {
         }
     }
 
+    function focusClearHistoryButton() {
+        if (clearHistoryBtn && clearHistoryBtn.visible) {
+            clearHistoryBtn.forceActiveFocus()
+        } else if (historyList) {
+            historyList.forceActiveFocus()
+        }
+    }
+
     ColumnLayout {
         anchors.fill: parent
         spacing: 0
@@ -48,11 +56,14 @@ Item {
                 Item { Layout.fillWidth: true }
 
                 Rectangle {
+                    id: clearHistoryBtn
                     Layout.preferredWidth: clearBtnText.implicitWidth + Theme.spacingLg
                     Layout.preferredHeight: 32
                     radius: 16
-                    color: clearBtnHov ? Theme.error : Theme.surfaceHover
+                    color: clearBtnHov || clearHistoryBtn.activeFocus ? Theme.error : Theme.surfaceHover
                     visible: appViewModel && appViewModel.history.count > 0
+                    focus: false
+                    activeFocusOnTab: true
 
                     property bool clearBtnHov: false
 
@@ -76,6 +87,31 @@ Item {
                             if (appViewModel) appViewModel.history.clearHistory()
                         }
                     }
+
+                    Keys.onLeftPressed: {
+                        if (historyList) historyList.forceActiveFocus()
+                    }
+                    Keys.onDownPressed: {
+                        if (historyList) {
+                            if (historyList.currentIndex < 0 && historyList.count > 0) {
+                                historyList.currentIndex = 0
+                            }
+                            historyList.forceActiveFocus()
+                        }
+                    }
+                    Keys.onReturnPressed: {
+                        if (appViewModel) appViewModel.history.clearHistory()
+                    }
+                    Keys.onEnterPressed: Keys.onReturnPressed(event)
+                    Keys.onPressed: function(event) {
+                        if (event.key === Qt.Key_Select || event.key === Qt.Key_Space) {
+                            if (appViewModel) appViewModel.history.clearHistory()
+                            event.accepted = true
+                        } else if (event.key === Qt.Key_B || event.key === Qt.Key_Escape) {
+                            if (historyList) historyList.forceActiveFocus()
+                            event.accepted = true
+                        }
+                    }
                 }
             }
         }
@@ -91,17 +127,36 @@ Item {
             highlight: Rectangle { color: Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.13); radius: Theme.borderRadiusSmall }
             highlightFollowsCurrentItem: true
 
-            Keys.onUpPressed: { if (currentIndex > 0) currentIndex-- }
+            function focusDeleteForCurrentItem() {
+                if (currentIndex < 0) return false
+                positionViewAtIndex(currentIndex, ListView.Contain)
+                Qt.callLater(function() {
+                    if (currentIndex < 0) return
+                    if (historyList.currentItem && historyList.currentItem.deleteBtn) {
+                        historyList.currentItem.deleteBtn.forceActiveFocus()
+                    } else {
+                        var fallbackItem = itemAtIndex(currentIndex)
+                        if (fallbackItem && fallbackItem.deleteBtn) {
+                            fallbackItem.deleteBtn.forceActiveFocus()
+                        }
+                    }
+                })
+                return true
+            }
+
+            Keys.onUpPressed: {
+                if (currentIndex > 0) {
+                    currentIndex--
+                } else {
+                    historyView.focusClearHistoryButton()
+                }
+            }
             Keys.onDownPressed: { if (currentIndex < count - 1) currentIndex++ }
             Keys.onLeftPressed: {
                 if (Window.window && Window.window.focusSidebar) Window.window.focusSidebar()
             }
             Keys.onRightPressed: {
-                if (currentIndex >= 0 && appViewModel) {
-                    var idx = appViewModel.history.index(currentIndex, 0)
-                    var hid = appViewModel.history.data(idx, 257)  // IdRole
-                    if (hid) appViewModel.history.removeEntry(hid)
-                }
+                focusDeleteForCurrentItem()
             }
             Keys.onReturnPressed: playCurrentItem()
             Keys.onEnterPressed: Keys.onReturnPressed(event)
@@ -166,7 +221,7 @@ Item {
             delegate: Rectangle {
                 width: historyList.width
                 height: 64
-                color: histHov ? Theme.surfaceHover : "transparent"
+                color: "transparent"
                 border.width: historyList.activeFocus && historyList.currentIndex === index ? 2 : 0
                 border.color: historyList.activeFocus && historyList.currentIndex === index
                     ? Theme.accent : "transparent"
@@ -244,21 +299,49 @@ Item {
 
                     property bool isFocused: historyList.activeFocus && historyList.currentIndex === index
 
-                    Text {
-                        text: "\u203A"
-                        font.pixelSize: 18
-                        font.bold: true
-                        color: Theme.textMuted
-                        visible: !histHov && !(historyList.activeFocus && historyList.currentIndex === index)
-                    }
-
-                    Text {
-                        text: "✕"
-                        font.pixelSize: 14
-                        font.bold: true
-                        color: delHistHov ? Theme.error : Theme.textMuted
-                        visible: histHov || (historyList.activeFocus && historyList.currentIndex === index)
+                    FocusScope {
+                        id: deleteBtn
+                        width: deleteLabel.implicitWidth + 38
+                        height: 28
+                        focus: true
+                        activeFocusOnTab: true
                         property bool delHistHov: false
+                        property bool selected: deleteBtn.activeFocus || (historyList.activeFocus && historyList.currentIndex === index)
+
+                        Rectangle {
+                            anchors.fill: parent
+                            radius: 14
+                            color: deleteBtn.delHistHov || deleteBtn.selected ? Theme.error : "transparent"
+                            border.width: 1
+                            border.color: deleteBtn.delHistHov || deleteBtn.selected ? Theme.textOnAccent : Theme.surfaceBorder
+                            opacity: histHov || deleteBtn.delHistHov || deleteBtn.selected ? 1.0 : 0.0
+                            visible: opacity > 0.0
+                        }
+
+                        Row {
+                            anchors.centerIn: parent
+                            spacing: 6
+
+                            Text {
+                                text: "\u232B"
+                                font.pixelSize: 15
+                                font.bold: true
+                                font.family: "DejaVu Sans"
+                                color: deleteBtn.delHistHov || deleteBtn.selected ? "#ffffff" : Theme.textMuted
+                                anchors.verticalCenter: parent.verticalCenter
+                            }
+
+                            Text {
+                                id: deleteLabel
+                                text: "Remove"
+                                font.pixelSize: Theme.fontSizeXs
+                                font.bold: true
+                                font.family: "DejaVu Sans"
+                                color: deleteBtn.delHistHov || deleteBtn.selected ? "#ffffff" : Theme.textMuted
+                                anchors.verticalCenter: parent.verticalCenter
+                                visible: deleteBtn.delHistHov || deleteBtn.selected
+                            }
+                        }
 
                         MouseArea {
                             anchors.fill: parent
@@ -269,6 +352,36 @@ Item {
                             onExited: parent.delHistHov = false
                             onClicked: {
                                 if (appViewModel) appViewModel.history.removeEntry(model.historyId)
+                            }
+                        }
+
+                        onActiveFocusChanged: delHistHov = activeFocus
+
+                        Keys.onUpPressed: {
+                            if (historyList && historyList.currentIndex === index) {
+                                historyView.focusClearHistoryButton()
+                            }
+                        }
+                        Keys.onDownPressed: {
+                            if (historyList) {
+                                historyList.forceActiveFocus()
+                            }
+                        }
+
+                        Keys.onLeftPressed: {
+                            historyList.forceActiveFocus()
+                        }
+                        Keys.onReturnPressed: {
+                            if (appViewModel) appViewModel.history.removeEntry(model.historyId)
+                        }
+                        Keys.onEnterPressed: Keys.onReturnPressed(event)
+                        Keys.onPressed: function(event) {
+                            if (event.key === Qt.Key_Select || event.key === Qt.Key_Space) {
+                                Keys.onReturnPressed(event)
+                                event.accepted = true
+                            } else if (event.key === Qt.Key_Back || event.key === Qt.Key_B || event.key === Qt.Key_Escape) {
+                                historyList.forceActiveFocus()
+                                event.accepted = true
                             }
                         }
                     }

@@ -4,6 +4,7 @@
 #include <QObject>
 #include <QQmlEngine>
 #include <QString>
+#include <QStringList>
 
 #include "iptvxs/net/speed_test_runner.h"
 #include "iptvxs/db/channel_repository.h"
@@ -60,6 +61,9 @@ signals:
 
 private:
     static QString formatBytes(qint64 bytes);
+    void startTestInternal(const QString &streamUrl, bool internetTest);
+    void startInternetTestAttempt();
+    bool shouldRetryInternetError(const QString &message) const;
 
     iptvxs::SpeedTestRunner *runner_{nullptr};
     iptvxs::ChannelRepository *channelRepo_{nullptr};
@@ -74,4 +78,7 @@ private:
     QString errorMessage_;
     bool hasResult_{false};
     int duration_{60};
+    QStringList internetTestUrls_;
+    int internetTestIndex_{0};
+    bool internetTestActive_{false};
 };

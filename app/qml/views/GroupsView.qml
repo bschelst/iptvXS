@@ -15,13 +15,21 @@ Item {
         if (groupListView.count > 0) {
             if (groupListView.currentIndex < 0) groupListView.currentIndex = 0
             groupListView.forceActiveFocus()
+        } else if (addGroupBtn) {
+            addGroupBtn.forceActiveFocus()
         }
+    }
+
+    function focusAddGroupButton() {
+        if (addGroupBtn) addGroupBtn.forceActiveFocus()
     }
 
     function focusGroupList() {
         if (groupListView.count > 0) {
             if (groupListView.currentIndex < 0) groupListView.currentIndex = 0
             groupListView.forceActiveFocus()
+        } else if (addGroupBtn) {
+            addGroupBtn.forceActiveFocus()
         } else if (Window.window && Window.window.focusSidebar) {
             Window.window.focusSidebar()
         }
@@ -87,7 +95,7 @@ Item {
                             border.width: addGroupBtn.activeFocus ? 2 : 0
                             border.color: "#ffffff"
                             property bool addBtnHov: false
-                            focus: true
+                            focus: false
                             activeFocusOnTab: true
 
                             Text {
@@ -101,6 +109,12 @@ Item {
                             Keys.onReturnPressed: createGroupDialog.open()
                             Keys.onEnterPressed: createGroupDialog.open()
                             Keys.onDownPressed: {
+                                if (groupListView.count > 0) {
+                                    if (groupListView.currentIndex < 0) groupListView.currentIndex = 0
+                                    groupListView.forceActiveFocus()
+                                }
+                            }
+                            Keys.onRightPressed: {
                                 if (groupListView.count > 0) {
                                     if (groupListView.currentIndex < 0) groupListView.currentIndex = 0
                                     groupListView.forceActiveFocus()
@@ -147,7 +161,7 @@ Item {
 
                     Keys.onUpPressed: {
                         if (currentIndex > 0) currentIndex--
-                        else addGroupBtn.forceActiveFocus()
+                        else groupsView.focusAddGroupButton()
                     }
                     Keys.onDownPressed: { if (currentIndex < count - 1) currentIndex++ }
                     Keys.onLeftPressed: {
@@ -165,7 +179,7 @@ Item {
                             var item = groupListModel.get(currentIndex)
                             selectedGroupId = item.gid
                             selectedGroupName = item.gname
-                            reloadMembers()
+                            groupsView.reloadMembers()
                         }
                     }
                     Keys.onEnterPressed: Keys.onReturnPressed(event)
@@ -176,6 +190,20 @@ Item {
                         } else if (event.key === Qt.Key_Y) {
                             createGroupDialog.open()
                             event.accepted = true
+                        } else if (event.key === Qt.Key_Delete || event.key === Qt.Key_Backspace) {
+                            if (currentIndex >= 0 && currentIndex < count) {
+                                var delItem = groupListModel.get(currentIndex)
+                                if (appViewModel && delItem) {
+                                    appViewModel.groupList.deleteGroup(delItem.gid)
+                                    if (selectedGroupId === delItem.gid) {
+                                        selectedGroupId = 0
+                                        selectedGroupName = ""
+                                        memberListModel.clear()
+                                    }
+                                    groupsView.reloadGroups()
+                                    event.accepted = true
+                                }
+                            }
                         }
                     }
 
@@ -245,10 +273,11 @@ Item {
 
                                 Text {
                                     anchors.centerIn: parent
-                                    text: "\u2715"
-                                    font.pixelSize: 10
+                                    text: "\u232B"
+                                    font.pixelSize: 11
                                     font.bold: true
-                                    color: parent.delGrpHov ? Theme.error : Theme.textMuted
+                                    font.family: "DejaVu Sans"
+                                    color: parent.delGrpHov ? "#ffffff" : Theme.textMuted
                                 }
 
                                 MouseArea {
@@ -265,7 +294,7 @@ Item {
                                             selectedGroupName = ""
                                             memberListModel.clear()
                                         }
-                                        reloadGroups()
+                                        groupsView.reloadGroups()
                                     }
                                 }
                             }
@@ -279,7 +308,7 @@ Item {
                                 onClicked: {
                                     selectedGroupId = model.gid
                                     selectedGroupName = model.gname
-                                    reloadMembers()
+                                    groupsView.reloadMembers()
                                 }
                                 z: -1
                             }
@@ -333,11 +362,14 @@ Item {
                     }
 
                     Rectangle {
+                        id: addChannelsBtn
                         visible: selectedGroupId > 0
                         Layout.preferredWidth: addChLabel.implicitWidth + 20
                         Layout.preferredHeight: 32
                         radius: Theme.borderRadius
                         color: addChHov ? Theme.accent : Theme.accentHover
+                        focus: false
+                        activeFocusOnTab: true
                         property bool addChHov: false
 
                         Text {
@@ -356,6 +388,16 @@ Item {
                             onEntered: parent.addChHov = true
                             onExited: parent.addChHov = false
                             onClicked: channelSearchDialog.open()
+                        }
+
+                        Keys.onLeftPressed: groupsView.focusGroupList()
+                        Keys.onReturnPressed: channelSearchDialog.open()
+                        Keys.onEnterPressed: Keys.onReturnPressed(event)
+                        Keys.onPressed: function(event) {
+                            if (event.key === Qt.Key_Select || event.key === Qt.Key_Space) {
+                                channelSearchDialog.open()
+                                event.accepted = true
+                            }
                         }
                     }
                 }
@@ -376,6 +418,11 @@ Item {
                 Keys.onUpPressed: { if (currentIndex > 0) currentIndex-- }
                 Keys.onDownPressed: { if (currentIndex < count - 1) currentIndex++ }
                 Keys.onLeftPressed: groupsView.focusGroupList()
+                Keys.onRightPressed: {
+                    if (addChannelsBtn && addChannelsBtn.visible) {
+                        addChannelsBtn.forceActiveFocus()
+                    }
+                }
                 Keys.onReturnPressed: {
                     if (currentIndex >= 0 && currentIndex < count && appViewModel) {
                         var item = memberListModel.get(currentIndex)
@@ -388,6 +435,16 @@ Item {
                     if (event.key === Qt.Key_Select) {
                         Keys.onReturnPressed(event)
                         event.accepted = true
+                    } else if (event.key === Qt.Key_Delete || event.key === Qt.Key_Backspace) {
+                        if (currentIndex >= 0 && currentIndex < count && appViewModel) {
+                            var removeItem = memberListModel.get(currentIndex)
+                            if (removeItem) {
+                                appViewModel.groupList.removeChannel(selectedGroupId, removeItem.mchannelId)
+                                groupsView.reloadMembers()
+                                groupsView.reloadGroups()
+                                event.accepted = true
+                            }
+                        }
                     }
                 }
 
@@ -463,7 +520,7 @@ Item {
                             anchors.centerIn: parent
                             text: "\u2715"
                             font.pixelSize: 14; font.bold: true
-                            color: parent.mDelHov ? Theme.error : Theme.textMuted
+                            color: parent.mDelHov ? "#ffffff" : Theme.textMuted
                         }
                         MouseArea {
                             anchors.fill: parent
@@ -474,8 +531,8 @@ Item {
                             onClicked: {
                                 if (appViewModel) {
                                     appViewModel.groupList.removeChannel(selectedGroupId, model.mchannelId)
-                                    reloadMembers()
-                                    reloadGroups()
+                                    groupsView.reloadMembers()
+                                    groupsView.reloadGroups()
                                 }
                             }
                         }
@@ -560,7 +617,7 @@ Item {
         gl.activeGroupId = 0
     }
 
-    Component.onCompleted: reloadGroups()
+    Component.onCompleted: groupsView.reloadGroups()
 
     // ── Create group dialog ──
 
@@ -571,8 +628,18 @@ Item {
         color: "#C0000000"
         z: 100
 
-        function open() { visible = true; newGroupInput.text = ""; newGroupInput.forceActiveFocus() }
-        function close() { visible = false }
+        function open() {
+            visible = true
+            newGroupInput.text = ""
+            newGroupInput.forceActiveFocus()
+        }
+        function close() {
+            visible = false
+            Qt.callLater(function() {
+                if (addGroupBtn) addGroupBtn.forceActiveFocus()
+                else if (groupListView) groupsView.focusGroupList()
+            })
+        }
 
         MouseArea { anchors.fill: parent; onClicked: createGroupDialog.close() }
 
@@ -617,6 +684,12 @@ Item {
                         Keys.onReturnPressed: confirmCreateGroup()
                         Keys.onEnterPressed: confirmCreateGroup()
                         Keys.onEscapePressed: createGroupDialog.close()
+                        Keys.onPressed: function(event) {
+                            if (event.key === Qt.Key_B) {
+                                createGroupDialog.close()
+                                event.accepted = true
+                            }
+                        }
 
                         Text {
                             anchors.verticalCenter: parent.verticalCenter
@@ -633,19 +706,46 @@ Item {
                     Item { Layout.fillWidth: true }
 
                     Rectangle {
+                        id: cancelGroupBtn
                         width: 80; height: 36; radius: 6
                         color: cancelHov ? Theme.surfaceHover : Theme.surface
                         border.color: Theme.surfaceBorder; border.width: 1
+                        focus: false
+                        activeFocusOnTab: true
                         property bool cancelHov: false
                         Text { anchors.centerIn: parent; text: "Cancel"; font.pixelSize: 13; color: Theme.textSecondary }
                         MouseArea { anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onEntered: parent.cancelHov = true; onExited: parent.cancelHov = false; onClicked: createGroupDialog.close() }
+                        Keys.onRightPressed: createGroupBtn.forceActiveFocus()
+                        Keys.onReturnPressed: createGroupDialog.close()
+                        Keys.onEnterPressed: Keys.onReturnPressed(event)
+                        Keys.onPressed: function(event) {
+                            if (event.key === Qt.Key_Select || event.key === Qt.Key_Space || event.key === Qt.Key_B || event.key === Qt.Key_Escape) {
+                                createGroupDialog.close()
+                                event.accepted = true
+                            }
+                        }
                     }
                     Rectangle {
+                        id: createGroupBtn
                         width: 80; height: 36; radius: 6
                         color: createHov ? Theme.accent : Theme.accentHover
+                        focus: false
+                        activeFocusOnTab: true
                         property bool createHov: false
                         Text { anchors.centerIn: parent; text: "Create"; font.pixelSize: 13; font.bold: true; color: Theme.textOnAccent }
                         MouseArea { anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onEntered: parent.createHov = true; onExited: parent.createHov = false; onClicked: confirmCreateGroup() }
+                        Keys.onLeftPressed: cancelGroupBtn.forceActiveFocus()
+                        Keys.onReturnPressed: confirmCreateGroup()
+                        Keys.onEnterPressed: Keys.onReturnPressed(event)
+                        Keys.onPressed: function(event) {
+                            if (event.key === Qt.Key_Select || event.key === Qt.Key_Space) {
+                                confirmCreateGroup()
+                                event.accepted = true
+                            } else if (event.key === Qt.Key_B || event.key === Qt.Key_Escape) {
+                                createGroupDialog.close()
+                                event.accepted = true
+                            }
+                        }
                     }
                 }
             }
@@ -656,7 +756,7 @@ Item {
         if (!appViewModel || !newGroupInput.text.trim()) return
         appViewModel.groupList.createGroup(newGroupInput.text.trim())
         createGroupDialog.close()
-        reloadGroups()
+        groupsView.reloadGroups()
     }
 
     // ── Channel search dialog ──
@@ -669,10 +769,18 @@ Item {
         z: 100
 
         function open() {
-            visible = true; chSearchInput.text = ""
-            chSearchResults.clear(); chSearchInput.forceActiveFocus()
+            visible = true
+            chSearchInput.text = ""
+            chSearchResults.clear()
+            chSearchInput.forceActiveFocus()
         }
-        function close() { visible = false }
+        function close() {
+            visible = false
+            Qt.callLater(function() {
+                if (addChannelsBtn && addChannelsBtn.visible) addChannelsBtn.forceActiveFocus()
+                else groupsView.focusGroupList()
+            })
+        }
 
         MouseArea { anchors.fill: parent; onClicked: channelSearchDialog.close() }
 
@@ -713,7 +821,25 @@ Item {
                         font.pixelSize: 14
                         color: Theme.textPrimary
                         clip: true; selectByMouse: true
+
+                        onActiveFocusChanged: {
+                            if (activeFocus) Qt.inputMethod.show()
+                            else Qt.inputMethod.hide()
+                        }
+
                         Keys.onEscapePressed: channelSearchDialog.close()
+                        Keys.onDownPressed: {
+                            if (chSearchList.count > 0) {
+                                if (chSearchList.currentIndex < 0) chSearchList.currentIndex = 0
+                                chSearchList.forceActiveFocus()
+                            }
+                        }
+                        Keys.onPressed: function(event) {
+                            if (event.key === Qt.Key_B) {
+                                channelSearchDialog.close()
+                                event.accepted = true
+                            }
+                        }
                         onTextChanged: chSearchTimer.restart()
 
                         Text {
@@ -733,14 +859,44 @@ Item {
                     clip: true
                     model: chSearchResults
                     spacing: 4
+                    keyNavigationEnabled: true
 
                     ScrollBar.vertical: ScrollBar { active: true; policy: ScrollBar.AsNeeded }
+
+                    Keys.onUpPressed: {
+                        if (currentIndex > 0) currentIndex--
+                        else chSearchInput.forceActiveFocus()
+                    }
+                    Keys.onDownPressed: { if (currentIndex < count - 1) currentIndex++ }
+                    Keys.onReturnPressed: {
+                        if (currentIndex >= 0 && currentIndex < count && appViewModel) {
+                            var item = chSearchResults.get(currentIndex)
+                            if (!item) return
+                            if (item.inGrp)
+                                appViewModel.groupList.removeChannel(selectedGroupId, item.cid)
+                            else
+                                appViewModel.groupList.addChannel(selectedGroupId, item.cid)
+                            chSearchResults.setProperty(currentIndex, "inGrp", !item.inGrp)
+                        }
+                    }
+                    Keys.onEnterPressed: Keys.onReturnPressed(event)
+                    Keys.onPressed: function(event) {
+                        if (event.key === Qt.Key_Select || event.key === Qt.Key_Space) {
+                            Keys.onReturnPressed(event)
+                            event.accepted = true
+                        } else if (event.key === Qt.Key_B || event.key === Qt.Key_Escape) {
+                            channelSearchDialog.close()
+                            event.accepted = true
+                        }
+                    }
 
                     delegate: Rectangle {
                         width: chSearchList.width
                         height: 52
                         radius: 6
                         color: srHov ? Theme.surfaceHover : Theme.surface
+                        focus: false
+                        activeFocusOnTab: true
                         property bool srHov: false
                         property bool inGrp: appViewModel ? appViewModel.groupList.isInGroup(selectedGroupId, model.cid) : false
 
@@ -807,6 +963,22 @@ Item {
                                     inGrp = !inGrp
                                 }
                             }
+
+                            Keys.onReturnPressed: {
+                                if (!appViewModel) return
+                                if (inGrp)
+                                    appViewModel.groupList.removeChannel(selectedGroupId, model.cid)
+                                else
+                                    appViewModel.groupList.addChannel(selectedGroupId, model.cid)
+                                inGrp = !inGrp
+                            }
+                            Keys.onEnterPressed: Keys.onReturnPressed(event)
+                            Keys.onPressed: function(event) {
+                                if (event.key === Qt.Key_Select || event.key === Qt.Key_Space) {
+                                    Keys.onReturnPressed(event)
+                                    event.accepted = true
+                                }
+                            }
                         }
 
                         MouseArea {
@@ -827,10 +999,13 @@ Item {
                 }
 
                 Rectangle {
+                    id: doneBtn
                     Layout.alignment: Qt.AlignRight
                     width: 80; height: 36; radius: 6
                     color: doneHov ? Theme.surfaceHover : Theme.surface
                     border.color: Theme.surfaceBorder; border.width: 1
+                    focus: false
+                    activeFocusOnTab: true
                     property bool doneHov: false
                     Text { anchors.centerIn: parent; text: "Done"; font.pixelSize: 13; font.bold: true; color: Theme.textPrimary }
                     MouseArea {
@@ -838,8 +1013,31 @@ Item {
                         onEntered: parent.doneHov = true; onExited: parent.doneHov = false
                         onClicked: {
                             channelSearchDialog.close()
-                            reloadMembers()
-                            reloadGroups()
+                            groupsView.reloadMembers()
+                            groupsView.reloadGroups()
+                        }
+                    }
+                    Keys.onUpPressed: {
+                        if (chSearchList.count > 0) {
+                            if (chSearchList.currentIndex < 0) chSearchList.currentIndex = 0
+                            chSearchList.forceActiveFocus()
+                        } else {
+                            chSearchInput.forceActiveFocus()
+                        }
+                    }
+                    Keys.onReturnPressed: {
+                        channelSearchDialog.close()
+                        groupsView.reloadMembers()
+                        groupsView.reloadGroups()
+                    }
+                    Keys.onEnterPressed: Keys.onReturnPressed(event)
+                    Keys.onPressed: function(event) {
+                        if (event.key === Qt.Key_Select || event.key === Qt.Key_Space
+                                || event.key === Qt.Key_B || event.key === Qt.Key_Escape) {
+                            channelSearchDialog.close()
+                            groupsView.reloadMembers()
+                            groupsView.reloadGroups()
+                            event.accepted = true
                         }
                     }
                 }
@@ -862,7 +1060,8 @@ Item {
                     cid: r.channelId,
                     cname: r.name,
                     clogoUrl: r.logoUrl || "",
-                    cstreamUrl: r.streamUrl || ""
+                    cstreamUrl: r.streamUrl || "",
+                    inGrp: appViewModel ? appViewModel.groupList.isInGroup(selectedGroupId, r.channelId) : false
                 })
             }
         }

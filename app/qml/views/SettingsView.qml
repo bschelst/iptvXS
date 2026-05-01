@@ -19,7 +19,7 @@ Item {
 
     // Direct lookup by index — returns the QML item for the given focus slot.
     // Using a function (not a property) so ids resolve after component completion.
-    readonly property int focusItemCount: 29
+    readonly property int focusItemCount: 30
 
     function focusTarget() {
         switch (currentFocusIndex) {
@@ -29,29 +29,30 @@ Item {
         case  3: return hwdecFlow
         case  4: return gridColFlow
         case  5: return closeToTraySwitch
-        case  6: return videoEnhFlow
-        case  7: return deinterlaceSwitch
-        case  8: return subtitlesSwitch
-        case  9: return subLangFlow
-        case 10: return secSubLangFlow
-        case 11: return subSizeRow
-        case 12: return subColorFlow
-        case 13: return subBgFlow
-        case 14: return syncIntervalFlow
-        case 15: return epgSyncFlow
-        case 16: return gdriveConnectBtn
-        case 17: return gdriveSaveFolderBtn
-        case 18: return recDestFlow
-        case 19: return keepLocalSwitch
-        case 20: return recBrowseBtn
-        case 21: return maxRecSizeFlow
-        case 22: return leadTimeFlow
-        case 23: return overrunFlow
-        case 24: return logoCacheMaxFlow
-        case 25: return clearCacheBtn
-        case 26: return resetDbBtn
-        case 27: return githubBtn
-        case 28: return checkUpdatesBtn
+        case  6: return chromecastSwitch
+        case  7: return videoEnhFlow
+        case  8: return deinterlaceSwitch
+        case  9: return subtitlesSwitch
+        case 10: return subLangFlow
+        case 11: return secSubLangFlow
+        case 12: return subSizeRow
+        case 13: return subColorFlow
+        case 14: return subBgFlow
+        case 15: return syncIntervalFlow
+        case 16: return epgSyncFlow
+        case 17: return gdriveConnectBtn
+        case 18: return gdriveSaveFolderBtn
+        case 19: return recDestFlow
+        case 20: return keepLocalSwitch
+        case 21: return recBrowseBtn
+        case 22: return maxRecSizeFlow
+        case 23: return leadTimeFlow
+        case 24: return overrunFlow
+        case 25: return logoCacheMaxFlow
+        case 26: return clearCacheBtn
+        case 27: return resetDbBtn
+        case 28: return githubBtn
+        case 29: return checkUpdatesBtn
         default: return null
         }
     }
@@ -93,6 +94,12 @@ Item {
     }
     Keys.onReturnPressed: activateFocusedItem()
     Keys.onEnterPressed: activateFocusedItem()
+    Keys.onPressed: function(event) {
+        if (event.key === Qt.Key_Select || event.key === Qt.Key_Space) {
+            activateFocusedItem()
+            event.accepted = true
+        }
+    }
     Keys.onLeftPressed: {
         var target = focusTarget()
         if (target && target.subFocusIndex !== undefined && target.subFocusIndex > 0) {
@@ -692,6 +699,38 @@ Item {
                             checked: appViewModel ? appViewModel.closeToTray : false
                             onToggled: {
                                 if (appViewModel) appViewModel.closeToTray = checked
+                            }
+                        }
+                    }
+
+                    RowLayout {
+                        id: chromecastSwitch
+                        Layout.fillWidth: true
+                        spacing: Theme.spacingMd
+                        function toggle() { chromecastSwitchCtrl.toggle() }
+
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            spacing: 2
+
+                            Text {
+                                text: "Chromecast"
+                                font.pixelSize: Theme.fontSizeSm
+                                color: Theme.textPrimary
+                            }
+
+                            Text {
+                                text: "Show cast button in the player to stream to Chromecast devices"
+                                font.pixelSize: Theme.fontSizeXs
+                                color: Theme.textMuted
+                            }
+                        }
+
+                        Switch {
+                            id: chromecastSwitchCtrl
+                            checked: appViewModel ? appViewModel.chromecastEnabled : true
+                            onToggled: {
+                                if (appViewModel) appViewModel.chromecastEnabled = checked
                             }
                         }
                     }
@@ -1413,8 +1452,8 @@ Item {
                             Layout.preferredHeight: 36
                             radius: Theme.borderRadius
                             color: gdriveBtnHovered
-                                ? (appViewModel && appViewModel.gdrive.authenticated ? Qt.rgba(Theme.error.r, Theme.error.g, Theme.error.b, 0.19) : Theme.accent)
-                                : (appViewModel && appViewModel.gdrive.authenticated ? Qt.rgba(Theme.error.r, Theme.error.g, Theme.error.b, 0.13) : Theme.accentHover)
+                                ? (appViewModel && appViewModel.gdrive.authenticated ? Qt.rgba(Theme.error.r, Theme.error.g, Theme.error.b, 0.19) : Theme.accentHover)
+                                : (appViewModel && appViewModel.gdrive.authenticated ? Qt.rgba(Theme.error.r, Theme.error.g, Theme.error.b, 0.13) : Theme.accent)
                             border.color: appViewModel && appViewModel.gdrive.authenticated
                                 ? Theme.error : Theme.accent
                             border.width: 1
@@ -1512,7 +1551,7 @@ Item {
                                 Layout.preferredWidth: saveFolderBtnLabel.implicitWidth + Theme.spacingLg
                                 Layout.preferredHeight: 36
                                 radius: Theme.borderRadiusSmall
-                                color: saveFolderHov ? Theme.accent : Theme.accentHover
+                                color: saveFolderHov ? Theme.accentHover : Theme.accent
 
                                 property bool saveFolderHov: false
                                 function activate() {
@@ -2265,33 +2304,87 @@ Item {
                         Layout.fillWidth: true
                     }
 
-                    Rectangle {
-                        id: resetDbBtn
-                        Layout.preferredWidth: resetBtnText.implicitWidth + Theme.spacingLg * 2
-                        Layout.preferredHeight: 36
-                        Layout.alignment: Qt.AlignRight
-                        radius: Theme.borderRadius
-                        color: resetBtnHovered ? Qt.darker(Theme.error, 1.2) : Theme.error
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: Theme.spacingSm
 
-                        property bool resetBtnHovered: false
-                        function activate() { resetConfirmDialog.open() }
+                        Rectangle {
+                            id: maintenanceBtn
+                            Layout.preferredWidth: maintBtnText.implicitWidth + Theme.spacingLg * 2
+                            Layout.preferredHeight: 36
+                            radius: Theme.borderRadius
+                            color: maintRunning ? Theme.surfaceHover : (maintBtnHovered ? Theme.accentHover : Theme.accent)
+                            opacity: maintRunning ? 0.7 : 1.0
 
-                        Text {
-                            id: resetBtnText
-                            anchors.centerIn: parent
-                            text: "Reset Database"
-                            font.pixelSize: Theme.fontSizeSm
-                            font.bold: true
-                            color: "#000000"
+                            property bool maintBtnHovered: false
+                            property bool maintRunning: false
+                            function activate() {
+                                if (maintRunning || !appViewModel) return
+                                maintRunning = true
+                                maintBtnText.text = "Running..."
+                                Qt.callLater(function() {
+                                    var r = appViewModel.runMaintenance()
+                                    maintBtnText.text = "Cleaned " + (r.total_cleaned || 0) + " items"
+                                    maintRunning = false
+                                    maintResetTimer.restart()
+                                    dbStatsGrid.stats = appViewModel.databaseStats()
+                                })
+                            }
+
+                            Timer {
+                                id: maintResetTimer
+                                interval: 3000
+                                onTriggered: maintBtnText.text = "Run Maintenance"
+                            }
+
+                            Text {
+                                id: maintBtnText
+                                anchors.centerIn: parent
+                                text: "Run Maintenance"
+                                font.pixelSize: Theme.fontSizeSm
+                                font.bold: true
+                                color: Theme.textOnAccent
+                            }
+
+                            MouseArea {
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: maintenanceBtn.maintRunning ? Qt.BusyCursor : Qt.PointingHandCursor
+                                onEntered: maintenanceBtn.maintBtnHovered = true
+                                onExited: maintenanceBtn.maintBtnHovered = false
+                                onClicked: maintenanceBtn.activate()
+                            }
                         }
 
-                        MouseArea {
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
-                            onEntered: parent.resetBtnHovered = true
-                            onExited: parent.resetBtnHovered = false
-                            onClicked: resetConfirmDialog.open()
+                        Item { Layout.fillWidth: true }
+
+                        Rectangle {
+                            id: resetDbBtn
+                            Layout.preferredWidth: resetBtnText.implicitWidth + Theme.spacingLg * 2
+                            Layout.preferredHeight: 36
+                            radius: Theme.borderRadius
+                            color: resetBtnHovered ? Qt.darker(Theme.error, 1.2) : Theme.error
+
+                            property bool resetBtnHovered: false
+                            function activate() { resetConfirmDialog.open() }
+
+                            Text {
+                                id: resetBtnText
+                                anchors.centerIn: parent
+                                text: "Reset Database"
+                                font.pixelSize: Theme.fontSizeSm
+                                font.bold: true
+                                color: "#ffffff"
+                            }
+
+                            MouseArea {
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onEntered: parent.resetBtnHovered = true
+                                onExited: parent.resetBtnHovered = false
+                                onClicked: resetConfirmDialog.open()
+                            }
                         }
                     }
                 }

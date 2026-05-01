@@ -157,14 +157,20 @@ ApplicationWindow {
     }
 
     Connections {
+        target: appViewModel ? appViewModel.chromecast : null
+        function onResumeLocal(url, title) {
+            if (appViewModel) {
+                appViewModel.player.play(url, title, "", 0)
+            }
+        }
+    }
+
+    Connections {
         target: appViewModel
         function onCurrentViewChanged() {
             var view = appViewModel.currentView
-            // Stop VOD playback when navigating away from player (no PIP for VOD)
             if (view !== "player" && !appViewModel.player.stopped) {
-                // Only keep playing for live TV PIP — stop everything else
-                var url = appViewModel.player.currentUrl()
-                if (!url || url.indexOf("/live/") < 0) {
+                if (!appViewModel.player.isLive) {
                     appViewModel.player.stop()
                 }
             }
@@ -175,7 +181,11 @@ ApplicationWindow {
             } else {
                 viewLoader.setSource(src)
             }
-            focusContentTimer.restart()
+            if (sidebar.activeFocus) {
+                focusContentTimer.stop()
+            } else {
+                focusContentTimer.restart()
+            }
         }
         function onDatabaseReadyChanged() {
             if (appViewModel.databaseReady) {
@@ -212,6 +222,27 @@ ApplicationWindow {
         color: "#000000"
         clip: pipMode
         radius: pipMode ? Theme.borderRadius : 0
+        border.width: pipMode && activeFocus ? 2 : 0
+        border.color: Theme.accent
+        activeFocusOnTab: pipMode
+
+        Keys.onReturnPressed: { if (pipMode && appViewModel) appViewModel.currentView = "player" }
+        Keys.onEnterPressed: Keys.onReturnPressed(event)
+        Keys.onLeftPressed: { if (pipMode) focusSidebar() }
+        Keys.onRightPressed: { if (pipMode) focusCurrentViewPrimary() }
+        Keys.onUpPressed: { if (pipMode) focusCurrentViewPrimary() }
+        Keys.onDownPressed: { if (pipMode && pipCloseButton.visible) pipCloseButton.forceActiveFocus() }
+        Keys.onPressed: function(event) {
+            if (!pipMode) return
+            if (event.key === Qt.Key_Escape || event.key === Qt.Key_Back
+                    || event.key === Qt.Key_B || event.key === Qt.Key_Delete) {
+                if (appViewModel) appViewModel.player.stop()
+                event.accepted = true
+            } else if (event.key === Qt.Key_Select) {
+                if (appViewModel) appViewModel.currentView = "player"
+                event.accepted = true
+            }
+        }
 
         // Default PIP corner position
         property real pipDefaultX: parent.width - 320 - Theme.spacingMd
@@ -272,6 +303,7 @@ ApplicationWindow {
         }
 
         Rectangle {
+            id: pipCloseButton
             visible: pipMode
             anchors.top: parent.top
             anchors.right: parent.right
@@ -280,6 +312,8 @@ ApplicationWindow {
             color: pipCloseHov ? Theme.error : "#80000000"
             property bool pipCloseHov: false
             z: 2
+            focus: false
+            activeFocusOnTab: true
 
             Text {
                 anchors.centerIn: parent
@@ -293,6 +327,22 @@ ApplicationWindow {
                 onExited: parent.pipCloseHov = false
                 onClicked: { if (appViewModel) appViewModel.player.stop() }
             }
+
+            Keys.onReturnPressed: { if (appViewModel) appViewModel.player.stop() }
+            Keys.onEnterPressed: Keys.onReturnPressed(event)
+            Keys.onUpPressed: { if (pipMode) videoContainer.forceActiveFocus() }
+            Keys.onLeftPressed: { if (pipMode) videoContainer.forceActiveFocus() }
+            Keys.onPressed: function(event) {
+                if (!pipMode) return
+                if (event.key === Qt.Key_Select || event.key === Qt.Key_Space) {
+                    Keys.onReturnPressed(event)
+                    event.accepted = true
+                } else if (event.key === Qt.Key_Escape || event.key === Qt.Key_Back
+                        || event.key === Qt.Key_B || event.key === Qt.Key_Delete) {
+                    if (appViewModel) appViewModel.player.stop()
+                    event.accepted = true
+                }
+            }
         }
 
         Rectangle {
@@ -300,19 +350,42 @@ ApplicationWindow {
             anchors.bottom: parent.bottom
             anchors.left: parent.left
             anchors.right: parent.right
-            height: 24
+            height: videoContainer.activeFocus ? 44 : 24
             color: "#a0000000"
             z: 2
 
-            Text {
+            Behavior on height { NumberAnimation { duration: 150 } }
+
+            ColumnLayout {
                 anchors.centerIn: parent
-                text: appViewModel ? appViewModel.player.channelName : ""
-                font.pixelSize: 11; color: "#ffffff"
-                elide: Text.ElideRight
-                width: parent.width - 16
-                horizontalAlignment: Text.AlignHCenter
+                spacing: 2
+
+                Text {
+                    text: appViewModel ? appViewModel.player.channelName : ""
+                    font.pixelSize: 11; color: "#ffffff"
+                    elide: Text.ElideRight
+                    Layout.maximumWidth: videoContainer.width - 16
+                    Layout.alignment: Qt.AlignHCenter
+                }
+
+                Text {
+                    visible: videoContainer.activeFocus
+                    text: "A/Enter = Open  ·  B/Esc = Close"
+                    font.pixelSize: 9; color: "#aaffffff"
+                    Layout.alignment: Qt.AlignHCenter
+                }
             }
         }
+    }
+
+    function focusPip() {
+        if (pipMode) videoContainer.forceActiveFocus()
+    }
+
+    Shortcut {
+        sequence: "P"
+        enabled: pipMode && !_inPlayer
+        onActivated: focusPip()
     }
 
     Shortcut {
@@ -330,6 +403,7 @@ ApplicationWindow {
         sequence: "Escape"
         onActivated: {
             if (appViewModel && appViewModel.currentView === "player") {
+                appViewModel.player.stop()
                 var prev = appViewModel.previousView()
                 if (prev && prev !== "player") {
                     appViewModel.currentView = prev

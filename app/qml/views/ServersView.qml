@@ -2,10 +2,18 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import QtQuick.Window
 import app.iptvxs
 
 Item {
     id: serversView
+
+    function focusPrimary() {
+        if (serverListView.count > 0) {
+            if (serverListView.currentIndex < 0) serverListView.currentIndex = 0
+            serverListView.forceActiveFocus()
+        }
+    }
 
     ColumnLayout {
         anchors.fill: parent
@@ -25,10 +33,13 @@ Item {
             Item { Layout.fillWidth: true }
 
             Rectangle {
+                id: addServerButton
                 Layout.preferredWidth: addBtnRow.width + Theme.spacingLg * 2
                 Layout.preferredHeight: 40
                 radius: Theme.borderRadius
-                color: addBtnHovered ? Theme.accentHover : Theme.accent
+                color: addBtnHovered || addServerButton.activeFocus ? Theme.accentHover : Theme.accent
+                focus: false
+                activeFocusOnTab: true
 
                 property bool addBtnHovered: false
 
@@ -65,6 +76,21 @@ Item {
                     onEntered: parent.addBtnHovered = true
                     onExited: parent.addBtnHovered = false
                     onClicked: addServerDialog.open()
+                }
+
+                Keys.onDownPressed: {
+                    if (serverListView.count > 0) {
+                        if (serverListView.currentIndex < 0) serverListView.currentIndex = 0
+                        serverListView.forceActiveFocus()
+                    }
+                }
+                Keys.onReturnPressed: addServerDialog.open()
+                Keys.onEnterPressed: Keys.onReturnPressed(event)
+                Keys.onPressed: function(event) {
+                    if (event.key === Qt.Key_Select || event.key === Qt.Key_Space) {
+                        addServerDialog.open()
+                        event.accepted = true
+                    }
                 }
             }
         }
@@ -105,8 +131,41 @@ Item {
             Layout.fillHeight: true
             spacing: Theme.spacingSm
             clip: true
+            keyNavigationEnabled: true
+            highlightFollowsCurrentItem: true
+            currentIndex: -1
 
             model: appViewModel ? appViewModel.serverList : null
+
+            Keys.onUpPressed: {
+                if (currentIndex > 0) {
+                    currentIndex--
+                } else if (addServerButton) {
+                    addServerButton.forceActiveFocus()
+                }
+            }
+            Keys.onDownPressed: { if (currentIndex < count - 1) currentIndex++ }
+            Keys.onLeftPressed: {
+                if (Window.window && Window.window.focusSidebar) Window.window.focusSidebar()
+            }
+            Keys.onReturnPressed: {
+                if (currentIndex >= 0 && appViewModel)
+                    appViewModel.serverList.syncServer(currentIndex)
+            }
+            Keys.onEnterPressed: Keys.onReturnPressed(event)
+            Keys.onPressed: function(event) {
+                if (event.key === Qt.Key_Select || event.key === Qt.Key_Space) {
+                    Keys.onReturnPressed(event)
+                    event.accepted = true
+                } else if (event.key === Qt.Key_Delete) {
+                    if (currentIndex >= 0 && appViewModel)
+                        appViewModel.serverList.removeServer(currentIndex)
+                    event.accepted = true
+                } else if (event.key === Qt.Key_Y) {
+                    addServerDialog.open()
+                    event.accepted = true
+                }
+            }
 
             delegate: Rectangle {
                 width: serverListView.width
@@ -115,10 +174,13 @@ Item {
                 color: model.enabled
                     ? (delegateHovered ? Theme.surfaceHover : Theme.surfaceElevated)
                     : Theme.surface
-                border.color: model.isPrimary
-                    ? Theme.accent
-                    : (delegateHovered ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.25) : Theme.surfaceBorder)
-                border.width: model.isPrimary ? 2 : 1
+                border.color: {
+                    if (serverListView.activeFocus && serverListView.currentIndex === index) return Theme.accent
+                    if (model.isPrimary) return Theme.accent
+                    if (delegateHovered) return Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.25)
+                    return Theme.surfaceBorder
+                }
+                border.width: (serverListView.activeFocus && serverListView.currentIndex === index) ? 2 : (model.isPrimary ? 2 : 1)
                 opacity: model.enabled ? 1.0 : 0.5
 
                 property bool delegateHovered: false
@@ -341,7 +403,7 @@ Item {
                             text: "✕"
                             font.pixelSize: 18
                             font.bold: true
-                            color: Theme.error
+                            color: parent.delBtnHovered ? "#ffffff" : Theme.error
                         }
 
                         MouseArea {

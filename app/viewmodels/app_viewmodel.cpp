@@ -34,7 +34,8 @@ AppViewModel::AppViewModel(QObject *parent)
       gdriveVm_(new GDriveViewModel(this)),
       speedTestVm_(new SpeedTestViewModel(this)),
       historyVm_(new HistoryViewModel(this)),
-      groupListVm_(new GroupListViewModel(this)) {}
+      groupListVm_(new GroupListViewModel(this)),
+      chromecastMgr_(new iptvxs::ChromecastManager(this)) {}
 
 AppViewModel::~AppViewModel() = default;
 
@@ -381,6 +382,13 @@ bool AppViewModel::initialize(const QString &dbPath) {
     rescheduleAutoSyncEpg();
     checkForUpdates();
 
+    // Run daily maintenance if >24h since last run
+    auto lastMaint = static_cast<qint64>(settingsRepo_->getInt(QStringLiteral("last_maintenance"), 0));
+    auto now = QDateTime::currentSecsSinceEpoch();
+    if (now - lastMaint > 86400) {
+        QTimer::singleShot(5000, this, [this]() { runMaintenance(); });
+    }
+
     return true;
 }
 
@@ -467,6 +475,20 @@ GroupListViewModel *AppViewModel::groupList() const {
 
 iptvxs::LogoCache *AppViewModel::logoCache() const {
     return logoCache_.get();
+}
+
+iptvxs::ChromecastManager *AppViewModel::chromecast() const {
+    return chromecastMgr_;
+}
+
+bool AppViewModel::chromecastEnabled() const {
+    return settingsRepo_ ? settingsRepo_->getBool(QStringLiteral("chromecast_enabled"), true) : true;
+}
+
+void AppViewModel::setChromecastEnabled(bool enabled) {
+    if (!settingsRepo_) return;
+    settingsRepo_->set(QStringLiteral("chromecast_enabled"), enabled);
+    emit chromecastEnabledChanged();
 }
 
 int AppViewModel::logoCacheMaxMb() const {
@@ -899,7 +921,13 @@ void AppViewModel::loadSubtitleResult(int index) {
     auto dir = QStandardPaths::writableLocation(QStandardPaths::CacheLocation)
                + QStringLiteral("/subtitles");
     QDir().mkpath(dir);
-    auto outputPath = dir + QStringLiteral("/") + result.fileName;
+    auto safeName = QFileInfo(result.fileName).fileName();
+    if (safeName.isEmpty()) safeName = QStringLiteral("subtitle.srt");
+    auto outputPath = dir + QStringLiteral("/") + safeName;
+    if (!QFileInfo(outputPath).absoluteFilePath().startsWith(QFileInfo(dir).absoluteFilePath())) {
+        qWarning() << "Subtitle path escaped safe directory, blocked";
+        return;
+    }
 
     subtitlesClient_->downloadSubtitle(result.downloadUrl, outputPath);
 }
@@ -1396,11 +1424,12 @@ QVariantMap AppViewModel::databaseStats() const {
     stats["programmes"] = progRepo_ ? progRepo_->count() : 0;
     stats["history"] = historyRepo_ ? historyRepo_->count() : 0;
 
-    // Count channels by type using SQL for efficiency
     auto db = database_->connection();
     auto countByType = [&](const QString &type) -> int {
         QSqlQuery q(db);
-        q.prepare("SELECT COUNT(*) FROM channels WHERE type = ?");
+        q.prepare("SELECT COUNT(*) FROM channels c "
+                  "JOIN servers s ON c.server_id = s.id "
+                  "WHERE c.type = ? AND s.enabled = 1");
         q.addBindValue(type);
         if (q.exec() && q.next()) {
             return q.value(0).toInt();
@@ -1413,4 +1442,93 @@ QVariantMap AppViewModel::databaseStats() const {
     stats["series"] = countByType("series");
 
     return stats;
+}
+
+QVariantMap AppViewModel::runMaintenance() {
+    QVariantMap results;
+    if (!databaseReady_ || !database_) return results;
+
+    auto db = database_->connection();
+    int totalCleaned = 0;
+
+    // 1. Purge EPG programmes older than 7 days
+    if (progRepo_) {
+        auto cutoff = QDateTime::currentSecsSinceEpoch() - 7 * 86400;
+        progRepo_->deleteOlderThan(cutoff);
+        QSqlQuery q(db);
+        q.exec("SELECT changes()");
+        int epgPurged = q.next() ? q.value(0).toInt() : 0;
+        results["epg_purged"] = epgPurged;
+        totalCleaned += epgPurged;
+    }
+
+    // 2. Remove orphaned favorites (channel no longer exists)
+    {
+        QSqlQuery q(db);
+        q.exec("DELETE FROM favorites WHERE channel_id NOT IN (SELECT id FROM channels)");
+        q.exec("SELECT changes()");
+        int favOrphans = q.next() ? q.value(0).toInt() : 0;
+        results["favorites_orphaned"] = favOrphans;
+        totalCleaned += favOrphans;
+    }
+
+    // 3. Remove orphaned history (channel no longer exists)
+    {
+        QSqlQuery q(db);
+        q.exec("DELETE FROM history WHERE channel_id != 0 AND channel_id NOT IN (SELECT id FROM channels)");
+        q.exec("SELECT changes()");
+        int histOrphans = q.next() ? q.value(0).toInt() : 0;
+        results["history_orphaned"] = histOrphans;
+        totalCleaned += histOrphans;
+    }
+
+    // 4. Remove channels from disabled servers
+    {
+        QSqlQuery q(db);
+        q.exec("DELETE FROM channels WHERE server_id IN (SELECT id FROM servers WHERE enabled = 0)");
+        q.exec("SELECT changes()");
+        int disabledCh = q.next() ? q.value(0).toInt() : 0;
+        results["disabled_server_channels"] = disabledCh;
+        totalCleaned += disabledCh;
+    }
+
+    // 5. Prune logo cache (older than 30 days or exceeding max size)
+    if (logoCache_) {
+        auto maxMb = settingsRepo_ ? settingsRepo_->getInt(QStringLiteral("logo_cache_max_mb"), 500) : 500;
+        logoCache_->pruneExpired(30, static_cast<qint64>(maxMb) * 1024 * 1024);
+        results["logo_cache_pruned"] = true;
+    }
+
+    // 6. Clear series cache for disabled servers
+    if (seriesCacheRepo_) {
+        QSqlQuery q(db);
+        q.exec("SELECT id FROM servers WHERE enabled = 0");
+        while (q.next()) {
+            seriesCacheRepo_->removeByServer(q.value(0).toLongLong());
+        }
+        results["series_cache_cleaned"] = true;
+    }
+
+    // 7. VACUUM and ANALYZE
+    {
+        QSqlQuery q(db);
+        q.exec("ANALYZE");
+        results["analyzed"] = true;
+    }
+    // VACUUM cannot run inside a transaction, run separately
+    if (totalCleaned > 100) {
+        QSqlQuery q(db);
+        q.exec("VACUUM");
+        results["vacuumed"] = true;
+    }
+
+    // Store last maintenance timestamp
+    if (settingsRepo_) {
+        settingsRepo_->set(QStringLiteral("last_maintenance"),
+                           static_cast<int>(QDateTime::currentSecsSinceEpoch()));
+    }
+
+    results["total_cleaned"] = totalCleaned;
+    qWarning() << "Maintenance completed:" << results;
+    return results;
 }

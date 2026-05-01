@@ -2,10 +2,15 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import QtQuick.Window
 import app.iptvxs
 
 Item {
     id: logView
+
+    function focusPrimary() {
+        logList.forceActiveFocus()
+    }
 
     ColumnLayout {
         anchors.fill: parent
@@ -40,6 +45,7 @@ Item {
                     spacing: Theme.spacingXs
 
                     Repeater {
+                        id: filterRepeater
                         model: [
                             { label: "All", value: "" },
                             { label: "Info", value: "INFO" },
@@ -49,6 +55,7 @@ Item {
                         ]
 
                         Rectangle {
+                            id: filterButton
                             width: filterLbl.implicitWidth + Theme.spacingMd * 2
                             height: 28
                             radius: 14
@@ -62,6 +69,8 @@ Item {
                                 return current === modelData.value ? Theme.accent : "transparent"
                             }
                             border.width: 1
+                            focus: false
+                            activeFocusOnTab: true
 
                             property bool filterHov: false
 
@@ -89,17 +98,50 @@ Item {
                                         appViewModel.log.filterLevel = modelData.value
                                 }
                             }
+
+                            Keys.onLeftPressed: {
+                                if (index > 0) {
+                                    var prev = filterRepeater.itemAt(index - 1)
+                                    if (prev) prev.forceActiveFocus()
+                                }
+                            }
+                            Keys.onRightPressed: {
+                                if (index < filterRepeater.count - 1) {
+                                    var next = filterRepeater.itemAt(index + 1)
+                                    if (next) next.forceActiveFocus()
+                                } else if (clearButton) {
+                                    clearButton.forceActiveFocus()
+                                }
+                            }
+                            Keys.onDownPressed: {
+                                if (logList) logList.forceActiveFocus()
+                            }
+                            Keys.onReturnPressed: {
+                                if (appViewModel)
+                                    appViewModel.log.filterLevel = modelData.value
+                            }
+                            Keys.onEnterPressed: Keys.onReturnPressed(event)
+                            Keys.onPressed: function(event) {
+                                if (event.key === Qt.Key_Select || event.key === Qt.Key_Space) {
+                                    if (appViewModel)
+                                        appViewModel.log.filterLevel = modelData.value
+                                    event.accepted = true
+                                }
+                            }
                         }
                     }
                 }
 
                 Rectangle {
+                    id: clearButton
                     Layout.preferredWidth: 60
                     Layout.preferredHeight: 28
                     radius: 14
-                    color: clearHov ? Theme.error : Theme.surfaceElevated
+                    color: clearHov || clearButton.activeFocus ? Theme.error : Theme.surfaceElevated
                     border.color: Theme.surfaceBorder
                     border.width: 1
+                    focus: false
+                    activeFocusOnTab: true
                     property bool clearHov: false
 
                     Text {
@@ -117,6 +159,24 @@ Item {
                         onExited: parent.clearHov = false
                         onClicked: { if (appViewModel) appViewModel.log.clear() }
                     }
+
+                    Keys.onLeftPressed: {
+                        if (filterRepeater.count > 0) {
+                            var last = filterRepeater.itemAt(filterRepeater.count - 1)
+                            if (last) last.forceActiveFocus()
+                        }
+                    }
+                    Keys.onDownPressed: {
+                        if (logList) logList.forceActiveFocus()
+                    }
+                    Keys.onReturnPressed: { if (appViewModel) appViewModel.log.clear() }
+                    Keys.onEnterPressed: Keys.onReturnPressed(event)
+                    Keys.onPressed: function(event) {
+                        if (event.key === Qt.Key_Select || event.key === Qt.Key_Space) {
+                            if (appViewModel) appViewModel.log.clear()
+                            event.accepted = true
+                        }
+                    }
                 }
             }
         }
@@ -128,6 +188,17 @@ Item {
             clip: true
             model: appViewModel ? appViewModel.log : null
             spacing: 1
+            keyNavigationEnabled: true
+
+            Keys.onLeftPressed: {
+                if (Window.window && Window.window.focusSidebar) Window.window.focusSidebar()
+            }
+            Keys.onUpPressed: {
+                if (filterRepeater.count > 0) {
+                    var first = filterRepeater.itemAt(0)
+                    if (first) first.forceActiveFocus()
+                }
+            }
 
             ScrollBar.vertical: ScrollBar {
                 active: true

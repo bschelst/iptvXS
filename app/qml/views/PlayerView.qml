@@ -11,9 +11,12 @@ Item {
     property string channelName: ""
     property string channelLogo: ""
     property bool videoFullscreen: appViewModel ? appViewModel.videoFullscreen : false
+    property string pendingCastUrl: ""
+    property string pendingCastName: ""
+    property string pendingCastCt: ""
 
     function visibleControlButtons() {
-        var buttons = [playPauseBtn, stopBtn, favBtn, recBtn, ccBtn, audioBtn, stretchBtn, fullscreenBtn]
+        var buttons = [playPauseBtn, stopBtn, favBtn, recBtn, castBtn, ccBtn, audioBtn, episodeBtn, muteBtn, stretchBtn, fullscreenBtn]
         var visibleButtons = []
         for (var i = 0; i < buttons.length; i++) {
             if (buttons[i] && buttons[i].visible)
@@ -317,6 +320,94 @@ Item {
                     }
 
                     Rectangle {
+                        id: castBtn
+                        visible: appViewModel ? appViewModel.chromecastEnabled : true
+                        width: 44
+                        height: 44
+                        radius: Theme.borderRadius
+                        color: castBtnHov ? "#40ffffff" : "transparent"
+                        property bool castBtnHov: false
+                        property bool isCasting: appViewModel && appViewModel.chromecast.connected
+                        activeFocusOnTab: true
+                        border.width: activeFocus ? 2 : 0
+                        border.color: Theme.accent
+                        Keys.onReturnPressed: castBtnArea.clicked(null)
+                        Keys.onEnterPressed: castBtnArea.clicked(null)
+
+                        Canvas {
+                            id: castCanvas
+                            anchors.centerIn: parent
+                            width: 24
+                            height: 20
+                            antialiasing: true
+                            property bool casting: castBtn.isCasting
+                            onCastingChanged: requestPaint()
+                            Component.onCompleted: requestPaint()
+
+                            onPaint: {
+                                var ctx = getContext("2d")
+                                ctx.reset()
+                                ctx.strokeStyle = casting ? Theme.accent : "#ffffff"
+                                ctx.fillStyle = casting ? Theme.accent : "#ffffff"
+                                ctx.lineWidth = 1.6
+                                ctx.lineCap = "round"
+
+                                // TV/monitor outline (rounded rect, open bottom-left)
+                                ctx.beginPath()
+                                ctx.moveTo(1, 16)
+                                ctx.lineTo(1, 3)
+                                ctx.quadraticCurveTo(1, 1, 3, 1)
+                                ctx.lineTo(21, 1)
+                                ctx.quadraticCurveTo(23, 1, 23, 3)
+                                ctx.lineTo(23, 16)
+                                ctx.quadraticCurveTo(23, 18, 21, 18)
+                                ctx.lineTo(15, 18)
+                                ctx.stroke()
+
+                                // Cast waves (bottom-left corner)
+                                ctx.beginPath()
+                                ctx.arc(1, 18, 2, -Math.PI/2, 0)
+                                ctx.stroke()
+
+                                ctx.beginPath()
+                                ctx.arc(1, 18, 6, -Math.PI/2, 0)
+                                ctx.stroke()
+
+                                ctx.beginPath()
+                                ctx.arc(1, 18, 10, -Math.PI/2, 0)
+                                ctx.stroke()
+
+                                // Filled dot at origin when casting
+                                if (casting) {
+                                    ctx.beginPath()
+                                    ctx.arc(2, 17, 1.5, 0, 2 * Math.PI)
+                                    ctx.fill()
+                                }
+                            }
+                        }
+
+                        MouseArea {
+                            id: castBtnArea
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onEntered: castBtn.castBtnHov = true
+                            onExited: castBtn.castBtnHov = false
+                            onClicked: {
+                                castBtn.forceActiveFocus()
+                                if (appViewModel && appViewModel.chromecast.connected) {
+                                    castStopPopup.visible = !castStopPopup.visible
+                                    castDevicePopup.visible = false
+                                } else if (appViewModel) {
+                                    appViewModel.chromecast.startDiscovery()
+                                    castDevicePopup.visible = !castDevicePopup.visible
+                                    castStopPopup.visible = false
+                                }
+                            }
+                        }
+                    }
+
+                    Rectangle {
                         width: 1; height: 28; color: "#40ffffff"
                         visible: ccBtn.visible
                     }
@@ -358,6 +449,7 @@ Item {
                     }
 
                     Rectangle {
+                        id: muteBtn
                         width: 44
                         height: 44
                         radius: Theme.borderRadius
@@ -367,6 +459,11 @@ Item {
                         }
                         property bool muteHov: false
                         readonly property bool isMuted: appViewModel ? appViewModel.player.muted : false
+                        activeFocusOnTab: true
+                        border.width: activeFocus ? 2 : 0
+                        border.color: Theme.accent
+                        Keys.onReturnPressed: muteBtnArea.clicked(null)
+                        Keys.onEnterPressed: muteBtnArea.clicked(null)
 
                         Canvas {
                             id: speakerCanvas
@@ -418,12 +515,14 @@ Item {
                         }
 
                         MouseArea {
+                            id: muteBtnArea
                             anchors.fill: parent
                             hoverEnabled: true
                             cursorShape: Qt.PointingHandCursor
-                            onEntered: parent.muteHov = true
-                            onExited: parent.muteHov = false
+                            onEntered: muteBtn.muteHov = true
+                            onExited: muteBtn.muteHov = false
                             onClicked: {
+                                muteBtn.forceActiveFocus()
                                 if (appViewModel) {
                                     var newMuted = !appViewModel.player.muted
                                     appViewModel.player.muted = newMuted
@@ -437,7 +536,9 @@ Item {
                         Layout.preferredWidth: 100
                         from: 0
                         to: 100
+                        stepSize: 5
                         value: appViewModel ? appViewModel.player.volume : 100
+                        focusPolicy: Qt.NoFocus
 
                         onMoved: {
                             if (appViewModel) appViewModel.player.volume = value
@@ -940,6 +1041,7 @@ Item {
         Rectangle {
             id: audioTrackPopup
             visible: false
+            focus: visible
             anchors.right: parent.right
             anchors.bottom: parent.bottom
             anchors.bottomMargin: 80
@@ -948,15 +1050,38 @@ Item {
             height: Math.min(audioTrackCol.implicitHeight + Theme.spacingMd * 2, 350)
             radius: Theme.borderRadiusLarge
             color: "#e0202020"
+            property int audioTrackFocusIndex: 0
 
             onVisibleChanged: {
                 if (visible) {
                     if (appViewModel) appViewModel.player.refreshAudioTracks()
+                    Qt.callLater(function() {
+                        if (audioTrackRepeater.count > 0) {
+                            audioTrackFocusIndex = 0
+                            var item = audioTrackRepeater.itemAt(0)
+                            if (item) item.forceActiveFocus()
+                        }
+                    })
                 }
             }
             border.color: "#40ffffff"
             border.width: 1
             z: 50
+
+            Keys.onEscapePressed: audioTrackPopup.visible = false
+            Keys.onPressed: function(event) {
+                if (event.key === Qt.Key_Back || event.key === Qt.Key_B || event.key === Qt.Key_Delete) {
+                    audioTrackPopup.visible = false
+                    event.accepted = true
+                }
+            }
+
+            function focusAudioTrackAt(idx) {
+                idx = Math.max(0, Math.min(audioTrackRepeater.count - 1, idx))
+                audioTrackFocusIndex = idx
+                var item = audioTrackRepeater.itemAt(idx)
+                if (item) item.forceActiveFocus()
+            }
 
             Flickable {
                 anchors.fill: parent
@@ -985,6 +1110,7 @@ Item {
                     Rectangle { Layout.fillWidth: true; height: 1; color: "#40ffffff" }
 
                     Repeater {
+                        id: audioTrackRepeater
                         model: appViewModel ? appViewModel.player.audioTracks : []
 
                         Rectangle {
@@ -992,10 +1118,12 @@ Item {
                             height: 36
                             radius: 4
                             color: modelData.selected ? Theme.accent
-                                                     : atHov ? "#30ffffff"
+                                                     : (atHov || activeFocus) ? "#30ffffff"
                                                               : "#15ffffff"
                             border.width: 0
                             property bool atHov: false
+                            focus: false
+                            activeFocusOnTab: true
 
                             Behavior on color { ColorAnimation { duration: 150 } }
 
@@ -1038,8 +1166,282 @@ Item {
                                     audioTrackPopup.visible = false
                                 }
                             }
+
+                            onActiveFocusChanged: parent.atHov = activeFocus
+
+                            Keys.onReturnPressed: {
+                                if (appViewModel) appViewModel.player.selectAudioTrack(modelData.id)
+                                audioTrackPopup.visible = false
+                            }
+                            Keys.onEnterPressed: Keys.onReturnPressed(event)
+                            Keys.onUpPressed: audioTrackPopup.focusAudioTrackAt(index - 1)
+                            Keys.onDownPressed: audioTrackPopup.focusAudioTrackAt(index + 1)
+                            Keys.onPressed: function(event) {
+                                if (event.key === Qt.Key_Select || event.key === Qt.Key_Space) {
+                                    Keys.onReturnPressed(event)
+                                    event.accepted = true
+                                }
+                            }
                         }
                     }
+                }
+            }
+        }
+
+        // --- Chromecast device picker popup ---
+        Rectangle {
+            id: castDevicePopup
+            visible: false
+            focus: visible
+            anchors.right: parent.right
+            anchors.bottom: controlsOverlay.top
+            anchors.rightMargin: Theme.spacingLg
+            anchors.bottomMargin: Theme.spacingSm
+            width: 280
+            height: castDeviceCol.implicitHeight + Theme.spacingMd * 2
+            radius: Theme.borderRadiusLarge
+            color: "#e0202020"
+            border.color: "#40ffffff"
+            border.width: 1
+            z: 50
+            property int castDeviceFocusIndex: 0
+
+            onVisibleChanged: {
+                if (visible) {
+                    Qt.callLater(function() {
+                        if (castDeviceRepeater.count > 0) {
+                            castDeviceFocusIndex = 0
+                            var item = castDeviceRepeater.itemAt(0)
+                            if (item) item.forceActiveFocus()
+                        }
+                    })
+                }
+            }
+
+            Keys.onEscapePressed: castDevicePopup.visible = false
+            Keys.onPressed: function(event) {
+                if (event.key === Qt.Key_Back || event.key === Qt.Key_B || event.key === Qt.Key_Delete) {
+                    castDevicePopup.visible = false
+                    event.accepted = true
+                }
+            }
+
+            function focusDeviceAt(idx) {
+                idx = Math.max(0, Math.min(castDeviceRepeater.count - 1, idx))
+                castDeviceFocusIndex = idx
+                var item = castDeviceRepeater.itemAt(idx)
+                if (item) item.forceActiveFocus()
+            }
+
+            ColumnLayout {
+                id: castDeviceCol
+                anchors.fill: parent
+                anchors.margins: Theme.spacingMd
+                spacing: Theme.spacingSm
+
+                Text {
+                    text: "Cast to device"
+                    font.pixelSize: Theme.fontSizeSm
+                    font.bold: true
+                    color: "#ffffff"
+                }
+
+                Rectangle { Layout.fillWidth: true; height: 1; color: "#40ffffff" }
+
+                BusyIndicator {
+                    Layout.alignment: Qt.AlignHCenter
+                    width: 24; height: 24
+                    running: castDevicePopup.visible
+                    visible: appViewModel ? appViewModel.chromecast.devices.length === 0 : true
+                }
+
+                Text {
+                    visible: appViewModel ? appViewModel.chromecast.devices.length === 0 : true
+                    text: "Searching for Chromecast devices..."
+                    font.pixelSize: Theme.fontSizeXs
+                    color: "#80ffffff"
+                    font.italic: true
+                    Layout.alignment: Qt.AlignHCenter
+                }
+
+                Repeater {
+                    id: castDeviceRepeater
+                    model: appViewModel ? appViewModel.chromecast.devices : []
+
+                    Rectangle {
+                        Layout.fillWidth: true
+                        height: 40
+                        radius: 6
+                        color: (castDevHov || activeFocus) ? "#30ffffff" : "#15ffffff"
+                        property bool castDevHov: false
+                        focus: false
+                        activeFocusOnTab: true
+
+                        Behavior on color { ColorAnimation { duration: 150 } }
+
+                        RowLayout {
+                            anchors.fill: parent
+                            anchors.leftMargin: 10
+                            anchors.rightMargin: 10
+                            spacing: 8
+
+                            Text {
+                                text: "📺"
+                                font.pixelSize: 16
+                            }
+
+                            Text {
+                                text: modelData.name || "Chromecast"
+                                font.pixelSize: Theme.fontSizeSm
+                                color: "#ffffff"
+                                elide: Text.ElideRight
+                                Layout.fillWidth: true
+                            }
+                        }
+
+                        MouseArea {
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onEntered: parent.castDevHov = true
+                            onExited: parent.castDevHov = false
+                            onClicked: {
+                                if (appViewModel) {
+                                    // Capture URL before stopping player
+                                    playerView.pendingCastUrl = appViewModel.player.currentUrl()
+                                    playerView.pendingCastName = appViewModel.player.channelName
+                                    playerView.pendingCastCt = appViewModel.player.isLive ? "video/mp2t" : "video/mp4"
+                                    appViewModel.chromecast.connectToDevice(index)
+                                    castDevicePopup.visible = false
+                                    castConnectTimer.start()
+                                }
+                            }
+                        }
+
+                        onActiveFocusChanged: parent.castDevHov = activeFocus
+
+                        Keys.onReturnPressed: {
+                            if (appViewModel) {
+                                playerView.pendingCastUrl = appViewModel.player.currentUrl()
+                                playerView.pendingCastName = appViewModel.player.channelName
+                                playerView.pendingCastCt = appViewModel.player.isLive ? "video/mp2t" : "video/mp4"
+                                appViewModel.chromecast.connectToDevice(index)
+                                castDevicePopup.visible = false
+                                castConnectTimer.start()
+                            }
+                        }
+                        Keys.onEnterPressed: Keys.onReturnPressed(event)
+                        Keys.onUpPressed: castDevicePopup.focusDeviceAt(index - 1)
+                        Keys.onDownPressed: castDevicePopup.focusDeviceAt(index + 1)
+                        Keys.onPressed: function(event) {
+                            if (event.key === Qt.Key_Select || event.key === Qt.Key_Space) {
+                                Keys.onReturnPressed(event)
+                                event.accepted = true
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // --- Simple stop casting popup ---
+        Rectangle {
+            id: castStopPopup
+            visible: false
+            focus: visible
+            anchors.right: parent.right
+            anchors.bottom: controlsOverlay.top
+            anchors.rightMargin: Theme.spacingLg
+            anchors.bottomMargin: Theme.spacingSm
+            width: 220
+            height: castStopCol.implicitHeight + Theme.spacingMd * 2
+            radius: Theme.borderRadiusLarge
+            color: "#e0202020"
+            border.color: "#40ffffff"
+            border.width: 1
+            z: 50
+            Keys.onEscapePressed: castStopPopup.visible = false
+            Keys.onPressed: function(event) {
+                if (event.key === Qt.Key_Back || event.key === Qt.Key_B || event.key === Qt.Key_Delete) {
+                    castStopPopup.visible = false
+                    event.accepted = true
+                }
+            }
+
+            ColumnLayout {
+                id: castStopCol
+                anchors.fill: parent
+                anchors.margins: Theme.spacingMd
+                spacing: Theme.spacingSm
+
+                Text {
+                    text: "Casting to " + (appViewModel ? appViewModel.chromecast.connectedDeviceName : "")
+                    font.pixelSize: Theme.fontSizeSm
+                    font.bold: true
+                    color: "#ffffff"
+                    elide: Text.ElideRight
+                    Layout.fillWidth: true
+                }
+
+                Rectangle { Layout.fillWidth: true; height: 1; color: "#40ffffff" }
+
+                Rectangle {
+                    Layout.fillWidth: true
+                    height: 36
+                    radius: 6
+                    color: (castStopBtnHov || activeFocus) ? Theme.error : "#20ffffff"
+                    property bool castStopBtnHov: false
+
+                    Text {
+                        anchors.centerIn: parent
+                        text: "Stop casting"
+                        font.pixelSize: Theme.fontSizeSm
+                        color: "#ffffff"
+                    }
+
+                    MouseArea {
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onEntered: parent.castStopBtnHov = true
+                        onExited: parent.castStopBtnHov = false
+                        onClicked: {
+                            if (appViewModel) {
+                                appViewModel.chromecast.stopMedia()
+                                appViewModel.chromecast.disconnect()
+                                castStopPopup.visible = false
+                            }
+                        }
+                    }
+
+                    onActiveFocusChanged: parent.castStopBtnHov = activeFocus
+
+                    Keys.onReturnPressed: {
+                        if (appViewModel) {
+                            appViewModel.chromecast.stopMedia()
+                            appViewModel.chromecast.disconnect()
+                            castStopPopup.visible = false
+                        }
+                    }
+                    Keys.onEnterPressed: Keys.onReturnPressed(event)
+                    Keys.onPressed: function(event) {
+                        if (event.key === Qt.Key_Select || event.key === Qt.Key_Space) {
+                            Keys.onReturnPressed(event)
+                            event.accepted = true
+                        }
+                    }
+                }
+            }
+        }
+
+        Timer {
+            id: castConnectTimer
+            interval: 2000
+            onTriggered: {
+                if (appViewModel && appViewModel.chromecast.connected && playerView.pendingCastUrl) {
+                    appViewModel.player.stop()
+                    appViewModel.chromecast.castMedia(playerView.pendingCastUrl, playerView.pendingCastName, playerView.pendingCastCt)
+                    playerView.pendingCastUrl = ""
                 }
             }
         }
@@ -1253,6 +1655,16 @@ Item {
     }
 
     Connections {
+        target: appViewModel ? appViewModel.chromecast : null
+        function onCastError(message) {
+            console.warn("Cast error:", message)
+        }
+        function onCastStarted() {
+            console.log("Cast started successfully")
+        }
+    }
+
+    Connections {
         target: appViewModel ? appViewModel.player : null
         function onEpgChannelIdChanged() {
             topOverlay.refreshEpg()
@@ -1294,8 +1706,11 @@ Item {
     Keys.onSpacePressed: { if (appViewModel) appViewModel.player.togglePause(); showControls() }
     Keys.onLeftPressed: {
         var focusedIdx = focusedControlIndex()
-        if (focusedIdx >= 0) {
+        if (focusedIdx > 0) {
             focusControlButton(focusedIdx - 1)
+        } else if (focusedIdx === 0 && !videoFullscreen) {
+            var win = playerView.Window.window
+            if (win && win.focusSidebar) win.focusSidebar()
         } else if (appViewModel) {
             appViewModel.player.seek(Math.max(0, appViewModel.player.position - 10))
             showControls()
@@ -1333,8 +1748,11 @@ Item {
             showControls()
         } else if (event.key === Qt.Key_F) {
             toggleVideoFullscreen()
-        } else if (event.key === Qt.Key_Escape && videoFullscreen) {
-            toggleVideoFullscreen()
+        } else if (event.key === Qt.Key_Escape || event.key === Qt.Key_Back) {
+            goBack()
+            event.accepted = true
+        } else if (event.key === Qt.Key_B && focusedControlIndex() < 0) {
+            goBack()
             event.accepted = true
         }
     }
@@ -1390,5 +1808,11 @@ Item {
 
         Keys.onReturnPressed: playerBtn.clicked()
         Keys.onEnterPressed: playerBtn.clicked()
+        Keys.onPressed: function(event) {
+            if (event.key === Qt.Key_Select || event.key === Qt.Key_Space) {
+                playerBtn.clicked()
+                event.accepted = true
+            }
+        }
     }
 }
