@@ -138,6 +138,9 @@ Dialog {
                                 serverType = modelData.value
                                 if (nameField) nameField.forceActiveFocus()
                                 event.accepted = true
+                            } else if (event.key === Qt.Key_B || event.key === Qt.Key_Escape) {
+                                dialog.close()
+                                event.accepted = true
                             }
                         }
 
@@ -159,6 +162,7 @@ Dialog {
                 placeholderText: "Server Name"
                 nextItem: urlField
                 prevItem: firstTypeOption
+                escapeAction: function() { dialog.close() }
             }
 
             StyledTextField {
@@ -169,6 +173,7 @@ Dialog {
                     : "http://example.com/playlist.m3u"
                 nextItem: usernameField.visible ? usernameField : epgUrlField
                 prevItem: nameField
+                escapeAction: function() { dialog.close() }
             }
 
             StyledTextField {
@@ -178,6 +183,7 @@ Dialog {
                 placeholderText: "Username"
                 nextItem: passwordField
                 prevItem: urlField
+                escapeAction: function() { dialog.close() }
             }
 
             StyledTextField {
@@ -188,6 +194,7 @@ Dialog {
                 echoMode: TextInput.Password
                 nextItem: epgUrlField
                 prevItem: usernameField
+                escapeAction: function() { dialog.close() }
             }
 
             StyledTextField {
@@ -196,6 +203,7 @@ Dialog {
                 placeholderText: "EPG URL (optional, XMLTV format)"
                 nextItem: cancelButton
                 prevItem: passwordField.visible ? passwordField : urlField
+                escapeAction: function() { dialog.close() }
             }
         }
     }
@@ -218,16 +226,16 @@ Dialog {
 
             Item { Layout.fillWidth: true }
 
-            Rectangle {
-                id: cancelButton
-                Layout.preferredWidth: cancelText.width + Theme.spacingLg * 2
-                Layout.preferredHeight: 36
-                radius: Theme.borderRadius
-                color: cancelHovered || cancelButton.activeFocus ? Theme.surfaceHover : "transparent"
-                border.color: Theme.surfaceBorder
-                border.width: 1
-                focus: false
-                activeFocusOnTab: true
+                Rectangle {
+                    id: cancelButton
+                    Layout.preferredWidth: cancelText.width + Theme.spacingLg * 2
+                    Layout.preferredHeight: 36
+                    radius: Theme.borderRadius
+                    color: cancelHovered || cancelButton.activeFocus ? Theme.surfaceHover : "transparent"
+                    border.color: Theme.surfaceBorder
+                    border.width: 1
+                    focus: false
+                    activeFocusOnTab: true
 
                 property bool cancelHovered: false
 
@@ -265,9 +273,9 @@ Dialog {
                 }
             }
 
-            Rectangle {
-                id: addButton
-                Layout.preferredWidth: addText.width + Theme.spacingLg * 2
+                Rectangle {
+                    id: addButton
+                    Layout.preferredWidth: addText.width + Theme.spacingLg * 2
                 Layout.preferredHeight: 36
                 radius: Theme.borderRadius
                 color: addHovered || addButton.activeFocus ? Theme.accentHover : Theme.accent

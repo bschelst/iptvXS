@@ -181,6 +181,11 @@ ApplicationWindow {
             } else {
                 viewLoader.setSource(src)
             }
+            Qt.callLater(function() {
+                if (!sidebar.activeFocus) {
+                    focusCurrentViewPrimary()
+                }
+            })
             if (sidebar.activeFocus) {
                 focusContentTimer.stop()
             } else {
@@ -218,6 +223,7 @@ ApplicationWindow {
     Rectangle {
         id: videoContainer
         visible: _playing
+        focus: pipMode
         z: _inPlayer ? 0 : (pipMode ? 1000 : -1)
         color: "#000000"
         clip: pipMode

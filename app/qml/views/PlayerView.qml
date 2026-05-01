@@ -89,6 +89,18 @@ Item {
         return map[code.toLowerCase()] || code.toUpperCase()
     }
 
+    function formatBitrate(bytesPerSecond) {
+        if (!bytesPerSecond || bytesPerSecond <= 0) return ""
+        var mbps = bytesPerSecond * 8 / 1000000.0
+        if (mbps >= 10) return mbps.toFixed(0) + " Mb/s"
+        return mbps.toFixed(1) + " Mb/s"
+    }
+
+    function formatResolution(height) {
+        if (!height || height <= 0) return ""
+        return height + "p"
+    }
+
     Rectangle {
         anchors.fill: parent
         color: "transparent"
@@ -702,8 +714,8 @@ Item {
                         anchors.centerIn: parent
                         width: parent.width
                         text: "Now: " + topOverlay.epgNowText
-                        font.pixelSize: Theme.fontSizeSm
-                        color: "#ccffffff"
+                        font.pixelSize: Theme.fontSizeMd
+                        color: "#ffffff"
                         elide: Text.ElideRight
                         horizontalAlignment: Text.AlignHCenter
                         opacity: topOverlay.epgShowNext ? 0.0 : 1.0
@@ -720,8 +732,8 @@ Item {
                             if (topOverlay.epgNextTime) t += " (" + topOverlay.epgNextTime + ")"
                             return t
                         }
-                        font.pixelSize: Theme.fontSizeSm
-                        color: "#aaffffff"
+                        font.pixelSize: Theme.fontSizeMd
+                        color: "#ffffff"
                         elide: Text.ElideRight
                         horizontalAlignment: Text.AlignHCenter
                         opacity: topOverlay.epgShowNext ? 1.0 : 0.0
@@ -734,11 +746,79 @@ Item {
                     visible: !topOverlay.epgInfoVisible
                 }
 
+                Rectangle {
+                    visible: appViewModel && (appViewModel.player.cacheSpeed > 0 || appViewModel.player.videoBitrate > 0 || appViewModel.player.videoHeight > 0)
+                    Layout.preferredHeight: 22
+                    Layout.preferredWidth: metricsRow.implicitWidth + Theme.spacingSm * 2
+                    radius: 11
+                    color: Qt.rgba(255, 255, 255, 0.10)
+                    border.width: 1
+                    border.color: Qt.rgba(255, 255, 255, 0.18)
+
+                    Row {
+                        id: metricsRow
+                        anchors.centerIn: parent
+                        spacing: Theme.spacingXs
+
+                        Text {
+                            visible: appViewModel && appViewModel.player.cacheSpeed > 0
+                            text: appViewModel ? playerView.formatBitrate(appViewModel.player.cacheSpeed) : ""
+                            font.pixelSize: 10
+                            font.bold: true
+                            color: "#ffffff"
+                        }
+
+                        Rectangle {
+                            visible: appViewModel && appViewModel.player.cacheSpeed > 0
+                                     && appViewModel.player.videoBitrate > 0
+                            width: 1
+                            height: 10
+                            radius: 0.5
+                            color: Qt.rgba(255, 255, 255, 0.30)
+                            anchors.verticalCenter: parent.verticalCenter
+                        }
+
+                        Text {
+                            visible: appViewModel && appViewModel.player.videoBitrate > 0
+                            text: appViewModel ? playerView.formatBitrate(appViewModel.player.videoBitrate) : ""
+                            font.pixelSize: 10
+                            font.bold: true
+                            color: "#ffffff"
+                        }
+
+                        Rectangle {
+                            visible: appViewModel && ((appViewModel.player.cacheSpeed > 0 || appViewModel.player.videoBitrate > 0) && appViewModel.player.videoHeight > 0)
+                            width: 1
+                            height: 10
+                            radius: 0.5
+                            color: Qt.rgba(255, 255, 255, 0.30)
+                            anchors.verticalCenter: parent.verticalCenter
+                        }
+
+                        Text {
+                            visible: appViewModel && appViewModel.player.videoHeight > 0
+                            text: appViewModel ? playerView.formatResolution(appViewModel.player.videoHeight) : ""
+                            font.pixelSize: 10
+                            font.bold: true
+                            color: "#ffffff"
+                        }
+                    }
+                }
+
+                Rectangle {
+                    visible: appViewModel && (appViewModel.player.cacheSpeed > 0 || appViewModel.player.videoBitrate > 0)
+                    Layout.preferredWidth: 1
+                    Layout.preferredHeight: 12
+                    radius: 0.5
+                    color: Qt.rgba(255, 255, 255, 0.25)
+                }
+
                 Text {
                     id: clockText
                     text: Qt.formatTime(new Date(), "HH:mm")
                     font.pixelSize: Theme.fontSizeMd
-                    color: "#ccffffff"
+                    font.bold: true
+                    color: "#ffffff"
                 }
             }
         }
@@ -1699,7 +1779,14 @@ Item {
         }
         if (appViewModel) {
             appViewModel.player.stop()
-            appViewModel.currentView = appViewModel.previousView()
+            var prev = appViewModel.previousView()
+            appViewModel.currentView = prev
+            Qt.callLater(function() {
+                var w = playerView.Window.window
+                if (w && w.focusCurrentViewPrimary) {
+                    w.focusCurrentViewPrimary()
+                }
+            })
         }
     }
 

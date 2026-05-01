@@ -1,6 +1,8 @@
 // iptvXS Project - Schelstraete Bart - https://iptvxs.schelstraete.org
 #include "group_list_viewmodel.h"
 
+#include <QStringList>
+
 GroupListViewModel::GroupListViewModel(QObject *parent)
     : QAbstractListModel(parent) {}
 
@@ -46,6 +48,7 @@ QVariant GroupListViewModel::data(const QModelIndex &index, int role) const {
     switch (role) {
     case IdRole: return QVariant::fromValue(g.id);
     case NameRole: return g.name;
+    case TypeRole: return g.kind;
     case PositionRole: return g.position;
     case MemberCountRole:
         return repo_ ? repo_->memberCount(g.id) : 0;
@@ -57,6 +60,7 @@ QHash<int, QByteArray> GroupListViewModel::roleNames() const {
     return {
         {IdRole, "groupId"},
         {NameRole, "name"},
+        {TypeRole, "kind"},
         {PositionRole, "position"},
         {MemberCountRole, "memberCount"},
         {ChannelIdRole, "channelId"},
@@ -98,9 +102,20 @@ void GroupListViewModel::refresh() {
     }
 }
 
-void GroupListViewModel::createGroup(const QString &name) {
-    if (!repo_ || name.trimmed().isEmpty()) return;
-    repo_->createGroup(name.trimmed());
+qint64 GroupListViewModel::createGroup(const QString &name, const QString &kind,
+                                       const QString &filterScope, const QString &filterField,
+                                       const QString &filterOperator, const QString &filterValue) {
+    if (!repo_ || name.trimmed().isEmpty()) return 0;
+    return repo_->createGroup(name.trimmed(), kind, filterScope, filterField, filterOperator,
+                              filterValue);
+}
+
+bool GroupListViewModel::updateGroup(int64_t groupId, const QString &name, const QString &kind,
+                                     const QString &filterScope, const QString &filterField,
+                                     const QString &filterOperator, const QString &filterValue) {
+    if (!repo_ || groupId <= 0 || name.trimmed().isEmpty()) return false;
+    return repo_->updateGroup(groupId, name.trimmed(), kind, filterScope, filterField,
+                              filterOperator, filterValue);
 }
 
 void GroupListViewModel::renameGroup(int64_t groupId, const QString &name) {
@@ -144,6 +159,65 @@ QString GroupListViewModel::groupNameAt(int index) const {
     return groups_.at(index).name;
 }
 
+QString GroupListViewModel::groupTypeAt(int index) const {
+    if (index < 0 || index >= groups_.size()) return QStringLiteral("static");
+    return groups_.at(index).kind;
+}
+
+QString GroupListViewModel::groupSummaryAt(int index) const {
+    if (index < 0 || index >= groups_.size()) return {};
+    const auto &g = groups_.at(index);
+    if (g.kind != QLatin1String("dynamic")) {
+        return {};
+    }
+    QStringList parts;
+    if (g.filterScope != QLatin1String("any")) {
+        parts.append(g.filterScope);
+    } else {
+        parts.append(QStringLiteral("all"));
+    }
+    QString op;
+    if (g.filterOperator == QLatin1String("not_contains")) {
+        op = QStringLiteral("does not contain");
+    } else if (g.filterOperator == QLatin1String("starts_with")) {
+        op = QStringLiteral("starts with");
+    } else if (g.filterOperator == QLatin1String("equals")) {
+        op = QStringLiteral("equals");
+    } else {
+        op = QStringLiteral("contains");
+    }
+    if (g.filterField == QLatin1String("category")) {
+        parts.append(QStringLiteral("category"));
+    } else if (g.filterField == QLatin1String("server")) {
+        parts.append(QStringLiteral("server"));
+    } else {
+        parts.append(QStringLiteral("name"));
+    }
+    parts.append(op);
+    parts.append(QStringLiteral("\"%1\"").arg(g.filterValue));
+    return parts.join(QStringLiteral(" · "));
+}
+
+QString GroupListViewModel::groupFilterScopeAt(int index) const {
+    if (index < 0 || index >= groups_.size()) return QStringLiteral("any");
+    return groups_.at(index).filterScope;
+}
+
+QString GroupListViewModel::groupFilterFieldAt(int index) const {
+    if (index < 0 || index >= groups_.size()) return QStringLiteral("name");
+    return groups_.at(index).filterField;
+}
+
+QString GroupListViewModel::groupFilterOperatorAt(int index) const {
+    if (index < 0 || index >= groups_.size()) return QStringLiteral("contains");
+    return groups_.at(index).filterOperator;
+}
+
+QString GroupListViewModel::groupFilterValueAt(int index) const {
+    if (index < 0 || index >= groups_.size()) return {};
+    return groups_.at(index).filterValue;
+}
+
 int64_t GroupListViewModel::groupIdAt(int index) const {
     if (index < 0 || index >= groups_.size()) return 0;
     return groups_.at(index).id;
@@ -169,6 +243,11 @@ int64_t GroupListViewModel::channelIdAt(int index) const {
     return members_.at(index).channelId;
 }
 
+QString GroupListViewModel::typeAt(int index) const {
+    if (index < 0 || index >= members_.size()) return {};
+    return members_.at(index).channel.type;
+}
+
 void GroupListViewModel::setChannelRepository(iptvxs::ChannelRepository *repo) {
     channelRepo_ = repo;
 }
@@ -185,6 +264,7 @@ QVariantList GroupListViewModel::searchChannels(const QString &query, int limit)
         item["logoUrl"] = ch.logoUrl;
         item["streamUrl"] = ch.streamUrl;
         item["type"] = ch.type;
+        item["categoryId"] = QVariant::fromValue(ch.categoryId);
         results.append(item);
     }
     return results;

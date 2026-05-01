@@ -102,7 +102,9 @@ Item {
     }
     Keys.onLeftPressed: {
         var target = focusTarget()
-        if (target && target.subFocusIndex !== undefined && target.subFocusIndex > 0) {
+        if (target === themeFlow) {
+            if (Window.window && Window.window.focusSidebar) Window.window.focusSidebar()
+        } else if (target && target.subFocusIndex !== undefined && target.subFocusIndex > 0) {
             target.subFocusIndex--
             if (target.activateSubIndex) target.activateSubIndex(target.subFocusIndex)
             focusOverlayTimer.restart()
@@ -2612,12 +2614,15 @@ Item {
                 Item { Layout.fillWidth: true }
 
                 Rectangle {
+                    id: cancelResetBtn
                     Layout.preferredWidth: cancelResetText.implicitWidth + Theme.spacingLg * 2
                     Layout.preferredHeight: 36
                     radius: Theme.borderRadius
                     color: cancelResetHov ? Theme.surfaceHover : "transparent"
                     border.color: Theme.surfaceBorder
                     border.width: 1
+                    focus: false
+                    activeFocusOnTab: true
 
                     property bool cancelResetHov: false
 
@@ -2637,13 +2642,26 @@ Item {
                         onExited: parent.cancelResetHov = false
                         onClicked: resetConfirmDialog.close()
                     }
+
+                    Keys.onReturnPressed: resetConfirmDialog.close()
+                    Keys.onEnterPressed: Keys.onReturnPressed(event)
+                    Keys.onPressed: function(event) {
+                        if (event.key === Qt.Key_Select || event.key === Qt.Key_Space
+                                || event.key === Qt.Key_B || event.key === Qt.Key_Escape) {
+                            resetConfirmDialog.close()
+                            event.accepted = true
+                        }
+                    }
                 }
 
                 Rectangle {
+                    id: confirmResetBtn
                     Layout.preferredWidth: confirmResetText.implicitWidth + Theme.spacingLg * 2
                     Layout.preferredHeight: 36
                     radius: Theme.borderRadius
                     color: confirmResetHov ? Theme.error : Qt.rgba(Theme.error.r, Theme.error.g, Theme.error.b, 0.50)
+                    focus: false
+                    activeFocusOnTab: true
 
                     property bool confirmResetHov: false
 
@@ -2669,8 +2687,32 @@ Item {
                             resetConfirmDialog.close()
                         }
                     }
+
+                    Keys.onReturnPressed: {
+                        if (appViewModel) {
+                            appViewModel.resetDatabase()
+                        }
+                        resetConfirmDialog.close()
+                    }
+                    Keys.onEnterPressed: Keys.onReturnPressed(event)
+                    Keys.onPressed: function(event) {
+                        if (event.key === Qt.Key_Select || event.key === Qt.Key_Space) {
+                            if (appViewModel) {
+                                appViewModel.resetDatabase()
+                            }
+                            resetConfirmDialog.close()
+                            event.accepted = true
+                        } else if (event.key === Qt.Key_B || event.key === Qt.Key_Escape) {
+                            resetConfirmDialog.close()
+                            event.accepted = true
+                        }
+                    }
                 }
             }
+        }
+
+        onOpened: {
+            cancelResetBtn.forceActiveFocus()
         }
 
         Overlay.modal: Rectangle {
@@ -2761,6 +2803,7 @@ Item {
             }
 
             Rectangle {
+                id: gotItButton
                 Layout.alignment: Qt.AlignHCenter
                 Layout.preferredWidth: gotItLabel.implicitWidth + Theme.spacingLg * 3
                 Layout.preferredHeight: 44
@@ -2768,6 +2811,8 @@ Item {
                 color: gotItArea.containsMouse ? Theme.accent : Theme.accentHover
                 border.color: Theme.accent
                 border.width: 1
+                focus: false
+                activeFocusOnTab: true
 
                 Text {
                     id: gotItLabel
@@ -2789,7 +2834,30 @@ Item {
                         appViewModel.openAuthUrlInSteamBrowser(settingsView.pendingAuthUrl)
                     }
                 }
+
+                Keys.onReturnPressed: {
+                    authCountdownTimer.stop()
+                    authHintDialog.close()
+                    appViewModel.openAuthUrlInSteamBrowser(settingsView.pendingAuthUrl)
+                }
+                Keys.onEnterPressed: Keys.onReturnPressed(event)
+                Keys.onPressed: function(event) {
+                    if (event.key === Qt.Key_Select || event.key === Qt.Key_Space) {
+                        authCountdownTimer.stop()
+                        authHintDialog.close()
+                        appViewModel.openAuthUrlInSteamBrowser(settingsView.pendingAuthUrl)
+                        event.accepted = true
+                    } else if (event.key === Qt.Key_B || event.key === Qt.Key_Escape) {
+                        authCountdownTimer.stop()
+                        authHintDialog.close()
+                        event.accepted = true
+                    }
+                }
             }
+        }
+
+        onOpened: {
+            gotItButton.forceActiveFocus()
         }
     }
 }

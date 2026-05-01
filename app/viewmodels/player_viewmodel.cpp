@@ -44,6 +44,12 @@ PlayerViewModel::PlayerViewModel(QObject *parent)
             });
     connect(player_, &iptvxs::MpvPlayer::cacheDurationChanged, this,
             [this](double) { emit cacheDurationChanged(); });
+    connect(player_, &iptvxs::MpvPlayer::cacheSpeedChanged, this,
+            [this](double) { emit cacheSpeedChanged(); });
+    connect(player_, &iptvxs::MpvPlayer::videoBitrateChanged, this,
+            [this](double) { emit videoBitrateChanged(); });
+    connect(player_, &iptvxs::MpvPlayer::videoHeightChanged, this,
+            [this](int) { emit videoHeightChanged(); });
     connect(player_, &iptvxs::MpvPlayer::endOfFile, this, [this]() {
         if (!nextEpisodeUrl_.isEmpty()) {
             auto url = nextEpisodeUrl_;
@@ -92,6 +98,12 @@ double PlayerViewModel::duration() const { return player_->duration(); }
 double PlayerViewModel::position() const { return player_->position(); }
 
 double PlayerViewModel::cacheDuration() const { return player_->cacheDuration(); }
+
+double PlayerViewModel::cacheSpeed() const { return player_->cacheSpeed(); }
+
+double PlayerViewModel::videoBitrate() const { return player_->videoBitrate(); }
+
+int PlayerViewModel::videoHeight() const { return player_->videoHeight(); }
 
 QString PlayerViewModel::channelName() const { return channelName_; }
 

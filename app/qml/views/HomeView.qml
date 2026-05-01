@@ -11,6 +11,8 @@ Item {
 
     // --- Row-level focus tracking ---
     property int currentRowIndex: 0
+    property bool focusRestorePending: false
+    property int focusRestoreAttempts: 0
     readonly property var allRows: [continueWatchingRow, favoritesRow, recentlyAddedRow, quickAccessRow]
 
     function focusPrimary() {
@@ -31,6 +33,53 @@ Item {
                 allRows[j].cardListView.forceActiveFocus()
                 return
             }
+        }
+    }
+
+    function requestFocusRestore() {
+        focusRestorePending = true
+        focusRestoreAttempts = 0
+        focusRestoreTimer.restart()
+    }
+
+    function tryRestoreFocus() {
+        if (!focusRestorePending) return
+        if (!appViewModel || appViewModel.currentView !== "home") {
+            focusRestorePending = false
+            return
+        }
+
+        if (continueWatchingModel.count === 0) {
+            if (++focusRestoreAttempts < 40) {
+                focusRestoreTimer.restart()
+            } else {
+                focusRestorePending = false
+            }
+            return
+        }
+
+        if (continueWatchingRow && continueWatchingRow.visible && continueWatchingRow.cardListView && continueWatchingRow.cardListView.count > 0) {
+            currentRowIndex = allRows.indexOf(continueWatchingRow)
+            continueWatchingRow.cardListView.currentIndex = 0
+            continueWatchingRow.cardListView.forceActiveFocus()
+            focusRestorePending = false
+            return
+        }
+
+        for (var i = 0; i < allRows.length; i++) {
+            if (allRows[i] && allRows[i].visible && allRows[i].cardListView && allRows[i].cardListView.count > 0) {
+                currentRowIndex = i
+                allRows[i].cardListView.currentIndex = 0
+                allRows[i].cardListView.forceActiveFocus()
+                focusRestorePending = false
+                return
+            }
+        }
+
+        if (++focusRestoreAttempts < 20) {
+            focusRestoreTimer.restart()
+        } else {
+            focusRestorePending = false
         }
     }
 
@@ -113,6 +162,7 @@ Item {
             recentlyAddedReady = true
         }
         cwPopulateTimer.start()
+        requestFocusRestore()
     }
     Component.onDestruction: {
         if (appViewModel && appViewModel.channelList) {
@@ -381,7 +431,10 @@ Item {
 
     Connections {
         target: appViewModel ? appViewModel.history : null
-        function onCountChanged() { cwPopulateTimer.restart() }
+        function onCountChanged() {
+            cwPopulateTimer.restart()
+            if (focusRestorePending) requestFocusRestore()
+        }
     }
 
     function populateContinueWatching() {
@@ -418,6 +471,14 @@ Item {
             })
             added++
         }
+        if (focusRestorePending) requestFocusRestore()
+    }
+
+    Timer {
+        id: focusRestoreTimer
+        interval: 75
+        repeat: false
+        onTriggered: homeView.tryRestoreFocus()
     }
 
     // ======================================================================

@@ -11,6 +11,7 @@
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QSqlError>
 #include <QSqlQuery>
 #include <QStandardPaths>
 #include <QTimer>
@@ -19,6 +20,10 @@ namespace {
 QString localAppDataPath() {
     return QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation)
            + QStringLiteral("/iptvXS");
+}
+
+QString databaseFilePath() {
+    return localAppDataPath() + QStringLiteral("/iptvXS.db");
 }
 }
 
@@ -61,6 +66,8 @@ bool AppViewModel::initialize(const QString &dbPath) {
     historyRepo_ = std::make_unique<iptvxs::HistoryRepository>(db, this);
     historyVm_->setRepository(historyRepo_.get());
     groupRepo_ = std::make_unique<iptvxs::ChannelGroupRepository>(db, this);
+    connect(groupRepo_.get(), &iptvxs::ChannelGroupRepository::errorOccurred,
+            this, &AppViewModel::errorOccurred);
     groupListVm_->setRepository(groupRepo_.get());
     groupListVm_->setChannelRepository(channelRepo_.get());
     logoCache_ = std::make_unique<iptvxs::LogoCache>(this);
@@ -643,7 +650,7 @@ void AppViewModel::runAutoSyncEpg() {
 }
 
 QString AppViewModel::databasePath() const {
-    return localAppDataPath() + QStringLiteral("/iptvxs.db");
+    return databaseFilePath();
 }
 
 QString AppViewModel::databaseSize() const {
@@ -1158,34 +1165,72 @@ void AppViewModel::playRecordingFromDrive(int64_t recordingId) {
         return;
     }
 
-    gdriveAuth_->refreshTokenIfNeeded();
-    auto token = gdriveAuth_->accessToken();
-    if (token.isEmpty()) {
-        emit errorOccurred(QStringLiteral("Not authenticated with Google Drive"));
+    auto startPlayback = [this, recordingId]() {
+        auto rec = recordingRepo_->findById(recordingId);
+        if (!rec || rec->gdriveFileId.isEmpty()) {
+            emit errorOccurred(QStringLiteral("Recording has no Google Drive file"));
+            return;
+        }
+
+        auto token = gdriveAuth_->accessToken();
+        if (token.isEmpty()) {
+            emit errorOccurred(QStringLiteral("Not authenticated with Google Drive"));
+            return;
+        }
+
+        auto url = QStringLiteral("https://www.googleapis.com/drive/v3/files/%1?alt=media")
+                       .arg(rec->gdriveFileId);
+
+        auto *player = playerVm_->mpvPlayer();
+        if (player) {
+            player->setHttpHeaders({QStringLiteral("Authorization: Bearer %1").arg(token)});
+        }
+
+        auto channelName = rec->filePath.isEmpty()
+            ? QStringLiteral("Recording %1").arg(recordingId)
+            : QFileInfo(rec->filePath).baseName();
+
+        qInfo("Playing recording %lld from Google Drive", static_cast<long long>(recordingId));
+        playerVm_->play(url, channelName, {}, 0);
+        setCurrentView(QStringLiteral("player"));
+
+        if (gdrivePlaybackCleanupConnection_) {
+            disconnect(gdrivePlaybackCleanupConnection_);
+        }
+        gdrivePlaybackCleanupConnection_ = connect(playerVm_, &PlayerViewModel::stateChanged, this, [this, player]() {
+            if (playerVm_->stopped() && player) {
+                player->clearHttpHeaders();
+                disconnect(gdrivePlaybackCleanupConnection_);
+                gdrivePlaybackCleanupConnection_ = {};
+            }
+        });
+    };
+
+    if (gdriveAuth_->needsRefresh()) {
+        if (gdrivePlaybackCleanupConnection_) {
+            disconnect(gdrivePlaybackCleanupConnection_);
+            gdrivePlaybackCleanupConnection_ = {};
+        }
+
+        auto conn = std::make_shared<QMetaObject::Connection>();
+        auto errConn = std::make_shared<QMetaObject::Connection>();
+        *conn = connect(gdriveAuth_.get(), &iptvxs::GDriveAuth::tokenRefreshed, this,
+            [this, startPlayback, conn, errConn]() {
+                disconnect(*conn);
+                disconnect(*errConn);
+                startPlayback();
+            });
+        *errConn = connect(gdriveAuth_.get(), &iptvxs::GDriveAuth::authenticationFailed, this,
+            [this, conn, errConn](const QString &error) {
+                disconnect(*conn);
+                disconnect(*errConn);
+                emit errorOccurred(QStringLiteral("Google Drive auth refresh failed: %1").arg(error));
+            });
+        gdriveAuth_->refreshTokenIfNeeded();
         return;
     }
 
-    auto url = QStringLiteral("https://www.googleapis.com/drive/v3/files/%1?alt=media")
-                   .arg(rec->gdriveFileId);
-
-    auto *player = playerVm_->mpvPlayer();
-    if (player) {
-        player->setHttpHeaders({QStringLiteral("Authorization: Bearer %1").arg(token)});
-    }
-
-    auto channelName = rec->filePath.isEmpty()
-        ? QStringLiteral("Recording %1").arg(recordingId)
-        : QFileInfo(rec->filePath).baseName();
-
-    playerVm_->play(url, channelName, {}, 0);
-    setCurrentView(QStringLiteral("player"));
-
-    connect(playerVm_, &PlayerViewModel::stateChanged, this, [this, player]() {
-        if (playerVm_->stopped() && player) {
-            player->clearHttpHeaders();
-            disconnect(playerVm_, &PlayerViewModel::stateChanged, this, nullptr);
-        }
-    }, Qt::UniqueConnection);
+    startPlayback();
 }
 
 void AppViewModel::playChannelByName(const QString &name) {
@@ -1366,7 +1411,7 @@ void AppViewModel::openAuthUrlInSteamBrowser(const QString &url) {
 void AppViewModel::resetDatabase() {
     if (!database_) return;
 
-    auto path = localAppDataPath() + QStringLiteral("/iptvxs.db");
+    auto path = databaseFilePath();
 
     database_->close();
     QFile::remove(path);
@@ -1385,6 +1430,8 @@ void AppViewModel::resetDatabase() {
         recordingRepo_ = std::make_unique<iptvxs::RecordingRepository>(db, this);
         historyRepo_ = std::make_unique<iptvxs::HistoryRepository>(db, this);
         groupRepo_ = std::make_unique<iptvxs::ChannelGroupRepository>(db, this);
+        connect(groupRepo_.get(), &iptvxs::ChannelGroupRepository::errorOccurred,
+                this, &AppViewModel::errorOccurred);
         categorySettingsRepo_ = std::make_unique<iptvxs::CategorySettingsRepository>(db, this);
         seriesCacheRepo_ = std::make_unique<iptvxs::SeriesCacheRepository>(db, this);
 
@@ -1509,17 +1556,21 @@ QVariantMap AppViewModel::runMaintenance() {
         results["series_cache_cleaned"] = true;
     }
 
-    // 7. VACUUM and ANALYZE
+    // 7. ANALYZE then VACUUM
     {
         QSqlQuery q(db);
         q.exec("ANALYZE");
         results["analyzed"] = true;
     }
-    // VACUUM cannot run inside a transaction, run separately
-    if (totalCleaned > 100) {
+    // VACUUM cannot run inside a transaction, run separately.
+    {
         QSqlQuery q(db);
-        q.exec("VACUUM");
-        results["vacuumed"] = true;
+        if (q.exec("VACUUM")) {
+            results["vacuumed"] = true;
+        } else {
+            results["vacuumed"] = false;
+            qWarning() << "VACUUM failed:" << q.lastError().text();
+        }
     }
 
     // Store last maintenance timestamp

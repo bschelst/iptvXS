@@ -13,6 +13,8 @@ Item {
     property string activeType: "vod"
     property string initialType: "vod"
     property var selectedCategoryId: 0
+    property bool focusRestorePending: false
+    property int focusRestoreAttempts: 0
 
     function logoSource(url) {
         if (!appViewModel || !appViewModel.logoCache || !url || url.indexOf("http") !== 0)
@@ -66,6 +68,50 @@ Item {
             vodSearch.forceActiveFocus()
         } else if (Window.window && Window.window.focusSidebar) {
             Window.window.focusSidebar()
+        }
+    }
+
+    function requestFocusRestore() {
+        focusRestorePending = true
+        focusRestoreAttempts = 0
+        focusRestoreTimer.restart()
+    }
+
+    function tryRestoreFocus() {
+        if (!focusRestorePending || !appViewModel) return
+
+        var view = appViewModel.currentView
+        if (view !== "vod_movies" && view !== "vod_series") {
+            focusRestorePending = false
+            return
+        }
+
+        if (vodGrid.visible && vodGrid.count > 0) {
+            vodGrid.currentIndex = 0
+            vodGrid.forceActiveFocus()
+            focusRestorePending = false
+            return
+        }
+
+        if (categoryGrid.visible && categoryGrid.count > 0) {
+            categoryGrid.currentIndex = 0
+            categoryGrid.forceActiveFocus()
+            focusRestorePending = false
+            return
+        }
+
+        var row = firstVisibleVodRow()
+        if (row && row.count > 0) {
+            row.currentIndex = 0
+            row.forceActiveFocus()
+            focusRestorePending = false
+            return
+        }
+
+        if (++focusRestoreAttempts < 20) {
+            focusRestoreTimer.restart()
+        } else {
+            focusRestorePending = false
         }
     }
 
@@ -869,6 +915,8 @@ Item {
                                 delegate: Item {
                                     width: 200
                                     height: 170
+                                    focus: rowListView.activeFocus && rowListView.currentIndex === index
+                                    activeFocusOnTab: true
                                     function activate() {
                                         if (!appViewModel) return
                                         var channelId = Number(model.channelId)
@@ -879,6 +927,15 @@ Item {
                                             appViewModel.fetchSeriesEpisodes(ch.serverId, ch.externalId, ch.name, ch.logoUrl)
                                         } else {
                                             appViewModel.playChannelById(channelId)
+                                        }
+                                    }
+
+                                    Keys.onReturnPressed: activate()
+                                    Keys.onEnterPressed: Keys.onReturnPressed(event)
+                                    Keys.onPressed: function(event) {
+                                        if (event.key === Qt.Key_Select || event.key === Qt.Key_Space) {
+                                            activate()
+                                            event.accepted = true
                                         }
                                     }
 
@@ -1142,6 +1199,8 @@ Item {
                 delegate: Item {
                     width: categoryGrid.cellWidth
                     height: categoryGrid.cellHeight
+                    focus: categoryGrid.activeFocus && categoryGrid.currentIndex === index
+                    activeFocusOnTab: true
 
                     Rectangle {
                         id: catGridCard
@@ -1231,6 +1290,15 @@ Item {
                                 appViewModel.currentView = "player"
                             }
                         }
+
+                        Keys.onReturnPressed: activate()
+                        Keys.onEnterPressed: Keys.onReturnPressed(event)
+                        Keys.onPressed: function(event) {
+                            if (event.key === Qt.Key_Select || event.key === Qt.Key_Space) {
+                                activate()
+                                event.accepted = true
+                            }
+                        }
                     }
 
                 }
@@ -1246,7 +1314,7 @@ Item {
                 cellWidth: Math.floor(width / cols)
                 cellHeight: 72
                 clip: true
-                focus: visible
+                focus: visible && !vodSearch.activeFocus
                 keyNavigationEnabled: true
                 highlight: Rectangle {
                     color: Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.19)
@@ -1297,6 +1365,8 @@ Item {
                 delegate: Item {
                     width: vodGrid.cellWidth - Theme.spacingSm
                     height: vodGrid.cellHeight - Theme.spacingSm
+                    focus: vodGrid.activeFocus && vodGrid.currentIndex === index
+                    activeFocusOnTab: true
 
                     Rectangle {
                         id: searchCard
@@ -1432,6 +1502,15 @@ Item {
                             } else {
                                 appViewModel.player.play(model.streamUrl, model.name, model.logoUrl, model.channelId)
                                 appViewModel.currentView = "player"
+                            }
+                        }
+
+                        Keys.onReturnPressed: activate()
+                        Keys.onEnterPressed: Keys.onReturnPressed(event)
+                        Keys.onPressed: function(event) {
+                            if (event.key === Qt.Key_Select || event.key === Qt.Key_Space) {
+                                activate()
+                                event.accepted = true
                             }
                         }
                     }
@@ -1863,6 +1942,18 @@ Item {
         target: appViewModel ? appViewModel.categoryList : null
         function onCountChanged() {
             reloadVodRows()
+            if (focusRestorePending && appViewModel && (appViewModel.currentView === "vod_movies" || appViewModel.currentView === "vod_series")) {
+                requestFocusRestore()
+            }
+        }
+    }
+
+    Connections {
+        target: appViewModel ? appViewModel.channelList : null
+        function onCountChanged() {
+            if (focusRestorePending && appViewModel && (appViewModel.currentView === "vod_movies" || appViewModel.currentView === "vod_series")) {
+                requestFocusRestore()
+            }
         }
     }
 
@@ -1874,6 +1965,7 @@ Item {
         if (appViewModel && appViewModel.serverList.count > 0) {
             selectServer(appViewModel.serverList.serverIdAt(0))
         }
+        requestFocusRestore()
 
         // Restore series episode dialog when returning from player
         if (appViewModel && appViewModel.hasActiveSeriesDialog()) {
@@ -1889,6 +1981,14 @@ Item {
         if (appViewModel) {
             appViewModel.channelList.typeFilter = ""
         }
+        focusRestoreTimer.stop()
+    }
+
+    Timer {
+        id: focusRestoreTimer
+        interval: 75
+        repeat: false
+        onTriggered: vodView.tryRestoreFocus()
     }
 
     Rectangle {
@@ -1973,6 +2073,12 @@ Item {
                             }
                         }
                         Keys.onEscapePressed: vodRenameDialog.close()
+                        Keys.onPressed: function(event) {
+                            if (event.key === Qt.Key_B || event.key === Qt.Key_Escape) {
+                                vodRenameDialog.close()
+                                event.accepted = true
+                            }
+                        }
                     }
                 }
 
@@ -2001,6 +2107,27 @@ Item {
                                 }
                             }
                         }
+                        Keys.onReturnPressed: {
+                            if (appViewModel && vodRenameDialog.categoryId > 0) {
+                                appViewModel.categoryList.renameCategory(vodRenameDialog.categoryId, "")
+                                vodRenameDialog.close()
+                                Qt.callLater(vodView.reloadVodRows)
+                            }
+                        }
+                        Keys.onEnterPressed: Keys.onReturnPressed(event)
+                        Keys.onPressed: function(event) {
+                            if (event.key === Qt.Key_Select || event.key === Qt.Key_Space) {
+                                if (appViewModel && vodRenameDialog.categoryId > 0) {
+                                    appViewModel.categoryList.renameCategory(vodRenameDialog.categoryId, "")
+                                    vodRenameDialog.close()
+                                    Qt.callLater(vodView.reloadVodRows)
+                                }
+                                event.accepted = true
+                            } else if (event.key === Qt.Key_B || event.key === Qt.Key_Escape) {
+                                vodRenameDialog.close()
+                                event.accepted = true
+                            }
+                        }
                     }
 
                     Item { Layout.fillWidth: true }
@@ -2019,6 +2146,15 @@ Item {
                             anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
                             onEntered: parent.vodCancelHov = true; onExited: parent.vodCancelHov = false
                             onClicked: vodRenameDialog.close()
+                        }
+                        Keys.onReturnPressed: vodRenameDialog.close()
+                        Keys.onEnterPressed: Keys.onReturnPressed(event)
+                        Keys.onPressed: function(event) {
+                            if (event.key === Qt.Key_Select || event.key === Qt.Key_Space
+                                    || event.key === Qt.Key_B || event.key === Qt.Key_Escape) {
+                                vodRenameDialog.close()
+                                event.accepted = true
+                            }
                         }
                     }
 
@@ -2040,6 +2176,27 @@ Item {
                                     vodRenameDialog.close()
                                     Qt.callLater(vodView.reloadVodRows)
                                 }
+                            }
+                        }
+                        Keys.onReturnPressed: {
+                            if (appViewModel && vodRenameDialog.categoryId > 0) {
+                                appViewModel.categoryList.renameCategory(vodRenameDialog.categoryId, vodRenameInput.text)
+                                vodRenameDialog.close()
+                                Qt.callLater(vodView.reloadVodRows)
+                            }
+                        }
+                        Keys.onEnterPressed: Keys.onReturnPressed(event)
+                        Keys.onPressed: function(event) {
+                            if (event.key === Qt.Key_Select || event.key === Qt.Key_Space) {
+                                if (appViewModel && vodRenameDialog.categoryId > 0) {
+                                    appViewModel.categoryList.renameCategory(vodRenameDialog.categoryId, vodRenameInput.text)
+                                    vodRenameDialog.close()
+                                    Qt.callLater(vodView.reloadVodRows)
+                                }
+                                event.accepted = true
+                            } else if (event.key === Qt.Key_B || event.key === Qt.Key_Escape) {
+                                vodRenameDialog.close()
+                                event.accepted = true
                             }
                         }
                     }

@@ -12,6 +12,7 @@ Rectangle {
     property Item nextItem: null
     property Item prevItem: null
     property Item escapeItem: null
+    property var escapeAction: null
     property bool autoShowInputMethod: true
 
     height: 40
@@ -56,6 +57,16 @@ Rectangle {
         Keys.onDownPressed: {
             if (root.nextItem) {
                 root.nextItem.forceActiveFocus()
+            }
+        }
+        Keys.onPressed: function(event) {
+            if (event.key === Qt.Key_B || event.key === Qt.Key_Escape) {
+                if (root.escapeAction) {
+                    root.escapeAction()
+                } else if (root.escapeItem) {
+                    root.escapeItem.forceActiveFocus()
+                }
+                event.accepted = true
             }
         }
 

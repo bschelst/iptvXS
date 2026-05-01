@@ -26,7 +26,87 @@
 
 static LogViewModel *g_logViewModel = nullptr;
 static QFile *g_logFile = nullptr;
+static QString g_logFilePath;
 static QMutex g_logMutex;
+static constexpr qint64 kMaxActiveLogBytes = 5 * 1024 * 1024;
+
+static QQuickWindow *showMainWindow(QQmlApplicationEngine &engine) {
+    const auto roots = engine.rootObjects();
+    if (!roots.isEmpty()) {
+        auto *window = qobject_cast<QQuickWindow *>(roots.first());
+        if (window) {
+            window->show();
+            window->raise();
+            window->requestActivate();
+            return window;
+        }
+    }
+    return nullptr;
+}
+
+static QString localAppDataPath() {
+    return QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation)
+           + QStringLiteral("/iptvXS");
+}
+
+static QString rotatedLogPath(const QString &basePath, int version) {
+    return QStringLiteral("%1.%2.qz").arg(basePath).arg(version);
+}
+
+static QString legacyDatabasePath(const QString &dataPath) {
+    return dataPath + QStringLiteral("/iptvxs.db");
+}
+
+static QString databasePath(const QString &dataPath) {
+    return dataPath + QStringLiteral("/iptvXS.db");
+}
+
+static bool renameLegacyDatabaseFiles(const QString &dataPath) {
+    const QString oldDb = legacyDatabasePath(dataPath);
+    const QString newDb = databasePath(dataPath);
+    if (!QFile::exists(oldDb) || QFile::exists(newDb)) {
+        return false;
+    }
+
+    QFile::remove(newDb);
+    QFile::remove(newDb + QStringLiteral("-wal"));
+    QFile::remove(newDb + QStringLiteral("-shm"));
+
+    const bool dbOk = QFile::rename(oldDb, newDb);
+    const bool walOk = !QFile::exists(oldDb + QStringLiteral("-wal"))
+                           || QFile::rename(oldDb + QStringLiteral("-wal"),
+                                           newDb + QStringLiteral("-wal"));
+    const bool shmOk = !QFile::exists(oldDb + QStringLiteral("-shm"))
+                           || QFile::rename(oldDb + QStringLiteral("-shm"),
+                                           newDb + QStringLiteral("-shm"));
+    return dbOk && walOk && shmOk;
+}
+
+static void rotateStartupLogs(const QString &logFilePath, int maxVersions = 5) {
+    for (int version = maxVersions; version >= 1; --version) {
+        const QString source = rotatedLogPath(logFilePath, version);
+        const QString target = rotatedLogPath(logFilePath, version + 1);
+        QFile::remove(target);
+        if (QFile::exists(source)) {
+            QFile::rename(source, target);
+        }
+    }
+
+    QFile current(logFilePath);
+    if (!current.exists() || !current.open(QIODevice::ReadOnly)) {
+        return;
+    }
+
+    const QByteArray compressed = qCompress(current.readAll(), 9);
+    current.close();
+
+    QFile rotated(rotatedLogPath(logFilePath, 1));
+    if (!rotated.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+        return;
+    }
+    rotated.write(compressed);
+    rotated.close();
+}
 
 static void appMessageHandler(QtMsgType type, const QMessageLogContext &, const QString &msg) {
     // Suppress noisy warnings that aren't actionable
@@ -51,6 +131,11 @@ static void appMessageHandler(QtMsgType type, const QMessageLogContext &, const 
         QTextStream stream(g_logFile);
         stream << line << "\n";
         stream.flush();
+        if (!g_logFilePath.isEmpty() && g_logFile->size() > kMaxActiveLogBytes) {
+            g_logFile->close();
+            rotateStartupLogs(g_logFilePath);
+            g_logFile->open(QIODevice::WriteOnly | QIODevice::Truncate | QIODevice::Text);
+        }
     }
 
     if (g_logViewModel) {
@@ -62,25 +147,6 @@ static void appMessageHandler(QtMsgType type, const QMessageLogContext &, const 
     }
 
     fprintf(stderr, "%s\n", qPrintable(line));
-}
-
-static QQuickWindow *showMainWindow(QQmlApplicationEngine &engine) {
-    const auto roots = engine.rootObjects();
-    if (!roots.isEmpty()) {
-        auto *window = qobject_cast<QQuickWindow *>(roots.first());
-        if (window) {
-            window->show();
-            window->raise();
-            window->requestActivate();
-            return window;
-        }
-    }
-    return nullptr;
-}
-
-static QString localAppDataPath() {
-    return QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation)
-           + QStringLiteral("/iptvXS");
 }
 
 int main(int argc, char *argv[]) {
@@ -103,10 +169,13 @@ int main(int argc, char *argv[]) {
 
     QString dataPath = localAppDataPath();
     QDir().mkpath(dataPath);
+    const bool renamedLegacyDb = renameLegacyDatabaseFiles(dataPath);
 
-    auto logFilePath = dataPath + "/iptvxs.log";
+    auto logFilePath = dataPath + "/iptvXS.log";
+    g_logFilePath = logFilePath;
+    rotateStartupLogs(logFilePath);
     g_logFile = new QFile(logFilePath);
-    g_logFile->open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text);
+    g_logFile->open(QIODevice::WriteOnly | QIODevice::Truncate | QIODevice::Text);
 
     auto logVm = new LogViewModel(&app);
     g_logViewModel = logVm;
@@ -117,11 +186,16 @@ int main(int argc, char *argv[]) {
 
     qInfo("iptvXS v%s starting", qPrintable(app.applicationVersion()));
     qInfo("Data directory: %s", qPrintable(dataPath));
+    if (renamedLegacyDb) {
+        qInfo("Migrated legacy database files to iptvXS.db");
+    }
 
-    QString dbPath = dataPath + "/iptvxs.db";
+    QString dbPath = databasePath(dataPath);
 
     auto viewModel = new AppViewModel(&app);
     viewModel->setLogViewModel(logVm);
+    QObject::connect(viewModel, &AppViewModel::errorOccurred, &app,
+                     [](const QString &message) { qWarning("%s", qPrintable(message)); });
     if (!viewModel->initialize(dbPath)) {
         qCritical("Failed to initialize database at %s", qPrintable(dbPath));
         return 1;

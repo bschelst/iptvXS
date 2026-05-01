@@ -77,6 +77,9 @@ bool MpvPlayer::initialize() {
     mpv_observe_property(mpv_, 0, "mute", MPV_FORMAT_FLAG);
     mpv_observe_property(mpv_, 0, "idle-active", MPV_FORMAT_FLAG);
     mpv_observe_property(mpv_, 0, "demuxer-cache-duration", MPV_FORMAT_DOUBLE);
+    mpv_observe_property(mpv_, 0, "cache-speed", MPV_FORMAT_DOUBLE);
+    mpv_observe_property(mpv_, 0, "video-bitrate", MPV_FORMAT_DOUBLE);
+    mpv_observe_property(mpv_, 0, "height", MPV_FORMAT_INT64);
 
     mpv_request_log_messages(mpv_, "warn");
     mpv_set_wakeup_callback(mpv_, wakeupCallback, this);
@@ -184,6 +187,12 @@ double MpvPlayer::position() const { return position_; }
 
 double MpvPlayer::cacheDuration() const { return cacheDuration_; }
 
+double MpvPlayer::cacheSpeed() const { return cacheSpeed_; }
+
+double MpvPlayer::videoBitrate() const { return videoBitrate_; }
+
+int MpvPlayer::videoHeight() const { return videoHeight_; }
+
 void MpvPlayer::seek(double seconds) {
     if (!mpv_) return;
     auto sStr = QByteArray::number(seconds, 'f', 1);
@@ -276,6 +285,15 @@ void MpvPlayer::processEvents() {
             } else if (name == QLatin1String("demuxer-cache-duration") && prop->format == MPV_FORMAT_DOUBLE) {
                 cacheDuration_ = *static_cast<double *>(prop->data);
                 emit cacheDurationChanged(cacheDuration_);
+            } else if (name == QLatin1String("cache-speed") && prop->format == MPV_FORMAT_DOUBLE) {
+                cacheSpeed_ = *static_cast<double *>(prop->data);
+                emit cacheSpeedChanged(cacheSpeed_);
+            } else if (name == QLatin1String("video-bitrate") && prop->format == MPV_FORMAT_DOUBLE) {
+                videoBitrate_ = *static_cast<double *>(prop->data);
+                emit videoBitrateChanged(videoBitrate_);
+            } else if (name == QLatin1String("height") && prop->format == MPV_FORMAT_INT64) {
+                videoHeight_ = static_cast<int>(*static_cast<int64_t *>(prop->data));
+                emit videoHeightChanged(videoHeight_);
             }
             break;
         }

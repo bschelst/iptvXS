@@ -4,6 +4,7 @@
 #include <atomic>
 #include <memory>
 #include <QJsonObject>
+#include <QMetaObject>
 #include <QObject>
 #include <QQmlEngine>
 #include <QString>
@@ -266,6 +267,7 @@ private:
     std::unique_ptr<iptvxs::RecordingManager> recordingMgr_;
     std::unique_ptr<iptvxs::GDriveAuth> gdriveAuth_;
     std::unique_ptr<iptvxs::GDriveUploader> gdriveUploader_;
+    QMetaObject::Connection gdrivePlaybackCleanupConnection_;
     std::unique_ptr<iptvxs::HttpClient> httpClient_;
     std::unique_ptr<iptvxs::SpeedTestRunner> speedTestRunner_;
 

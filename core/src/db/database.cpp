@@ -255,6 +255,22 @@ std::vector<Database::Migration> Database::migrations() const {
              return q.exec("ALTER TABLE history ADD COLUMN position_secs INTEGER DEFAULT 0")
                  && q.exec("ALTER TABLE history ADD COLUMN total_duration_secs INTEGER DEFAULT 0");
          }},
+        {14, "Add dynamic group rules", [](QSqlDatabase &db) -> bool {
+             QSqlQuery q(db);
+             const QStringList statements = {
+                 "ALTER TABLE channel_groups ADD COLUMN kind TEXT NOT NULL DEFAULT 'static'",
+                 "ALTER TABLE channel_groups ADD COLUMN filter_scope TEXT NOT NULL DEFAULT 'any'",
+                 "ALTER TABLE channel_groups ADD COLUMN filter_field TEXT NOT NULL DEFAULT 'name'",
+                 "ALTER TABLE channel_groups ADD COLUMN filter_operator TEXT NOT NULL DEFAULT 'contains'",
+                 "ALTER TABLE channel_groups ADD COLUMN filter_value TEXT NOT NULL DEFAULT ''",
+             };
+             for (const auto &sql : statements) {
+                 if (!q.exec(sql)) {
+                     return false;
+                 }
+             }
+             return true;
+         }},
     };
 }
 

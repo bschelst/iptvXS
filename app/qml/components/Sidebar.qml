@@ -91,7 +91,7 @@ Rectangle {
     }
 
     function itemIconColor(name) {
-        return (activeFocus && activeItem === name) ? Theme.textOnAccent : "#ffffff"
+        return (activeFocus && activeItem === name) ? Theme.textOnAccent : Theme.textPrimary
     }
 
     function itemIcon(name) {

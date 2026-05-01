@@ -10,6 +10,18 @@ Item {
 
     property int selectedGroupId: 0
     property string selectedGroupName: ""
+    property string selectedGroupMode: "static"
+
+    function focusMemberList() {
+        if (memberListView.count > 0) {
+            if (memberListView.currentIndex < 0) memberListView.currentIndex = 0
+            memberListView.forceActiveFocus()
+        } else if (addChannelsBtn && addChannelsBtn.visible) {
+            addChannelsBtn.forceActiveFocus()
+        } else if (groupListView.count > 0) {
+            groupListView.forceActiveFocus()
+        }
+    }
 
     function focusPrimary() {
         if (groupListView.count > 0) {
@@ -169,9 +181,10 @@ Item {
                             Window.window.focusSidebar()
                     }
                     Keys.onRightPressed: {
-                        if (memberListView.count > 0) {
-                            if (memberListView.currentIndex < 0) memberListView.currentIndex = 0
-                            memberListView.forceActiveFocus()
+                        if (groupListView.currentItem && groupListView.currentItem.grpEditBtn) {
+                            groupListView.currentItem.grpEditBtn.forceActiveFocus()
+                        } else {
+                            groupsView.focusMemberList()
                         }
                     }
                     Keys.onReturnPressed: {
@@ -179,6 +192,7 @@ Item {
                             var item = groupListModel.get(currentIndex)
                             selectedGroupId = item.gid
                             selectedGroupName = item.gname
+                            selectedGroupMode = item.gmode || "static"
                             groupsView.reloadMembers()
                         }
                     }
@@ -240,7 +254,7 @@ Item {
                             Column {
                                 anchors.left: grpIcon.right
                                 anchors.leftMargin: Theme.spacingSm
-                                anchors.right: grpDelBtn.left
+                                anchors.right: grpEditBtn.left
                                 anchors.rightMargin: 4
                                 anchors.verticalCenter: parent.verticalCenter
                                 spacing: 2
@@ -256,9 +270,86 @@ Item {
                                 }
 
                                 Text {
-                                    text: model.gmemberCount + (model.gmemberCount === 1 ? " channel" : " channels")
+                                    text: model.gmode === "dynamic"
+                                        ? (model.gmemberCount + (model.gmemberCount === 1 ? " item" : " items")
+                                           + (model.gsummary ? " · " + model.gsummary : ""))
+                                        : (model.gmemberCount + (model.gmemberCount === 1 ? " item" : " items"))
                                     font.pixelSize: Theme.fontSizeXs
                                     color: Theme.textMuted
+                                }
+                            }
+
+                            Rectangle {
+                                id: grpEditBtn
+                                anchors.right: grpDelBtn.left
+                                anchors.rightMargin: 6
+                                anchors.verticalCenter: parent.verticalCenter
+                                width: 24; height: 24; radius: 12
+                                color: editGrpHov ? Theme.surfaceHover : "transparent"
+                                property bool editGrpHov: false
+
+                                Text {
+                                    anchors.centerIn: parent
+                                    text: "\u270E"
+                                    font.pixelSize: 12
+                                    font.bold: true
+                                    color: parent.editGrpHov ? "#ffffff" : Theme.textMuted
+                                }
+
+                                MouseArea {
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    cursorShape: Qt.PointingHandCursor
+                                    onEntered: parent.editGrpHov = true
+                                    onExited: parent.editGrpHov = false
+                                    onClicked: {
+                                        editGroupDialog.openForGroup(model.gid, model.gname,
+                                                                     model.gmode || "static",
+                                                                     model.gscope || "any",
+                                                                     model.gfield || "name",
+                                                                     model.goperator || "contains",
+                                                                     model.gfilterValue || "")
+                                    }
+                                }
+
+                                Keys.onLeftPressed: groupListView.forceActiveFocus()
+                                Keys.onRightPressed: {
+                                    if (grpDelBtn) grpDelBtn.forceActiveFocus()
+                                    else groupsView.focusMemberList()
+                                }
+                                Keys.onUpPressed: {
+                                    if (groupListView.currentIndex > 0) {
+                                        groupListView.currentIndex--
+                                    }
+                                    groupListView.forceActiveFocus()
+                                }
+                                Keys.onDownPressed: {
+                                    if (groupListView.currentIndex < groupListView.count - 1) {
+                                        groupListView.currentIndex++
+                                    }
+                                    groupListView.forceActiveFocus()
+                                }
+                                Keys.onReturnPressed: editGroupDialog.openForGroup(model.gid, model.gname,
+                                                                                   model.gmode || "static",
+                                                                                   model.gscope || "any",
+                                                                                   model.gfield || "name",
+                                                                                   model.goperator || "contains",
+                                                                                   model.gfilterValue || "")
+                                Keys.onEnterPressed: Keys.onReturnPressed(event)
+                                Keys.onPressed: function(event) {
+                                    if (event.key === Qt.Key_Select || event.key === Qt.Key_Space) {
+                                        editGroupDialog.openForGroup(model.gid, model.gname,
+                                                                     model.gmode || "static",
+                                                                     model.gscope || "any",
+                                                                     model.gfield || "name",
+                                                                     model.goperator || "contains",
+                                                                     model.gfilterValue || "")
+                                        event.accepted = true
+                                    } else if (event.key === Qt.Key_B || event.key === Qt.Key_Escape
+                                               || event.key === Qt.Key_Back) {
+                                        groupListView.forceActiveFocus()
+                                        event.accepted = true
+                                    }
                                 }
                             }
 
@@ -287,14 +378,54 @@ Item {
                                     onEntered: parent.delGrpHov = true
                                     onExited: parent.delGrpHov = false
                                     onClicked: {
-                                        if (appViewModel)
+                                        if (appViewModel) {
                                             appViewModel.groupList.deleteGroup(model.gid)
+                                            if (selectedGroupId === model.gid) {
+                                                selectedGroupId = 0
+                                                selectedGroupName = ""
+                                                selectedGroupMode = "static"
+                                                memberListModel.clear()
+                                            }
+                                            groupsView.reloadGroups()
+                                        }
+                                    }
+                                }
+
+                                Keys.onLeftPressed: grpEditBtn.forceActiveFocus()
+                                Keys.onRightPressed: groupsView.focusMemberList()
+                                Keys.onUpPressed: {
+                                    if (groupListView.currentIndex > 0) {
+                                        groupListView.currentIndex--
+                                    }
+                                    groupListView.forceActiveFocus()
+                                }
+                                Keys.onDownPressed: {
+                                    if (groupListView.currentIndex < groupListView.count - 1) {
+                                        groupListView.currentIndex++
+                                    }
+                                    groupListView.forceActiveFocus()
+                                }
+                                Keys.onReturnPressed: {
+                                    if (appViewModel) {
+                                        appViewModel.groupList.deleteGroup(model.gid)
                                         if (selectedGroupId === model.gid) {
                                             selectedGroupId = 0
                                             selectedGroupName = ""
+                                            selectedGroupMode = "static"
                                             memberListModel.clear()
                                         }
                                         groupsView.reloadGroups()
+                                    }
+                                }
+                                Keys.onEnterPressed: Keys.onReturnPressed(event)
+                                Keys.onPressed: function(event) {
+                                    if (event.key === Qt.Key_Select || event.key === Qt.Key_Space) {
+                                        Keys.onReturnPressed(event)
+                                        event.accepted = true
+                                    } else if (event.key === Qt.Key_B || event.key === Qt.Key_Escape
+                                               || event.key === Qt.Key_Back) {
+                                        groupListView.forceActiveFocus()
+                                        event.accepted = true
                                     }
                                 }
                             }
@@ -308,6 +439,7 @@ Item {
                                 onClicked: {
                                     selectedGroupId = model.gid
                                     selectedGroupName = model.gname
+                                    selectedGroupMode = model.gmode || "static"
                                     groupsView.reloadMembers()
                                 }
                                 z: -1
@@ -353,7 +485,9 @@ Item {
 
                     Text {
                         text: selectedGroupId > 0
-                            ? selectedGroupName + " (" + memberListModel.count + ")"
+                            ? selectedGroupName
+                              + (selectedGroupMode === "dynamic" ? " (Dynamic)" : "")
+                              + " (" + memberListModel.count + ")"
                             : "Select a group"
                         font.pixelSize: Theme.fontSizeSm
                         font.bold: selectedGroupId > 0
@@ -363,7 +497,7 @@ Item {
 
                     Rectangle {
                         id: addChannelsBtn
-                        visible: selectedGroupId > 0
+                        visible: selectedGroupId > 0 && selectedGroupMode !== "dynamic"
                         Layout.preferredWidth: addChLabel.implicitWidth + 20
                         Layout.preferredHeight: 32
                         radius: Theme.borderRadius
@@ -375,7 +509,7 @@ Item {
                         Text {
                             id: addChLabel
                             anchors.centerIn: parent
-                            text: "+ Add Channels"
+                            text: "+ Add Items"
                             font.pixelSize: Theme.fontSizeSm
                             font.bold: true
                             color: Theme.textOnAccent
@@ -435,7 +569,8 @@ Item {
                     if (event.key === Qt.Key_Select) {
                         Keys.onReturnPressed(event)
                         event.accepted = true
-                    } else if (event.key === Qt.Key_Delete || event.key === Qt.Key_Backspace) {
+                    } else if ((event.key === Qt.Key_Delete || event.key === Qt.Key_Backspace)
+                               && selectedGroupMode !== "dynamic") {
                         if (currentIndex >= 0 && currentIndex < count && appViewModel) {
                             var removeItem = memberListModel.get(currentIndex)
                             if (removeItem) {
@@ -488,7 +623,7 @@ Item {
                     Column {
                         anchors.left: mLogo.right
                         anchors.leftMargin: 12
-                        anchors.right: mDelBtn.left
+                        anchors.right: selectedGroupMode === "dynamic" ? parent.right : mDelBtn.left
                         anchors.rightMargin: 8
                         anchors.verticalCenter: parent.verticalCenter
                         spacing: 3
@@ -501,7 +636,7 @@ Item {
                             width: parent.width
                         }
                         Text {
-                            text: model.mtype
+                            text: model.mtype ? model.mtype.toUpperCase() : ""
                             font.pixelSize: 11
                             color: Theme.textMuted
                         }
@@ -509,6 +644,7 @@ Item {
 
                     Rectangle {
                         id: mDelBtn
+                        visible: selectedGroupMode !== "dynamic"
                         anchors.right: parent.right
                         anchors.rightMargin: 12
                         anchors.verticalCenter: parent.verticalCenter
@@ -540,7 +676,7 @@ Item {
 
                     MouseArea {
                         anchors.left: mLogo.left
-                        anchors.right: mDelBtn.left
+                        anchors.right: selectedGroupMode === "dynamic" ? parent.right : mDelBtn.left
                         anchors.top: parent.top
                         anchors.bottom: parent.bottom
                         hoverEnabled: true
@@ -559,7 +695,7 @@ Item {
                 Text {
                     anchors.centerIn: parent
                     visible: memberListModel.count === 0 && selectedGroupId > 0
-                    text: "No channels in this group yet.\nClick \"+ Add Channels\" to search and add."
+                    text: "No items in this group yet.\nClick \"+ Add Items\" to search and add."
                     font.pixelSize: Theme.fontSizeMd
                     color: Theme.textMuted
                     horizontalAlignment: Text.AlignHCenter
@@ -589,14 +725,50 @@ Item {
         var gl = appViewModel.groupList
         gl.activeGroupId = 0
         gl.refresh()
-        groupListModel.clear()
-        for (var i = 0; i < gl.count; i++) {
-            groupListModel.append({
-                gid: gl.groupIdAt(i),
-                gname: gl.groupNameAt(i),
-                gmemberCount: gl.memberCount(gl.groupIdAt(i))
-            })
+            groupListModel.clear()
+            for (var i = 0; i < gl.count; i++) {
+                groupListModel.append({
+                    gid: gl.groupIdAt(i),
+                    gname: gl.groupNameAt(i),
+                    gmode: gl.groupTypeAt(i),
+                    gscope: gl.groupFilterScopeAt(i),
+                    gfield: gl.groupFilterFieldAt(i),
+                    goperator: gl.groupFilterOperatorAt(i),
+                    gfilterValue: gl.groupFilterValueAt(i),
+                    gsummary: gl.groupSummaryAt(i),
+                    gmemberCount: gl.memberCount(gl.groupIdAt(i))
+                })
+            }
         }
+
+    function focusGroupById(groupId) {
+        for (var i = 0; i < groupListModel.count; i++) {
+            var item = groupListModel.get(i)
+            if (item && item.gid === groupId) {
+                groupListView.currentIndex = i
+                groupListView.positionViewAtIndex(i, ListView.Contain)
+                selectedGroupId = item.gid
+                selectedGroupName = item.gname
+                selectedGroupMode = item.gmode || "static"
+                groupsView.reloadMembers()
+                return true
+            }
+        }
+        return false
+    }
+
+    function focusLastGroup() {
+        if (groupListModel.count <= 0) return false
+        var lastIndex = groupListModel.count - 1
+        var item = groupListModel.get(lastIndex)
+        if (!item) return false
+        groupListView.currentIndex = lastIndex
+        groupListView.positionViewAtIndex(lastIndex, ListView.Contain)
+        selectedGroupId = item.gid
+        selectedGroupName = item.gname
+        selectedGroupMode = item.gmode || "static"
+        groupsView.reloadMembers()
+        return true
     }
 
     function reloadMembers() {
@@ -611,7 +783,7 @@ Item {
                 mname: gl.channelNameAt(i),
                 mlogoUrl: gl.logoUrlAt(i),
                 mstreamUrl: gl.streamUrlAt(i),
-                mtype: "live"
+                mtype: gl.typeAt(i)
             })
         }
         gl.activeGroupId = 0
@@ -622,15 +794,607 @@ Item {
     // ── Create group dialog ──
 
     Rectangle {
+        id: editGroupDialog
+        visible: false
+        anchors.fill: parent
+        color: "#C0000000"
+        z: 101
+
+        property int groupId: 0
+        property string originalName: ""
+        property string groupKind: "static"
+        property string filterScope: "any"
+        property string filterField: "name"
+        property string filterOperator: "contains"
+
+        function openForGroup(id, name, kind, scope, field, op, value) {
+            groupId = id
+            originalName = name || ""
+            groupKind = kind || "static"
+            filterScope = scope || "any"
+            filterField = field || "name"
+            filterOperator = op || "contains"
+            editGroupInput.text = originalName
+            editFilterInput.text = value || ""
+            visible = true
+            editGroupInput.forceActiveFocus()
+            editGroupInput.selectAll()
+        }
+        function close() {
+            visible = false
+            Qt.callLater(function() {
+                if (selectedGroupId > 0) {
+                    groupsView.focusGroupById(selectedGroupId)
+                } else if (groupListView.count > 0) {
+                    groupListView.forceActiveFocus()
+                } else if (addGroupBtn) {
+                    addGroupBtn.forceActiveFocus()
+                }
+            })
+        }
+
+        MouseArea { anchors.fill: parent; onClicked: editGroupDialog.close() }
+
+        Rectangle {
+            anchors.centerIn: parent
+            width: 420
+            height: editGrpCol.implicitHeight + 48
+            radius: 12
+            color: Theme.surfaceElevated
+            border.color: Theme.accent; border.width: 1
+
+            MouseArea { anchors.fill: parent }
+
+            ColumnLayout {
+                id: editGrpCol
+                anchors.fill: parent
+                anchors.margins: 24
+                spacing: 16
+
+                RowLayout {
+                    Layout.fillWidth: true
+
+                    Text {
+                        text: "Edit Group"
+                        font.pixelSize: 18; font.bold: true
+                        color: Theme.textPrimary
+                        Layout.fillWidth: true
+                    }
+
+                    Rectangle {
+                        id: editGroupCloseBtn
+                        width: 24
+                        height: 24
+                        radius: 12
+                        color: editCloseHov || editGroupCloseBtn.activeFocus ? Theme.error : "transparent"
+                        border.color: Theme.surfaceBorder
+                        border.width: 1
+                        focus: false
+                        activeFocusOnTab: true
+                        property bool editCloseHov: false
+
+                        Text {
+                            anchors.centerIn: parent
+                            text: "✕"
+                            font.pixelSize: 11
+                            font.bold: true
+                            color: (parent.editCloseHov || editGroupCloseBtn.activeFocus) ? "#ffffff" : Theme.textMuted
+                        }
+
+                        MouseArea {
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onEntered: parent.editCloseHov = true
+                            onExited: parent.editCloseHov = false
+                            onClicked: editGroupDialog.close()
+                        }
+
+                        Keys.onReturnPressed: editGroupDialog.close()
+                        Keys.onEnterPressed: Keys.onReturnPressed(event)
+                        Keys.onPressed: function(event) {
+                            if (event.key === Qt.Key_Select || event.key === Qt.Key_Space
+                                    || event.key === Qt.Key_B || event.key === Qt.Key_Escape
+                                    || event.key === Qt.Key_Back) {
+                                editGroupDialog.close()
+                                event.accepted = true
+                            }
+                        }
+                    }
+                }
+
+                Text {
+                    text: "Original: " + editGroupDialog.originalName
+                    font.pixelSize: Theme.fontSizeXs
+                    color: Theme.textMuted
+                    elide: Text.ElideRight
+                    Layout.fillWidth: true
+                }
+
+                Rectangle {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 40
+                    radius: 6
+                    color: Theme.surface
+                    border.color: editGroupInput.activeFocus ? Theme.accent : Theme.surfaceBorder
+                    border.width: 1
+
+                    TextInput {
+                        id: editGroupInput
+                        anchors.fill: parent
+                        anchors.margins: 8
+                        font.pixelSize: 14
+                        color: Theme.textPrimary
+                        clip: true; selectByMouse: true
+                        focus: false
+                        activeFocusOnTab: true
+
+                        Keys.onUpPressed: editGroupCloseBtn.forceActiveFocus()
+                        Keys.onDownPressed: {
+                            if (editGroupDialog.groupKind === "dynamic") {
+                                if (editScopeRepeater.count > 0) {
+                                    var firstScope = editScopeRepeater.itemAt(0)
+                                    if (firstScope) firstScope.forceActiveFocus()
+                                }
+                            } else {
+                                editGroupCancelBtn.forceActiveFocus()
+                            }
+                        }
+                        Keys.onReturnPressed: {
+                            if (editGroupDialog.groupKind === "dynamic") {
+                                if (editScopeRepeater.count > 0) {
+                                    var firstScope = editScopeRepeater.itemAt(0)
+                                    if (firstScope) firstScope.forceActiveFocus()
+                                }
+                            } else {
+                                confirmEditGroup()
+                            }
+                        }
+                        Keys.onEnterPressed: Keys.onReturnPressed(event)
+                        Keys.onEscapePressed: editGroupDialog.close()
+                        Keys.onPressed: function(event) {
+                            if (event.key === Qt.Key_Back) {
+                                editGroupDialog.close()
+                                event.accepted = true
+                            } else if (event.key === Qt.Key_Select) {
+                                if (editGroupDialog.groupKind === "dynamic") {
+                                    if (editScopeRepeater.count > 0) {
+                                        var firstScope = editScopeRepeater.itemAt(0)
+                                        if (firstScope) firstScope.forceActiveFocus()
+                                    }
+                                } else {
+                                    confirmEditGroup()
+                                }
+                                event.accepted = true
+                            }
+                        }
+
+                        Text {
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: "Group name..."
+                            font.pixelSize: 14
+                            color: Theme.textMuted
+                            visible: !editGroupInput.text && !editGroupInput.activeFocus
+                        }
+                    }
+                }
+
+                RowLayout {
+                    visible: editGroupDialog.groupKind === "dynamic"
+                    Layout.fillWidth: true
+                    spacing: 8
+
+                    Repeater {
+                        id: editScopeRepeater
+                        model: [
+                            { value: "any", label: "Any" },
+                            { value: "live", label: "Live" },
+                            { value: "vod", label: "Movies" },
+                            { value: "series", label: "Series" }
+                        ]
+
+                        delegate: Rectangle {
+                            id: editScopeBtn
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: 32
+                            radius: 6
+                            color: editGroupDialog.filterScope === modelData.value
+                                ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.20)
+                                : scopeHover ? Theme.surfaceHover : Theme.surface
+                            border.color: editGroupDialog.filterScope === modelData.value
+                                ? Theme.accent : Theme.surfaceBorder
+                            border.width: 1
+                            focus: false
+                            activeFocusOnTab: true
+                            property bool scopeHover: false
+
+                            Text {
+                                anchors.centerIn: parent
+                                text: modelData.label
+                                font.pixelSize: Theme.fontSizeXs
+                                font.bold: editGroupDialog.filterScope === modelData.value
+                                color: editGroupDialog.filterScope === modelData.value
+                                    ? Theme.textPrimary : Theme.textSecondary
+                            }
+
+                            MouseArea {
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onEntered: parent.scopeHover = true
+                                onExited: parent.scopeHover = false
+                                onClicked: editGroupDialog.filterScope = modelData.value
+                            }
+
+                            Keys.onLeftPressed: {
+                                if (index > 0) {
+                                    var prev = editScopeRepeater.itemAt(index - 1)
+                                    if (prev) prev.forceActiveFocus()
+                                }
+                            }
+                            Keys.onRightPressed: {
+                                if (index < editScopeRepeater.count - 1) {
+                                    var next = editScopeRepeater.itemAt(index + 1)
+                                    if (next) next.forceActiveFocus()
+                                }
+                            }
+                            Keys.onUpPressed: editGroupInput.forceActiveFocus()
+                            Keys.onDownPressed: {
+                                if (editFieldRepeater.count > 0) {
+                                    var firstField = editFieldRepeater.itemAt(0)
+                                    if (firstField) firstField.forceActiveFocus()
+                                }
+                            }
+                            Keys.onReturnPressed: editGroupDialog.filterScope = modelData.value
+                            Keys.onEnterPressed: Keys.onReturnPressed(event)
+                            Keys.onPressed: function(event) {
+                                if (event.key === Qt.Key_Select || event.key === Qt.Key_Space) {
+                                    editGroupDialog.filterScope = modelData.value
+                                    event.accepted = true
+                                } else if (event.key === Qt.Key_B || event.key === Qt.Key_Escape
+                                           || event.key === Qt.Key_Back) {
+                                    editGroupDialog.close()
+                                    event.accepted = true
+                                }
+                            }
+                        }
+                    }
+                }
+
+                RowLayout {
+                    visible: editGroupDialog.groupKind === "dynamic"
+                    Layout.fillWidth: true
+                    spacing: 8
+
+                    Repeater {
+                        id: editFieldRepeater
+                        model: [
+                            { value: "name", label: "Name" },
+                            { value: "category", label: "Category" },
+                            { value: "server", label: "Server" }
+                        ]
+
+                        delegate: Rectangle {
+                            id: editFieldBtn
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: 32
+                            radius: 6
+                            color: editGroupDialog.filterField === modelData.value
+                                ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.20)
+                                : fieldHover ? Theme.surfaceHover : Theme.surface
+                            border.color: editGroupDialog.filterField === modelData.value
+                                ? Theme.accent : Theme.surfaceBorder
+                            border.width: 1
+                            focus: false
+                            activeFocusOnTab: true
+                            property bool fieldHover: false
+
+                            Text {
+                                anchors.centerIn: parent
+                                text: modelData.label
+                                font.pixelSize: Theme.fontSizeXs
+                                font.bold: editGroupDialog.filterField === modelData.value
+                                color: editGroupDialog.filterField === modelData.value
+                                    ? Theme.textPrimary : Theme.textSecondary
+                            }
+
+                            MouseArea {
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onEntered: parent.fieldHover = true
+                                onExited: parent.fieldHover = false
+                                onClicked: editGroupDialog.filterField = modelData.value
+                            }
+
+                            Keys.onLeftPressed: {
+                                if (index > 0) {
+                                    var prev = editFieldRepeater.itemAt(index - 1)
+                                    if (prev) prev.forceActiveFocus()
+                                }
+                            }
+                            Keys.onRightPressed: {
+                                if (index < editFieldRepeater.count - 1) {
+                                    var next = editFieldRepeater.itemAt(index + 1)
+                                    if (next) next.forceActiveFocus()
+                                }
+                            }
+                            Keys.onUpPressed: {
+                                if (editScopeRepeater.count > 0) {
+                                    var s = editScopeRepeater.itemAt(0)
+                                    if (s) s.forceActiveFocus()
+                                }
+                            }
+                            Keys.onDownPressed: {
+                                if (editOpRepeater.count > 0) {
+                                    var firstOp = editOpRepeater.itemAt(0)
+                                    if (firstOp) firstOp.forceActiveFocus()
+                                }
+                            }
+                            Keys.onReturnPressed: editGroupDialog.filterField = modelData.value
+                            Keys.onEnterPressed: Keys.onReturnPressed(event)
+                            Keys.onPressed: function(event) {
+                                if (event.key === Qt.Key_Select || event.key === Qt.Key_Space) {
+                                    editGroupDialog.filterField = modelData.value
+                                    event.accepted = true
+                                } else if (event.key === Qt.Key_B || event.key === Qt.Key_Escape
+                                           || event.key === Qt.Key_Back) {
+                                    editGroupDialog.close()
+                                    event.accepted = true
+                                }
+                            }
+                        }
+                    }
+                }
+
+                RowLayout {
+                    visible: editGroupDialog.groupKind === "dynamic"
+                    Layout.fillWidth: true
+                    spacing: 8
+
+                    Repeater {
+                        id: editOpRepeater
+                        model: [
+                            { value: "contains", label: "Contains" },
+                            { value: "not_contains", label: "Not Contains" },
+                            { value: "starts_with", label: "Starts With" },
+                            { value: "equals", label: "Equals" }
+                        ]
+
+                        delegate: Rectangle {
+                            id: editOpBtn
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: 32
+                            radius: 6
+                            color: editGroupDialog.filterOperator === modelData.value
+                                ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.20)
+                                : opHover ? Theme.surfaceHover : Theme.surface
+                            border.color: editGroupDialog.filterOperator === modelData.value
+                                ? Theme.accent : Theme.surfaceBorder
+                            border.width: 1
+                            focus: false
+                            activeFocusOnTab: true
+                            property bool opHover: false
+
+                            Text {
+                                anchors.centerIn: parent
+                                text: modelData.label
+                                font.pixelSize: Theme.fontSizeXs
+                                font.bold: editGroupDialog.filterOperator === modelData.value
+                                color: editGroupDialog.filterOperator === modelData.value
+                                    ? Theme.textPrimary : Theme.textSecondary
+                            }
+
+                            MouseArea {
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onEntered: parent.opHover = true
+                                onExited: parent.opHover = false
+                                onClicked: editGroupDialog.filterOperator = modelData.value
+                            }
+
+                            Keys.onLeftPressed: {
+                                if (index > 0) {
+                                    var prev = editOpRepeater.itemAt(index - 1)
+                                    if (prev) prev.forceActiveFocus()
+                                }
+                            }
+                            Keys.onRightPressed: {
+                                if (index < editOpRepeater.count - 1) {
+                                    var next = editOpRepeater.itemAt(index + 1)
+                                    if (next) next.forceActiveFocus()
+                                }
+                            }
+                            Keys.onUpPressed: {
+                                if (editFieldRepeater.count > 0) {
+                                    var f = editFieldRepeater.itemAt(0)
+                                    if (f) f.forceActiveFocus()
+                                }
+                            }
+                            Keys.onDownPressed: editFilterInput.forceActiveFocus()
+                            Keys.onReturnPressed: editGroupDialog.filterOperator = modelData.value
+                            Keys.onEnterPressed: Keys.onReturnPressed(event)
+                            Keys.onPressed: function(event) {
+                                if (event.key === Qt.Key_Select || event.key === Qt.Key_Space) {
+                                    editGroupDialog.filterOperator = modelData.value
+                                    event.accepted = true
+                                } else if (event.key === Qt.Key_B || event.key === Qt.Key_Escape
+                                           || event.key === Qt.Key_Back) {
+                                    editGroupDialog.close()
+                                    event.accepted = true
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Rectangle {
+                    visible: editGroupDialog.groupKind === "dynamic"
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 40
+                    radius: 6
+                    color: Theme.surface
+                    border.color: editFilterInput.activeFocus ? Theme.accent : Theme.surfaceBorder
+                    border.width: 1
+
+                    TextInput {
+                        id: editFilterInput
+                        anchors.fill: parent
+                        anchors.margins: 8
+                        font.pixelSize: 14
+                        color: Theme.textPrimary
+                        clip: true; selectByMouse: true
+                        focus: false
+                        activeFocusOnTab: true
+
+                        Keys.onUpPressed: {
+                            if (editOpRepeater.count > 0) {
+                                var firstOp = editOpRepeater.itemAt(0)
+                                if (firstOp) firstOp.forceActiveFocus()
+                            }
+                        }
+                        Keys.onDownPressed: editGroupCancelBtn.forceActiveFocus()
+                        Keys.onReturnPressed: confirmEditGroup()
+                        Keys.onEnterPressed: confirmEditGroup()
+                        Keys.onEscapePressed: editGroupDialog.close()
+                        Keys.onPressed: function(event) {
+                            if (event.key === Qt.Key_Back) {
+                                editGroupDialog.close()
+                                event.accepted = true
+                            }
+                        }
+
+                        Text {
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: "Filter text..."
+                            font.pixelSize: 14
+                            color: Theme.textMuted
+                            visible: !editFilterInput.text && !editFilterInput.activeFocus
+                        }
+                    }
+                }
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    Item { Layout.fillWidth: true }
+
+                    Rectangle {
+                        id: editGroupCancelBtn
+                        width: 80; height: 36; radius: 6
+                        color: editCancelHov ? Theme.surfaceHover : Theme.surface
+                        border.color: Theme.surfaceBorder; border.width: 1
+                        focus: false
+                        activeFocusOnTab: true
+                        property bool editCancelHov: false
+                        Text { anchors.centerIn: parent; text: "Cancel"; font.pixelSize: 13; color: Theme.textSecondary }
+                        MouseArea {
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onEntered: parent.editCancelHov = true
+                            onExited: parent.editCancelHov = false
+                            onClicked: editGroupDialog.close()
+                        }
+                        Keys.onRightPressed: editGroupSaveBtn.forceActiveFocus()
+                        Keys.onUpPressed: {
+                            if (editGroupDialog.groupKind === "dynamic") {
+                                editFilterInput.forceActiveFocus()
+                            } else {
+                                editGroupInput.forceActiveFocus()
+                            }
+                        }
+                        Keys.onReturnPressed: editGroupDialog.close()
+                        Keys.onEnterPressed: Keys.onReturnPressed(event)
+                        Keys.onPressed: function(event) {
+                            if (event.key === Qt.Key_Select || event.key === Qt.Key_Space
+                                    || event.key === Qt.Key_B || event.key === Qt.Key_Escape) {
+                                editGroupDialog.close()
+                                event.accepted = true
+                            }
+                        }
+                    }
+
+                    Rectangle {
+                        id: editGroupSaveBtn
+                        width: 80; height: 36; radius: 6
+                        color: editSaveHov ? Theme.accent : Theme.accentHover
+                        focus: false
+                        activeFocusOnTab: true
+                        property bool editSaveHov: false
+                        Text { anchors.centerIn: parent; text: "Save"; font.pixelSize: 13; font.bold: true; color: Theme.textOnAccent }
+                        MouseArea {
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onEntered: parent.editSaveHov = true
+                            onExited: parent.editSaveHov = false
+                            onClicked: confirmEditGroup()
+                        }
+                        Keys.onLeftPressed: editGroupCancelBtn.forceActiveFocus()
+                        Keys.onUpPressed: {
+                            if (editGroupDialog.groupKind === "dynamic") {
+                                editFilterInput.forceActiveFocus()
+                            } else {
+                                editGroupInput.forceActiveFocus()
+                            }
+                        }
+                        Keys.onReturnPressed: confirmEditGroup()
+                        Keys.onEnterPressed: Keys.onReturnPressed(event)
+                        Keys.onPressed: function(event) {
+                            if (event.key === Qt.Key_Select || event.key === Qt.Key_Space) {
+                                confirmEditGroup()
+                                event.accepted = true
+                            } else if (event.key === Qt.Key_B || event.key === Qt.Key_Escape) {
+                                editGroupDialog.close()
+                                event.accepted = true
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    function confirmEditGroup() {
+        if (!appViewModel || !editGroupInput.text.trim() || editGroupDialog.groupId <= 0) return
+        var filterValue = editGroupDialog.groupKind === "dynamic" ? editFilterInput.text.trim() : ""
+        if (editGroupDialog.groupKind === "dynamic" && !filterValue) return
+        appViewModel.groupList.updateGroup(editGroupDialog.groupId,
+                                           editGroupInput.text.trim(),
+                                           editGroupDialog.groupKind,
+                                           editGroupDialog.filterScope,
+                                           editGroupDialog.filterField,
+                                           editGroupDialog.filterOperator,
+                                           filterValue)
+        selectedGroupName = editGroupInput.text.trim()
+        editGroupDialog.close()
+        groupsView.reloadGroups()
+        Qt.callLater(function() {
+            groupsView.focusGroupById(editGroupDialog.groupId)
+        })
+    }
+
+    Rectangle {
         id: createGroupDialog
         visible: false
         anchors.fill: parent
         color: "#C0000000"
         z: 100
 
+        property string groupKind: "static"
+        property string filterScope: "any"
+        property string filterField: "name"
+        property string filterOperator: "contains"
+
         function open() {
             visible = true
+            groupKind = "static"
+            filterScope = "any"
+            filterField = "name"
+            filterOperator = "contains"
             newGroupInput.text = ""
+            newFilterInput.text = ""
             newGroupInput.forceActiveFocus()
         }
         function close() {
@@ -659,10 +1423,143 @@ Item {
                 anchors.margins: 24
                 spacing: 16
 
-                Text {
-                    text: "Create Group"
-                    font.pixelSize: 18; font.bold: true
-                    color: Theme.textPrimary
+                RowLayout {
+                    Layout.fillWidth: true
+
+                    Text {
+                        text: "Create Group"
+                        font.pixelSize: 18; font.bold: true
+                        color: Theme.textPrimary
+                        Layout.fillWidth: true
+                    }
+
+                    Rectangle {
+                        id: createGroupCloseBtn
+                        width: 24
+                        height: 24
+                        radius: 12
+                        color: closeHov || createGroupCloseBtn.activeFocus ? Theme.error : "transparent"
+                        border.color: Theme.surfaceBorder
+                        border.width: 1
+                        focus: false
+                        activeFocusOnTab: true
+                        property bool closeHov: false
+
+                        Text {
+                            anchors.centerIn: parent
+                            text: "✕"
+                            font.pixelSize: 11
+                            font.bold: true
+                            color: (parent.closeHov || createGroupCloseBtn.activeFocus) ? "#ffffff" : Theme.textMuted
+                        }
+
+                        MouseArea {
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onEntered: parent.closeHov = true
+                            onExited: parent.closeHov = false
+                            onClicked: createGroupDialog.close()
+                        }
+
+                        Keys.onReturnPressed: createGroupDialog.close()
+                        Keys.onEnterPressed: Keys.onReturnPressed(event)
+                        Keys.onPressed: function(event) {
+                            if (event.key === Qt.Key_Select || event.key === Qt.Key_Space
+                                    || event.key === Qt.Key_B || event.key === Qt.Key_Escape
+                                    || event.key === Qt.Key_Back) {
+                                createGroupDialog.close()
+                                event.accepted = true
+                            }
+                        }
+                    }
+                }
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 8
+
+                    Repeater {
+                        id: groupKindRepeater
+                        model: [
+                            { value: "static", label: "Static" },
+                            { value: "dynamic", label: "Dynamic" }
+                        ]
+
+                        delegate: Rectangle {
+                            id: kindBtn
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: 34
+                            radius: 6
+                            color: createGroupDialog.groupKind === modelData.value
+                                ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.20)
+                                : kindHover ? Theme.surfaceHover : Theme.surface
+                            border.color: createGroupDialog.groupKind === modelData.value
+                                ? Theme.accent : Theme.surfaceBorder
+                            border.width: 1
+                            focus: false
+                            activeFocusOnTab: true
+                            property bool kindHover: false
+
+                            Text {
+                                anchors.centerIn: parent
+                                text: modelData.label
+                                font.pixelSize: Theme.fontSizeSm
+                                font.bold: createGroupDialog.groupKind === modelData.value
+                                color: createGroupDialog.groupKind === modelData.value
+                                    ? Theme.textPrimary : Theme.textSecondary
+                            }
+
+                            MouseArea {
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onEntered: parent.kindHover = true
+                                onExited: parent.kindHover = false
+                                onClicked: {
+                                    createGroupDialog.groupKind = modelData.value
+                                    if (modelData.value === "static") {
+                                        newGroupInput.forceActiveFocus()
+                                    } else {
+                                        newFilterInput.forceActiveFocus()
+                                    }
+                                }
+                            }
+
+                            Keys.onLeftPressed: {
+                                if (index > 0) {
+                                    var prev = groupKindRepeater.itemAt(index - 1)
+                                    if (prev) prev.forceActiveFocus()
+                                }
+                            }
+                            Keys.onRightPressed: {
+                                if (index < groupKindRepeater.count - 1) {
+                                    var next = groupKindRepeater.itemAt(index + 1)
+                                    if (next) next.forceActiveFocus()
+                                }
+                            }
+                            Keys.onDownPressed: newGroupInput.forceActiveFocus()
+                            Keys.onReturnPressed: {
+                                createGroupDialog.groupKind = modelData.value
+                                if (modelData.value === "static") {
+                                    newGroupInput.forceActiveFocus()
+                                } else {
+                                    newFilterInput.forceActiveFocus()
+                                }
+                            }
+                            Keys.onEnterPressed: Keys.onReturnPressed(event)
+                            Keys.onPressed: function(event) {
+                                if (event.key === Qt.Key_Select || event.key === Qt.Key_Space) {
+                                    Keys.onReturnPressed(event)
+                                    event.accepted = true
+                                } else if (event.key === Qt.Key_B || event.key === Qt.Key_Escape
+                                           || event.key === Qt.Key_Back) {
+                                    createGroupDialog.close()
+                                    event.accepted = true
+                                }
+                            }
+                        }
+                    }
                 }
 
                 Rectangle {
@@ -680,13 +1577,50 @@ Item {
                         font.pixelSize: 14
                         color: Theme.textPrimary
                         clip: true; selectByMouse: true
+                        focus: false
+                        activeFocusOnTab: true
 
-                        Keys.onReturnPressed: confirmCreateGroup()
-                        Keys.onEnterPressed: confirmCreateGroup()
+                        Keys.onUpPressed: {
+                            if (groupKindRepeater.count > 0) {
+                                var firstKind = groupKindRepeater.itemAt(0)
+                                if (firstKind) firstKind.forceActiveFocus()
+                            }
+                        }
+                        Keys.onDownPressed: {
+                            if (createGroupDialog.groupKind === "dynamic") {
+                                if (scopeRepeater.count > 0) {
+                                    var firstScope = scopeRepeater.itemAt(0)
+                                    if (firstScope) firstScope.forceActiveFocus()
+                                }
+                            } else {
+                                cancelGroupBtn.forceActiveFocus()
+                            }
+                        }
+                        Keys.onReturnPressed: {
+                            if (createGroupDialog.groupKind === "dynamic") {
+                                if (scopeRepeater.count > 0) {
+                                    var firstScope = scopeRepeater.itemAt(0)
+                                    if (firstScope) firstScope.forceActiveFocus()
+                                }
+                            } else {
+                                confirmCreateGroup()
+                            }
+                        }
+                        Keys.onEnterPressed: Keys.onReturnPressed(event)
                         Keys.onEscapePressed: createGroupDialog.close()
                         Keys.onPressed: function(event) {
-                            if (event.key === Qt.Key_B) {
+                            if (event.key === Qt.Key_Back) {
                                 createGroupDialog.close()
+                                event.accepted = true
+                            } else if (event.key === Qt.Key_Select) {
+                                if (createGroupDialog.groupKind === "dynamic") {
+                                    if (scopeRepeater.count > 0) {
+                                        var firstScope = scopeRepeater.itemAt(0)
+                                        if (firstScope) firstScope.forceActiveFocus()
+                                    }
+                                } else {
+                                    confirmCreateGroup()
+                                }
                                 event.accepted = true
                             }
                         }
@@ -697,6 +1631,302 @@ Item {
                             font.pixelSize: 14
                             color: Theme.textMuted
                             visible: !newGroupInput.text && !newGroupInput.activeFocus
+                        }
+                    }
+                }
+
+                RowLayout {
+                    visible: createGroupDialog.groupKind === "dynamic"
+                    Layout.fillWidth: true
+                    spacing: 8
+
+                    Repeater {
+                        id: scopeRepeater
+                        model: [
+                            { value: "any", label: "Any" },
+                            { value: "live", label: "Live" },
+                            { value: "vod", label: "Movies" },
+                            { value: "series", label: "Series" }
+                        ]
+
+                        delegate: Rectangle {
+                            id: scopeBtn
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: 32
+                            radius: 6
+                            color: createGroupDialog.filterScope === modelData.value
+                                ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.20)
+                                : scopeHover ? Theme.surfaceHover : Theme.surface
+                            border.color: createGroupDialog.filterScope === modelData.value
+                                ? Theme.accent : Theme.surfaceBorder
+                            border.width: 1
+                            focus: false
+                            activeFocusOnTab: true
+                            property bool scopeHover: false
+
+                            Text {
+                                anchors.centerIn: parent
+                                text: modelData.label
+                                font.pixelSize: Theme.fontSizeXs
+                                font.bold: createGroupDialog.filterScope === modelData.value
+                                color: createGroupDialog.filterScope === modelData.value
+                                    ? Theme.textPrimary : Theme.textSecondary
+                            }
+
+                            MouseArea {
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onEntered: parent.scopeHover = true
+                                onExited: parent.scopeHover = false
+                                onClicked: createGroupDialog.filterScope = modelData.value
+                            }
+
+                            Keys.onLeftPressed: {
+                                if (index > 0) {
+                                    var prev = scopeRepeater.itemAt(index - 1)
+                                    if (prev) prev.forceActiveFocus()
+                                }
+                            }
+                            Keys.onRightPressed: {
+                                if (index < scopeRepeater.count - 1) {
+                                    var next = scopeRepeater.itemAt(index + 1)
+                                    if (next) next.forceActiveFocus()
+                                }
+                            }
+                            Keys.onUpPressed: newGroupInput.forceActiveFocus()
+                            Keys.onDownPressed: {
+                                if (fieldRepeater.count > 0) {
+                                    var firstField = fieldRepeater.itemAt(0)
+                                    if (firstField) firstField.forceActiveFocus()
+                                }
+                            }
+                            Keys.onReturnPressed: createGroupDialog.filterScope = modelData.value
+                            Keys.onEnterPressed: Keys.onReturnPressed(event)
+                            Keys.onPressed: function(event) {
+                                if (event.key === Qt.Key_Select || event.key === Qt.Key_Space) {
+                                    createGroupDialog.filterScope = modelData.value
+                                    event.accepted = true
+                                } else if (event.key === Qt.Key_B || event.key === Qt.Key_Escape
+                                           || event.key === Qt.Key_Back) {
+                                    createGroupDialog.close()
+                                    event.accepted = true
+                                }
+                            }
+                        }
+                    }
+                }
+
+                RowLayout {
+                    visible: createGroupDialog.groupKind === "dynamic"
+                    Layout.fillWidth: true
+                    spacing: 8
+
+                    Repeater {
+                        id: fieldRepeater
+                        model: [
+                            { value: "name", label: "Name" },
+                            { value: "category", label: "Category" },
+                            { value: "server", label: "Server" }
+                        ]
+
+                        delegate: Rectangle {
+                            id: fieldBtn
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: 32
+                            radius: 6
+                            color: createGroupDialog.filterField === modelData.value
+                                ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.20)
+                                : fieldHover ? Theme.surfaceHover : Theme.surface
+                            border.color: createGroupDialog.filterField === modelData.value
+                                ? Theme.accent : Theme.surfaceBorder
+                            border.width: 1
+                            focus: false
+                            activeFocusOnTab: true
+                            property bool fieldHover: false
+
+                            Text {
+                                anchors.centerIn: parent
+                                text: modelData.label
+                                font.pixelSize: Theme.fontSizeXs
+                                font.bold: createGroupDialog.filterField === modelData.value
+                                color: createGroupDialog.filterField === modelData.value
+                                    ? Theme.textPrimary : Theme.textSecondary
+                            }
+
+                            MouseArea {
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onEntered: parent.fieldHover = true
+                                onExited: parent.fieldHover = false
+                                onClicked: createGroupDialog.filterField = modelData.value
+                            }
+
+                            Keys.onLeftPressed: {
+                                if (index > 0) {
+                                    var prev = fieldRepeater.itemAt(index - 1)
+                                    if (prev) prev.forceActiveFocus()
+                                }
+                            }
+                            Keys.onRightPressed: {
+                                if (index < fieldRepeater.count - 1) {
+                                    var next = fieldRepeater.itemAt(index + 1)
+                                    if (next) next.forceActiveFocus()
+                                }
+                            }
+                            Keys.onUpPressed: {
+                                if (scopeRepeater.count > 0) {
+                                    var s = scopeRepeater.itemAt(0)
+                                    if (s) s.forceActiveFocus()
+                                }
+                            }
+                            Keys.onDownPressed: {
+                                if (operatorRepeater.count > 0) {
+                                    var firstOp = operatorRepeater.itemAt(0)
+                                    if (firstOp) firstOp.forceActiveFocus()
+                                }
+                            }
+                            Keys.onReturnPressed: createGroupDialog.filterField = modelData.value
+                            Keys.onEnterPressed: Keys.onReturnPressed(event)
+                            Keys.onPressed: function(event) {
+                                if (event.key === Qt.Key_Select || event.key === Qt.Key_Space) {
+                                    createGroupDialog.filterField = modelData.value
+                                    event.accepted = true
+                                } else if (event.key === Qt.Key_B || event.key === Qt.Key_Escape
+                                           || event.key === Qt.Key_Back) {
+                                    createGroupDialog.close()
+                                    event.accepted = true
+                                }
+                            }
+                        }
+                    }
+                }
+
+                RowLayout {
+                    visible: createGroupDialog.groupKind === "dynamic"
+                    Layout.fillWidth: true
+                    spacing: 8
+
+                    Repeater {
+                        id: operatorRepeater
+                        model: [
+                            { value: "contains", label: "Contains" },
+                            { value: "not_contains", label: "Not Contains" },
+                            { value: "starts_with", label: "Starts With" },
+                            { value: "equals", label: "Equals" }
+                        ]
+
+                        delegate: Rectangle {
+                            id: opBtn
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: 32
+                            radius: 6
+                            color: createGroupDialog.filterOperator === modelData.value
+                                ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.20)
+                                : opHover ? Theme.surfaceHover : Theme.surface
+                            border.color: createGroupDialog.filterOperator === modelData.value
+                                ? Theme.accent : Theme.surfaceBorder
+                            border.width: 1
+                            focus: false
+                            activeFocusOnTab: true
+                            property bool opHover: false
+
+                            Text {
+                                anchors.centerIn: parent
+                                text: modelData.label
+                                font.pixelSize: Theme.fontSizeXs
+                                font.bold: createGroupDialog.filterOperator === modelData.value
+                                color: createGroupDialog.filterOperator === modelData.value
+                                    ? Theme.textPrimary : Theme.textSecondary
+                            }
+
+                            MouseArea {
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onEntered: parent.opHover = true
+                                onExited: parent.opHover = false
+                                onClicked: createGroupDialog.filterOperator = modelData.value
+                            }
+
+                            Keys.onLeftPressed: {
+                                if (index > 0) {
+                                    var prev = operatorRepeater.itemAt(index - 1)
+                                    if (prev) prev.forceActiveFocus()
+                                }
+                            }
+                            Keys.onRightPressed: {
+                                if (index < operatorRepeater.count - 1) {
+                                    var next = operatorRepeater.itemAt(index + 1)
+                                    if (next) next.forceActiveFocus()
+                                }
+                            }
+                            Keys.onUpPressed: {
+                                if (fieldRepeater.count > 0) {
+                                    var f = fieldRepeater.itemAt(0)
+                                    if (f) f.forceActiveFocus()
+                                }
+                            }
+                            Keys.onDownPressed: newFilterInput.forceActiveFocus()
+                            Keys.onReturnPressed: createGroupDialog.filterOperator = modelData.value
+                            Keys.onEnterPressed: Keys.onReturnPressed(event)
+                            Keys.onPressed: function(event) {
+                                if (event.key === Qt.Key_Select || event.key === Qt.Key_Space) {
+                                    createGroupDialog.filterOperator = modelData.value
+                                    event.accepted = true
+                                } else if (event.key === Qt.Key_B || event.key === Qt.Key_Escape
+                                           || event.key === Qt.Key_Back) {
+                                    createGroupDialog.close()
+                                    event.accepted = true
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Rectangle {
+                    visible: createGroupDialog.groupKind === "dynamic"
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 40
+                    radius: 6
+                    color: Theme.surface
+                    border.color: newFilterInput.activeFocus ? Theme.accent : Theme.surfaceBorder
+                    border.width: 1
+
+                    TextInput {
+                        id: newFilterInput
+                        anchors.fill: parent
+                        anchors.margins: 8
+                        font.pixelSize: 14
+                        color: Theme.textPrimary
+                        clip: true; selectByMouse: true
+                        focus: false
+                        activeFocusOnTab: true
+
+                        Keys.onUpPressed: {
+                            if (operatorRepeater.count > 0) {
+                                var firstOp = operatorRepeater.itemAt(0)
+                                if (firstOp) firstOp.forceActiveFocus()
+                            }
+                        }
+                        Keys.onDownPressed: cancelGroupBtn.forceActiveFocus()
+                        Keys.onReturnPressed: confirmCreateGroup()
+                        Keys.onEnterPressed: confirmCreateGroup()
+                        Keys.onEscapePressed: createGroupDialog.close()
+                        Keys.onPressed: function(event) {
+                            if (event.key === Qt.Key_Back) {
+                                createGroupDialog.close()
+                                event.accepted = true
+                            }
+                        }
+
+                        Text {
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: "Filter text..."
+                            font.pixelSize: 14
+                            color: Theme.textMuted
+                            visible: !newFilterInput.text && !newFilterInput.activeFocus
                         }
                     }
                 }
@@ -716,6 +1946,13 @@ Item {
                         Text { anchors.centerIn: parent; text: "Cancel"; font.pixelSize: 13; color: Theme.textSecondary }
                         MouseArea { anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onEntered: parent.cancelHov = true; onExited: parent.cancelHov = false; onClicked: createGroupDialog.close() }
                         Keys.onRightPressed: createGroupBtn.forceActiveFocus()
+                        Keys.onUpPressed: {
+                            if (createGroupDialog.groupKind === "dynamic") {
+                                newFilterInput.forceActiveFocus()
+                            } else {
+                                newGroupInput.forceActiveFocus()
+                            }
+                        }
                         Keys.onReturnPressed: createGroupDialog.close()
                         Keys.onEnterPressed: Keys.onReturnPressed(event)
                         Keys.onPressed: function(event) {
@@ -754,9 +1991,19 @@ Item {
 
     function confirmCreateGroup() {
         if (!appViewModel || !newGroupInput.text.trim()) return
-        appViewModel.groupList.createGroup(newGroupInput.text.trim())
+        if (createGroupDialog.groupKind === "dynamic" && !newFilterInput.text.trim()) return
+        var createdId = appViewModel.groupList.createGroup(newGroupInput.text.trim(), createGroupDialog.groupKind,
+                                                           createGroupDialog.filterScope, createGroupDialog.filterField,
+                                                           createGroupDialog.filterOperator, newFilterInput.text.trim())
         createGroupDialog.close()
         groupsView.reloadGroups()
+        Qt.callLater(function() {
+            if (createdId > 0 && groupsView.focusGroupById(createdId)) return
+            if (!groupsView.focusLastGroup()) {
+                groupsView.reloadGroups()
+                groupsView.focusLastGroup()
+            }
+        })
     }
 
     // ── Channel search dialog ──
@@ -799,7 +2046,7 @@ Item {
                 spacing: 16
 
                 Text {
-                    text: "Add Channels to \"" + selectedGroupName + "\""
+                    text: "Add Items to \"" + selectedGroupName + "\""
                     font.pixelSize: 18; font.bold: true
                     color: Theme.textPrimary
                     elide: Text.ElideRight
@@ -835,7 +2082,7 @@ Item {
                             }
                         }
                         Keys.onPressed: function(event) {
-                            if (event.key === Qt.Key_B) {
+                            if (event.key === Qt.Key_Back) {
                                 channelSearchDialog.close()
                                 event.accepted = true
                             }

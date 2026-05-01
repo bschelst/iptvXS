@@ -9,6 +9,8 @@ Item {
     id: recordingsView
 
     readonly property var filterValues: ["", "recording", "scheduled", "completed", "uploading", "uploaded", "failed"]
+    property bool focusRestorePending: false
+    property int focusRestoreAttempts: 0
 
     function cycleFilter(direction) {
         if (!appViewModel) return
@@ -31,6 +33,43 @@ Item {
         }
         if (newRecButton) {
             newRecButton.forceActiveFocus()
+        }
+    }
+
+    function requestFocusRestore() {
+        focusRestorePending = true
+        focusRestoreAttempts = 0
+        focusRestoreTimer.restart()
+    }
+
+    function tryRestoreFocus() {
+        if (!focusRestorePending) return
+        if (!appViewModel || appViewModel.currentView !== "recordings") {
+            focusRestorePending = false
+            return
+        }
+        if (!recordingSectionRepeater || recordingSectionRepeater.count === 0) {
+            if (++focusRestoreAttempts < 40) {
+                focusRestoreTimer.restart()
+            } else {
+                focusRestorePending = false
+            }
+            return
+        }
+
+        for (var i = 0; i < recordingSectionRepeater.count; i++) {
+            var section = recordingSectionRepeater.itemAt(i)
+            if (section && section.rowItems && section.rowItems.length > 0) {
+                section.focusCardAt(0)
+                focusRestorePending = false
+                return
+            }
+        }
+
+        if (++focusRestoreAttempts < 40) {
+            focusRestoreTimer.restart()
+        } else {
+            focusRestorePending = false
         }
     }
 
@@ -108,6 +147,10 @@ Item {
                 rowFlickable.contentWidth - rowFlickable.width,
                 cardX + 220 - rowFlickable.width + Theme.spacingMd)
         }
+    }
+
+    function hasLocalRecordingFile(filePath) {
+        return appViewModel && filePath && filePath.length > 0 && appViewModel.fileExists(filePath)
     }
 
     ColumnLayout {
@@ -564,7 +607,7 @@ Item {
 
                                         function requestDelete() {
                                             if (!appViewModel) return
-                                            if (modelData.status === "uploaded" && modelData.filePath && modelData.filePath.length > 0) {
+                                            if (modelData.status === "uploaded" && hasLocalRecordingFile(modelData.filePath)) {
                                                 deleteLocalDialog.recordingId = modelData.recordingId
                                                 deleteLocalDialog.recordingName = modelData.programmeTitle && modelData.programmeTitle.length > 0
                                                     ? modelData.programmeTitle
@@ -788,21 +831,37 @@ Item {
                                                         anchors.margins: 8
                                                         radius: 10
                                                         height: 20
-                                                        width: statusTag.implicitWidth + 16
+                                                        width: statusRow.implicitWidth + 16
                                                         color: (modelData.status === "uploaded" || modelData.status === "completed")
                                                             ? Theme.success
                                                             : (modelData.status === "failed" ? Theme.error : Theme.accent)
 
-                                                        Text {
-                                                            id: statusTag
+                                                        Row {
+                                                            id: statusRow
                                                             anchors.centerIn: parent
-                                                            text: modelData.status
-                                                            font.pixelSize: 10
-                                                            font.bold: true
-                                                            font.capitalization: Font.AllUppercase
-                                                            color: (modelData.status === "uploaded" || modelData.status === "completed")
-                                                                ? "#000000"
-                                                                : Theme.textOnAccent
+                                                            spacing: 4
+
+                                                            Text {
+                                                                visible: modelData.status === "uploaded"
+                                                                text: "☁"
+                                                                font.pixelSize: 11
+                                                                font.family: "DejaVu Sans"
+                                                                font.bold: true
+                                                                color: (modelData.status === "uploaded" || modelData.status === "completed")
+                                                                    ? "#000000"
+                                                                    : Theme.textOnAccent
+                                                            }
+
+                                                            Text {
+                                                                id: statusTag
+                                                                text: modelData.status
+                                                                font.pixelSize: 10
+                                                                font.bold: true
+                                                                font.capitalization: Font.AllUppercase
+                                                                color: (modelData.status === "uploaded" || modelData.status === "completed")
+                                                                    ? "#000000"
+                                                                    : Theme.textOnAccent
+                                                            }
                                                         }
                                                     }
 
@@ -886,7 +945,7 @@ Item {
                                                             Layout.preferredHeight: 28
                                                             radius: 14
                                                             color: openHov ? Theme.accentHover : Theme.accent
-                                                            focus: true
+                                                            focus: false
                                                             activeFocusOnTab: true
                                                             property bool openHov: false
                                                             onActiveFocusChanged: recordingCard.actionFocusMode = activeFocus
@@ -940,7 +999,7 @@ Item {
                                                             color: moreHov || activeFocus ? Theme.surfaceHover : Theme.surface
                                                             border.width: activeFocus ? 2 : 1
                                                             border.color: activeFocus ? Theme.accent : Theme.surfaceBorder
-                                                            focus: true
+                                                            focus: false
                                                             activeFocusOnTab: true
                                                             property bool moreHov: false
                                                             onActiveFocusChanged: recordingCard.actionFocusMode = activeFocus
@@ -1027,27 +1086,38 @@ Item {
 
                                                     function closeAndReturn() {
                                                         recordingActionsPopup.close()
-                                                        if (moreBtn) moreBtn.forceActiveFocus()
                                                         recordingCard.actionFocusMode = false
+                                                    }
+
+                                                    function handleCancelKey(event) {
+                                                        if (event.key === Qt.Key_Back || event.key === Qt.Key_B || event.key === Qt.Key_Escape) {
+                                                            recordingActionsPopup.closeAndReturn()
+                                                            event.accepted = true
+                                                            return true
+                                                        }
+                                                        return false
                                                     }
 
                                                     function firstActionItem() {
                                                         if (pinAction.visible) return pinAction
                                                         if (deleteAction.visible) return deleteAction
                                                         if (deleteFileAction.visible) return deleteFileAction
+                                                        if (cancelAction.visible) return cancelAction
                                                         return null
                                                     }
 
                                                     property int actionIndex: 0
 
                                                     function maxActionIndex() {
-                                                        return deleteFileAction.visible ? 2 : 1
+                                                        return deleteFileAction.visible ? 3 : 2
                                                     }
 
                                                     function actionItemForIndex(idx) {
                                                         if (idx === 0) return pinAction
                                                         if (idx === 1) return deleteAction
                                                         if (idx === 2 && deleteFileAction.visible) return deleteFileAction
+                                                        if (idx === 2 && !deleteFileAction.visible) return cancelAction
+                                                        if (idx === 3 && deleteFileAction.visible) return cancelAction
                                                         return null
                                                     }
 
@@ -1084,8 +1154,12 @@ Item {
                                                         Keys.onDownPressed: {
                                                             if (actionIndex < maxActionIndex()) selectAction(actionIndex + 1)
                                                         }
-                                                        Keys.onLeftPressed: recordingActionsPopup.closeAndReturn()
-                                                        Keys.onRightPressed: recordingActionsPopup.closeAndReturn()
+                                                        Keys.onLeftPressed: {
+                                                            recordingActionsPopup.closeAndReturn()
+                                                        }
+                                                        Keys.onRightPressed: {
+                                                            recordingActionsPopup.closeAndReturn()
+                                                        }
                                                         Keys.onReturnPressed: {
                                                             var item = actionItemForIndex(actionIndex)
                                                             if (item && item.activateAction) item.activateAction()
@@ -1112,6 +1186,7 @@ Item {
                                                                 width: parent.width
                                                                 height: 40
                                                                 radius: 12
+                                                                activeFocusOnTab: true
                                                                 property bool selected: recordingActionsPopup.actionIndex === 0
                                                                 color: pinActionHov || selected ? Theme.accent : Theme.surface
                                                                 border.width: selected ? 2 : 1
@@ -1145,6 +1220,9 @@ Item {
                                                                     recordingCard.togglePinned()
                                                                     recordingActionsPopup.closeAndReturn()
                                                                 }
+                                                                Keys.onPressed: function(event) {
+                                                                    recordingActionsPopup.handleCancelKey(event)
+                                                                }
                                                             }
 
                                                         Rectangle {
@@ -1152,6 +1230,7 @@ Item {
                                                                 width: parent.width
                                                                 height: 40
                                                                 radius: 12
+                                                                activeFocusOnTab: true
                                                                 property bool selected: recordingActionsPopup.actionIndex === 1
                                                                 color: deleteActionHov || selected ? Theme.error : "#3a1010"
                                                                 border.width: selected ? 2 : 1
@@ -1185,15 +1264,19 @@ Item {
                                                                     recordingCard.requestDelete()
                                                                     recordingActionsPopup.closeAndReturn()
                                                                 }
+                                                                Keys.onPressed: function(event) {
+                                                                    recordingActionsPopup.handleCancelKey(event)
+                                                                }
                                                             }
 
                                                         Rectangle {
                                                                 id: deleteFileAction
                                                                 visible: modelData.status === "uploaded"
-                                                                    && modelData.filePath && modelData.filePath.length > 0
+                                                                    && hasLocalRecordingFile(modelData.filePath)
                                                                 width: parent.width
                                                                 height: 40
                                                                 radius: 12
+                                                                activeFocusOnTab: true
                                                                 property bool selected: recordingActionsPopup.actionIndex === 2
                                                                 color: deleteFileActionHov || selected ? Theme.surfaceHover : Theme.surface
                                                                 border.width: selected ? 2 : 1
@@ -1235,6 +1318,48 @@ Item {
                                                                     deleteLocalDialog.visible = true
                                                                     recordingActionsPopup.closeAndReturn()
                                                                 }
+                                                                Keys.onPressed: function(event) {
+                                                                    recordingActionsPopup.handleCancelKey(event)
+                                                                }
+                                                            }
+
+                                                        Rectangle {
+                                                                id: cancelAction
+                                                                width: parent.width
+                                                                height: 40
+                                                                radius: 12
+                                                                activeFocusOnTab: true
+                                                                property bool selected: recordingActionsPopup.actionIndex === (deleteFileAction.visible ? 3 : 2)
+                                                                color: cancelActionHov || selected ? Theme.surfaceHover : Theme.surface
+                                                                border.width: selected ? 2 : 1
+                                                                border.color: selected ? Theme.accent : Theme.surfaceBorder
+                                                                property bool cancelActionHov: false
+                                                                scale: selected ? 1.01 : 1.0
+
+                                                                Text {
+                                                                    anchors.verticalCenter: parent.verticalCenter
+                                                                    anchors.left: parent.left
+                                                                    anchors.leftMargin: 14
+                                                                    text: "Cancel"
+                                                                    font.pixelSize: 11
+                                                                    font.bold: true
+                                                                    color: Theme.textPrimary
+                                                                }
+
+                                                                MouseArea {
+                                                                    anchors.fill: parent
+                                                                    hoverEnabled: true
+                                                                    cursorShape: Qt.PointingHandCursor
+                                                                    onEntered: parent.cancelActionHov = true
+                                                                    onExited: parent.cancelActionHov = false
+                                                                    onClicked: recordingActionsPopup.closeAndReturn()
+                                                                }
+                                                                function activateAction() {
+                                                                    recordingActionsPopup.closeAndReturn()
+                                                                }
+                                                                Keys.onPressed: function(event) {
+                                                                    recordingActionsPopup.handleCancelKey(event)
+                                                                }
                                                             }
                                                         }
                                                     }
@@ -1248,10 +1373,10 @@ Item {
                     }
                 }
 
-                Item {
-                    width: parent.width
-                    height: 160
-                    visible: recordingsColumn.children.length <= 0 || (appViewModel && appViewModel.recordingList.count === 0)
+    Item {
+        width: parent.width
+        height: 160
+        visible: recordingsColumn.children.length <= 0 || (appViewModel && appViewModel.recordingList.count === 0)
 
                     Text {
                         anchors.centerIn: parent
@@ -1264,6 +1389,24 @@ Item {
                 }
             }
         }
+    }
+
+    Timer {
+        id: focusRestoreTimer
+        interval: 75
+        repeat: false
+        onTriggered: recordingsView.tryRestoreFocus()
+    }
+
+    Connections {
+        target: appViewModel ? appViewModel.recordingList : null
+        function onCountChanged() {
+            if (focusRestorePending) requestFocusRestore()
+        }
+    }
+
+    Component.onCompleted: {
+        requestFocusRestore()
     }
 
     Dialog {

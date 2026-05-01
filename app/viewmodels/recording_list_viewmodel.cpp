@@ -520,6 +520,7 @@ QVariantList RecordingListViewModel::recordingsForSection(const QString &section
         item[QStringLiteral("programmeTitle")] = entry.programmeTitle;
         item[QStringLiteral("channelLogo")] = entry.channelLogo;
         item[QStringLiteral("dateSection")] = entry.dateSection;
+        item[QStringLiteral("gdriveFileId")] = rec.gdriveFileId;
         items.append(item);
     }
     return items;

@@ -833,6 +833,8 @@ Item {
                                 delegate: Item {
                                     width: 208
                                     height: 182
+                                    focus: chRowListView.activeFocus && chRowListView.currentIndex === index
+                                    activeFocusOnTab: true
 
                                     Rectangle {
                                         id: chNetCard
@@ -892,19 +894,28 @@ Item {
                                             anchors.left: parent.left
                                             anchors.right: parent.right
 
-                                            Text {
-                                                anchors.centerIn: parent
-                                                width: parent.width - 16
-                                                text: model.name
+                                        Text {
+                                            anchors.centerIn: parent
+                                            width: parent.width - 16
+                                            text: model.name
                                                 font.pixelSize: Theme.fontSizeXs
                                                 font.bold: true
                                                 color: Theme.textPrimary
                                                 elide: Text.ElideRight
                                                 maximumLineCount: 2
                                                 wrapMode: Text.Wrap
-                                                horizontalAlignment: Text.AlignHCenter
-                                            }
+                                            horizontalAlignment: Text.AlignHCenter
                                         }
+                                    }
+
+                                    Keys.onReturnPressed: chNetCard.activate()
+                                    Keys.onEnterPressed: Keys.onReturnPressed(event)
+                                    Keys.onPressed: function(event) {
+                                        if (event.key === Qt.Key_Select || event.key === Qt.Key_Space) {
+                                            chNetCard.activate()
+                                            event.accepted = true
+                                        }
+                                    }
 
                                         // Favorite indicator
                                         Text {
@@ -1033,6 +1044,8 @@ Item {
                 delegate: Item {
                     width: channelGrid.cellWidth
                     height: channelGrid.cellHeight
+                    focus: channelGrid.activeFocus && channelGrid.currentIndex === index
+                    activeFocusOnTab: true
                     function activate() { chNetCard.activate() }
 
                     Rectangle {
@@ -1057,6 +1070,15 @@ Item {
                             if (appViewModel) {
                                 appViewModel.player.play(model.streamUrl, model.name, model.logoUrl, model.channelId, model.epgChannelId || "")
                                 appViewModel.currentView = "player"
+                            }
+                        }
+
+                        Keys.onReturnPressed: chNetCard.activate()
+                        Keys.onEnterPressed: Keys.onReturnPressed(event)
+                        Keys.onPressed: function(event) {
+                            if (event.key === Qt.Key_Select || event.key === Qt.Key_Space) {
+                                chNetCard.activate()
+                                event.accepted = true
                             }
                         }
 
@@ -1287,8 +1309,8 @@ Item {
                     border.color: renameInput.activeFocus ? Theme.accent : Theme.surfaceBorder
                     border.width: 1
 
-                    TextInput {
-                        id: renameInput
+                        TextInput {
+                            id: renameInput
                         anchors.fill: parent
                         anchors.margins: Theme.spacingSm
                         font.pixelSize: Theme.fontSizeSm
@@ -1304,6 +1326,12 @@ Item {
                             }
                         }
                         Keys.onEscapePressed: renameDialog.close()
+                        Keys.onPressed: function(event) {
+                            if (event.key === Qt.Key_B || event.key === Qt.Key_Escape) {
+                                renameDialog.close()
+                                event.accepted = true
+                            }
+                        }
                     }
                 }
 
@@ -1333,6 +1361,27 @@ Item {
                                 }
                             }
                         }
+                        Keys.onReturnPressed: {
+                            if (appViewModel && renameDialog.categoryId > 0) {
+                                appViewModel.categoryList.renameCategory(renameDialog.categoryId, "")
+                                renameDialog.close()
+                                Qt.callLater(channelsView.reloadChannelRows)
+                            }
+                        }
+                        Keys.onEnterPressed: Keys.onReturnPressed(event)
+                        Keys.onPressed: function(event) {
+                            if (event.key === Qt.Key_Select || event.key === Qt.Key_Space) {
+                                if (appViewModel && renameDialog.categoryId > 0) {
+                                    appViewModel.categoryList.renameCategory(renameDialog.categoryId, "")
+                                    renameDialog.close()
+                                    Qt.callLater(channelsView.reloadChannelRows)
+                                }
+                                event.accepted = true
+                            } else if (event.key === Qt.Key_B || event.key === Qt.Key_Escape) {
+                                renameDialog.close()
+                                event.accepted = true
+                            }
+                        }
                     }
 
                     Item { Layout.fillWidth: true }
@@ -1348,6 +1397,15 @@ Item {
 
                         Text { id: cancelLabel; anchors.centerIn: parent; text: "Cancel"; font.pixelSize: Theme.fontSizeSm; color: Theme.textSecondary }
                         MouseArea { anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onEntered: parent.cancelHov = true; onExited: parent.cancelHov = false; onClicked: renameDialog.close() }
+                        Keys.onReturnPressed: renameDialog.close()
+                        Keys.onEnterPressed: Keys.onReturnPressed(event)
+                        Keys.onPressed: function(event) {
+                            if (event.key === Qt.Key_Select || event.key === Qt.Key_Space
+                                    || event.key === Qt.Key_B || event.key === Qt.Key_Escape) {
+                                renameDialog.close()
+                                event.accepted = true
+                            }
+                        }
                     }
 
                     Rectangle {
@@ -1367,6 +1425,27 @@ Item {
                                     renameDialog.close()
                                     Qt.callLater(channelsView.reloadChannelRows)
                                 }
+                            }
+                        }
+                        Keys.onReturnPressed: {
+                            if (appViewModel && renameDialog.categoryId > 0) {
+                                appViewModel.categoryList.renameCategory(renameDialog.categoryId, renameInput.text)
+                                renameDialog.close()
+                                Qt.callLater(channelsView.reloadChannelRows)
+                            }
+                        }
+                        Keys.onEnterPressed: Keys.onReturnPressed(event)
+                        Keys.onPressed: function(event) {
+                            if (event.key === Qt.Key_Select || event.key === Qt.Key_Space) {
+                                if (appViewModel && renameDialog.categoryId > 0) {
+                                    appViewModel.categoryList.renameCategory(renameDialog.categoryId, renameInput.text)
+                                    renameDialog.close()
+                                    Qt.callLater(channelsView.reloadChannelRows)
+                                }
+                                event.accepted = true
+                            } else if (event.key === Qt.Key_B || event.key === Qt.Key_Escape) {
+                                renameDialog.close()
+                                event.accepted = true
                             }
                         }
                     }
@@ -1502,15 +1581,15 @@ Item {
                     }
                     Keys.onReturnPressed: addToGroupPopup.toggleGroupAt(currentIndex)
                     Keys.onEnterPressed: addToGroupPopup.toggleGroupAt(currentIndex)
-                    Keys.onPressed: function(event) {
-                        if (event.key === Qt.Key_Select || event.key === Qt.Key_Space) {
-                            addToGroupPopup.toggleGroupAt(currentIndex)
-                            event.accepted = true
-                        } else if (event.key === Qt.Key_Back || event.key === Qt.Key_B || event.key === Qt.Key_Escape) {
-                            addToGroupPopup.close()
-                            event.accepted = true
+                        Keys.onPressed: function(event) {
+                            if (event.key === Qt.Key_Select || event.key === Qt.Key_Space) {
+                                addToGroupPopup.toggleGroupAt(currentIndex)
+                                event.accepted = true
+                            } else if (event.key === Qt.Key_Back || event.key === Qt.Key_B || event.key === Qt.Key_Escape) {
+                                addToGroupPopup.close()
+                                event.accepted = true
+                            }
                         }
-                    }
 
                     delegate: Rectangle {
                         width: groupOptionsList.width

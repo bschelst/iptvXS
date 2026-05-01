@@ -42,6 +42,9 @@ public:
     double duration() const;
     double position() const;
     double cacheDuration() const;
+    double cacheSpeed() const;
+    double videoBitrate() const;
+    int videoHeight() const;
     void seek(double seconds);
 
     mpv_handle *handle() const;
@@ -57,6 +60,9 @@ signals:
     void durationChanged(double duration);
     void positionChanged(double position);
     void cacheDurationChanged(double cacheDuration);
+    void cacheSpeedChanged(double cacheSpeed);
+    void videoBitrateChanged(double videoBitrate);
+    void videoHeightChanged(int videoHeight);
     void mediaLoaded();
     void endOfFile();
     void errorOccurred(const QString &message);
@@ -74,6 +80,9 @@ private:
     double duration_{0.0};
     double position_{0.0};
     double cacheDuration_{0.0};
+    double cacheSpeed_{0.0};
+    double videoBitrate_{0.0};
+    int videoHeight_{0};
 };
 
 } // namespace iptvxs

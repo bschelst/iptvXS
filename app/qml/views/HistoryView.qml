@@ -303,7 +303,7 @@ Item {
                         id: deleteBtn
                         width: deleteLabel.implicitWidth + 38
                         height: 28
-                        focus: true
+                        focus: false
                         activeFocusOnTab: true
                         property bool delHistHov: false
                         property bool selected: deleteBtn.activeFocus || (historyList.activeFocus && historyList.currentIndex === index)

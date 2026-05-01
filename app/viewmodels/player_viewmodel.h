@@ -22,6 +22,9 @@ class PlayerViewModel : public QObject {
     Q_PROPERTY(double duration READ duration NOTIFY durationChanged)
     Q_PROPERTY(double position READ position NOTIFY positionChanged)
     Q_PROPERTY(double cacheDuration READ cacheDuration NOTIFY cacheDurationChanged)
+    Q_PROPERTY(double cacheSpeed READ cacheSpeed NOTIFY cacheSpeedChanged)
+    Q_PROPERTY(double videoBitrate READ videoBitrate NOTIFY videoBitrateChanged)
+    Q_PROPERTY(int videoHeight READ videoHeight NOTIFY videoHeightChanged)
     Q_PROPERTY(QString channelName READ channelName NOTIFY channelNameChanged)
     Q_PROPERTY(QString channelLogo READ channelLogo NOTIFY channelLogoChanged)
     Q_PROPERTY(iptvxs::MpvPlayer *mpvPlayer READ mpvPlayer CONSTANT)
@@ -53,6 +56,9 @@ public:
     double duration() const;
     double position() const;
     double cacheDuration() const;
+    double cacheSpeed() const;
+    double videoBitrate() const;
+    int videoHeight() const;
     QString channelName() const;
     QString channelLogo() const;
     iptvxs::MpvPlayer *mpvPlayer() const;
@@ -108,6 +114,9 @@ signals:
     void durationChanged();
     void positionChanged();
     void cacheDurationChanged();
+    void cacheSpeedChanged();
+    void videoBitrateChanged();
+    void videoHeightChanged();
     void channelNameChanged();
     void channelLogoChanged();
     void channelIdChanged();
