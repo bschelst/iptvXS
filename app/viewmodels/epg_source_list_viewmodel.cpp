@@ -18,13 +18,21 @@ void EpgSourceListViewModel::setRepository(iptvxs::EpgSourceRepository *repo) {
 void EpgSourceListViewModel::setEpgViewModel(EpgViewModel *epgVm) {
     epgVm_ = epgVm;
     if (epgVm_) {
-        connect(epgVm_, &EpgViewModel::syncingChanged, this, [this]() {
-            if (!epgVm_->syncing()) {
-                setSyncing(false);
-                if (syncStatus_ == QStringLiteral("Syncing EPG...")) {
-                    setSyncStatus(QStringLiteral("Idle"));
-                }
+        connect(epgVm_, &EpgViewModel::syncCompleted, this,
+                [this](bool ok, int programmeCount, const QString &message) {
+            if (syncingIndex_ >= 0 && syncingIndex_ < sources_.size() && repo_ && ok) {
+                auto now = QDateTime::currentSecsSinceEpoch();
+                auto sourceId = sources_.at(syncingIndex_).id;
+                repo_->updateLastSynced(sourceId, now);
+                sources_[syncingIndex_].lastSyncedAt = now;
+                auto idx = this->index(syncingIndex_);
+                emit dataChanged(idx, idx, {LastSyncedRole});
             }
+            syncingIndex_ = -1;
+            setSyncing(false);
+            setSyncStatus(message);
+            qInfo("EPG source sync completed: ok=%d programmes=%d msg=%s",
+                  ok ? 1 : 0, programmeCount, qPrintable(message));
         });
     }
 }
@@ -121,8 +129,11 @@ void EpgSourceListViewModel::syncSource(int index) {
         emit errorOccurred(QStringLiteral("Cannot sync a disabled EPG source"));
         return;
     }
+    syncingIndex_ = index;
     setSyncing(true);
-    setSyncStatus(QStringLiteral("Syncing EPG..."));
+    setSyncStatus(QStringLiteral("Syncing %1...").arg(source.name));
+    qInfo("EPG source sync started: %s (%s)",
+          qPrintable(source.name), qPrintable(source.url));
     epgVm_->syncEpg(source.url);
 }
 

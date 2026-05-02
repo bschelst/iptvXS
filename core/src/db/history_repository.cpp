@@ -39,9 +39,18 @@ void HistoryRepository::addEntry(const QString &name, const QString &logo,
 
 void HistoryRepository::updatePosition(int64_t id, int positionSecs, int totalDurationSecs) {
     QSqlQuery query(db_);
-    query.prepare("UPDATE history SET position_secs = ?, total_duration_secs = ? WHERE id = ?");
+    query.prepare("UPDATE history SET position_secs = ?, total_duration_secs = ?, watched_at = ? WHERE id = ?");
     query.addBindValue(positionSecs);
     query.addBindValue(totalDurationSecs);
+    query.addBindValue(QVariant::fromValue(QDateTime::currentSecsSinceEpoch()));
+    query.addBindValue(QVariant::fromValue(id));
+    query.exec();
+}
+
+void HistoryRepository::touchEntry(int64_t id) {
+    QSqlQuery query(db_);
+    query.prepare("UPDATE history SET watched_at = ? WHERE id = ?");
+    query.addBindValue(QVariant::fromValue(QDateTime::currentSecsSinceEpoch()));
     query.addBindValue(QVariant::fromValue(id));
     query.exec();
 }
@@ -53,6 +62,40 @@ void HistoryRepository::markFinished(int64_t id) {
                   "WHERE id = ?");
     query.addBindValue(QVariant::fromValue(id));
     query.exec();
+}
+
+std::optional<HistoryEntry> HistoryRepository::findById(int64_t id) const {
+    QSqlQuery query(db_);
+    query.prepare(
+        "SELECT h.id, h.channel_id, "
+        "COALESCE(NULLIF(h.name, ''), c.name, 'Unknown'), "
+        "COALESCE(NULLIF(h.logo_url, ''), c.logo_url, ''), "
+        "COALESCE(NULLIF(h.type, ''), c.type, 'live'), "
+        "h.watched_at, h.duration_secs, "
+        "COALESCE(h.stream_url, c.stream_url, ''), "
+        "h.position_secs, h.total_duration_secs "
+        "FROM history h "
+        "LEFT JOIN channels c ON c.id = h.channel_id AND h.channel_id > 0 "
+        "WHERE h.id = ? "
+        "LIMIT 1");
+    query.addBindValue(QVariant::fromValue(id));
+
+    if (!query.exec() || !query.next()) {
+        return std::nullopt;
+    }
+
+    HistoryEntry e;
+    e.id = query.value(0).toLongLong();
+    e.channelId = query.value(1).toLongLong();
+    e.channelName = query.value(2).toString();
+    e.channelLogo = query.value(3).toString();
+    e.channelType = query.value(4).toString();
+    e.watchedAt = query.value(5).toLongLong();
+    e.durationSecs = query.value(6).toInt();
+    e.streamUrl = query.value(7).toString();
+    e.positionSecs = query.value(8).toInt();
+    e.totalDurationSecs = query.value(9).toInt();
+    return e;
 }
 
 QVector<HistoryEntry> HistoryRepository::findRecent(int limit, int offset) const {

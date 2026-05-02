@@ -66,4 +66,5 @@ private:
     QVector<iptvxs::EpgSource> sources_;
     bool syncing_{false};
     QString syncStatus_;
+    int syncingIndex_{-1};
 };

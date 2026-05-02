@@ -578,7 +578,7 @@ Item {
                                         property bool cardHovered: false
 
                                         readonly property bool playable: Boolean(
-                                            (modelData.status === "completed" || modelData.status === "uploaded")
+                                            (modelData.status === "completed" || modelData.status === "uploaded" || modelData.status === "recording")
                                             && ((modelData.filePath && modelData.filePath.length > 0)
                                                 || (modelData.gdriveFileId && modelData.gdriveFileId.length > 0))
                                         )
@@ -652,6 +652,13 @@ Item {
                                             recordingActionsPopup.open()
                                         }
 
+                                        function closeRecordingActionsPopup() {
+                                            if (recordingActionsPopup && recordingActionsPopup.visible) {
+                                                recordingActionsPopup.close()
+                                            }
+                                            actionFocusMode = false
+                                        }
+
                                         function focusNextCard() {
                                             if (cardIndex < rowItems.length - 1) {
                                                 recordingSection.focusCardAt(cardIndex + 1)
@@ -682,7 +689,7 @@ Item {
                                                 event.accepted = true
                                             } else if (event.key === Qt.Key_Left) {
                                                 if (recordingActionsPopup.visible) {
-                                                    recordingActionsPopup.closeAndReturn()
+                                                    recordingCard.closeRecordingActionsPopup()
                                                 } else if (actionFocusMode) {
                                                     if (moreBtn.activeFocus) {
                                                         if (openBtn.visible) openBtn.forceActiveFocus()
@@ -1092,13 +1099,12 @@ Item {
                                                     }
 
                                                     function closeAndReturn() {
-                                                        recordingActionsPopup.close()
-                                                        recordingCard.actionFocusMode = false
+                                                        recordingCard.closeRecordingActionsPopup()
                                                     }
 
                                                     function handleCancelKey(event) {
                                                         if (event.key === Qt.Key_Back || event.key === Qt.Key_B || event.key === Qt.Key_Escape) {
-                                                            recordingActionsPopup.closeAndReturn()
+                                                            recordingCard.closeRecordingActionsPopup()
                                                             event.accepted = true
                                                             return true
                                                         }
@@ -1106,6 +1112,7 @@ Item {
                                                     }
 
                                                     function firstActionItem() {
+                                                        if (stopAction.visible) return stopAction
                                                         if (pinAction.visible) return pinAction
                                                         if (deleteAction.visible) return deleteAction
                                                         if (deleteFileAction.visible) return deleteFileAction
@@ -1116,15 +1123,22 @@ Item {
                                                     property int actionIndex: 0
 
                                                     function maxActionIndex() {
-                                                        return deleteFileAction.visible ? 3 : 2
+                                                        var offset = actionOffset()
+                                                        return offset + 2 + (deleteFileAction.visible ? 1 : 0)
+                                                    }
+
+                                                    function actionOffset() {
+                                                        return stopAction.visible ? 1 : 0
                                                     }
 
                                                     function actionItemForIndex(idx) {
-                                                        if (idx === 0) return pinAction
-                                                        if (idx === 1) return deleteAction
-                                                        if (idx === 2 && deleteFileAction.visible) return deleteFileAction
-                                                        if (idx === 2 && !deleteFileAction.visible) return cancelAction
-                                                        if (idx === 3 && deleteFileAction.visible) return cancelAction
+                                                        var offset = actionOffset()
+                                                        if (stopAction.visible && idx === 0) return stopAction
+                                                        if (idx === offset) return pinAction
+                                                        if (idx === offset + 1) return deleteAction
+                                                        if (idx === offset + 2 && deleteFileAction.visible) return deleteFileAction
+                                                        if (idx === offset + 2 && !deleteFileAction.visible) return cancelAction
+                                                        if (idx === offset + 3 && deleteFileAction.visible) return cancelAction
                                                         return null
                                                     }
 
@@ -1163,10 +1177,10 @@ Item {
                                                             if (actionIndex < maxActionIndex()) selectAction(actionIndex + 1)
                                                         }
                                                         Keys.onLeftPressed: {
-                                                            recordingActionsPopup.closeAndReturn()
+                                                            recordingCard.closeRecordingActionsPopup()
                                                         }
                                                         Keys.onRightPressed: {
-                                                            recordingActionsPopup.closeAndReturn()
+                                                            recordingCard.closeRecordingActionsPopup()
                                                         }
                                                         Keys.onReturnPressed: {
                                                             var item = actionItemForIndex(actionIndex)
@@ -1179,15 +1193,67 @@ Item {
                                                                 if (item && item.activateAction) item.activateAction()
                                                                 event.accepted = true
                                                             } else if (event.key === Qt.Key_Back || event.key === Qt.Key_B || event.key === Qt.Key_Escape) {
-                                                                recordingActionsPopup.closeAndReturn()
+                                                                recordingCard.closeRecordingActionsPopup()
                                                                 event.accepted = true
                                                             }
                                                         }
 
-                                                        Column {
-                                                            id: popupColumn
-                                                            width: parent.width
-                                                            spacing: 8
+                                                    Column {
+                                                        id: popupColumn
+                                                        width: parent.width
+                                                        spacing: 8
+
+                                                        Rectangle {
+                                                                id: stopAction
+                                                                visible: modelData.status === "recording"
+                                                                width: parent.width
+                                                                height: 40
+                                                                radius: 12
+                                                                activeFocusOnTab: true
+                                                                property bool selected: recordingActionsPopup.actionIndex === 0
+                                                                color: selected ? Theme.surfaceElevated : (stopActionHov ? Theme.error : "#3a1010")
+                                                                border.width: selected ? 2 : 1
+                                                                border.color: selected ? Theme.error : Theme.error
+                                                                property bool stopActionHov: false
+                                                                scale: selected ? 1.01 : 1.0
+
+                                                                Text {
+                                                                    anchors.verticalCenter: parent.verticalCenter
+                                                                    anchors.left: parent.left
+                                                                    anchors.leftMargin: 14
+                                                                    text: "Stop Recording"
+                                                                    font.pixelSize: 11
+                                                                    font.bold: true
+                                                                    color: stopAction.selected ? Theme.textPrimary : "#ffffff"
+                                                                }
+
+                                                                MouseArea {
+                                                                    anchors.fill: parent
+                                                                    hoverEnabled: true
+                                                                    cursorShape: Qt.PointingHandCursor
+                                                                    onEntered: parent.stopActionHov = true
+                                                                    onExited: parent.stopActionHov = false
+                                                                    onClicked: {
+                                                                        recordingActionsPopup.selectAction(0)
+                                                                        if (appViewModel && appViewModel.recordingList) {
+                                                                            appViewModel.recordingList.stopRecording(modelData.recordingId)
+                                                                        }
+                                                                        recordingCard.closeRecordingActionsPopup()
+                                                                    }
+                                                                }
+                                                                function activateAction() {
+                                                                    if (appViewModel && appViewModel.recordingList) {
+                                                                        appViewModel.recordingList.stopRecording(modelData.recordingId)
+                                                                    }
+                                                                    recordingCard.closeRecordingActionsPopup()
+                                                                }
+                                                                Keys.onReturnPressed: {
+                                                                    if (stopAction.activateAction) stopAction.activateAction()
+                                                                }
+                                                                Keys.onPressed: function(event) {
+                                                                    recordingActionsPopup.handleCancelKey(event)
+                                                                }
+                                                            }
 
                                                         Rectangle {
                                                                 id: pinAction
@@ -1220,14 +1286,14 @@ Item {
                                                                     onEntered: parent.pinActionHov = true
                                                                     onExited: parent.pinActionHov = false
                                                                     onClicked: {
-                                                                        recordingActionsPopup.selectAction(0)
+                                                                        recordingActionsPopup.selectAction(recordingActionsPopup.actionOffset())
                                                                         recordingCard.togglePinned()
-                                                                        recordingActionsPopup.closeAndReturn()
+                                                                        recordingCard.closeRecordingActionsPopup()
                                                                     }
                                                                 }
                                                                 function activateAction() {
                                                                     recordingCard.togglePinned()
-                                                                    recordingActionsPopup.closeAndReturn()
+                                                                    recordingCard.closeRecordingActionsPopup()
                                                                 }
                                                                 Keys.onReturnPressed: {
                                                                     if (pinAction.activateAction) pinAction.activateAction()
@@ -1267,14 +1333,14 @@ Item {
                                                                     onEntered: parent.deleteActionHov = true
                                                                     onExited: parent.deleteActionHov = false
                                                                     onClicked: {
-                                                                        recordingActionsPopup.selectAction(1)
+                                                                        recordingActionsPopup.selectAction(recordingActionsPopup.actionOffset() + 1)
                                                                         recordingCard.requestDelete()
-                                                                        recordingActionsPopup.closeAndReturn()
+                                                                        recordingCard.closeRecordingActionsPopup()
                                                                     }
                                                                 }
                                                                 function activateAction() {
                                                                     recordingCard.requestDelete()
-                                                                    recordingActionsPopup.closeAndReturn()
+                                                                    recordingCard.closeRecordingActionsPopup()
                                                                 }
                                                                 Keys.onReturnPressed: {
                                                                     if (deleteAction.activateAction) deleteAction.activateAction()
@@ -1316,13 +1382,13 @@ Item {
                                                                     onEntered: parent.deleteFileActionHov = true
                                                                     onExited: parent.deleteFileActionHov = false
                                                                     onClicked: {
-                                                                        recordingActionsPopup.selectAction(2)
+                                                                        recordingActionsPopup.selectAction(recordingActionsPopup.actionOffset() + 2)
                                                                         deleteLocalDialog.recordingId = modelData.recordingId
                                                                         deleteLocalDialog.recordingName = modelData.programmeTitle && modelData.programmeTitle.length > 0
                                                                             ? modelData.programmeTitle
                                                                             : modelData.channelName
                                                                         deleteLocalDialog.visible = true
-                                                                        recordingActionsPopup.closeAndReturn()
+                                                                        recordingCard.closeRecordingActionsPopup()
                                                                     }
                                                                 }
                                                                 function activateAction() {
@@ -1331,7 +1397,7 @@ Item {
                                                                         ? modelData.programmeTitle
                                                                         : modelData.channelName
                                                                     deleteLocalDialog.visible = true
-                                                                    recordingActionsPopup.closeAndReturn()
+                                                                    recordingCard.closeRecordingActionsPopup()
                                                                 }
                                                                 Keys.onReturnPressed: {
                                                                     if (deleteFileAction.activateAction) deleteFileAction.activateAction()
@@ -1370,10 +1436,10 @@ Item {
                                                                     cursorShape: Qt.PointingHandCursor
                                                                     onEntered: parent.cancelActionHov = true
                                                                     onExited: parent.cancelActionHov = false
-                                                                    onClicked: recordingActionsPopup.closeAndReturn()
+                                                                    onClicked: recordingCard.closeRecordingActionsPopup()
                                                                 }
                                                                 function activateAction() {
-                                                                    recordingActionsPopup.closeAndReturn()
+                                                                    recordingCard.closeRecordingActionsPopup()
                                                                 }
                                                                 Keys.onReturnPressed: {
                                                                     if (cancelAction.activateAction) cancelAction.activateAction()

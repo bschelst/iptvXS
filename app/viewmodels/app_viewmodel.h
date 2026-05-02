@@ -197,7 +197,8 @@ public:
     Q_INVOKABLE void fetchSeriesEpisodes(int64_t serverId, const QString &seriesId,
                                           const QString &seriesName, const QString &logoUrl);
     Q_INVOKABLE QVariantMap channelInfo(int64_t channelId) const;
-    Q_INVOKABLE void playChannelById(int64_t channelId);
+    Q_INVOKABLE void playChannelById(int64_t channelId, int startPositionSecs = 0);
+    Q_INVOKABLE void playHistoryEntry(int64_t historyId);
     Q_INVOKABLE void playChannelByName(const QString &name);
     Q_INVOKABLE void playSeriesEpisode(const QString &episodeId, const QString &ext,
                                         const QString &title, const QString &logoUrl,
@@ -305,6 +306,7 @@ private:
     QTimer *autoSyncEpgTimer_{nullptr};
     QTimer *autoSyncWatchdog_{nullptr};
     QTimer *autoSyncEpgWatchdog_{nullptr};
+    QTimer *historyFlushTimer_{nullptr};
     int autoSyncServerCursor_{0};
     int autoSyncEpgCursor_{0};
     bool autoSyncInProgress_{false};
@@ -312,10 +314,16 @@ private:
     bool defaultFreeServerBootstrapPending_{false};
     bool defaultFreeServerBootstrapEpgPending_{false};
     int64_t lastHistoryEntryId_{0};
+    bool resumeHistoryPending_{false};
 
     static QVariantList parseSeriesEpisodes(const QJsonObject &info,
                                               const QString &seriesName,
                                               const QString &logoUrl);
+    QVariantMap resolveSeriesResumePlan(const iptvxs::HistoryEntry &entry) const;
+    bool restoreSeriesAutoNextFromHistory(const iptvxs::HistoryEntry &entry);
+    void startHistoryFlushTimer();
+    void stopHistoryFlushTimer();
+    void persistCurrentHistoryPosition();
     void prefetchSeriesCache(int64_t serverId);
     void prefetchNextSeries(std::shared_ptr<struct SeriesPrefetchState> state);
     void rescheduleAutoSyncChannels();

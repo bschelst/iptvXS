@@ -240,6 +240,12 @@ bool AppViewModel::initialize(const QString &dbPath) {
         rescheduleAutoSyncEpg();
     });
 
+    historyFlushTimer_ = new QTimer(this);
+    historyFlushTimer_->setInterval(5000);
+    historyFlushTimer_->setSingleShot(false);
+    connect(historyFlushTimer_, &QTimer::timeout, this,
+            [this]() { persistCurrentHistoryPosition(); });
+
     connect(serverListVm_, &ServerListViewModel::syncFinished, this,
             [this](int64_t) {
                 if (defaultFreeServerBootstrapEpgPending_) {
@@ -412,14 +418,18 @@ bool AppViewModel::initialize(const QString &dbPath) {
 
     connect(playerVm_, &PlayerViewModel::stateChanged, this, [this]() {
         if (playerVm_->playing() && historyRepo_) {
-            // Save position of previous entry before creating new one
-            if (lastHistoryEntryId_ > 0 && !playerVm_->isLive()) {
-                auto pos = static_cast<int>(playerVm_->position());
-                auto dur = static_cast<int>(playerVm_->duration());
-                if (dur > 0) {
-                    historyRepo_->updatePosition(lastHistoryEntryId_, pos, dur);
+            if (resumeHistoryPending_) {
+                resumeHistoryPending_ = false;
+                if (historyVm_) historyVm_->refresh();
+                if (!playerVm_->isLive()) {
+                    startHistoryFlushTimer();
+                } else {
+                    stopHistoryFlushTimer();
                 }
+                return;
             }
+
+            persistCurrentHistoryPosition();
 
             auto url = playerVm_->currentUrl();
             auto name = playerVm_->channelName();
@@ -437,14 +447,18 @@ bool AppViewModel::initialize(const QString &dbPath) {
             // Track the new entry ID (latest in DB)
             auto recent = historyRepo_->findRecent(1, 0);
             lastHistoryEntryId_ = recent.isEmpty() ? 0 : recent.first().id;
-        } else if (playerVm_->stopped() && historyRepo_ && lastHistoryEntryId_ > 0) {
-            // Save final position when playback stops
-            auto pos = static_cast<int>(playerVm_->position());
-            auto dur = static_cast<int>(playerVm_->duration());
-            if (dur > 0) {
-                historyRepo_->updatePosition(lastHistoryEntryId_, pos, dur);
+            if (historyVm_) historyVm_->refresh();
+            if (!playerVm_->isLive()) {
+                startHistoryFlushTimer();
+            } else {
+                stopHistoryFlushTimer();
             }
+        } else if (playerVm_->paused() && historyRepo_ && lastHistoryEntryId_ > 0 && !playerVm_->isLive()) {
+            startHistoryFlushTimer();
+        } else if (playerVm_->stopped() && historyRepo_ && lastHistoryEntryId_ > 0) {
+            persistCurrentHistoryPosition();
             lastHistoryEntryId_ = 0;
+            stopHistoryFlushTimer();
         }
     });
 
@@ -1059,6 +1073,10 @@ void AppViewModel::loadSubtitleResult(int index) {
     if (index < 0 || index >= lastSubResults_.size()) return;
 
     auto &result = lastSubResults_[index];
+    if (result.downloadUrl.isEmpty()) {
+        emit errorOccurred(QStringLiteral("Subtitle result has no download link"));
+        return;
+    }
     auto dir = QStandardPaths::writableLocation(QStandardPaths::CacheLocation)
                + QStringLiteral("/subtitles");
     QDir().mkpath(dir);
@@ -1611,12 +1629,293 @@ QVariantMap AppViewModel::channelInfo(int64_t channelId) const {
     return result;
 }
 
-void AppViewModel::playChannelById(int64_t channelId) {
+void AppViewModel::playChannelById(int64_t channelId, int startPositionSecs) {
     if (!channelRepo_ || channelId <= 0) return;
     auto ch = channelRepo_->findById(channelId);
     if (!ch) return;
-    playerVm_->play(ch->streamUrl, ch->name, ch->logoUrl, ch->id, ch->epgChannelId);
+    playerVm_->play(ch->streamUrl, ch->name, ch->logoUrl, ch->id, ch->epgChannelId, startPositionSecs);
     setCurrentView(QStringLiteral("player"));
+}
+
+void AppViewModel::playHistoryEntry(int64_t historyId) {
+    if (!historyRepo_ || !playerVm_ || historyId <= 0) return;
+    auto entry = historyRepo_->findById(historyId);
+    if (!entry) return;
+
+    lastHistoryEntryId_ = entry->id;
+
+    const auto resumePlan = resolveSeriesResumePlan(*entry);
+    const auto playUrl = resumePlan.value(QStringLiteral("playUrl")).toString().isEmpty()
+        ? entry->streamUrl
+        : resumePlan.value(QStringLiteral("playUrl")).toString();
+    const auto playTitle = resumePlan.value(QStringLiteral("playTitle")).toString().isEmpty()
+        ? entry->channelName
+        : resumePlan.value(QStringLiteral("playTitle")).toString();
+    const auto playLogo = resumePlan.value(QStringLiteral("playLogo")).toString().isEmpty()
+        ? entry->channelLogo
+        : resumePlan.value(QStringLiteral("playLogo")).toString();
+    const auto startPositionVar = resumePlan.value(QStringLiteral("startPositionSecs"));
+    const auto startPositionSecs = startPositionVar.isValid() ? startPositionVar.toInt() : entry->positionSecs;
+    const auto jumpedToNext = resumePlan.value(QStringLiteral("jumpedToNext")).toBool();
+
+    if (!jumpedToNext) {
+        resumeHistoryPending_ = true;
+        historyRepo_->touchEntry(entry->id);
+        if (historyVm_) historyVm_->refresh();
+    } else if (historyVm_) {
+        lastHistoryEntryId_ = 0;
+        resumeHistoryPending_ = false;
+        historyVm_->refresh();
+    }
+
+    if (!playUrl.isEmpty()) {
+        if (entry->channelId > 0 && channelRepo_) {
+            auto ch = channelRepo_->findById(entry->channelId);
+            if (ch && ch->type == QStringLiteral("series") && !ch->externalId.isEmpty()) {
+                setActiveSeriesDialog(ch->name, ch->serverId, ch->externalId, ch->logoUrl);
+            }
+        }
+        playerVm_->play(playUrl, playTitle, playLogo, entry->channelId, {}, startPositionSecs);
+        iptvxs::HistoryEntry resumeEntry = *entry;
+        resumeEntry.streamUrl = playUrl;
+        resumeEntry.channelName = playTitle;
+        resumeEntry.channelLogo = playLogo;
+        resumeEntry.positionSecs = startPositionSecs;
+        restoreSeriesAutoNextFromHistory(resumeEntry);
+        if (!playerVm_->isLive()) startHistoryFlushTimer();
+        setCurrentView(QStringLiteral("player"));
+        return;
+    }
+
+    if (entry->channelId > 0 && channelRepo_) {
+        auto ch = channelRepo_->findById(entry->channelId);
+        if (ch) {
+            if (ch->type == QStringLiteral("series") && !ch->externalId.isEmpty()) {
+                setActiveSeriesDialog(ch->name, ch->serverId, ch->externalId, ch->logoUrl);
+            }
+            playerVm_->play(ch->streamUrl, ch->name, ch->logoUrl, ch->id,
+                            ch->epgChannelId, startPositionSecs);
+            iptvxs::HistoryEntry resumeEntry = *entry;
+            resumeEntry.streamUrl = ch->streamUrl;
+            resumeEntry.channelName = ch->name;
+            resumeEntry.channelLogo = ch->logoUrl;
+            resumeEntry.positionSecs = startPositionSecs;
+            restoreSeriesAutoNextFromHistory(resumeEntry);
+            if (!playerVm_->isLive()) startHistoryFlushTimer();
+            setCurrentView(QStringLiteral("player"));
+        }
+    }
+}
+
+QVariantMap AppViewModel::resolveSeriesResumePlan(const iptvxs::HistoryEntry &entry) const {
+    QVariantMap plan;
+    plan[QStringLiteral("playUrl")] = entry.streamUrl;
+    plan[QStringLiteral("playTitle")] = entry.channelName;
+    plan[QStringLiteral("playLogo")] = entry.channelLogo;
+    plan[QStringLiteral("startPositionSecs")] = entry.positionSecs;
+    plan[QStringLiteral("jumpedToNext")] = false;
+
+    if (!channelRepo_ || !serverRepo_ || !seriesCacheRepo_) return plan;
+    if (!(entry.channelType == QStringLiteral("series") || entry.streamUrl.contains(QStringLiteral("/series/")))) return plan;
+    if (entry.channelId <= 0) return plan;
+
+    auto ch = channelRepo_->findById(entry.channelId);
+    if (!ch || ch->type != QStringLiteral("series") || ch->externalId.isEmpty()) return plan;
+    auto srv = serverRepo_->findById(ch->serverId);
+    if (!srv || srv->type != QStringLiteral("xtream") || srv->url.isEmpty()) return plan;
+
+    auto cached = seriesCacheRepo_->find(srv->id, ch->externalId);
+    if (!cached) return plan;
+
+    auto seasons = parseSeriesEpisodes(*cached, ch->name, ch->logoUrl);
+    if (seasons.isEmpty()) return plan;
+
+    const auto currentUrl = entry.streamUrl.isEmpty() ? QString{} : entry.streamUrl;
+    if (currentUrl.isEmpty()) return plan;
+
+    auto buildTitle = [seriesName = ch->name](const QVariantMap &seasonMap, const QVariantMap &epMap, int fallbackEpisodeIndex) {
+        auto seasonNum = seasonMap.value(QStringLiteral("season")).toString();
+        auto epNum = epMap.value(QStringLiteral("episodeNum")).toString();
+        if (epNum.isEmpty()) epNum = QString::number(fallbackEpisodeIndex + 1);
+        QString title = seriesName + QStringLiteral(" - S") + seasonNum + QStringLiteral("E") + epNum;
+        auto epTitle = epMap.value(QStringLiteral("title")).toString();
+        if (!epTitle.isEmpty()) {
+            title += QStringLiteral(" - ") + epTitle;
+        }
+        return title;
+    };
+
+    const bool completed = entry.totalDurationSecs > 0
+                           && entry.positionSecs >= qMax(1, static_cast<int>(entry.totalDurationSecs * 0.95));
+
+    for (int seasonIndex = 0; seasonIndex < seasons.size(); ++seasonIndex) {
+        const auto seasonMap = seasons.at(seasonIndex).toMap();
+        const auto episodes = seasonMap.value(QStringLiteral("episodes")).toList();
+        for (int episodeIndex = 0; episodeIndex < episodes.size(); ++episodeIndex) {
+            const auto epMap = episodes.at(episodeIndex).toMap();
+            auto epExt = epMap.value(QStringLiteral("ext")).toString();
+            if (epExt.isEmpty()) epExt = QStringLiteral("mkv");
+            const auto epUrl = buildSeriesEpisodeUrl(epMap.value(QStringLiteral("id")).toString(), epExt);
+            if (epUrl.isEmpty() || epUrl != currentUrl) continue;
+
+            if (completed) {
+                QVariantMap nextEpMap;
+                QVariantMap nextSeasonMap;
+                int nextEpisodeIndex = -1;
+                if (episodeIndex + 1 < episodes.size()) {
+                    nextEpMap = episodes.at(episodeIndex + 1).toMap();
+                    nextSeasonMap = seasonMap;
+                    nextEpisodeIndex = episodeIndex + 1;
+                } else if (seasonIndex + 1 < seasons.size()) {
+                    nextSeasonMap = seasons.at(seasonIndex + 1).toMap();
+                    const auto nextEpisodes = nextSeasonMap.value(QStringLiteral("episodes")).toList();
+                    if (!nextEpisodes.isEmpty()) {
+                        nextEpMap = nextEpisodes.first().toMap();
+                        nextEpisodeIndex = 0;
+                    }
+                }
+
+                if (nextEpisodeIndex >= 0 && !nextEpMap.isEmpty()) {
+                    auto nextExt = nextEpMap.value(QStringLiteral("ext")).toString();
+                    if (nextExt.isEmpty()) nextExt = QStringLiteral("mkv");
+                    const auto nextUrl = buildSeriesEpisodeUrl(nextEpMap.value(QStringLiteral("id")).toString(), nextExt);
+                    if (!nextUrl.isEmpty()) {
+                        plan[QStringLiteral("playUrl")] = nextUrl;
+                        plan[QStringLiteral("playTitle")] = buildTitle(nextSeasonMap, nextEpMap, nextEpisodeIndex);
+                        plan[QStringLiteral("playLogo")] = nextEpMap.value(QStringLiteral("logoUrl")).toString();
+                        plan[QStringLiteral("startPositionSecs")] = 0;
+                        plan[QStringLiteral("jumpedToNext")] = true;
+                    }
+                }
+            }
+            return plan;
+        }
+    }
+
+    return plan;
+}
+
+bool AppViewModel::restoreSeriesAutoNextFromHistory(const iptvxs::HistoryEntry &entry) {
+    if (!playerVm_ || !channelRepo_ || !serverRepo_ || !seriesCacheRepo_) return false;
+    if (entry.channelId <= 0) return false;
+    if (!(entry.channelType == QStringLiteral("series") || entry.streamUrl.contains(QStringLiteral("/series/")))) {
+        return false;
+    }
+
+    auto ch = channelRepo_->findById(entry.channelId);
+    if (!ch || ch->type != QStringLiteral("series") || ch->externalId.isEmpty()) return false;
+
+    auto srv = serverRepo_->findById(ch->serverId);
+    if (!srv || srv->type != QStringLiteral("xtream") || srv->url.isEmpty()) return false;
+
+    auto cached = seriesCacheRepo_->find(srv->id, ch->externalId);
+    if (!cached) return false;
+
+    auto seasons = parseSeriesEpisodes(*cached, ch->name, ch->logoUrl);
+    if (seasons.isEmpty()) return false;
+
+    seriesServerUrl_ = srv->url;
+    seriesUsername_ = srv->username;
+    seriesPassword_ = srv->password;
+
+    const auto currentUrl = entry.streamUrl.isEmpty() ? playerVm_->currentUrl() : entry.streamUrl;
+    if (currentUrl.isEmpty()) return false;
+
+    auto makeTitle = [seriesName = ch->name](const QVariantMap &seasonMap, const QVariantMap &epMap, int fallbackEpisodeIndex) {
+        auto seasonNum = seasonMap.value(QStringLiteral("season")).toString();
+        auto epNum = epMap.value(QStringLiteral("episodeNum")).toString();
+        if (epNum.isEmpty()) {
+            epNum = QString::number(fallbackEpisodeIndex + 1);
+        }
+        QString title = seriesName + QStringLiteral(" - S") + seasonNum + QStringLiteral("E") + epNum;
+        auto epTitle = epMap.value(QStringLiteral("title")).toString();
+        if (!epTitle.isEmpty()) {
+            title += QStringLiteral(" - ") + epTitle;
+        }
+        return title;
+    };
+
+    for (int seasonIndex = 0; seasonIndex < seasons.size(); ++seasonIndex) {
+        const auto seasonMap = seasons.at(seasonIndex).toMap();
+        const auto episodes = seasonMap.value(QStringLiteral("episodes")).toList();
+        for (int episodeIndex = 0; episodeIndex < episodes.size(); ++episodeIndex) {
+            const auto epMap = episodes.at(episodeIndex).toMap();
+            const auto epId = epMap.value(QStringLiteral("id")).toString();
+            auto epExt = epMap.value(QStringLiteral("ext")).toString();
+            if (epExt.isEmpty()) {
+                epExt = QStringLiteral("mkv");
+            }
+            const auto epUrl = buildSeriesEpisodeUrl(epId, epExt);
+            if (epUrl.isEmpty() || epUrl != currentUrl) {
+                continue;
+            }
+
+            QVariantMap nextEpMap;
+            QVariantMap nextSeasonMap;
+            int nextEpisodeIndex = -1;
+            if (episodeIndex + 1 < episodes.size()) {
+                nextEpMap = episodes.at(episodeIndex + 1).toMap();
+                nextSeasonMap = seasonMap;
+                nextEpisodeIndex = episodeIndex + 1;
+            } else if (seasonIndex + 1 < seasons.size()) {
+                nextSeasonMap = seasons.at(seasonIndex + 1).toMap();
+                const auto nextEpisodes = nextSeasonMap.value(QStringLiteral("episodes")).toList();
+                if (!nextEpisodes.isEmpty()) {
+                    nextEpMap = nextEpisodes.first().toMap();
+                    nextEpisodeIndex = 0;
+                }
+            }
+
+            if (nextEpisodeIndex >= 0 && !nextEpMap.isEmpty()) {
+                auto nextExt = nextEpMap.value(QStringLiteral("ext")).toString();
+                if (nextExt.isEmpty()) {
+                    nextExt = QStringLiteral("mkv");
+                }
+                const auto nextUrl = buildSeriesEpisodeUrl(
+                    nextEpMap.value(QStringLiteral("id")).toString(),
+                    nextExt);
+                if (!nextUrl.isEmpty()) {
+                    const auto nextTitle = makeTitle(nextSeasonMap, nextEpMap, nextEpisodeIndex);
+                    playerVm_->setNextEpisode(nextUrl, nextTitle, nextEpMap.value(QStringLiteral("logoUrl")).toString(), ch->id);
+                    if (chromecastMgr_ && chromecastMgr_->connected()) {
+                        chromecastMgr_->setNextEpisode(nextUrl, nextTitle);
+                    }
+                }
+            }
+            return true;
+        }
+    }
+
+    return false;
+}
+
+void AppViewModel::startHistoryFlushTimer() {
+    if (!historyFlushTimer_ || !historyRepo_ || !playerVm_ || playerVm_->isLive() || lastHistoryEntryId_ <= 0) {
+        return;
+    }
+    historyFlushTimer_->start();
+}
+
+void AppViewModel::stopHistoryFlushTimer() {
+    if (historyFlushTimer_) {
+        historyFlushTimer_->stop();
+    }
+}
+
+void AppViewModel::persistCurrentHistoryPosition() {
+    if (!historyRepo_ || lastHistoryEntryId_ <= 0 || playerVm_->isLive()) return;
+
+    auto pos = static_cast<int>(playerVm_->position());
+    if (pos <= 0) {
+        pos = static_cast<int>(playerVm_->lastPosition());
+    }
+    auto dur = static_cast<int>(playerVm_->duration());
+    if (dur > 0) {
+        historyRepo_->updatePosition(lastHistoryEntryId_, pos, dur);
+    } else {
+        historyRepo_->touchEntry(lastHistoryEntryId_);
+    }
+    if (historyVm_) historyVm_->refresh();
 }
 
 void AppViewModel::playRecordingFromDrive(int64_t recordingId) {

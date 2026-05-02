@@ -5,6 +5,7 @@
 #include <QSqlDatabase>
 #include <QVector>
 #include <cstdint>
+#include <optional>
 
 namespace iptvxs {
 
@@ -31,7 +32,9 @@ public:
     void addEntry(const QString &name, const QString &logo, const QString &type,
                   const QString &streamUrl = {}, int durationSecs = 0, int64_t channelId = 0);
     void updatePosition(int64_t id, int positionSecs, int totalDurationSecs);
+    void touchEntry(int64_t id);
     void markFinished(int64_t id);
+    std::optional<HistoryEntry> findById(int64_t id) const;
     QVector<HistoryEntry> findRecent(int limit = 100, int offset = 0) const;
     int count() const;
     void removeEntry(int64_t id);

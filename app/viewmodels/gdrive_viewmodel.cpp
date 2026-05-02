@@ -269,8 +269,8 @@ void GDriveViewModel::resumePendingUploads() {
                   static_cast<long long>(rec.id));
             uploader_->resumeUpload(rec.id, rec.filePath, rec.gdriveUploadUrl);
         } else {
-            qWarning("Cannot resume recording %lld: missing upload URL or file path",
-                     static_cast<long long>(rec.id));
+            qInfo("Skipping resume for recording %lld: missing upload URL or file path",
+                  static_cast<long long>(rec.id));
             recordingRepo_->updateStatus(rec.id, QStringLiteral("completed"));
         }
     }

@@ -27,9 +27,28 @@ Item {
         contentHeight: serversScrollContent.implicitHeight + Theme.spacingXl * 2
         clip: true
 
+        ScrollBar.vertical: ScrollBar {
+            active: true
+            policy: ScrollBar.AlwaysOn
+            visible: true
+            implicitWidth: 10
+            contentItem: Rectangle {
+                implicitWidth: 10
+                radius: 5
+                color: Theme.accent
+                opacity: 0.85
+            }
+            background: Rectangle {
+                implicitWidth: 10
+                radius: 5
+                color: Qt.rgba(Theme.surfaceBorder.r, Theme.surfaceBorder.g, Theme.surfaceBorder.b, 0.7)
+            }
+        }
+
         Item {
             id: serversScrollContent
             width: serversScroll.availableWidth - Theme.spacingXl * 2
+            implicitHeight: serversColumn.implicitHeight
             height: implicitHeight
             anchors.horizontalCenter: parent.horizontalCenter
 
@@ -200,6 +219,16 @@ Item {
                                 Keys.onLeftPressed: {
                                     if (Window.window && Window.window.focusSidebar) Window.window.focusSidebar()
                                 }
+                                Keys.onRightPressed: {
+                                    if (currentIndex < 0) return
+                                    var item = currentItem
+                                    if (item && item.serverInfoCol && item.serverInfoCol.focusActionAt) {
+                                        item.serverInfoCol.focusActionAt(0)
+                                    } else if (currentIndex >= 0 && appViewModel
+                                               && !(appViewModel.serverList && appViewModel.serverList.syncing)) {
+                                        appViewModel.serverList.syncServer(currentIndex)
+                                    }
+                                }
                                 Keys.onReturnPressed: {
                                     if (currentIndex >= 0 && appViewModel
                                             && !(appViewModel.serverList && appViewModel.serverList.syncing))
@@ -228,12 +257,13 @@ Item {
                                         ? (delegateHovered ? Theme.surfaceHover : Theme.surfaceElevated)
                                         : Theme.surface
                                     border.color: {
+                                        if (serverInfoCol.actionFocused) return Theme.accent
                                         if (serverListView.activeFocus && serverListView.currentIndex === index) return Theme.accent
                                         if (model.isPrimary) return Theme.accent
                                         if (delegateHovered) return Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.25)
                                         return Theme.surfaceBorder
                                     }
-                                    border.width: (serverListView.activeFocus && serverListView.currentIndex === index) ? 2 : (model.isPrimary ? 2 : 1)
+                                    border.width: (serverInfoCol.actionFocused || (serverListView.activeFocus && serverListView.currentIndex === index)) ? 2 : (model.isPrimary ? 2 : 1)
                                     opacity: model.enabled ? 1.0 : 0.5
 
                                     property bool delegateHovered: false
@@ -282,6 +312,26 @@ Item {
                                                 appViewModel && appViewModel.serverList
                                                     ? serverId === appViewModel.serverList.builtinFreeServerId()
                                                     : false
+
+                                            readonly property bool actionFocused:
+                                                primaryBtn.activeFocus
+                                                || enabledBtn.activeFocus
+                                                || editBtn.activeFocus
+                                                || syncBtn.activeFocus
+                                                || delBtn.activeFocus
+
+                                            function focusRow() {
+                                                serverListView.currentIndex = index
+                                                serverListView.forceActiveFocus()
+                                            }
+
+                                            function focusActionAt(actionIndex) {
+                                                serverListView.currentIndex = index
+                                                var actions = [primaryBtn, enabledBtn, editBtn, syncBtn, delBtn]
+                                                actionIndex = Math.max(0, Math.min(actions.length - 1, actionIndex))
+                                                var item = actions[actionIndex]
+                                                if (item) item.forceActiveFocus()
+                                            }
 
                                             RowLayout {
                                                 Layout.fillWidth: true
@@ -370,12 +420,16 @@ Item {
                                         }
 
                                         Rectangle {
+                                            id: primaryBtn
                                             Layout.preferredWidth: 36
                                             Layout.preferredHeight: 36
                                             radius: Theme.borderRadius
-                                            color: primaryBtnHovered ? Theme.surfaceHover : "transparent"
+                                            color: primaryBtnHovered || activeFocus ? Theme.surfaceHover : "transparent"
 
                                             property bool primaryBtnHovered: false
+                                            activeFocusOnTab: true
+                                            border.width: activeFocus ? 2 : 0
+                                            border.color: Theme.accent
 
                                             Text {
                                                 anchors.centerIn: parent
@@ -395,13 +449,41 @@ Item {
                                                         appViewModel.serverList.setPrimary(index)
                                                 }
                                             }
+
+                                            Keys.onLeftPressed: serverInfoCol.focusRow()
+                                            Keys.onRightPressed: enabledBtn.forceActiveFocus()
+                                            Keys.onUpPressed: {
+                                                if (index > 0) {
+                                                    serverListView.currentIndex = index - 1
+                                                    serverListView.forceActiveFocus()
+                                                    primaryBtn.forceActiveFocus()
+                                                } else if (addServerButton) {
+                                                    addServerButton.forceActiveFocus()
+                                                }
+                                            }
+                                            Keys.onDownPressed: {
+                                                if (index < serverListView.count - 1) {
+                                                    serverListView.currentIndex = index + 1
+                                                    serverListView.forceActiveFocus()
+                                                    primaryBtn.forceActiveFocus()
+                                                } else if (epgSourceListView.count > 0) {
+                                                    if (epgSourceListView.currentIndex < 0) epgSourceListView.currentIndex = 0
+                                                    epgSourceListView.forceActiveFocus()
+                                                } else if (addEpgButton) {
+                                                    addEpgButton.forceActiveFocus()
+                                                }
+                                            }
                                         }
 
                                         Rectangle {
+                                            id: enabledBtn
                                             Layout.preferredWidth: 48
                                             Layout.preferredHeight: 26
                                             radius: 13
                                             color: model.enabled ? Theme.accent : Theme.surfaceBorder
+                                            activeFocusOnTab: true
+                                            border.width: activeFocus ? 2 : 0
+                                            border.color: Theme.accent
 
                                             Behavior on color {
                                                 ColorAnimation { duration: Theme.animFast }
@@ -428,19 +510,39 @@ Item {
                                                         appViewModel.serverList.setEnabled(index, !model.enabled)
                                                 }
                                             }
+
+                                            Keys.onLeftPressed: primaryBtn.forceActiveFocus()
+                                            Keys.onRightPressed: editBtn.forceActiveFocus()
+                                            Keys.onUpPressed: primaryBtn.forceActiveFocus()
+                                            Keys.onDownPressed: {
+                                                if (index < serverListView.count - 1) {
+                                                    serverListView.currentIndex = index + 1
+                                                    serverListView.forceActiveFocus()
+                                                    enabledBtn.forceActiveFocus()
+                                                } else if (epgSourceListView.count > 0) {
+                                                    if (epgSourceListView.currentIndex < 0) epgSourceListView.currentIndex = 0
+                                                    epgSourceListView.forceActiveFocus()
+                                                } else if (addEpgButton) {
+                                                    addEpgButton.forceActiveFocus()
+                                                }
+                                            }
                                         }
 
                                         Rectangle {
+                                            id: editBtn
                                             Layout.preferredWidth: 36
                                             Layout.preferredHeight: 36
                                             radius: Theme.borderRadius
                                             readonly property bool disabled: serverInfoCol.builtinFree
                                             color: disabled
                                                 ? "transparent"
-                                                : (editBtnHovered ? Theme.surfaceHover : "transparent")
+                                                : (editBtnHovered || activeFocus ? Theme.surfaceHover : "transparent")
                                             opacity: disabled ? 0.35 : 1.0
 
                                             property bool editBtnHovered: false
+                                            activeFocusOnTab: true
+                                            border.width: activeFocus ? 2 : 0
+                                            border.color: Theme.accent
 
                                             Text {
                                                 anchors.centerIn: parent
@@ -465,9 +567,26 @@ Item {
                                                         serverId === appViewModel.serverList.builtinFreeServerId())
                                                 }
                                             }
+
+                                            Keys.onLeftPressed: enabledBtn.forceActiveFocus()
+                                            Keys.onRightPressed: syncBtn.forceActiveFocus()
+                                            Keys.onUpPressed: primaryBtn.forceActiveFocus()
+                                            Keys.onDownPressed: {
+                                                if (index < serverListView.count - 1) {
+                                                    serverListView.currentIndex = index + 1
+                                                    serverListView.forceActiveFocus()
+                                                    editBtn.forceActiveFocus()
+                                                } else if (epgSourceListView.count > 0) {
+                                                    if (epgSourceListView.currentIndex < 0) epgSourceListView.currentIndex = 0
+                                                    epgSourceListView.forceActiveFocus()
+                                                } else if (addEpgButton) {
+                                                    addEpgButton.forceActiveFocus()
+                                                }
+                                            }
                                         }
 
                                         Rectangle {
+                                            id: syncBtn
                                             Layout.preferredWidth: 36
                                             Layout.preferredHeight: 36
                                             radius: Theme.borderRadius
@@ -476,10 +595,13 @@ Item {
                                                                              : false
                                             color: syncBusy
                                                 ? "transparent"
-                                                : (syncBtnHovered ? Theme.surfaceHover : "transparent")
+                                                : (syncBtnHovered || activeFocus ? Theme.surfaceHover : "transparent")
                                             opacity: syncBusy ? 0.35 : 1.0
 
                                             property bool syncBtnHovered: false
+                                            activeFocusOnTab: true
+                                            border.width: activeFocus ? 2 : 0
+                                            border.color: Theme.accent
 
                                             Text {
                                                 anchors.centerIn: parent
@@ -500,15 +622,37 @@ Item {
                                                         appViewModel.serverList.syncServer(index)
                                                 }
                                             }
+
+                                            Keys.onLeftPressed: editBtn.forceActiveFocus()
+                                            Keys.onRightPressed: delBtn.forceActiveFocus()
+                                            Keys.onUpPressed: primaryBtn.forceActiveFocus()
+                                            Keys.onDownPressed: {
+                                                if (index < serverListView.count - 1) {
+                                                    serverListView.currentIndex = index + 1
+                                                    serverListView.forceActiveFocus()
+                                                    syncBtn.forceActiveFocus()
+                                                } else if (epgSourceListView.count > 0) {
+                                                    if (epgSourceListView.currentIndex < 0) epgSourceListView.currentIndex = 0
+                                                    epgSourceListView.forceActiveFocus()
+                                                } else if (addEpgButton) {
+                                                    addEpgButton.forceActiveFocus()
+                                                }
+                                            }
                                         }
 
                                         Rectangle {
+                                            id: delBtn
                                             Layout.preferredWidth: 36
                                             Layout.preferredHeight: 36
                                             radius: Theme.borderRadius
-                                            color: delBtnHovered ? Qt.rgba(Theme.error.r, Theme.error.g, Theme.error.b, 0.19) : "transparent"
+                                            color: delBtnHovered || activeFocus
+                                                ? Qt.rgba(Theme.error.r, Theme.error.g, Theme.error.b, 0.19)
+                                                : "transparent"
 
                                             property bool delBtnHovered: false
+                                            activeFocusOnTab: true
+                                            border.width: activeFocus ? 2 : 0
+                                            border.color: Theme.error
 
                                             Text {
                                                 anchors.centerIn: parent
@@ -527,6 +671,22 @@ Item {
                                                 onClicked: {
                                                     if (appViewModel)
                                                         appViewModel.serverList.removeServer(index)
+                                                }
+                                            }
+
+                                            Keys.onLeftPressed: syncBtn.forceActiveFocus()
+                                            Keys.onRightPressed: serverInfoCol.focusRow()
+                                            Keys.onUpPressed: primaryBtn.forceActiveFocus()
+                                            Keys.onDownPressed: {
+                                                if (index < serverListView.count - 1) {
+                                                    serverListView.currentIndex = index + 1
+                                                    serverListView.forceActiveFocus()
+                                                    delBtn.forceActiveFocus()
+                                                } else if (epgSourceListView.count > 0) {
+                                                    if (epgSourceListView.currentIndex < 0) epgSourceListView.currentIndex = 0
+                                                    epgSourceListView.forceActiveFocus()
+                                                } else if (addEpgButton) {
+                                                    addEpgButton.forceActiveFocus()
                                                 }
                                             }
                                         }
@@ -671,6 +831,16 @@ Item {
                                 Keys.onDownPressed: {
                                     if (currentIndex < count - 1) currentIndex++
                                 }
+                                Keys.onRightPressed: {
+                                    if (currentIndex < 0) return
+                                    var item = currentItem
+                                    if (item && item.epgInfoCol && item.epgInfoCol.focusActionAt) {
+                                        item.epgInfoCol.focusActionAt(0)
+                                    } else if (currentIndex >= 0 && appViewModel
+                                               && !(appViewModel.epgSourceList && appViewModel.epgSourceList.syncing)) {
+                                        appViewModel.epgSourceList.syncSource(currentIndex)
+                                    }
+                                }
                                 Keys.onReturnPressed: {
                                     if (currentIndex >= 0 && appViewModel)
                                         appViewModel.epgSourceList.syncSource(currentIndex)
@@ -700,12 +870,31 @@ Item {
                                     color: model.enabled
                                         ? (epgHovered ? Theme.surfaceHover : Theme.surfaceElevated)
                                         : Theme.surface
-                                    border.color: epgSourceListView.activeFocus && epgSourceListView.currentIndex === index
+                                    border.color: epgInfoCol.actionFocused || (epgSourceListView.activeFocus && epgSourceListView.currentIndex === index)
                                         ? Theme.accent : Theme.surfaceBorder
-                                    border.width: epgSourceListView.activeFocus && epgSourceListView.currentIndex === index ? 2 : 1
+                                    border.width: (epgInfoCol.actionFocused || (epgSourceListView.activeFocus && epgSourceListView.currentIndex === index)) ? 2 : 1
                                     opacity: model.enabled ? 1.0 : 0.55
 
                                     property bool epgHovered: false
+                                    readonly property bool actionFocused:
+                                        epgPrimaryBtn.activeFocus
+                                        || epgEnabledBtn.activeFocus
+                                        || epgEditBtn.activeFocus
+                                        || epgSyncBtn.activeFocus
+                                        || epgDelBtn.activeFocus
+
+                                    function focusRow() {
+                                        epgSourceListView.currentIndex = index
+                                        epgSourceListView.forceActiveFocus()
+                                    }
+
+                                    function focusActionAt(actionIndex) {
+                                        epgSourceListView.currentIndex = index
+                                        var actions = [epgPrimaryBtn, epgEnabledBtn, epgEditBtn, epgSyncBtn, epgDelBtn]
+                                        actionIndex = Math.max(0, Math.min(actions.length - 1, actionIndex))
+                                        var item = actions[actionIndex]
+                                        if (item) item.forceActiveFocus()
+                                    }
 
                                     MouseArea {
                                         anchors.fill: parent
@@ -733,8 +922,29 @@ Item {
                                         }
 
                                         ColumnLayout {
+                                            id: epgInfoCol
                                             Layout.fillWidth: true
                                             spacing: Theme.spacingXs
+
+                                            readonly property bool actionFocused:
+                                                epgPrimaryBtn.activeFocus
+                                                || epgEnabledBtn.activeFocus
+                                                || epgEditBtn.activeFocus
+                                                || epgSyncBtn.activeFocus
+                                                || epgDelBtn.activeFocus
+
+                                            function focusRow() {
+                                                epgSourceListView.currentIndex = index
+                                                epgSourceListView.forceActiveFocus()
+                                            }
+
+                                            function focusActionAt(actionIndex) {
+                                                epgSourceListView.currentIndex = index
+                                                var actions = [epgPrimaryBtn, epgEnabledBtn, epgEditBtn, epgSyncBtn, epgDelBtn]
+                                                actionIndex = Math.max(0, Math.min(actions.length - 1, actionIndex))
+                                                var item = actions[actionIndex]
+                                                if (item) item.forceActiveFocus()
+                                            }
 
                                             Text {
                                                 text: model.name
@@ -764,11 +974,15 @@ Item {
                                         }
 
                                         Rectangle {
+                                            id: epgPrimaryBtn
                                             Layout.preferredWidth: 36
                                             Layout.preferredHeight: 36
                                             radius: Theme.borderRadius
-                                            color: epgPrimaryHovered ? Theme.surfaceHover : "transparent"
+                                            color: epgPrimaryHovered || activeFocus ? Theme.surfaceHover : "transparent"
                                             property bool epgPrimaryHovered: false
+                                            activeFocusOnTab: true
+                                            border.width: activeFocus ? 2 : 0
+                                            border.color: Theme.accent
 
                                             Text {
                                                 anchors.centerIn: parent
@@ -787,13 +1001,36 @@ Item {
                                                         appViewModel.epgSourceList.setPrimary(index)
                                                 }
                                             }
+
+                                            Keys.onLeftPressed: epgInfoCol.focusRow()
+                                            Keys.onRightPressed: epgEnabledBtn.forceActiveFocus()
+                                            Keys.onUpPressed: {
+                                                if (index > 0) {
+                                                    epgSourceListView.currentIndex = index - 1
+                                                    epgSourceListView.forceActiveFocus()
+                                                    epgPrimaryBtn.forceActiveFocus()
+                                                } else if (addEpgButton) {
+                                                    addEpgButton.forceActiveFocus()
+                                                }
+                                            }
+                                            Keys.onDownPressed: {
+                                                if (index < epgSourceListView.count - 1) {
+                                                    epgSourceListView.currentIndex = index + 1
+                                                    epgSourceListView.forceActiveFocus()
+                                                    epgPrimaryBtn.forceActiveFocus()
+                                                }
+                                            }
                                         }
 
                                         Rectangle {
+                                            id: epgEnabledBtn
                                             Layout.preferredWidth: 48
                                             Layout.preferredHeight: 26
                                             radius: 13
                                             color: model.enabled ? Theme.accent : Theme.surfaceBorder
+                                            activeFocusOnTab: true
+                                            border.width: activeFocus ? 2 : 0
+                                            border.color: Theme.accent
 
                                             Behavior on color {
                                                 ColorAnimation { duration: Theme.animFast }
@@ -820,14 +1057,29 @@ Item {
                                                         appViewModel.epgSourceList.setEnabled(index, !model.enabled)
                                                 }
                                             }
+
+                                            Keys.onLeftPressed: epgPrimaryBtn.forceActiveFocus()
+                                            Keys.onRightPressed: epgEditBtn.forceActiveFocus()
+                                            Keys.onUpPressed: epgPrimaryBtn.forceActiveFocus()
+                                            Keys.onDownPressed: {
+                                                if (index < epgSourceListView.count - 1) {
+                                                    epgSourceListView.currentIndex = index + 1
+                                                    epgSourceListView.forceActiveFocus()
+                                                    epgEnabledBtn.forceActiveFocus()
+                                                }
+                                            }
                                         }
 
                                         Rectangle {
+                                            id: epgEditBtn
                                             Layout.preferredWidth: 36
                                             Layout.preferredHeight: 36
                                             radius: Theme.borderRadius
-                                            color: epgEditHovered ? Theme.surfaceHover : "transparent"
+                                            color: epgEditHovered || activeFocus ? Theme.surfaceHover : "transparent"
                                             property bool epgEditHovered: false
+                                            activeFocusOnTab: true
+                                            border.width: activeFocus ? 2 : 0
+                                            border.color: Theme.accent
 
                                             Text {
                                                 anchors.centerIn: parent
@@ -846,9 +1098,21 @@ Item {
                                                     addEpgDialog.openForEdit(index, model.name, model.url)
                                                 }
                                             }
+
+                                            Keys.onLeftPressed: epgEnabledBtn.forceActiveFocus()
+                                            Keys.onRightPressed: epgSyncBtn.forceActiveFocus()
+                                            Keys.onUpPressed: epgPrimaryBtn.forceActiveFocus()
+                                            Keys.onDownPressed: {
+                                                if (index < epgSourceListView.count - 1) {
+                                                    epgSourceListView.currentIndex = index + 1
+                                                    epgSourceListView.forceActiveFocus()
+                                                    epgEditBtn.forceActiveFocus()
+                                                }
+                                            }
                                         }
 
                                         Rectangle {
+                                            id: epgSyncBtn
                                             Layout.preferredWidth: 36
                                             Layout.preferredHeight: 36
                                             radius: Theme.borderRadius
@@ -857,10 +1121,13 @@ Item {
                                                                              : false
                                             color: syncBusy
                                                 ? "transparent"
-                                                : (epgSyncHovered ? Theme.surfaceHover : "transparent")
+                                                : (epgSyncHovered || activeFocus ? Theme.surfaceHover : "transparent")
                                             opacity: syncBusy ? 0.35 : 1.0
 
                                             property bool epgSyncHovered: false
+                                            activeFocusOnTab: true
+                                            border.width: activeFocus ? 2 : 0
+                                            border.color: Theme.accent
 
                                             Text {
                                                 anchors.centerIn: parent
@@ -881,15 +1148,30 @@ Item {
                                                         appViewModel.epgSourceList.syncSource(index)
                                                 }
                                             }
+
+                                            Keys.onLeftPressed: epgEditBtn.forceActiveFocus()
+                                            Keys.onRightPressed: epgDelBtn.forceActiveFocus()
+                                            Keys.onUpPressed: epgPrimaryBtn.forceActiveFocus()
+                                            Keys.onDownPressed: {
+                                                if (index < epgSourceListView.count - 1) {
+                                                    epgSourceListView.currentIndex = index + 1
+                                                    epgSourceListView.forceActiveFocus()
+                                                    epgSyncBtn.forceActiveFocus()
+                                                }
+                                            }
                                         }
 
                                         Rectangle {
+                                            id: epgDelBtn
                                             Layout.preferredWidth: 36
                                             Layout.preferredHeight: 36
                                             radius: Theme.borderRadius
-                                            color: epgDelHovered ? Qt.rgba(Theme.error.r, Theme.error.g, Theme.error.b, 0.19) : "transparent"
+                                            color: epgDelHovered || activeFocus ? Qt.rgba(Theme.error.r, Theme.error.g, Theme.error.b, 0.19) : "transparent"
 
                                             property bool epgDelHovered: false
+                                            activeFocusOnTab: true
+                                            border.width: activeFocus ? 2 : 0
+                                            border.color: Theme.error
 
                                             Text {
                                                 anchors.centerIn: parent
@@ -908,6 +1190,17 @@ Item {
                                                 onClicked: {
                                                     if (appViewModel)
                                                         appViewModel.epgSourceList.removeSource(index)
+                                                }
+                                            }
+
+                                            Keys.onLeftPressed: epgSyncBtn.forceActiveFocus()
+                                            Keys.onRightPressed: epgInfoCol.focusRow()
+                                            Keys.onUpPressed: epgPrimaryBtn.forceActiveFocus()
+                                            Keys.onDownPressed: {
+                                                if (index < epgSourceListView.count - 1) {
+                                                    epgSourceListView.currentIndex = index + 1
+                                                    epgSourceListView.forceActiveFocus()
+                                                    epgDelBtn.forceActiveFocus()
                                                 }
                                             }
                                         }

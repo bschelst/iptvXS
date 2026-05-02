@@ -315,7 +315,7 @@ Item {
                                     String(now.getHours()).padStart(2,'0') +
                                     String(now.getMinutes()).padStart(2,'0') +
                                     String(now.getSeconds()).padStart(2,'0')
-                                var name = (appViewModel.player.channelName || "recording").replace(/[^a-zA-Z0-9_. -]/g, "_").replace(/_{2,}/g, "_").trim() || "recording"
+                                var name = (appViewModel.player.channelName || "recording").replace(/[^a-zA-Z0-9_.-]/g, "_").replace(/_{2,}/g, "_").trim() || "recording"
                                 var dir = appViewModel.recordingDirectory
                                 var base = dir + "/" + ts + "_" + name
                                 var outPath = base + ".mkv"
@@ -952,15 +952,32 @@ Item {
                             var tracks = appViewModel.player.subtitleTracks
                             var primary = appViewModel.subtitleLanguage || ""
                             var secondary = appViewModel.subtitleLanguageSecondary || ""
-                            if (!primary && !secondary) return tracks
                             var filtered = []
+                            var externalCounts = {}
+                            function labelTrack(item) {
+                                var lang = playerView.langName(item.lang)
+                                if (!lang) lang = "Unknown"
+                                if (item.external) {
+                                    var key = lang.toLowerCase()
+                                    externalCounts[key] = (externalCounts[key] || 0) + 1
+                                    item.displayLabel = lang + " - Ext - #" + externalCounts[key]
+                                } else {
+                                    item.displayLabel = lang + " - Builtin"
+                                }
+                                return item
+                            }
+
                             for (var i = 0; i < tracks.length; i++) {
                                 var t = tracks[i]
+                                labelTrack(t)
                                 if (t.selected
                                     || playerView.langMatches(t.lang, primary)
                                     || playerView.langMatches(t.lang, secondary)
                                     || !t.lang)
                                     filtered.push(t)
+                            }
+                            if (!primary && !secondary) {
+                                return tracks
                             }
                             return filtered.length > 0 ? filtered : tracks
                         }
@@ -990,20 +1007,7 @@ Item {
                                 }
 
                                 Text {
-                                    text: {
-                                        var lang = playerView.langName(modelData.lang)
-                                        var title = modelData.title || ""
-                                        var suffix = modelData.external ? " (ext)" : ""
-                                        if (!title && modelData.external) title = "External #" + modelData.id
-                                        var label = ""
-                                        if (lang && title) label = lang + " — " + title
-                                        else if (lang) label = lang + " (#" + modelData.id + ")"
-                                        else if (title) label = title
-                                        else label = "Track " + modelData.id
-                                        return label + suffix
-                                        if (title) return title
-                                        return "Track " + modelData.id
-                                    }
+                                    text: modelData.displayLabel || (playerView.langName(modelData.lang) || "Unknown")
                                     font.pixelSize: Theme.fontSizeXs
                                     font.bold: modelData.selected
                                     color: modelData.selected ? Theme.textOnAccent : stHov ? "#eeffffff" : "#ccffffff"
@@ -1366,8 +1370,10 @@ Item {
                             spacing: 8
 
                             Text {
-                                text: "📺"
+                                text: "▭"
+                                font.family: "DejaVu Sans"
                                 font.pixelSize: 16
+                                color: Theme.textPrimary
                             }
 
                             Text {
@@ -1754,6 +1760,9 @@ Item {
                 topOverlay.refreshEpg()
             }
         }
+        function onLiveReconnectFailed(message) {
+            reconnectToast.show(message)
+        }
     }
 
     function toggleVideoFullscreen() {
@@ -1789,6 +1798,48 @@ Item {
                     w.focusCurrentViewPrimary()
                 }
             })
+        }
+    }
+
+    Rectangle {
+        id: reconnectToast
+        anchors.top: parent.top
+        anchors.topMargin: Theme.spacingXl * 2
+        anchors.horizontalCenter: parent.horizontalCenter
+        width: Math.min(parent.width - Theme.spacingXl * 4, reconnectToastText.implicitWidth + 48)
+        height: 42
+        radius: 21
+        color: Theme.surfaceElevated
+        border.color: Qt.rgba(Theme.error.r, Theme.error.g, Theme.error.b, 0.6)
+        border.width: 1
+        opacity: 0
+        z: 5000
+
+        function show(message) {
+            reconnectToastText.text = message && message.length > 0
+                ? message
+                : "Live stream reconnect failed"
+            opacity = 1
+            reconnectToastTimer.restart()
+        }
+
+        Behavior on opacity { NumberAnimation { duration: Theme.animFast } }
+
+        Timer {
+            id: reconnectToastTimer
+            interval: 3500
+            onTriggered: reconnectToast.opacity = 0
+        }
+
+        Text {
+            id: reconnectToastText
+            anchors.centerIn: parent
+            width: parent.width - 24
+            horizontalAlignment: Text.AlignHCenter
+            elide: Text.ElideRight
+            font.pixelSize: Theme.fontSizeSm
+            font.bold: true
+            color: Theme.error
         }
     }
 

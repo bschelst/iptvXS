@@ -78,6 +78,7 @@ signals:
     void countChanged();
     void syncingChanged();
     void syncStatusChanged();
+    void syncCompleted(bool ok, int programmeCount, const QString &message);
     void timeWindowChanged();
     void currentTimeChanged();
     void searchQueryChanged();

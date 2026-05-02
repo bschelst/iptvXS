@@ -59,6 +59,7 @@ public:
     double cacheSpeed() const;
     double videoBitrate() const;
     int videoHeight() const;
+    double lastPosition() const;
     QString channelName() const;
     QString channelLogo() const;
     iptvxs::MpvPlayer *mpvPlayer() const;
@@ -66,7 +67,9 @@ public:
 
     Q_INVOKABLE void play(const QString &url, const QString &name = {},
                           const QString &logo = {}, int64_t channelId = 0,
-                          const QString &epgChannelId = {});
+                          const QString &epgChannelId = {},
+                          int startPositionSecs = 0,
+                          bool resetReconnectAttempts = true);
     Q_INVOKABLE void togglePause();
     Q_INVOKABLE void stop();
     Q_INVOKABLE void seek(double seconds);
@@ -125,6 +128,7 @@ signals:
     void audioTracksChanged();
     void recordingChanged();
     void streamRecordingStopped(const QString &filePath, qint64 startTime);
+    void liveReconnectFailed(const QString &message);
     void errorOccurred(const QString &message);
     void stretchedChanged();
     void autoNextEnabledChanged();
@@ -148,6 +152,10 @@ private:
     qint64 recordingStartTime_{0};
     uint32_t screenSaverCookie_{0};
     bool stretched_{false};
+    double lastPosition_{0.0};
+    int liveReconnectAttempts_{0};
+    bool manualStop_{false};
+    static constexpr int kMaxLiveReconnectAttempts = 20;
 
     // Auto-next episode
     QString nextEpisodeUrl_;
@@ -156,6 +164,7 @@ private:
     int64_t nextEpisodeChannelId_{0};
     bool autoNextEnabled_{false};
     int autoNextCountdown_{0};
+    int pendingSeekSeconds_{0};
     QTimer *autoNextTimer_{nullptr};
     void checkAutoNext();
     void resetAutoNext();

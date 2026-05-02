@@ -103,6 +103,8 @@ EpgViewModel::EpgViewModel(QObject *parent)
                 auto programmes = parseWatcher_.result();
                 if (programmes.isEmpty()) {
                     setSyncStatus("No EPG data found");
+                    qInfo("EPG sync completed: no programmes parsed");
+                    emit syncCompleted(true, 0, QStringLiteral("No EPG data found"));
                     setSyncing(false);
                     return;
                 }
@@ -120,6 +122,8 @@ EpgViewModel::EpgViewModel(QObject *parent)
                       static_cast<long long>(programmes.size()));
                 setSyncStatus(
                     QStringLiteral("EPG synced: %1 programmes").arg(programmes.size()));
+                emit syncCompleted(true, programmes.size(),
+                                   QStringLiteral("EPG synced: %1 programmes").arg(programmes.size()));
                 setSyncing(false);
                 loadGrid();
             });
@@ -315,6 +319,8 @@ void EpgViewModel::syncEpg(const QString &epgUrl) {
                      static_cast<long long>(data.size()));
             setSyncStatus(
                 QStringLiteral("EPG download failed: %1").arg(reply->errorString()));
+            emit syncCompleted(false, 0,
+                               QStringLiteral("EPG download failed: %1").arg(reply->errorString()));
             setSyncing(false);
             reply->deleteLater();
             delete buffer;
@@ -385,7 +391,7 @@ void EpgViewModel::startCurlFallbackDownload(const QString &epgUrl) {
 
                 if (exitStatus != QProcess::NormalExit || exitCode != 0 ||
                     data.isEmpty()) {
-                    qWarning("EPG curl fallback failed: exit=%d status=%d bytes=%lld stderr=%s",
+                qWarning("EPG curl fallback failed: exit=%d status=%d bytes=%lld stderr=%s",
                              exitCode,
                              static_cast<int>(exitStatus),
                              static_cast<long long>(data.size()),
@@ -394,6 +400,11 @@ void EpgViewModel::startCurlFallbackDownload(const QString &epgUrl) {
                                       .arg(stderrText.isEmpty()
                                                ? QStringLiteral("curl fallback failed")
                                                : QString::fromUtf8(stderrText).trimmed()));
+                    emit syncCompleted(false, 0,
+                                       QStringLiteral("EPG download failed: %1")
+                                           .arg(stderrText.isEmpty()
+                                                    ? QStringLiteral("curl fallback failed")
+                                                    : QString::fromUtf8(stderrText).trimmed()));
                     setSyncing(false);
                     return;
                 }
@@ -409,6 +420,7 @@ void EpgViewModel::startCurlFallbackDownload(const QString &epgUrl) {
         QFile::remove(tempPath);
         tempFile->deleteLater();
         setSyncStatus(QStringLiteral("EPG download failed: curl unavailable"));
+        emit syncCompleted(false, 0, QStringLiteral("EPG download failed: curl unavailable"));
         setSyncing(false);
         process->deleteLater();
     });

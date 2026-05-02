@@ -68,17 +68,36 @@ bool FavoriteRepository::add(int64_t channelId) {
         return true;
     }
 
+    if (!db_.transaction()) {
+        emit errorOccurred(QStringLiteral("Failed to start favorite insert transaction"));
+        return false;
+    }
+
+    QSqlQuery shift(db_);
+    if (!shift.exec("UPDATE favorites SET position = position + 1")) {
+        db_.rollback();
+        emit errorOccurred(
+            QStringLiteral("Failed to shift favorite positions: %1").arg(shift.lastError().text()));
+        return false;
+    }
+
     QSqlQuery q(db_);
     q.prepare(R"(
         INSERT INTO favorites (channel_id, position)
-        VALUES (?, ?)
+        VALUES (?, 0)
     )");
     q.addBindValue(static_cast<qlonglong>(channelId));
-    q.addBindValue(nextPosition());
 
     if (!q.exec()) {
+        db_.rollback();
         emit errorOccurred(
             QStringLiteral("Failed to add favorite: %1").arg(q.lastError().text()));
+        return false;
+    }
+
+    if (!db_.commit()) {
+        db_.rollback();
+        emit errorOccurred(QStringLiteral("Failed to commit favorite insert"));
         return false;
     }
 

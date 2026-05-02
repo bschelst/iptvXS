@@ -39,6 +39,9 @@ PlayerViewModel::PlayerViewModel(QObject *parent)
             });
     connect(player_, &iptvxs::MpvPlayer::positionChanged, this,
             [this](double) {
+                if (player_->position() > 0.0) {
+                    lastPosition_ = player_->position();
+                }
                 emit positionChanged();
                 checkAutoNext();
             });
@@ -50,6 +53,17 @@ PlayerViewModel::PlayerViewModel(QObject *parent)
             [this](double) { emit videoBitrateChanged(); });
     connect(player_, &iptvxs::MpvPlayer::videoHeightChanged, this,
             [this](int) { emit videoHeightChanged(); });
+    connect(player_, &iptvxs::MpvPlayer::mediaLoaded, this, [this]() {
+        if (pendingSeekSeconds_ > 0) {
+            const auto seekSeconds = pendingSeekSeconds_;
+            pendingSeekSeconds_ = 0;
+            QTimer::singleShot(0, this, [this, seekSeconds]() {
+                if (player_ && seekSeconds > 0) {
+                    player_->seek(seekSeconds);
+                }
+            });
+        }
+    });
     connect(player_, &iptvxs::MpvPlayer::endOfFile, this, [this]() {
         if (!nextEpisodeUrl_.isEmpty()) {
             auto url = nextEpisodeUrl_;
@@ -59,6 +73,31 @@ PlayerViewModel::PlayerViewModel(QObject *parent)
             resetAutoNext();
             play(url, name, logo, chId);
             emit autoNextTriggered();
+            return;
+        }
+
+        if (isLive_ && !manualStop_ && !currentUrl_.isEmpty() && !channelName_.isEmpty()) {
+            if (liveReconnectAttempts_ < kMaxLiveReconnectAttempts) {
+                const int attempt = ++liveReconnectAttempts_;
+                const int delayMs = qMin(5000, 750 * attempt);
+                qWarning("Live stream ended prematurely, reconnecting attempt %d/%d in %d ms",
+                         attempt, kMaxLiveReconnectAttempts, delayMs);
+                QTimer::singleShot(delayMs, this, [this]() {
+                    if (manualStop_ || currentUrl_.isEmpty()) return;
+                    auto url = currentUrl_;
+                    auto name = channelName_;
+                    auto logo = channelLogo_;
+                    auto chId = channelId_;
+                    auto epgId = epgChannelId_;
+                    if (!url.isEmpty()) {
+                        play(url, name, logo, chId, epgId,
+                             lastPosition_ > 0.0 ? static_cast<int>(lastPosition_) : 0,
+                             false);
+                    }
+                });
+                return;
+            }
+            emit liveReconnectFailed(QStringLiteral("Live stream reconnect failed after %1 attempts").arg(kMaxLiveReconnectAttempts));
         }
     });
     connect(player_, &iptvxs::MpvPlayer::errorOccurred, this,
@@ -105,6 +144,8 @@ double PlayerViewModel::videoBitrate() const { return player_->videoBitrate(); }
 
 int PlayerViewModel::videoHeight() const { return player_->videoHeight(); }
 
+double PlayerViewModel::lastPosition() const { return lastPosition_; }
+
 QString PlayerViewModel::channelName() const { return channelName_; }
 
 QString PlayerViewModel::channelLogo() const { return channelLogo_; }
@@ -150,7 +191,9 @@ void PlayerViewModel::uninhibitScreenSaver() {
 
 void PlayerViewModel::play(const QString &url, const QString &name,
                            const QString &logo, int64_t channelId,
-                           const QString &epgChannelId) {
+                           const QString &epgChannelId,
+                           int startPositionSecs,
+                           bool resetReconnectAttempts) {
     // Idempotent: if the same URL is already loaded and playing, do not reload.
     // Reloading would issue `loadfile` in mpv, which resets file-local
     // properties including `stream-record` — stopping any active recording.
@@ -172,6 +215,11 @@ void PlayerViewModel::play(const QString &url, const QString &name,
         if (channelId_ != channelId) {
             channelId_ = channelId;
             emit channelIdChanged();
+        }
+        if (startPositionSecs > 0) {
+            player_->seek(startPositionSecs);
+            lastPosition_ = startPositionSecs;
+            pendingSeekSeconds_ = 0;
         }
         qInfo("PlayerViewModel::play skipped reload — same URL already active "
               "(recording=%s)", recording_ ? "on" : "off");
@@ -209,6 +257,7 @@ void PlayerViewModel::play(const QString &url, const QString &name,
         epgChannelId_ = epgChannelId;
         emit epgChannelIdChanged();
     }
+    manualStop_ = false;
     isLive_ = url.contains(QStringLiteral("/live/"))
               || url.endsWith(QStringLiteral(".ts"))
               || url.endsWith(QStringLiteral(".m3u8"));
@@ -220,6 +269,12 @@ void PlayerViewModel::play(const QString &url, const QString &name,
     emit isLiveChanged();
     emit subtitleTracksChanged();
     emit audioTracksChanged();
+
+    lastPosition_ = startPositionSecs > 0 ? startPositionSecs : 0.0;
+    if (resetReconnectAttempts) {
+        liveReconnectAttempts_ = 0;
+    }
+    pendingSeekSeconds_ = startPositionSecs > 0 ? startPositionSecs : 0;
 
     inhibitScreenSaver();
     player_->play(url);
@@ -241,6 +296,9 @@ void PlayerViewModel::stop() {
         emit nextEpisodeNameChanged();
     }
     uninhibitScreenSaver();
+    manualStop_ = true;
+    pendingSeekSeconds_ = 0;
+    liveReconnectAttempts_ = 0;
     player_->stop();
     channelName_.clear();
     channelLogo_.clear();

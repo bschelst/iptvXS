@@ -93,6 +93,13 @@ Item {
         }
     }
 
+    function mediaTypeIcon(type) {
+        if (type === "live") return "▭"
+        if (type === "series") return "◫"
+        if (type === "vod" || type === "movie") return "▶"
+        return ""
+    }
+
     function focusCurrentRow() {
         var rows = allRows
         if (currentRowIndex >= 0 && currentRowIndex < rows.length) {
@@ -446,16 +453,18 @@ Item {
         for (var i = 0; i < hist.count && added < 20; i++) {
             var idx = hist.index(i, 0)
             var cType = hist.data(idx, 261)   // ChannelTypeRole (UserRole+5)
-            if (cType === "live") continue
             var posSecs = hist.data(idx, 265) || 0      // PositionSecsRole
             var totalDur = hist.data(idx, 266) || 0     // TotalDurationSecsRole
             var channelId = hist.data(idx, 258)  // ChannelIdRole (UserRole+2)
             var streamUrl = hist.data(idx, 264)  // StreamUrlRole
-            // Series: dedup by URL (each episode is unique). Others: dedup by channelId or URL.
-            var dedupeKey = (cType === "series" || !channelId || channelId <= 0)
-                ? "url:" + streamUrl : "id:" + channelId
-            // Skip finished (>= 95% watched) — also mark dedup key as seen
-            if (totalDur > 0 && posSecs >= totalDur * 0.95) { seen[dedupeKey] = true; continue }
+            var isFinished = totalDur > 0 && posSecs >= totalDur * 0.95
+            if (isFinished) continue
+
+            // Series: dedup by series id so only the latest in-progress episode appears.
+            // Others: dedup by channelId or URL.
+            var dedupeKey = cType === "series"
+                ? "series:" + channelId
+                : ((!channelId || channelId <= 0) ? "url:" + streamUrl : "id:" + channelId)
             if (seen[dedupeKey]) continue
             seen[dedupeKey] = true
             continueWatchingModel.append({
@@ -470,6 +479,9 @@ Item {
                 historyId: hist.data(idx, 257)      // IdRole
             })
             added++
+        }
+        if (continueWatchingRow && continueWatchingRow.cardListView) {
+            continueWatchingRow.cardListView.currentIndex = continueWatchingModel.count > 0 ? 0 : -1
         }
         if (focusRestorePending) requestFocusRestore()
     }
@@ -665,12 +677,7 @@ Item {
                 if (cardRow.isHistory) {
                     var hItem = continueWatchingModel.get(currentIndex)
                     if (!hItem) return
-                    // Always play directly — this IS the episode the user was watching
-                    if (hItem.streamUrl) {
-                        appViewModel.player.play(hItem.streamUrl, hItem.channelName,
-                            hItem.channelLogo, hItem.channelId, "")
-                        appViewModel.currentView = "player"
-                    }
+                    appViewModel.playHistoryEntry(hItem.historyId)
                     return
                 }
                 var item = currentItem
@@ -757,6 +764,27 @@ Item {
                         height: parent.height
                         color: Theme.accent
                         radius: 1
+                    }
+                }
+
+                Rectangle {
+                    visible: mediaTypeIcon(model.channelType || model.type || "") !== ""
+                    anchors.top: posterCard.top
+                    anchors.left: posterCard.left
+                    anchors.margins: 10
+                    width: 26
+                    height: 26
+                    radius: 13
+                    color: "#C0000000"
+                    z: 200
+
+                    Text {
+                        anchors.centerIn: parent
+                        text: mediaTypeIcon(model.channelType || model.type || "")
+                        font.pixelSize: 14
+                        font.bold: true
+                        font.family: "DejaVu Sans"
+                        color: "#ffffff"
                     }
                 }
 

@@ -611,6 +611,11 @@ Item {
                             fillMode: Image.PreserveAspectFit
                             asynchronous: true
                             visible: status === Image.Ready
+                            onStatusChanged: {
+                                if (status === Image.Error) {
+                                    source = ""
+                                }
+                            }
                         }
                         Text {
                             anchors.centerIn: parent

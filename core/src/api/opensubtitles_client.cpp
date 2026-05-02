@@ -204,6 +204,11 @@ void OpenSubtitlesClient::doSearch(const QString &token, const QString &query,
                         r.downloadCount = members.value(QStringLiteral("SubDownloadsCnt")).toInt();
                         r.downloadUrl = members.value(QStringLiteral("SubDownloadLink"));
                         r.fileId = r.id;
+                        if (r.downloadUrl.isEmpty()) {
+                            qInfo("Skipping subtitle '%s' because it has no download URL",
+                                  qPrintable(r.fileName));
+                            continue;
+                        }
                         qInfo("Subtitle found: '%s' lang=%s url='%s'",
                               qPrintable(r.fileName), qPrintable(r.language),
                               qPrintable(r.downloadUrl.left(80)));

@@ -7,6 +7,9 @@ import app.iptvxs
 
 Item {
     id: historyView
+    property bool focusRestorePending: false
+    property int focusRestoreAttempts: 0
+    property int deleteFocusIndex: -1
 
     function focusPrimary() {
         if (historyList.count > 0) {
@@ -15,11 +18,67 @@ Item {
         }
     }
 
+    function requestFocusRestore() {
+        focusRestorePending = true
+        focusRestoreAttempts = 0
+        focusRestoreTimer.restart()
+    }
+
+    function tryRestoreFocus() {
+        if (!focusRestorePending) return
+        if (!appViewModel || appViewModel.currentView !== "history") {
+            focusRestorePending = false
+            return
+        }
+        if (!historyList || historyList.count === 0) {
+            if (++focusRestoreAttempts < 20) {
+                focusRestoreTimer.restart()
+            } else {
+                focusRestorePending = false
+            }
+            return
+        }
+        if (historyList.currentIndex < 0) {
+            historyList.currentIndex = 0
+        }
+        historyList.forceActiveFocus()
+        focusRestorePending = false
+    }
+
     function focusClearHistoryButton() {
         if (clearHistoryBtn && clearHistoryBtn.visible) {
             clearHistoryBtn.forceActiveFocus()
         } else if (historyList) {
             historyList.forceActiveFocus()
+        }
+    }
+
+    function requestDeleteFocus(index) {
+        if (index < 0) return false
+        deleteFocusIndex = index
+        historyList.currentIndex = index
+        deleteFocusTimer.restart()
+        return true
+    }
+
+    function tryRestoreDeleteFocus() {
+        if (deleteFocusIndex < 0 || !historyList) return
+        if (historyList.currentIndex !== deleteFocusIndex) {
+            historyList.currentIndex = deleteFocusIndex
+        }
+        historyList.positionViewAtIndex(deleteFocusIndex, ListView.Contain)
+
+        var item = historyList.itemAtIndex(deleteFocusIndex)
+        if (item && item.removeBtn) {
+            item.removeBtn.forceActiveFocus()
+            deleteFocusIndex = -1
+            return
+        }
+
+        if (++focusRestoreAttempts < 20) {
+            deleteFocusTimer.restart()
+        } else {
+            deleteFocusIndex = -1
         }
     }
 
@@ -116,8 +175,8 @@ Item {
             }
         }
 
-        ListView {
-            id: historyList
+    ListView {
+        id: historyList
             Layout.fillWidth: true
             Layout.fillHeight: true
             clip: true
@@ -129,19 +188,7 @@ Item {
 
             function focusDeleteForCurrentItem() {
                 if (currentIndex < 0) return false
-                positionViewAtIndex(currentIndex, ListView.Contain)
-                Qt.callLater(function() {
-                    if (currentIndex < 0) return
-                    if (historyList.currentItem && historyList.currentItem.deleteBtn) {
-                        historyList.currentItem.deleteBtn.forceActiveFocus()
-                    } else {
-                        var fallbackItem = itemAtIndex(currentIndex)
-                        if (fallbackItem && fallbackItem.deleteBtn) {
-                            fallbackItem.deleteBtn.forceActiveFocus()
-                        }
-                    }
-                })
-                return true
+                return historyView.requestDeleteFocus(currentIndex)
             }
 
             Keys.onUpPressed: {
@@ -173,15 +220,9 @@ Item {
             function playCurrentItem() {
                 if (currentIndex < 0 || !appViewModel) return
                 var idx = appViewModel.history.index(currentIndex, 0)
-                var channelId = appViewModel.history.data(idx, 258)  // ChannelIdRole
-                var streamUrl = appViewModel.history.data(idx, 264)  // StreamUrlRole
-                var name = appViewModel.history.data(idx, 259)       // ChannelNameRole
-                var logo = appViewModel.history.data(idx, 260)       // ChannelLogoRole
-                if (channelId > 0) {
-                    appViewModel.playChannelById(channelId)
-                } else if (streamUrl) {
-                    appViewModel.player.play(streamUrl, name, logo, 0)
-                    appViewModel.currentView = "player"
+                var historyId = appViewModel.history.data(idx, 257)  // IdRole
+                if (historyId > 0) {
+                    appViewModel.playHistoryEntry(historyId)
                 }
             }
 
@@ -229,6 +270,7 @@ Item {
                 border.color: historyList.activeFocus && historyList.currentIndex === index
                     ? Theme.accent : "transparent"
                 property bool histHov: false
+                property alias removeBtn: deleteBtn
 
                 RowLayout {
                     anchors.fill: parent
@@ -399,12 +441,7 @@ Item {
                     onExited: parent.histHov = false
                     onClicked: {
                         if (!appViewModel) return
-                        if (model.channelId > 0) {
-                            appViewModel.playChannelById(model.channelId)
-                        } else if (model.streamUrl) {
-                            appViewModel.player.play(model.streamUrl, model.channelName, model.channelLogo, 0)
-                            appViewModel.currentView = "player"
-                        }
+                        appViewModel.playHistoryEntry(model.historyId)
                     }
                 }
 
@@ -435,7 +472,22 @@ Item {
         }
     }
 
+    Timer {
+        id: focusRestoreTimer
+        interval: 75
+        repeat: false
+        onTriggered: historyView.tryRestoreFocus()
+    }
+
+    Timer {
+        id: deleteFocusTimer
+        interval: 75
+        repeat: false
+        onTriggered: historyView.tryRestoreDeleteFocus()
+    }
+
     Component.onCompleted: {
         if (appViewModel) appViewModel.history.refresh()
+        requestFocusRestore()
     }
 }
