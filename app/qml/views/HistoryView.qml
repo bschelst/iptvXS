@@ -161,7 +161,10 @@ Item {
             Keys.onReturnPressed: playCurrentItem()
             Keys.onEnterPressed: Keys.onReturnPressed(event)
             Keys.onPressed: function(event) {
-                if (event.key === Qt.Key_Space || event.key === Qt.Key_Select) {
+                if (event.key === Qt.Key_Back || event.key === Qt.Key_Escape) {
+                    if (Window.window && Window.window.focusSidebar) Window.window.focusSidebar()
+                    event.accepted = true
+                } else if (event.key === Qt.Key_Space || event.key === Qt.Key_Select) {
                     playCurrentItem()
                     event.accepted = true
                 }

@@ -11,12 +11,20 @@
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QNetworkReply>
+#include <QNetworkRequest>
 #include <QSqlError>
 #include <QSqlQuery>
 #include <QStandardPaths>
+#include <QUrlQuery>
 #include <QTimer>
 
 namespace {
+constexpr auto kDefaultFreeServerSeededKey = "default_free_server_seeded";
+constexpr auto kDefaultFreeServerBootstrapDoneKey = "default_free_server_bootstrap_done";
+constexpr qint64 kValidationSampleBytes = 16 * 1024;
+constexpr qint64 kValidationMaxContentBytes = 100 * 1024 * 1024;
+
 QString localAppDataPath() {
     return QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation)
            + QStringLiteral("/iptvXS");
@@ -25,12 +33,94 @@ QString localAppDataPath() {
 QString databaseFilePath() {
     return localAppDataPath() + QStringLiteral("/iptvXS.db");
 }
+
+QString normalizeHttpUrl(const QString &input) {
+    QUrl url(input);
+    if (!url.isValid() ||
+        (url.scheme() != QStringLiteral("http") && url.scheme() != QStringLiteral("https"))) {
+        return input;
+    }
+
+    QString path = url.path();
+    while (path.startsWith(QStringLiteral("//"))) {
+        path.remove(0, 1);
+    }
+    url.setPath(path);
+    return url.toString(QUrl::FullyEncoded);
+}
+
+QString contentTypeLower(const QNetworkReply *reply) {
+    return reply->header(QNetworkRequest::ContentTypeHeader).toString().toLower();
+}
+
+bool contentTypeLooksBinary(const QString &contentType) {
+    if (contentType.isEmpty()) return false;
+    return contentType.contains(QStringLiteral("image/"))
+        || contentType.contains(QStringLiteral("video/"))
+        || contentType.contains(QStringLiteral("audio/"))
+        || contentType.contains(QStringLiteral("application/zip"))
+        || contentType.contains(QStringLiteral("application/x-7z-compressed"))
+        || contentType.contains(QStringLiteral("application/x-rar"))
+        || contentType.contains(QStringLiteral("application/pdf"))
+        || contentType.contains(QStringLiteral("multipart/"));
+}
+
+QByteArray stripBomAndWhitespace(QByteArray data) {
+    if (data.startsWith("\xEF\xBB\xBF")) {
+        data.remove(0, 3);
+    }
+    while (!data.isEmpty() && static_cast<unsigned char>(data.front()) <= 0x20) {
+        data.remove(0, 1);
+    }
+    return data;
+}
+
+bool looksLikeM3u(const QByteArray &data) {
+    auto trimmed = stripBomAndWhitespace(data);
+    if (trimmed.startsWith("#EXTM3U")) return true;
+    return trimmed.contains("\n#EXTINF") || trimmed.contains("\r\n#EXTINF");
+}
+
+bool looksLikeXmltv(const QByteArray &data) {
+    auto trimmed = stripBomAndWhitespace(data);
+    return trimmed.startsWith("<?xml") || trimmed.startsWith("<tv") || trimmed.contains("<tv");
+}
+
+qint64 extractTotalSize(const QNetworkReply *reply) {
+    const auto contentRange = reply->rawHeader("Content-Range");
+    if (!contentRange.isEmpty()) {
+        const auto slash = contentRange.lastIndexOf('/');
+        if (slash >= 0 && slash + 1 < contentRange.size()) {
+            bool ok = false;
+            const auto total = QByteArray(contentRange.mid(slash + 1)).toLongLong(&ok);
+            if (ok && total > 0) {
+                return total;
+            }
+        }
+    }
+    bool ok = false;
+    const auto len = reply->header(QNetworkRequest::ContentLengthHeader).toLongLong(&ok);
+    return ok ? len : -1;
+}
+
+enum class ValidationKind {
+    Xtream,
+    M3u,
+    Xmltv,
+};
+
+struct ValidationProbeState {
+    QByteArray sample;
+    bool finished{false};
+    bool resolved{false};
+};
 }
 
 AppViewModel::AppViewModel(QObject *parent)
     : QObject(parent),
       serverListVm_(new ServerListViewModel(this)),
       categoryListVm_(new CategoryListViewModel(this)),
+      epgSourceListVm_(new EpgSourceListViewModel(this)),
       channelListVm_(new ChannelListViewModel(this)),
       playerVm_(new PlayerViewModel(this)),
       favoriteListVm_(new FavoriteListViewModel(this)),
@@ -58,6 +148,10 @@ bool AppViewModel::initialize(const QString &dbPath) {
 
     settingsRepo_ = std::make_unique<iptvxs::SettingsRepository>(db, this);
     serverRepo_ = std::make_unique<iptvxs::ServerRepository>(db, this);
+    ensureDefaultServers();
+    epgSourceRepo_ = std::make_unique<iptvxs::EpgSourceRepository>(db, this);
+    connect(epgSourceRepo_.get(), &iptvxs::EpgSourceRepository::errorOccurred,
+            this, &AppViewModel::errorOccurred);
     categoryRepo_ = std::make_unique<iptvxs::CategoryRepository>(db, this);
     channelRepo_ = std::make_unique<iptvxs::ChannelRepository>(db, this);
     favoriteRepo_ = std::make_unique<iptvxs::FavoriteRepository>(db, this);
@@ -79,7 +173,10 @@ bool AppViewModel::initialize(const QString &dbPath) {
     speedTestRunner_ = std::make_unique<iptvxs::SpeedTestRunner>(this);
 
     serverListVm_->setRepositories(serverRepo_.get(), categoryRepo_.get(),
-                                   channelRepo_.get());
+                                   channelRepo_.get(), epgSourceRepo_.get());
+    QTimer::singleShot(0, this, [this]() { bootstrapDefaultFreeServerSync(); });
+    epgSourceListVm_->setRepository(epgSourceRepo_.get());
+    epgSourceListVm_->setEpgViewModel(epgVm_);
     favoriteListVm_->setRepository(favoriteRepo_.get());
     epgVm_->setRepositories(progRepo_.get(), channelRepo_.get(),
                             favoriteRepo_.get());
@@ -145,6 +242,32 @@ bool AppViewModel::initialize(const QString &dbPath) {
 
     connect(serverListVm_, &ServerListViewModel::syncFinished, this,
             [this](int64_t) {
+                if (defaultFreeServerBootstrapEpgPending_) {
+                    const auto builtinIdx = serverListVm_ ? serverListVm_->builtinFreeServerId() : 0;
+                    if (builtinIdx > 0 && serverListVm_) {
+                        int idx = -1;
+                        for (int i = 0; i < serverListVm_->count(); ++i) {
+                            if (serverListVm_->serverIdAt(i) == builtinIdx) {
+                                idx = i;
+                                break;
+                            }
+                        }
+                        if (idx >= 0) {
+                            const auto epgUrl = serverListVm_->epgUrlAt(idx);
+                            if (!epgUrl.isEmpty()) {
+                                defaultFreeServerBootstrapPending_ = false;
+                                qInfo("Bootstrap syncing EPG for built-in iptvXS Free server");
+                                epgVm_->syncEpg(epgUrl);
+                                return;
+                            }
+                        }
+                    }
+                    defaultFreeServerBootstrapPending_ = false;
+                    defaultFreeServerBootstrapEpgPending_ = false;
+                    if (settingsRepo_) {
+                        settingsRepo_->set(QString::fromLatin1(kDefaultFreeServerBootstrapDoneKey), true);
+                    }
+                }
                 if (!autoSyncInProgress_) return;
                 advanceAutoSyncToNextEnabled();
                 if (autoSyncServerCursor_ < serverListVm_->count()) {
@@ -166,6 +289,13 @@ bool AppViewModel::initialize(const QString &dbPath) {
             });
 
     connect(epgVm_, &EpgViewModel::syncingChanged, this, [this]() {
+        if (defaultFreeServerBootstrapEpgPending_ && !epgVm_->syncing()) {
+            defaultFreeServerBootstrapEpgPending_ = false;
+            if (settingsRepo_) {
+                settingsRepo_->set(QString::fromLatin1(kDefaultFreeServerBootstrapDoneKey), true);
+            }
+            qInfo("Bootstrap sync for built-in iptvXS Free server complete");
+        }
         if (!autoSyncEpgInProgress_) return;
         if (epgVm_->syncing()) return;
         // Sync just finished — advance to next server with an EPG URL, or stop.
@@ -440,6 +570,10 @@ ServerListViewModel *AppViewModel::serverList() const {
 
 CategoryListViewModel *AppViewModel::categoryList() const {
     return categoryListVm_;
+}
+
+EpgSourceListViewModel *AppViewModel::epgSourceList() const {
+    return epgSourceListVm_;
 }
 
 ChannelListViewModel *AppViewModel::channelList() const {
@@ -1039,6 +1173,335 @@ QVariantList AppViewModel::parseSeriesEpisodes(const QJsonObject &info,
     return seasons;
 }
 
+void AppViewModel::ensureDefaultServers() {
+    if (!settingsRepo_ || !serverRepo_) {
+        return;
+    }
+
+    const QString seedUrl = QStringLiteral("https://iptvxs.schelstraete.org/api/v1/playlist.m3u");
+    const QString seedKey = QString::fromLatin1(kDefaultFreeServerSeededKey);
+    if (settingsRepo_->contains(seedKey)) {
+        return;
+    }
+
+    const auto servers = serverRepo_->findAll();
+    for (const auto &srv : servers) {
+        if (srv.isBuiltinFree) {
+            settingsRepo_->set(seedKey, true);
+            return;
+        }
+    }
+
+    if (!servers.isEmpty()) {
+        settingsRepo_->set(seedKey, true);
+        return;
+    }
+
+    iptvxs::Server server;
+    server.name = QStringLiteral("iptvXS Free");
+    server.type = QStringLiteral("m3u");
+    server.url = seedUrl;
+    server.enabled = true;
+    server.isBuiltinFree = true;
+    server.isPrimary = (servers.isEmpty());
+
+    const auto id = serverRepo_->create(server);
+    if (id > 0) {
+        if (server.isPrimary) {
+            serverRepo_->setPrimary(id);
+        }
+        settingsRepo_->set(seedKey, true);
+        defaultFreeServerBootstrapPending_ = true;
+        qInfo("Seeded default server: iptvXS Free");
+    }
+}
+
+void AppViewModel::bootstrapDefaultFreeServerSync() {
+    if (!serverListVm_ || !settingsRepo_ || !defaultFreeServerBootstrapPending_) {
+        return;
+    }
+    if (settingsRepo_->contains(QString::fromLatin1(kDefaultFreeServerBootstrapDoneKey))) {
+        defaultFreeServerBootstrapPending_ = false;
+        return;
+    }
+
+    const auto builtinId = serverListVm_->builtinFreeServerId();
+    if (builtinId <= 0 || serverListVm_->syncing()) {
+        return;
+    }
+
+    int idx = -1;
+    for (int i = 0; i < serverListVm_->count(); ++i) {
+        if (serverListVm_->serverIdAt(i) == builtinId) {
+            idx = i;
+            break;
+        }
+    }
+    if (idx < 0) {
+        return;
+    }
+
+    defaultFreeServerBootstrapEpgPending_ = true;
+    qInfo("Bootstrap syncing built-in iptvXS Free server");
+    serverListVm_->syncServer(idx);
+}
+
+void AppViewModel::validateServerInput(const QString &type, const QString &url,
+                                       const QString &username, const QString &password) {
+    if (!httpClient_) {
+        emit urlValidationFinished(QStringLiteral("server"), false,
+                                   QStringLiteral("HTTP client unavailable"));
+        return;
+    }
+
+    const auto normalizedUrl = normalizeHttpUrl(url);
+    if (normalizedUrl.isEmpty()) {
+        emit urlValidationFinished(QStringLiteral("server"), false,
+                                   QStringLiteral("Enter a valid URL"));
+        return;
+    }
+
+    if (type == QStringLiteral("xtream")) {
+        auto *client = new iptvxs::XtreamClient(httpClient_.get(), normalizedUrl,
+                                                username, password, this);
+        connect(client, &iptvxs::XtreamClient::serverInfoReady, this,
+                [this, client]() {
+                    client->deleteLater();
+                    emit urlValidationFinished(QStringLiteral("server"), true, {});
+                });
+        connect(client, &iptvxs::XtreamClient::errorOccurred, this,
+                [this, client](const QString &msg) {
+                    client->deleteLater();
+                    emit urlValidationFinished(QStringLiteral("server"), false, msg);
+                });
+        client->fetchServerInfo();
+        return;
+    }
+
+    auto validateTextPayload = [this, normalizedUrl](ValidationKind kind, const QString &context) {
+        QNetworkRequest request{QUrl(normalizedUrl)};
+        request.setAttribute(QNetworkRequest::RedirectPolicyAttribute,
+                             QNetworkRequest::NoLessSafeRedirectPolicy);
+        request.setRawHeader("Range", "bytes=0-16383");
+
+        auto *reply = httpClient_->get(request);
+        auto state = std::make_shared<ValidationProbeState>();
+
+        auto finishIfValid = [this, reply, state, context, kind]() {
+            if (state->resolved) return;
+
+            const auto totalSize = extractTotalSize(reply);
+            if (totalSize > kValidationMaxContentBytes) {
+                state->resolved = true;
+                reply->abort();
+                emit urlValidationFinished(context, false,
+                                           QStringLiteral("URL is too large (%1 MB)")
+                                               .arg(QString::number(totalSize / (1024.0 * 1024.0), 'f', 1)));
+                return;
+            }
+
+            const auto contentType = contentTypeLower(reply);
+            const auto sample = stripBomAndWhitespace(state->sample);
+            bool valid = false;
+            if (kind == ValidationKind::M3u) {
+                valid = looksLikeM3u(sample);
+            } else {
+                valid = looksLikeXmltv(sample);
+            }
+
+            if (!valid && !contentType.isEmpty() && contentTypeLooksBinary(contentType)) {
+                state->resolved = true;
+                reply->abort();
+                emit urlValidationFinished(context, false,
+                                           QStringLiteral("URL returned binary content (%1)")
+                                               .arg(contentType));
+                return;
+            }
+
+            if (valid) {
+                state->resolved = true;
+                reply->abort();
+                emit urlValidationFinished(context, true, {});
+            }
+        };
+
+        connect(reply, &QNetworkReply::metaDataChanged, this,
+                [this, reply, state, context, kind, finishIfValid]() mutable {
+                    if (state->resolved) return;
+                    const auto totalSize = extractTotalSize(reply);
+                    if (totalSize > kValidationMaxContentBytes) {
+                        state->resolved = true;
+                        reply->abort();
+                        emit urlValidationFinished(context, false,
+                                                   QStringLiteral("URL is too large (%1 MB)")
+                                                       .arg(QString::number(totalSize / (1024.0 * 1024.0), 'f', 1)));
+                        return;
+                    }
+                    finishIfValid();
+                });
+
+        connect(reply, &QNetworkReply::readyRead, this,
+                [this, reply, state, context, kind, finishIfValid]() mutable {
+                    if (state->resolved) return;
+                    const auto remaining = kValidationSampleBytes - state->sample.size();
+                    if (remaining > 0) {
+                        state->sample += reply->read(remaining);
+                    }
+                    if (state->sample.size() > kValidationSampleBytes) {
+                        state->resolved = true;
+                        reply->abort();
+                        emit urlValidationFinished(context, false,
+                                                   QStringLiteral("URL does not look like a text playlist/XML feed"));
+                        return;
+                    }
+                    finishIfValid();
+                });
+
+        connect(reply, &QNetworkReply::finished, this,
+                [this, reply, state, context, kind, finishIfValid]() {
+                    reply->deleteLater();
+                    if (state->resolved) return;
+
+                    if (reply->error() != QNetworkReply::NoError
+                        && reply->error() != QNetworkReply::OperationCanceledError) {
+                        emit urlValidationFinished(context, false,
+                                                   QStringLiteral("Validation request failed: %1")
+                                                       .arg(reply->errorString()));
+                        return;
+                    }
+
+                    if (state->sample.isEmpty()) {
+                        state->sample = reply->readAll();
+                    }
+                    finishIfValid();
+                    if (!state->resolved) {
+                        emit urlValidationFinished(context, false,
+                                                   kind == ValidationKind::M3u
+                                                       ? QStringLiteral("URL does not appear to be an M3U playlist")
+                                                       : QStringLiteral("URL does not appear to be XMLTV data"));
+                    }
+                });
+    };
+
+    if (type == QStringLiteral("m3u")) {
+        validateTextPayload(ValidationKind::M3u, QStringLiteral("server"));
+    } else {
+        emit urlValidationFinished(QStringLiteral("server"), false,
+                                   QStringLiteral("Unknown server type"));
+    }
+}
+
+void AppViewModel::validateEpgSourceInput(const QString &url) {
+    if (!httpClient_) {
+        emit urlValidationFinished(QStringLiteral("epg"), false,
+                                   QStringLiteral("HTTP client unavailable"));
+        return;
+    }
+
+    const auto normalizedUrl = normalizeHttpUrl(url);
+    if (normalizedUrl.isEmpty()) {
+        emit urlValidationFinished(QStringLiteral("epg"), false,
+                                   QStringLiteral("Enter a valid URL"));
+        return;
+    }
+
+    QNetworkRequest request{QUrl(normalizedUrl)};
+    request.setAttribute(QNetworkRequest::RedirectPolicyAttribute,
+                         QNetworkRequest::NoLessSafeRedirectPolicy);
+    request.setRawHeader("Range", "bytes=0-16383");
+
+    auto *reply = httpClient_->get(request);
+    auto state = std::make_shared<ValidationProbeState>();
+
+    auto finishIfValid = [this, reply, state]() {
+        if (state->resolved) return;
+
+        const auto totalSize = extractTotalSize(reply);
+        if (totalSize > kValidationMaxContentBytes) {
+            state->resolved = true;
+            reply->abort();
+            emit urlValidationFinished(QStringLiteral("epg"), false,
+                                       QStringLiteral("URL is too large (%1 MB)")
+                                           .arg(QString::number(totalSize / (1024.0 * 1024.0), 'f', 1)));
+            return;
+        }
+
+        const auto contentType = contentTypeLower(reply);
+        const auto sample = stripBomAndWhitespace(state->sample);
+        const auto valid = looksLikeXmltv(sample);
+
+        if (!valid && !contentType.isEmpty() && contentTypeLooksBinary(contentType)) {
+            state->resolved = true;
+            reply->abort();
+            emit urlValidationFinished(QStringLiteral("epg"), false,
+                                       QStringLiteral("URL returned binary content (%1)")
+                                           .arg(contentType));
+            return;
+        }
+
+        if (valid) {
+            state->resolved = true;
+            reply->abort();
+            emit urlValidationFinished(QStringLiteral("epg"), true, {});
+        }
+    };
+
+    connect(reply, &QNetworkReply::metaDataChanged, this,
+            [this, reply, state, finishIfValid]() mutable {
+                if (state->resolved) return;
+                const auto totalSize = extractTotalSize(reply);
+                if (totalSize > kValidationMaxContentBytes) {
+                    state->resolved = true;
+                    reply->abort();
+                    emit urlValidationFinished(QStringLiteral("epg"), false,
+                                               QStringLiteral("URL is too large (%1 MB)")
+                                                   .arg(QString::number(totalSize / (1024.0 * 1024.0), 'f', 1)));
+                    return;
+                }
+                finishIfValid();
+            });
+
+    connect(reply, &QNetworkReply::readyRead, this,
+            [this, reply, state, finishIfValid]() mutable {
+                if (state->resolved) return;
+                const auto remaining = kValidationSampleBytes - state->sample.size();
+                if (remaining > 0) {
+                    state->sample += reply->read(remaining);
+                }
+                if (state->sample.size() > kValidationSampleBytes) {
+                    state->resolved = true;
+                    reply->abort();
+                    emit urlValidationFinished(QStringLiteral("epg"), false,
+                                               QStringLiteral("URL does not look like XMLTV data"));
+                    return;
+                }
+                finishIfValid();
+            });
+
+    connect(reply, &QNetworkReply::finished, this,
+            [this, reply, state, finishIfValid]() {
+                reply->deleteLater();
+                if (state->resolved) return;
+
+                if (reply->error() != QNetworkReply::NoError
+                    && reply->error() != QNetworkReply::OperationCanceledError) {
+                    emit urlValidationFinished(QStringLiteral("epg"), false,
+                                               QStringLiteral("Validation request failed: %1")
+                                                   .arg(reply->errorString()));
+                    return;
+                }
+
+                if (state->sample.isEmpty()) {
+                    state->sample = reply->readAll();
+                }
+                finishIfValid();
+                if (!state->resolved) {
+                    emit urlValidationFinished(QStringLiteral("epg"), false,
+                                               QStringLiteral("URL does not appear to be XMLTV data"));
+                }
+            });
+}
+
 struct SeriesPrefetchState {
     int64_t serverId;
     QVector<iptvxs::Channel> series;
@@ -1423,6 +1886,9 @@ void AppViewModel::resetDatabase() {
         auto db = database_->connection();
         settingsRepo_ = std::make_unique<iptvxs::SettingsRepository>(db, this);
         serverRepo_ = std::make_unique<iptvxs::ServerRepository>(db, this);
+        epgSourceRepo_ = std::make_unique<iptvxs::EpgSourceRepository>(db, this);
+        connect(epgSourceRepo_.get(), &iptvxs::EpgSourceRepository::errorOccurred,
+                this, &AppViewModel::errorOccurred);
         categoryRepo_ = std::make_unique<iptvxs::CategoryRepository>(db, this);
         channelRepo_ = std::make_unique<iptvxs::ChannelRepository>(db, this);
         favoriteRepo_ = std::make_unique<iptvxs::FavoriteRepository>(db, this);
@@ -1436,7 +1902,9 @@ void AppViewModel::resetDatabase() {
         seriesCacheRepo_ = std::make_unique<iptvxs::SeriesCacheRepository>(db, this);
 
         serverListVm_->setRepositories(serverRepo_.get(), categoryRepo_.get(),
-                                       channelRepo_.get());
+                                       channelRepo_.get(), epgSourceRepo_.get());
+        epgSourceListVm_->setRepository(epgSourceRepo_.get());
+        epgSourceListVm_->setEpgViewModel(epgVm_);
         favoriteListVm_->setRepository(favoriteRepo_.get());
         channelListVm_->setRepository(channelRepo_.get());
     channelListVm_->setFavoriteRepository(favoriteRepo_.get());

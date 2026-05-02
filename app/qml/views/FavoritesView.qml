@@ -73,7 +73,10 @@ Item {
             Keys.onReturnPressed: activateCurrentItem()
             Keys.onEnterPressed: activateCurrentItem()
             Keys.onPressed: function(event) {
-                if (event.key === Qt.Key_Select || event.key === Qt.Key_Space) {
+                if (event.key === Qt.Key_Back || event.key === Qt.Key_Escape) {
+                    if (Window.window && Window.window.focusSidebar) Window.window.focusSidebar()
+                    event.accepted = true
+                } else if (event.key === Qt.Key_Select || event.key === Qt.Key_Space) {
                     activateCurrentItem()
                     event.accepted = true
                 } else if (event.key === Qt.Key_Delete || event.key === Qt.Key_X) {

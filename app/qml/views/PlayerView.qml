@@ -1783,7 +1783,9 @@ Item {
             appViewModel.currentView = prev
             Qt.callLater(function() {
                 var w = playerView.Window.window
-                if (w && w.focusCurrentViewPrimary) {
+                if (w && w.requestViewFocusRestore) {
+                    w.requestViewFocusRestore()
+                } else if (w && w.focusCurrentViewPrimary) {
                     w.focusCurrentViewPrimary()
                 }
             })

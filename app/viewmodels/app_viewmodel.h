@@ -13,6 +13,7 @@
 #include "iptvxs/db/database.h"
 #include "iptvxs/db/category_repository.h"
 #include "iptvxs/db/channel_repository.h"
+#include "iptvxs/db/epg_source_repository.h"
 #include "iptvxs/db/favorite_repository.h"
 #include "iptvxs/db/programme_repository.h"
 #include "iptvxs/db/recording_repository.h"
@@ -32,6 +33,7 @@
 #include "iptvxs/cast/chromecast_manager.h"
 
 #include "category_list_viewmodel.h"
+#include "epg_source_list_viewmodel.h"
 #include "group_list_viewmodel.h"
 #include "epg_viewmodel.h"
 #include "channel_list_viewmodel.h"
@@ -57,6 +59,7 @@ class AppViewModel : public QObject {
     Q_PROPERTY(QString pendingPlayName MEMBER pendingPlayName_ NOTIFY pendingPlayChanged)
     Q_PROPERTY(ServerListViewModel *serverList READ serverList CONSTANT)
     Q_PROPERTY(CategoryListViewModel *categoryList READ categoryList CONSTANT)
+    Q_PROPERTY(EpgSourceListViewModel *epgSourceList READ epgSourceList CONSTANT)
     Q_PROPERTY(ChannelListViewModel *channelList READ channelList CONSTANT)
     Q_PROPERTY(PlayerViewModel *player READ player CONSTANT)
     Q_PROPERTY(FavoriteListViewModel *favoriteList READ favoriteList CONSTANT)
@@ -115,6 +118,7 @@ public:
     iptvxs::SettingsRepository *settings() const;
     ServerListViewModel *serverList() const;
     CategoryListViewModel *categoryList() const;
+    EpgSourceListViewModel *epgSourceList() const;
     ChannelListViewModel *channelList() const;
     PlayerViewModel *player() const;
     FavoriteListViewModel *favoriteList() const;
@@ -216,6 +220,9 @@ public:
     Q_INVOKABLE QString nextProgrammeTime(const QString &epgChannelId) const;
     Q_INVOKABLE QVariantMap databaseStats() const;
     Q_INVOKABLE QVariantMap runMaintenance();
+    Q_INVOKABLE void validateServerInput(const QString &type, const QString &url,
+                                         const QString &username, const QString &password);
+    Q_INVOKABLE void validateEpgSourceInput(const QString &url);
 
 signals:
     void databaseReadyChanged();
@@ -251,16 +258,21 @@ signals:
     void logoCacheMaxMbChanged();
     void chromecastEnabledChanged();
     void showAuthHint(const QString &url);
+    void urlValidationFinished(const QString &context, bool ok, const QString &message);
 
 public slots:
     void openAuthUrlInSteamBrowser(const QString &url);
 
 private:
+    void ensureDefaultServers();
+    void bootstrapDefaultFreeServerSync();
+
     std::unique_ptr<iptvxs::Database> database_;
     std::unique_ptr<iptvxs::SettingsRepository> settingsRepo_;
     std::unique_ptr<iptvxs::ServerRepository> serverRepo_;
     std::unique_ptr<iptvxs::CategoryRepository> categoryRepo_;
     std::unique_ptr<iptvxs::ChannelRepository> channelRepo_;
+    std::unique_ptr<iptvxs::EpgSourceRepository> epgSourceRepo_;
     std::unique_ptr<iptvxs::FavoriteRepository> favoriteRepo_;
     std::unique_ptr<iptvxs::ProgrammeRepository> progRepo_;
     std::unique_ptr<iptvxs::RecordingRepository> recordingRepo_;
@@ -273,6 +285,7 @@ private:
 
     ServerListViewModel *serverListVm_;
     CategoryListViewModel *categoryListVm_;
+    EpgSourceListViewModel *epgSourceListVm_;
     ChannelListViewModel *channelListVm_;
     PlayerViewModel *playerVm_;
     FavoriteListViewModel *favoriteListVm_;
@@ -296,6 +309,8 @@ private:
     int autoSyncEpgCursor_{0};
     bool autoSyncInProgress_{false};
     bool autoSyncEpgInProgress_{false};
+    bool defaultFreeServerBootstrapPending_{false};
+    bool defaultFreeServerBootstrapEpgPending_{false};
     int64_t lastHistoryEntryId_{0};
 
     static QVariantList parseSeriesEpisodes(const QJsonObject &info,

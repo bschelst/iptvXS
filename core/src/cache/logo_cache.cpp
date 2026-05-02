@@ -11,6 +11,14 @@
 
 namespace iptvxs {
 
+namespace {
+bool isWebpUrl(const QString &url) {
+    const QUrl parsed(url);
+    const QString path = parsed.path().toLower();
+    return path.endsWith(QStringLiteral(".webp"));
+}
+} // namespace
+
 LogoCache::LogoCache(QObject *parent)
     : QObject(parent), nam_(new QNetworkAccessManager(this)) {}
 
@@ -20,6 +28,11 @@ void LogoCache::setCacheDir(const QString &path) {
     QDir dir(cacheDir_);
     if (!dir.exists()) {
         dir.mkpath(".");
+    }
+
+    const auto webpFiles = dir.entryList({QStringLiteral("*.webp")}, QDir::Files);
+    for (const auto &entry : webpFiles) {
+        dir.remove(entry);
     }
 
     // Scan existing cached files to populate the in-memory map.
@@ -36,6 +49,10 @@ QString LogoCache::resolve(const QString &url) const {
     }
 
     if (isBlocked(url)) {
+        return {};
+    }
+
+    if (isWebpUrl(url)) {
         return {};
     }
 
@@ -67,6 +84,10 @@ QString LogoCache::resolve(const QString &url) const {
 void LogoCache::prefetch(const QStringList &urls) {
     for (const auto &url : urls) {
         if (url.isEmpty() || isBlocked(url) || cache_.contains(url) || pending_.contains(url)) {
+            continue;
+        }
+
+        if (isWebpUrl(url)) {
             continue;
         }
 
@@ -183,6 +204,11 @@ void LogoCache::downloadNext() {
         const QString url = queue_.takeFirst();
 
         if (cache_.contains(url)) {
+            pending_.remove(url);
+            continue;
+        }
+
+        if (isWebpUrl(url)) {
             pending_.remove(url);
             continue;
         }

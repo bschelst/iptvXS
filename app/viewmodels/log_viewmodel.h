@@ -49,6 +49,7 @@ private:
     };
 
     void rebuildFiltered();
+    void rebuildFilteredNoReset();
     static QString colorForLevel(const QString &level);
 
     QVector<LogEntry> allEntries_;

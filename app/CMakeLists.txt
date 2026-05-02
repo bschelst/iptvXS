@@ -52,6 +52,7 @@ qt_add_qml_module(iptvXS
         qml/components/Sidebar.qml
         qml/components/TopBar.qml
         qml/components/AddServerDialog.qml
+        qml/components/AddEpgSourceDialog.qml
         qml/components/StyledTextField.qml
         qml/themes/Theme.qml
     SOURCES
@@ -61,6 +62,8 @@ qt_add_qml_module(iptvXS
         viewmodels/server_list_viewmodel.cpp
         viewmodels/category_list_viewmodel.h
         viewmodels/category_list_viewmodel.cpp
+        viewmodels/epg_source_list_viewmodel.h
+        viewmodels/epg_source_list_viewmodel.cpp
         viewmodels/channel_list_viewmodel.h
         viewmodels/channel_list_viewmodel.cpp
         viewmodels/favorite_list_viewmodel.h

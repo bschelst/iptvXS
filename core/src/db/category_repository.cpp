@@ -1,6 +1,7 @@
 // iptvXS Project - Schelstraete Bart - https://iptvxs.schelstraete.org
 #include "iptvxs/db/category_repository.h"
 
+#include <QSet>
 #include <QSqlError>
 #include <QSqlQuery>
 #include <QVariant>
@@ -103,6 +104,186 @@ bool CategoryRepository::deleteByServer(int64_t serverId) {
     query.prepare("DELETE FROM categories WHERE server_id = ?");
     query.addBindValue(toVariant(serverId));
     return query.exec();
+}
+
+void CategoryRepository::deleteMissingByServer(int64_t serverId,
+                                               const QVector<Category> &keepCategories) {
+    QSet<QString> keepKeys;
+    keepKeys.reserve(keepCategories.size());
+    for (const auto &cat : keepCategories) {
+        keepKeys.insert(QStringLiteral("%1\u001f%2").arg(cat.type, cat.externalId));
+    }
+
+    QSqlQuery query(db_);
+    query.prepare("SELECT id, external_id, type FROM categories WHERE server_id = ?");
+    query.addBindValue(toVariant(serverId));
+    if (!query.exec()) {
+        emit errorOccurred(QStringLiteral("Failed to query stale categories: %1")
+                               .arg(query.lastError().text()));
+        return;
+    }
+
+    QVector<int64_t> staleIds;
+    while (query.next()) {
+        auto externalId = query.value(1).toString();
+        auto type = query.value(2).toString();
+        auto key = QStringLiteral("%1\u001f%2").arg(type, externalId);
+        if (!keepKeys.contains(key)) {
+            staleIds.append(query.value(0).toLongLong());
+        }
+    }
+
+    if (staleIds.isEmpty()) {
+        return;
+    }
+
+    if (!db_.transaction()) {
+        emit errorOccurred(QStringLiteral("Failed to start category cleanup transaction"));
+        return;
+    }
+
+    QSqlQuery deleteQuery(db_);
+    deleteQuery.prepare("DELETE FROM categories WHERE id = ?");
+    for (auto id : staleIds) {
+        deleteQuery.addBindValue(toVariant(id));
+        if (!deleteQuery.exec()) {
+            db_.rollback();
+            emit errorOccurred(QStringLiteral("Failed to delete stale category: %1")
+                                   .arg(deleteQuery.lastError().text()));
+            return;
+        }
+        deleteQuery.finish();
+    }
+
+    if (!db_.commit()) {
+        db_.rollback();
+        emit errorOccurred(QStringLiteral("Failed to commit stale category cleanup"));
+    }
+}
+
+void CategoryRepository::deleteMissingByServerAndType(
+    int64_t serverId, const QString &type, const QVector<Category> &keepCategories) {
+    QSet<QString> keepKeys;
+    keepKeys.reserve(keepCategories.size());
+    for (const auto &cat : keepCategories) {
+        keepKeys.insert(QStringLiteral("%1\u001f%2").arg(cat.type, cat.externalId));
+    }
+
+    QSqlQuery query(db_);
+    query.prepare("SELECT id, external_id, type FROM categories "
+                  "WHERE server_id = ? AND type = ?");
+    query.addBindValue(toVariant(serverId));
+    query.addBindValue(type);
+    if (!query.exec()) {
+        emit errorOccurred(QStringLiteral("Failed to query stale categories: %1")
+                               .arg(query.lastError().text()));
+        return;
+    }
+
+    QVector<int64_t> staleIds;
+    while (query.next()) {
+        auto externalId = query.value(1).toString();
+        auto rowType = query.value(2).toString();
+        auto key = QStringLiteral("%1\u001f%2").arg(rowType, externalId);
+        if (!keepKeys.contains(key)) {
+            staleIds.append(query.value(0).toLongLong());
+        }
+    }
+
+    if (staleIds.isEmpty()) {
+        return;
+    }
+
+    if (!db_.transaction()) {
+        emit errorOccurred(QStringLiteral("Failed to start category cleanup transaction"));
+        return;
+    }
+
+    QSqlQuery deleteQuery(db_);
+    deleteQuery.prepare("DELETE FROM categories WHERE id = ?");
+    for (auto id : staleIds) {
+        deleteQuery.addBindValue(toVariant(id));
+        if (!deleteQuery.exec()) {
+            db_.rollback();
+            emit errorOccurred(QStringLiteral("Failed to delete stale category: %1")
+                                   .arg(deleteQuery.lastError().text()));
+            return;
+        }
+        deleteQuery.finish();
+    }
+
+    if (!db_.commit()) {
+        db_.rollback();
+        emit errorOccurred(QStringLiteral("Failed to commit stale category cleanup"));
+    }
+}
+
+void CategoryRepository::deleteEmptyByServer(int64_t serverId, const QString &type) {
+    QSqlQuery query(db_);
+    if (type.isEmpty()) {
+        query.prepare("SELECT c.id, c.name, c.type "
+                      "FROM categories c "
+                      "LEFT JOIN channels ch ON ch.category_id = c.id "
+                      "WHERE c.server_id = ? "
+                      "GROUP BY c.id "
+                      "HAVING COUNT(ch.id) = 0");
+        query.addBindValue(toVariant(serverId));
+    } else {
+        query.prepare("SELECT c.id, c.name, c.type "
+                      "FROM categories c "
+                      "LEFT JOIN channels ch ON ch.category_id = c.id "
+                      "WHERE c.server_id = ? AND c.type = ? "
+                      "GROUP BY c.id "
+                      "HAVING COUNT(ch.id) = 0");
+        query.addBindValue(toVariant(serverId));
+        query.addBindValue(type);
+    }
+
+    if (!query.exec()) {
+        emit errorOccurred(QStringLiteral("Failed to query empty categories: %1")
+                               .arg(query.lastError().text()));
+        return;
+    }
+
+    QVector<int64_t> staleIds;
+    QVector<QString> staleNames;
+    QVector<QString> staleTypes;
+    while (query.next()) {
+        staleIds.append(query.value(0).toLongLong());
+        staleNames.append(query.value(1).toString());
+        staleTypes.append(query.value(2).toString());
+    }
+
+    if (staleIds.isEmpty()) {
+        return;
+    }
+
+    if (!db_.transaction()) {
+        emit errorOccurred(QStringLiteral("Failed to start empty category cleanup transaction"));
+        return;
+    }
+
+    QSqlQuery deleteQuery(db_);
+    deleteQuery.prepare("DELETE FROM categories WHERE id = ?");
+    for (int i = 0; i < staleIds.size(); ++i) {
+        deleteQuery.addBindValue(toVariant(staleIds.at(i)));
+        if (!deleteQuery.exec()) {
+            db_.rollback();
+            emit errorOccurred(QStringLiteral("Failed to delete empty category: %1")
+                                   .arg(deleteQuery.lastError().text()));
+            return;
+        }
+        qInfo("Removed empty category during sync: %s [%s] (id %lld)",
+              qPrintable(staleNames.at(i)),
+              qPrintable(staleTypes.at(i)),
+              static_cast<long long>(staleIds.at(i)));
+        deleteQuery.finish();
+    }
+
+    if (!db_.commit()) {
+        db_.rollback();
+        emit errorOccurred(QStringLiteral("Failed to commit empty category cleanup"));
+    }
 }
 
 int CategoryRepository::count(int64_t serverId) const {

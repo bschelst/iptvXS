@@ -22,6 +22,29 @@ Item {
     property int currentChannelIndex: 0
     property int currentProgrammeIndex: 0
     property bool channelColumnFocused: false  // true = channel col, false = programme grid
+    property bool defaultServerApplied: false
+
+    Connections {
+        target: appViewModel ? appViewModel.serverList : null
+        function onCountChanged() {
+            applyDefaultServerSelection()
+        }
+    }
+
+    function applyDefaultServerSelection() {
+        if (!appViewModel || !appViewModel.serverList || !serverPicker) return
+        if (defaultServerApplied) return
+        if (serverPicker.count <= 0) return
+
+        var idx = appViewModel.serverList.firstLiveServerIndex()
+        if (idx < 0 || idx >= serverPicker.count) {
+            idx = 0
+        }
+
+        serverPicker.currentIndex = idx
+        appViewModel.epg.serverId = appViewModel.serverList.serverIdAt(idx)
+        defaultServerApplied = true
+    }
 
     function focusPrimary() {
         if (progDetailPopup.visible || recConfirm.visible) return
@@ -90,6 +113,10 @@ Item {
     ColumnLayout {
         anchors.fill: parent
         spacing: 0
+
+        Component.onCompleted: {
+            applyDefaultServerSelection()
+        }
 
         Rectangle {
             Layout.fillWidth: true
@@ -165,6 +192,14 @@ Item {
                             Keys.onDownPressed: {
                                 epgView.focusPrimary()
                             }
+                            Keys.onPressed: function(event) {
+                                if (event.key === Qt.Key_Back || event.key === Qt.Key_Escape) {
+                                    if (Window.window && Window.window.focusSidebar) {
+                                        Window.window.focusSidebar()
+                                    }
+                                    event.accepted = true
+                                }
+                            }
 
                             Timer {
                                 id: epgSearchTimer
@@ -239,6 +274,9 @@ Item {
                         if (appViewModel && currentValue > 0) {
                             appViewModel.epg.serverId = currentValue
                         }
+                    }
+                    onActivated: {
+                        defaultServerApplied = true
                     }
                 }
 

@@ -41,7 +41,7 @@ QVector<Programme> XmltvParser::parse(QIODevice *device) {
         }
 
         Programme prog;
-        prog.epgChannelId = channelId;
+        prog.epgChannelId = channelId.trimmed().toLower();
         prog.startTime = parseDateTime(startStr);
         prog.endTime = parseDateTime(stopStr);
 

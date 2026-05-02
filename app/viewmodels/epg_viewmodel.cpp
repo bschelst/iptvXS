@@ -1,6 +1,8 @@
 // iptvXS Project - Schelstraete Bart - https://iptvxs.schelstraete.org
 #include "epg_viewmodel.h"
 
+#include <QCoreApplication>
+#include <QCryptographicHash>
 #include <QDateTime>
 #include <QDir>
 #include <QFile>
@@ -9,8 +11,10 @@
 #include <QJsonArray>
 #include <QJsonObject>
 #include <QNetworkReply>
+#include <QNetworkRequest>
 #include <QRegularExpression>
 #include <QSet>
+#include <QUrl>
 #include <QtConcurrent>
 #include <algorithm>
 
@@ -37,6 +41,47 @@ QString normalizeHttpUrl(const QString &input) {
     }
     url.setPath(path);
     return url.toString(QUrl::FullyEncoded);
+}
+
+QByteArray hmacSha256Hex(const QByteArray &key, const QByteArray &message) {
+    constexpr int blockSize = 64;
+    QByteArray normalizedKey = key;
+    if (normalizedKey.size() > blockSize) {
+        normalizedKey = QCryptographicHash::hash(normalizedKey, QCryptographicHash::Sha256);
+    }
+    normalizedKey = normalizedKey.leftJustified(blockSize, '\0', true);
+
+    QByteArray oKeyPad(blockSize, '\0');
+    QByteArray iKeyPad(blockSize, '\0');
+    for (int i = 0; i < blockSize; ++i) {
+        const auto keyByte = static_cast<unsigned char>(normalizedKey.at(i));
+        oKeyPad[i] = static_cast<char>(keyByte ^ 0x5c);
+        iKeyPad[i] = static_cast<char>(keyByte ^ 0x36);
+    }
+
+    const QByteArray inner = QCryptographicHash::hash(iKeyPad + message, QCryptographicHash::Sha256);
+    return QCryptographicHash::hash(oKeyPad + inner, QCryptographicHash::Sha256).toHex();
+}
+
+QNetworkRequest buildProtectedRequest(const QString &url) {
+    QUrl qurl(url);
+    QNetworkRequest request{qurl};
+    request.setTransferTimeout(30000);
+    request.setRawHeader("X-API-Key", QByteArrayLiteral(IPTVXS_GATEWAY_API_KEY));
+    request.setRawHeader("User-Agent",
+                         QStringLiteral("IPTVXs/%1")
+                             .arg(QCoreApplication::applicationVersion().isEmpty()
+                                      ? QStringLiteral("0.3.8")
+                                      : QCoreApplication::applicationVersion())
+                             .toUtf8());
+    const auto timestamp = QByteArray::number(QDateTime::currentSecsSinceEpoch());
+    request.setRawHeader("X-Timestamp", timestamp);
+    const auto secret = QByteArray::fromBase64(QByteArray(
+        "OWYzYTdjOGIyZDFlNmE0ZjVjMGI5ZDhlN2ExZjJjM2Q0ZTViNmE3YzhkOWUwZjFhMmIzYzRkNWU2"
+        "ZjdhOGI5Yw=="));
+    const auto message = timestamp + QByteArrayLiteral(":") + qurl.path().toUtf8();
+    request.setRawHeader("X-Signature", hmacSha256Hex(secret, message));
+    return request;
 }
 }
 
@@ -248,7 +293,7 @@ void EpgViewModel::syncEpg(const QString &epgUrl) {
     }
 
     setSyncStatus("Downloading EPG data...");
-    auto *reply = http_->get(url);
+    auto *reply = http_->get(buildProtectedRequest(normalizedUrl));
     auto *buffer = new QByteArray();
     connect(reply, &QIODevice::readyRead, this, [reply, buffer]() {
         buffer->append(reply->readAll());
@@ -472,7 +517,8 @@ void EpgViewModel::loadGrid() {
             continue;
         }
 
-        auto it = progsByChannel.find(ch.epgChannelId);
+        const QString channelKey = ch.epgChannelId.trimmed().toLower();
+        auto it = progsByChannel.find(channelKey);
         if (it == progsByChannel.end()) {
             ++noProgrammes;
             continue;

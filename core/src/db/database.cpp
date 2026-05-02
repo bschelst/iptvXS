@@ -3,8 +3,10 @@
 
 #include <QDir>
 #include <QFileInfo>
+#include <QHash>
 #include <QSqlError>
 #include <QSqlQuery>
+#include <QVariant>
 #include <QUuid>
 
 namespace iptvxs {
@@ -106,6 +108,17 @@ std::vector<Database::Migration> Database::migrations() const {
                      password TEXT,
                      user_agent TEXT DEFAULT '',
                      epg_url TEXT DEFAULT '',
+                     epg_source_id INTEGER REFERENCES epg_sources(id) ON DELETE SET NULL,
+                     enabled INTEGER NOT NULL DEFAULT 1,
+                     is_primary INTEGER NOT NULL DEFAULT 0,
+                     is_builtin_free INTEGER NOT NULL DEFAULT 0,
+                     last_synced_at INTEGER,
+                     created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
+                 ))",
+                 R"(CREATE TABLE IF NOT EXISTS epg_sources (
+                     id INTEGER PRIMARY KEY,
+                     name TEXT NOT NULL,
+                     url TEXT NOT NULL UNIQUE,
                      enabled INTEGER NOT NULL DEFAULT 1,
                      is_primary INTEGER NOT NULL DEFAULT 0,
                      last_synced_at INTEGER,
@@ -269,6 +282,103 @@ std::vector<Database::Migration> Database::migrations() const {
                      return false;
                  }
              }
+             return true;
+         }},
+        {15, "Add built-in free server flag", [](QSqlDatabase &db) -> bool {
+             QSqlQuery q(db);
+             const QStringList statements = {
+                 "ALTER TABLE servers ADD COLUMN is_builtin_free INTEGER NOT NULL DEFAULT 0",
+                 "UPDATE servers SET is_builtin_free = 1 "
+                 "WHERE type = 'm3u' "
+                 "AND name = 'iptvXS Free' "
+                 "AND url = 'https://iptvxs.schelstraete.org/api/v1/playlist.m3u'",
+             };
+             for (const auto &sql : statements) {
+                 if (!q.exec(sql)) {
+                     return false;
+                 }
+             }
+             return true;
+         }},
+        {16, "Split EPG sources from IPTV servers", [](QSqlDatabase &db) -> bool {
+             QSqlQuery q(db);
+             if (!q.exec(R"(CREATE TABLE IF NOT EXISTS epg_sources (
+                 id INTEGER PRIMARY KEY,
+                 name TEXT NOT NULL,
+                 url TEXT NOT NULL UNIQUE,
+                 enabled INTEGER NOT NULL DEFAULT 1,
+                 is_primary INTEGER NOT NULL DEFAULT 0,
+                 last_synced_at INTEGER,
+                 created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
+             ))")) {
+                 return false;
+             }
+
+             bool hasEpgSourceId = false;
+             if (q.exec("PRAGMA table_info(servers)")) {
+                 while (q.next()) {
+                     if (q.value(1).toString() == QStringLiteral("epg_source_id")) {
+                         hasEpgSourceId = true;
+                         break;
+                     }
+                 }
+             }
+             if (!hasEpgSourceId) {
+                 if (!q.exec("ALTER TABLE servers ADD COLUMN epg_source_id INTEGER REFERENCES epg_sources(id) ON DELETE SET NULL")) {
+                     return false;
+                 }
+             }
+
+             if (!q.exec("CREATE INDEX IF NOT EXISTS idx_epg_sources_primary ON epg_sources(is_primary, enabled)")) {
+                 return false;
+             }
+
+             if (!q.exec("SELECT id, name, epg_url, is_primary FROM servers WHERE epg_url != ''")) {
+                 return false;
+             }
+
+             QHash<QString, int64_t> sourceIds;
+             while (q.next()) {
+                 const auto serverName = q.value(1).toString();
+                 const auto epgUrl = q.value(2).toString();
+                 const auto isPrimary = q.value(3).toInt() != 0;
+                 if (epgUrl.isEmpty()) {
+                     continue;
+                 }
+
+                 if (!sourceIds.contains(epgUrl)) {
+                     QSqlQuery insert(db);
+                     insert.prepare("INSERT INTO epg_sources (name, url, enabled, is_primary) "
+                                    "VALUES (?, ?, 1, ?)"
+                                    " ON CONFLICT(url) DO UPDATE SET "
+                                    "name = CASE WHEN epg_sources.name = '' THEN excluded.name ELSE epg_sources.name END");
+                     insert.addBindValue(serverName + QStringLiteral(" EPG"));
+                     insert.addBindValue(epgUrl);
+                     insert.addBindValue(isPrimary ? 1 : 0);
+                     if (!insert.exec()) {
+                         return false;
+                     }
+
+                     QSqlQuery fetch(db);
+                     fetch.prepare("SELECT id FROM epg_sources WHERE url = ?");
+                     fetch.addBindValue(epgUrl);
+                     if (!fetch.exec() || !fetch.next()) {
+                         return false;
+                     }
+                     sourceIds.insert(epgUrl, fetch.value(0).toLongLong());
+                 }
+             }
+
+             for (auto it = sourceIds.constBegin(); it != sourceIds.constEnd(); ++it) {
+                 QSqlQuery upd(db);
+                 upd.prepare("UPDATE servers SET epg_source_id = ? WHERE epg_url = ?");
+                 upd.addBindValue(QVariant(static_cast<qlonglong>(it.value())));
+                 upd.addBindValue(it.key());
+                 if (!upd.exec()) {
+                     return false;
+                 }
+             }
+
              return true;
          }},
     };

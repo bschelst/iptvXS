@@ -22,6 +22,7 @@ public:
     bool update(const Server &server);
     bool remove(int64_t id);
     bool updateLastSynced(int64_t id, int64_t timestamp);
+    bool setEpgSource(int64_t id, int64_t epgSourceId);
     bool setEnabled(int64_t id, bool enabled);
     bool setPrimary(int64_t id);
     int count() const;

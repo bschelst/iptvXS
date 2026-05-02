@@ -13,16 +13,17 @@ ProgrammeRepository::ProgrammeRepository(QSqlDatabase db, QObject *parent)
 QVector<Programme> ProgrammeRepository::findByChannel(
     const QString &epgChannelId, int64_t fromTime, int64_t toTime) const {
     QVector<Programme> results;
+    const QString normalizedId = epgChannelId.trimmed().toLower();
     QSqlQuery q(db_);
     q.prepare(R"(
         SELECT id, epg_channel_id, title, description, start_time, end_time
         FROM programmes
-        WHERE epg_channel_id = ?
+        WHERE LOWER(epg_channel_id) = ?
           AND end_time > ?
           AND start_time < ?
         ORDER BY start_time ASC
     )");
-    q.addBindValue(epgChannelId);
+    q.addBindValue(normalizedId);
     q.addBindValue(static_cast<qlonglong>(fromTime));
     q.addBindValue(static_cast<qlonglong>(toTime));
 
@@ -33,7 +34,7 @@ QVector<Programme> ProgrammeRepository::findByChannel(
     while (q.next()) {
         Programme p;
         p.id = q.value(0).toLongLong();
-        p.epgChannelId = q.value(1).toString();
+        p.epgChannelId = q.value(1).toString().trimmed().toLower();
         p.title = q.value(2).toString();
         p.description = q.value(3).toString();
         p.startTime = q.value(4).toLongLong();
@@ -49,10 +50,10 @@ QHash<QString, QVector<Programme>> ProgrammeRepository::findByTimeWindow(
     QHash<QString, QVector<Programme>> result;
     QSqlQuery q(db_);
     q.prepare(R"(
-        SELECT id, epg_channel_id, title, description, start_time, end_time
+        SELECT id, LOWER(epg_channel_id), title, description, start_time, end_time
         FROM programmes
         WHERE end_time > ? AND start_time < ?
-        ORDER BY epg_channel_id, start_time ASC
+        ORDER BY LOWER(epg_channel_id), start_time ASC
     )");
     q.addBindValue(static_cast<qlonglong>(fromTime));
     q.addBindValue(static_cast<qlonglong>(toTime));
@@ -64,7 +65,7 @@ QHash<QString, QVector<Programme>> ProgrammeRepository::findByTimeWindow(
     while (q.next()) {
         Programme p;
         p.id = q.value(0).toLongLong();
-        p.epgChannelId = q.value(1).toString();
+        p.epgChannelId = q.value(1).toString().trimmed().toLower();
         p.title = q.value(2).toString();
         p.description = q.value(3).toString();
         p.startTime = q.value(4).toLongLong();
@@ -79,17 +80,18 @@ QVector<Programme> ProgrammeRepository::findCurrent(
     const QString &epgChannelId) const {
     int64_t now = QDateTime::currentSecsSinceEpoch();
     QVector<Programme> results;
+    const QString normalizedId = epgChannelId.trimmed().toLower();
     QSqlQuery q(db_);
     q.prepare(R"(
         SELECT id, epg_channel_id, title, description, start_time, end_time
         FROM programmes
-        WHERE epg_channel_id = ?
+        WHERE LOWER(epg_channel_id) = ?
           AND start_time <= ?
           AND end_time > ?
         ORDER BY start_time ASC
         LIMIT 1
     )");
-    q.addBindValue(epgChannelId);
+    q.addBindValue(normalizedId);
     q.addBindValue(static_cast<qlonglong>(now));
     q.addBindValue(static_cast<qlonglong>(now));
 
@@ -100,7 +102,7 @@ QVector<Programme> ProgrammeRepository::findCurrent(
     while (q.next()) {
         Programme p;
         p.id = q.value(0).toLongLong();
-        p.epgChannelId = q.value(1).toString();
+        p.epgChannelId = q.value(1).toString().trimmed().toLower();
         p.title = q.value(2).toString();
         p.description = q.value(3).toString();
         p.startTime = q.value(4).toLongLong();
@@ -125,7 +127,7 @@ std::optional<Programme> ProgrammeRepository::findById(int64_t id) const {
 
     Programme p;
     p.id = q.value(0).toLongLong();
-    p.epgChannelId = q.value(1).toString();
+    p.epgChannelId = q.value(1).toString().trimmed().toLower();
     p.title = q.value(2).toString();
     p.description = q.value(3).toString();
     p.startTime = q.value(4).toLongLong();

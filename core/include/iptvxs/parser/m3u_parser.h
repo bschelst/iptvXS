@@ -21,6 +21,7 @@ public:
 
     void parse(QIODevice *device, int64_t serverId);
     QVector<Channel> parseAll(QIODevice *device, int64_t serverId);
+    QString playlistEpgUrl() const;
 
     static void fromUrl(HttpClient *http, const QUrl &url, int64_t serverId,
                         std::function<void(QVector<Channel>, QSet<QString>)> onComplete,
@@ -47,6 +48,7 @@ private:
     static QString detectChannelType(const QString &groupTitle, const QString &url);
 
     QSet<QString> discoveredGroups_;
+    QString playlistEpgUrl_;
 };
 
 } // namespace iptvxs

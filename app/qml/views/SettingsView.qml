@@ -19,7 +19,7 @@ Item {
 
     // Direct lookup by index — returns the QML item for the given focus slot.
     // Using a function (not a property) so ids resolve after component completion.
-    readonly property int focusItemCount: 30
+    readonly property int focusItemCount: 32
 
     function focusTarget() {
         switch (currentFocusIndex) {
@@ -53,6 +53,8 @@ Item {
         case 27: return resetDbBtn
         case 28: return githubBtn
         case 29: return checkUpdatesBtn
+        case 30: return freeServerSwitchRow
+        case 31: return freeServerReAddBtn
         default: return null
         }
     }
@@ -1538,6 +1540,18 @@ Item {
                                     selectByMouse: true
                                     text: appViewModel ? appViewModel.gdrive.folderName : "iptvxs-recordings"
 
+                                    Keys.onDownPressed: {
+                                        if (gdriveSaveFolderBtn) gdriveSaveFolderBtn.forceActiveFocus()
+                                    }
+                                    Keys.onPressed: function(event) {
+                                        if (event.key === Qt.Key_Back || event.key === Qt.Key_Escape) {
+                                            if (Window.window && Window.window.focusSidebar) {
+                                                Window.window.focusSidebar()
+                                            }
+                                            event.accepted = true
+                                        }
+                                    }
+
                                     Text {
                                         anchors.verticalCenter: parent.verticalCenter
                                         text: "e.g. iptvxs-recordings"
@@ -2394,6 +2408,150 @@ Item {
 
             Rectangle {
                 Layout.fillWidth: true
+                Layout.preferredHeight: freeServerCol.implicitHeight + Theme.spacingLg * 2
+                radius: Theme.borderRadiusLarge
+                color: Theme.surfaceElevated
+                border.color: Theme.surfaceBorder
+                border.width: 1
+
+                ColumnLayout {
+                    id: freeServerCol
+                    anchors.fill: parent
+                    anchors.margins: Theme.spacingLg
+                    spacing: Theme.spacingMd
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: Theme.spacingSm
+
+                        Text {
+                            text: "Free iptvXS servers"
+                            font.pixelSize: Theme.fontSizeMd
+                            font.bold: true
+                            color: Theme.textPrimary
+                        }
+
+                        Rectangle {
+                            visible: appViewModel && appViewModel.serverList
+                                ? appViewModel.serverList.freeServerExists
+                                : false
+                            Layout.preferredWidth: freeSettingsBadge.implicitWidth + Theme.spacingSm * 2
+                            Layout.preferredHeight: 22
+                            radius: 11
+                            color: Qt.rgba(Theme.success.r, Theme.success.g, Theme.success.b, 0.18)
+                            border.color: Theme.success
+                            border.width: 1
+
+                            Text {
+                                id: freeSettingsBadge
+                                anchors.centerIn: parent
+                                text: "BUILT-IN"
+                                font.pixelSize: Theme.fontSizeXs
+                                font.bold: true
+                                color: Theme.success
+                            }
+                        }
+
+                        Item { Layout.fillWidth: true }
+                    }
+
+                    Text {
+                        text: "Manage the built-in free playlist server that ships with iptvXS."
+                        font.pixelSize: Theme.fontSizeXs
+                        color: Theme.textMuted
+                        wrapMode: Text.WordWrap
+                    }
+
+                    RowLayout {
+                        id: freeServerSwitchRow
+                        Layout.fillWidth: true
+                        spacing: Theme.spacingMd
+                        function toggle() {
+                            if (appViewModel && appViewModel.serverList) {
+                                appViewModel.serverList.setFreeServerEnabled(
+                                    !appViewModel.serverList.freeServerEnabled)
+                            }
+                        }
+
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            spacing: Theme.spacingXs
+
+                            Text {
+                                text: appViewModel && appViewModel.serverList.freeServerExists
+                                    ? "Built-in Free server enabled"
+                                    : "Built-in Free server missing"
+                                font.pixelSize: Theme.fontSizeSm
+                                color: Theme.textPrimary
+                            }
+
+                            Text {
+                                text: appViewModel && appViewModel.serverList.freeServerExists
+                                    ? "Turn this off if you do not want the built-in iptvXS Free server visible in Servers."
+                                    : "The built-in iptvXS Free server is not currently in the server list."
+                                font.pixelSize: Theme.fontSizeXs
+                                color: Theme.textMuted
+                                wrapMode: Text.WordWrap
+                            }
+                        }
+
+                        Switch {
+                            id: freeServerSwitchCtrl
+                            checked: appViewModel && appViewModel.serverList
+                                ? appViewModel.serverList.freeServerEnabled : false
+                            enabled: appViewModel && appViewModel.serverList && appViewModel.serverList.freeServerExists
+                            onToggled: {
+                                if (appViewModel && appViewModel.serverList) {
+                                    appViewModel.serverList.setFreeServerEnabled(checked)
+                                }
+                            }
+                        }
+                    }
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: Theme.spacingSm
+
+                        Item { Layout.fillWidth: true }
+
+                        Rectangle {
+                            id: freeServerReAddBtn
+                            Layout.preferredWidth: freeServerReAddText.implicitWidth + Theme.spacingLg * 2
+                            Layout.preferredHeight: 36
+                            radius: Theme.borderRadius
+                            color: freeServerReAddHov ? Theme.accentHover : Theme.accent
+
+                            property bool freeServerReAddHov: false
+                            function activate() {
+                                if (appViewModel && appViewModel.serverList) {
+                                    appViewModel.serverList.reAddFreeServer()
+                                }
+                            }
+
+                            Text {
+                                id: freeServerReAddText
+                                anchors.centerIn: parent
+                                text: "Re-add server"
+                                font.pixelSize: Theme.fontSizeSm
+                                font.bold: true
+                                color: Theme.textOnAccent
+                            }
+
+                            MouseArea {
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onEntered: parent.freeServerReAddHov = true
+                                onExited: parent.freeServerReAddHov = false
+                                onClicked: freeServerReAddBtn.activate()
+                            }
+                        }
+                    }
+                }
+            }
+
+            Rectangle {
+                Layout.fillWidth: true
                 Layout.preferredHeight: aboutCol.implicitHeight + Theme.spacingLg * 2
                 radius: Theme.borderRadiusLarge
                 color: Theme.surfaceElevated
@@ -2417,139 +2575,139 @@ Item {
                             color: Theme.textPrimary
                         }
 
-                    RowLayout {
-                        spacing: Theme.spacingMd
-
-                        Text {
-                            text: "iptvXS"
-                            font.pixelSize: Theme.fontSizeLg
-                            font.bold: true
-                            color: Theme.textPrimary
-                        }
-
-                        Rectangle {
-                            visible: appViewModel && appViewModel.updateAvailable
-                            width: updateLabel.implicitWidth + 12
-                            height: 20
-                            radius: 10
-                            color: Theme.accent
-                            Layout.alignment: Qt.AlignVCenter
+                        RowLayout {
+                            spacing: Theme.spacingMd
 
                             Text {
-                                id: updateLabel
-                                anchors.centerIn: parent
-                                text: "Update available"
-                                font.pixelSize: 10
+                                text: "iptvXS"
+                                font.pixelSize: Theme.fontSizeLg
                                 font.bold: true
-                                color: Theme.textOnAccent
+                                color: Theme.textPrimary
+                            }
+
+                            Rectangle {
+                                visible: appViewModel && appViewModel.updateAvailable
+                                width: updateLabel.implicitWidth + 12
+                                height: 20
+                                radius: 10
+                                color: Theme.accent
+                                Layout.alignment: Qt.AlignVCenter
+
+                                Text {
+                                    id: updateLabel
+                                    anchors.centerIn: parent
+                                    text: "Update available"
+                                    font.pixelSize: 10
+                                    font.bold: true
+                                    color: Theme.textOnAccent
+                                }
                             }
                         }
-                    }
-
-                    Text {
-                        text: "Cross-platform IPTV viewer built with Qt6 and libmpv"
-                        font.pixelSize: Theme.fontSizeSm
-                        color: Theme.textMuted
-                    }
-
-                    Text {
-                        text: "Author: Schelstraete Bart"
-                        font.pixelSize: Theme.fontSizeSm
-                        color: Theme.textSecondary
-                    }
-
-                    RowLayout {
-                        spacing: Theme.spacingMd
 
                         Text {
-                            text: "Current version:"
-                            font.pixelSize: Theme.fontSizeXs
+                            text: "Cross-platform IPTV viewer built with Qt6 and libmpv"
+                            font.pixelSize: Theme.fontSizeSm
                             color: Theme.textMuted
                         }
-                        Text {
-                            text: "v" + (appViewModel ? appViewModel.appVersion : "?")
-                            font.pixelSize: Theme.fontSizeXs
-                            color: Theme.textPrimary
-                            font.bold: true
-                        }
-                    }
-
-                    RowLayout {
-                        spacing: Theme.spacingMd
 
                         Text {
-                            text: "Latest version:"
-                            font.pixelSize: Theme.fontSizeXs
-                            color: Theme.textMuted
+                            text: "Author: Schelstraete Bart"
+                            font.pixelSize: Theme.fontSizeSm
+                            color: Theme.textSecondary
                         }
-                        Text {
-                            text: appViewModel && appViewModel.latestVersion ? appViewModel.latestVersion : "checking..."
-                            font.pixelSize: Theme.fontSizeXs
-                            color: appViewModel && appViewModel.updateAvailable ? Theme.accent : Theme.textPrimary
-                            font.bold: true
-                        }
-                    }
 
-                    RowLayout {
-                        spacing: Theme.spacingSm
-
-                        Rectangle {
-                            id: githubBtn
-                            width: githubLabel.implicitWidth + Theme.spacingLg
-                            height: 32
-                            radius: Theme.borderRadius
-                            color: githubHov ? Theme.surfaceHover : Theme.surface
-                            border.color: Theme.surfaceBorder
-                            border.width: 1
-                            property bool githubHov: false
-                            function activate() { if (appViewModel) appViewModel.openGitHub() }
+                        RowLayout {
+                            spacing: Theme.spacingMd
 
                             Text {
-                                id: githubLabel
-                                anchors.centerIn: parent
-                                text: "View on GitHub"
+                                text: "Current version:"
                                 font.pixelSize: Theme.fontSizeXs
-                                color: Theme.textSecondary
+                                color: Theme.textMuted
                             }
-
-                            MouseArea {
-                                anchors.fill: parent
-                                hoverEnabled: true
-                                cursorShape: Qt.PointingHandCursor
-                                onEntered: parent.githubHov = true
-                                onExited: parent.githubHov = false
-                                onClicked: { if (appViewModel) appViewModel.openGitHub() }
-                            }
-                        }
-
-                        Rectangle {
-                            id: checkUpdatesBtn
-                            width: checkLabel.implicitWidth + Theme.spacingLg
-                            height: 32
-                            radius: Theme.borderRadius
-                            color: checkHov ? Theme.accentHover : Theme.accent
-                            property bool checkHov: false
-                            function activate() { if (appViewModel) appViewModel.checkForUpdates() }
-
                             Text {
-                                id: checkLabel
-                                anchors.centerIn: parent
-                                text: "Check for Updates"
+                                text: "v" + (appViewModel ? appViewModel.appVersion : "?")
                                 font.pixelSize: Theme.fontSizeXs
+                                color: Theme.textPrimary
                                 font.bold: true
-                                color: Theme.textOnAccent
-                            }
-
-                            MouseArea {
-                                anchors.fill: parent
-                                hoverEnabled: true
-                                cursorShape: Qt.PointingHandCursor
-                                onEntered: parent.checkHov = true
-                                onExited: parent.checkHov = false
-                                onClicked: { if (appViewModel) appViewModel.checkForUpdates() }
                             }
                         }
-                    }
+
+                        RowLayout {
+                            spacing: Theme.spacingMd
+
+                            Text {
+                                text: "Latest version:"
+                                font.pixelSize: Theme.fontSizeXs
+                                color: Theme.textMuted
+                            }
+                            Text {
+                                text: appViewModel && appViewModel.latestVersion ? appViewModel.latestVersion : "checking..."
+                                font.pixelSize: Theme.fontSizeXs
+                                color: appViewModel && appViewModel.updateAvailable ? Theme.accent : Theme.textPrimary
+                                font.bold: true
+                            }
+                        }
+
+                        RowLayout {
+                            spacing: Theme.spacingSm
+
+                            Rectangle {
+                                id: githubBtn
+                                width: githubLabel.implicitWidth + Theme.spacingLg
+                                height: 32
+                                radius: Theme.borderRadius
+                                color: githubHov ? Theme.surfaceHover : Theme.surface
+                                border.color: Theme.surfaceBorder
+                                border.width: 1
+                                property bool githubHov: false
+                                function activate() { if (appViewModel) appViewModel.openGitHub() }
+
+                                Text {
+                                    id: githubLabel
+                                    anchors.centerIn: parent
+                                    text: "View on GitHub"
+                                    font.pixelSize: Theme.fontSizeXs
+                                    color: Theme.textSecondary
+                                }
+
+                                MouseArea {
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    cursorShape: Qt.PointingHandCursor
+                                    onEntered: parent.githubHov = true
+                                    onExited: parent.githubHov = false
+                                    onClicked: { if (appViewModel) appViewModel.openGitHub() }
+                                }
+                            }
+
+                            Rectangle {
+                                id: checkUpdatesBtn
+                                width: checkLabel.implicitWidth + Theme.spacingLg
+                                height: 32
+                                radius: Theme.borderRadius
+                                color: checkHov ? Theme.accentHover : Theme.accent
+                                property bool checkHov: false
+                                function activate() { if (appViewModel) appViewModel.checkForUpdates() }
+
+                                Text {
+                                    id: checkLabel
+                                    anchors.centerIn: parent
+                                    text: "Check for Updates"
+                                    font.pixelSize: Theme.fontSizeXs
+                                    font.bold: true
+                                    color: Theme.textOnAccent
+                                }
+
+                                MouseArea {
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    cursorShape: Qt.PointingHandCursor
+                                    onEntered: parent.checkHov = true
+                                    onExited: parent.checkHov = false
+                                    onClicked: { if (appViewModel) appViewModel.checkForUpdates() }
+                                }
+                            }
+                        }
                     }
 
                     Image {
@@ -2808,9 +2966,9 @@ Item {
                 Layout.preferredWidth: gotItLabel.implicitWidth + Theme.spacingLg * 3
                 Layout.preferredHeight: 44
                 radius: Theme.borderRadius
-                color: gotItArea.containsMouse ? Theme.accent : Theme.accentHover
+                color: gotItArea.containsMouse || gotItButton.activeFocus ? Theme.accent : Theme.accentHover
                 border.color: Theme.accent
-                border.width: 1
+                border.width: gotItButton.activeFocus ? 2 : 1
                 focus: false
                 activeFocusOnTab: true
 

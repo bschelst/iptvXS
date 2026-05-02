@@ -59,6 +59,7 @@ signals:
 
 private:
     void loadCategories();
+    static QString displayNameFor(const QString &name);
 
     iptvxs::CategoryRepository *repo_{nullptr};
     iptvxs::CategorySettingsRepository *settingsRepo_{nullptr};

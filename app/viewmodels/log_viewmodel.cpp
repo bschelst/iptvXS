@@ -62,8 +62,12 @@ void LogViewModel::appendLog(const QString &level, const QString &timestamp,
     if (allEntries_.size() >= kMaxEntries) {
         beginResetModel();
         allEntries_.remove(0, kMaxEntries / 4);
-        rebuildFiltered();
+        allEntries_.append({level, timestamp, message});
+        rebuildFilteredNoReset();
         endResetModel();
+        emit countChanged();
+        emit newLogEntry();
+        return;
     }
 
     int newIdx = allEntries_.size();
@@ -82,14 +86,18 @@ void LogViewModel::appendLog(const QString &level, const QString &timestamp,
 
 void LogViewModel::rebuildFiltered() {
     beginResetModel();
+    rebuildFilteredNoReset();
+    endResetModel();
+    emit countChanged();
+}
+
+void LogViewModel::rebuildFilteredNoReset() {
     filteredIndices_.clear();
     for (int i = allEntries_.size() - 1; i >= 0; --i) {
         if (filterLevel_.isEmpty() || allEntries_.at(i).level == filterLevel_) {
             filteredIndices_.append(i);
         }
     }
-    endResetModel();
-    emit countChanged();
 }
 
 QString LogViewModel::colorForLevel(const QString &level) {

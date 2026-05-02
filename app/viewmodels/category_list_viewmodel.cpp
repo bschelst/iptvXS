@@ -2,6 +2,27 @@
 #include "category_list_viewmodel.h"
 
 #include <algorithm>
+#include <QStringList>
+
+QString CategoryListViewModel::displayNameFor(const QString &name) {
+    const auto parts = name.split(';', Qt::KeepEmptyParts);
+    if (parts.size() <= 1) {
+        return name.trimmed();
+    }
+
+    QStringList cleaned;
+    cleaned.reserve(parts.size());
+    for (const auto &part : parts) {
+        const auto trimmed = part.trimmed();
+        if (!trimmed.isEmpty()) {
+            cleaned.append(trimmed);
+        }
+    }
+    if (cleaned.isEmpty()) {
+        return name.trimmed();
+    }
+    return cleaned.join(QStringLiteral(" / "));
+}
 
 CategoryListViewModel::CategoryListViewModel(QObject *parent)
     : QAbstractListModel(parent) {}
@@ -35,7 +56,7 @@ QVariant CategoryListViewModel::data(const QModelIndex &index, int role) const {
             auto custom = settingsRepo_->customName(cat.id);
             if (!custom.isEmpty()) return custom;
         }
-        return cat.name;
+        return displayNameFor(cat.name);
     }
     case ExternalIdRole: return cat.externalId;
     case TypeRole: return cat.type;
@@ -93,7 +114,7 @@ QString CategoryListViewModel::categoryNameAt(int index) const {
         auto custom = settingsRepo_->customName(categories_.at(index).id);
         if (!custom.isEmpty()) return custom;
     }
-    return categories_.at(index).name;
+    return displayNameFor(categories_.at(index).name);
 }
 
 void CategoryListViewModel::refresh() { loadCategories(); }

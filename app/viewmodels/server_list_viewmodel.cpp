@@ -2,10 +2,20 @@
 #include "server_list_viewmodel.h"
 
 #include <QBuffer>
+#include <QCoreApplication>
+#include <QCryptographicHash>
 #include <QDateTime>
+#include <QHash>
+#include <QNetworkRequest>
 #include <QUrl>
 
 namespace {
+constexpr auto kFreePlaylistUrl = "https://iptvxs.schelstraete.org/api/v1/playlist.m3u";
+constexpr auto kFreeEpgUrl = "https://iptvxs.schelstraete.org/api/v1/epg.xml";
+constexpr auto kPlaylistHmacSecretB64 =
+    "OWYzYTdjOGIyZDFlNmE0ZjVjMGI5ZDhlN2ExZjJjM2Q0ZTViNmE3YzhkOWUwZjFhMmIzYzRkNWU2"
+    "ZjdhOGI5Yw==";
+
 QString normalizeHttpUrl(const QString &input) {
     QUrl url(input);
     if (!url.isValid() ||
@@ -20,6 +30,59 @@ QString normalizeHttpUrl(const QString &input) {
     url.setPath(path);
     return url.toString(QUrl::FullyEncoded);
 }
+
+QByteArray hmacSha256Hex(const QByteArray &key, const QByteArray &message) {
+    constexpr int blockSize = 64;
+    QByteArray normalizedKey = key;
+    if (normalizedKey.size() > blockSize) {
+        normalizedKey = QCryptographicHash::hash(normalizedKey, QCryptographicHash::Sha256);
+    }
+    normalizedKey = normalizedKey.leftJustified(blockSize, '\0', true);
+
+    QByteArray oKeyPad(blockSize, '\0');
+    QByteArray iKeyPad(blockSize, '\0');
+    for (int i = 0; i < blockSize; ++i) {
+        const auto keyByte = static_cast<unsigned char>(normalizedKey.at(i));
+        oKeyPad[i] = static_cast<char>(keyByte ^ 0x5c);
+        iKeyPad[i] = static_cast<char>(keyByte ^ 0x36);
+    }
+
+    const QByteArray inner = QCryptographicHash::hash(iKeyPad + message, QCryptographicHash::Sha256);
+    return QCryptographicHash::hash(oKeyPad + inner, QCryptographicHash::Sha256).toHex();
+}
+
+QNetworkRequest buildPlaylistRequest(const QString &url) {
+    QUrl qurl(url);
+    QNetworkRequest request{qurl};
+    request.setTransferTimeout(30000);
+    request.setRawHeader("X-API-Key", QByteArrayLiteral(IPTVXS_GATEWAY_API_KEY));
+    request.setRawHeader("User-Agent",
+                         QStringLiteral("IPTVXs/%1")
+                             .arg(QCoreApplication::applicationVersion().isEmpty()
+                                      ? QStringLiteral("0.3.8")
+                                      : QCoreApplication::applicationVersion())
+                             .toUtf8());
+    const auto timestamp = QByteArray::number(QDateTime::currentSecsSinceEpoch());
+    request.setRawHeader("X-Timestamp", timestamp);
+    const auto secret = QByteArray::fromBase64(QByteArray(kPlaylistHmacSecretB64));
+    const auto message = timestamp + QByteArrayLiteral(":/api/v1/playlist.m3u");
+    request.setRawHeader("X-Signature", hmacSha256Hex(secret, message));
+    return request;
+}
+
+bool isFreePlaylistUrl(const QString &url) {
+    return normalizeHttpUrl(url) == QString::fromLatin1(kFreePlaylistUrl);
+}
+
+int findBuiltinFreeServerIndex(const QVector<iptvxs::Server> &servers) {
+    for (int i = 0; i < servers.size(); ++i) {
+        if (servers.at(i).isBuiltinFree) {
+            return i;
+        }
+    }
+    return -1;
+}
+
 }
 
 ServerListViewModel::ServerListViewModel(QObject *parent)
@@ -27,10 +90,15 @@ ServerListViewModel::ServerListViewModel(QObject *parent)
 
 void ServerListViewModel::setRepositories(
     iptvxs::ServerRepository *servers, iptvxs::CategoryRepository *categories,
-    iptvxs::ChannelRepository *channels) {
+    iptvxs::ChannelRepository *channels, iptvxs::EpgSourceRepository *epgSources) {
     serverRepo_ = servers;
     categoryRepo_ = categories;
     channelRepo_ = channels;
+    epgSourceRepo_ = epgSources;
+    if (epgSourceRepo_) {
+        connect(epgSourceRepo_, &iptvxs::EpgSourceRepository::errorOccurred,
+                this, &ServerListViewModel::errorOccurred);
+    }
     loadServers();
 }
 
@@ -47,7 +115,7 @@ QVariant ServerListViewModel::data(const QModelIndex &index, int role) const {
     case IdRole: return QVariant::fromValue(server.id);
     case NameRole: return server.name;
     case TypeRole: return server.type;
-    case UrlRole: return server.url;
+    case UrlRole: return server.isBuiltinFree ? QString() : server.url;
     case UsernameRole: return server.username;
     case LastSyncedRole: {
         if (server.lastSyncedAt == 0) return QStringLiteral("Never");
@@ -68,10 +136,22 @@ QVariant ServerListViewModel::data(const QModelIndex &index, int role) const {
             : 0;
     case EpgUrlRole:
         return server.epgUrl;
+    case EpgSourceIdRole:
+        return QVariant::fromValue(server.epgSourceId);
+    case EpgSourceNameRole: {
+        if (server.isBuiltinFree) {
+            return QStringLiteral("Built-in EPG");
+        }
+        if (!epgSourceRepo_ || server.epgSourceId <= 0) return QString();
+        auto source = epgSourceRepo_->findById(server.epgSourceId);
+        return source ? source->name : QString();
+    }
     case EnabledRole:
         return server.enabled;
     case IsPrimaryRole:
         return server.isPrimary;
+    case IsBuiltinFreeRole:
+        return server.isBuiltinFree;
     default: return {};
     }
 }
@@ -88,8 +168,11 @@ QHash<int, QByteArray> ServerListViewModel::roleNames() const {
         {VodCountRole, "vodCount"},
         {SeriesCountRole, "seriesCount"},
         {EpgUrlRole, "epgUrl"},
+        {EpgSourceIdRole, "epgSourceId"},
+        {EpgSourceNameRole, "epgSourceName"},
         {EnabledRole, "enabled"},
         {IsPrimaryRole, "isPrimary"},
+        {IsBuiltinFreeRole, "isBuiltinFree"},
     };
 }
 
@@ -104,7 +187,8 @@ QString ServerListViewModel::syncStatus() const { return syncStatus_; }
 void ServerListViewModel::addServer(const QString &name, const QString &type,
                                     const QString &url, const QString &username,
                                     const QString &password,
-                                    const QString &epgUrl) {
+                                    const QString &epgUrl,
+                                    int64_t epgSourceId) {
     if (!serverRepo_) return;
 
     iptvxs::Server server;
@@ -114,6 +198,7 @@ void ServerListViewModel::addServer(const QString &name, const QString &type,
     server.username = username;
     server.password = password;
     server.epgUrl = epgUrl;
+    server.epgSourceId = epgSourceId;
     server.createdAt = QDateTime::currentSecsSinceEpoch();
 
     auto id = serverRepo_->create(server);
@@ -132,7 +217,8 @@ void ServerListViewModel::addServer(const QString &name, const QString &type,
 void ServerListViewModel::updateServer(int index, const QString &name,
                                        const QString &url, const QString &username,
                                        const QString &password,
-                                       const QString &epgUrl) {
+                                       const QString &epgUrl,
+                                       int64_t epgSourceId) {
     if (!serverRepo_ || index < 0 || index >= servers_.size()) return;
 
     auto server = servers_.at(index);
@@ -141,6 +227,7 @@ void ServerListViewModel::updateServer(int index, const QString &name,
     server.username = username;
     server.password = password;
     server.epgUrl = epgUrl;
+    server.epgSourceId = epgSourceId;
 
     if (!serverRepo_->update(server)) {
         emit errorOccurred(QStringLiteral("Failed to update server"));
@@ -200,12 +287,26 @@ int64_t ServerListViewModel::serverIdAt(int index) const {
 QString ServerListViewModel::epgUrlAt(int index) const {
     if (index < 0 || index >= servers_.size()) return {};
     const auto &srv = servers_.at(index);
+    if (srv.isBuiltinFree) {
+        return normalizeHttpUrl(QString::fromLatin1(kFreeEpgUrl));
+    }
+    if (epgSourceRepo_ && srv.epgSourceId > 0) {
+        auto source = epgSourceRepo_->findById(srv.epgSourceId);
+        if (source && !source->url.isEmpty()) {
+            return normalizeHttpUrl(source->url);
+        }
+    }
     if (!srv.epgUrl.isEmpty()) return normalizeHttpUrl(srv.epgUrl);
     if (srv.type == QStringLiteral("xtream")) {
         return normalizeHttpUrl(QStringLiteral("%1/xmltv.php?username=%2&password=%3")
                                      .arg(srv.url, srv.username, srv.password));
     }
     return {};
+}
+
+int64_t ServerListViewModel::epgSourceIdAt(int index) const {
+    if (index < 0 || index >= servers_.size()) return 0;
+    return servers_.at(index).epgSourceId;
 }
 
 void ServerListViewModel::setEnabled(int index, bool enabled) {
@@ -220,6 +321,9 @@ void ServerListViewModel::setEnabled(int index, bool enabled) {
     servers_[index].enabled = enabled;
     auto idx = this->index(index);
     emit dataChanged(idx, idx, {EnabledRole});
+    if (isFreeServer(index)) {
+        loadServers();
+    }
 }
 
 void ServerListViewModel::setPrimary(int index) {
@@ -251,6 +355,87 @@ int ServerListViewModel::primaryServerIndex() const {
     return -1;
 }
 
+int64_t ServerListViewModel::builtinFreeServerId() const {
+    const auto idx = findBuiltinFreeServerIndex(servers_);
+    return idx >= 0 ? servers_.at(idx).id : 0;
+}
+
+int ServerListViewModel::firstLiveServerIndex() const {
+    if (!channelRepo_) {
+        return primaryServerIndex();
+    }
+
+    for (int i = 0; i < servers_.size(); ++i) {
+        const auto &srv = servers_.at(i);
+        if (!srv.enabled) continue;
+        if (channelRepo_->countByServerAndType(srv.id, QStringLiteral("live")) > 0) {
+            return i;
+        }
+    }
+
+    const auto primary = primaryServerIndex();
+    if (primary >= 0) {
+        return primary;
+    }
+
+    for (int i = 0; i < servers_.size(); ++i) {
+        if (servers_.at(i).enabled) return i;
+    }
+    return -1;
+}
+
+bool ServerListViewModel::isFreeServer(int index) const {
+    if (index < 0 || index >= servers_.size()) return false;
+    return servers_.at(index).isBuiltinFree;
+}
+
+bool ServerListViewModel::freeServerExists() const {
+    return findBuiltinFreeServerIndex(servers_) >= 0;
+}
+
+bool ServerListViewModel::freeServerEnabled() const {
+    const auto idx = findBuiltinFreeServerIndex(servers_);
+    return idx >= 0 ? servers_.at(idx).enabled : false;
+}
+
+void ServerListViewModel::setFreeServerEnabled(bool enabled) {
+    const auto idx = findBuiltinFreeServerIndex(servers_);
+    if (idx < 0 || !serverRepo_) return;
+    if (!serverRepo_->setEnabled(servers_.at(idx).id, enabled)) {
+        emit errorOccurred(QStringLiteral("Failed to update free server enabled state"));
+        return;
+    }
+    loadServers();
+}
+
+void ServerListViewModel::reAddFreeServer() {
+    if (!serverRepo_) return;
+    const auto idx = findBuiltinFreeServerIndex(servers_);
+    if (idx >= 0) {
+        if (!servers_.at(idx).enabled) {
+            setFreeServerEnabled(true);
+        }
+        return;
+    }
+
+    iptvxs::Server server;
+    server.name = QStringLiteral("iptvXS Free");
+    server.type = QStringLiteral("m3u");
+    server.url = QStringLiteral("https://iptvxs.schelstraete.org/api/v1/playlist.m3u");
+    server.enabled = true;
+    server.isBuiltinFree = true;
+    server.isPrimary = servers_.isEmpty();
+    const auto id = serverRepo_->create(server);
+    if (id <= 0) {
+        emit errorOccurred(QStringLiteral("Failed to re-add Free iptvXS server"));
+        return;
+    }
+    if (server.isPrimary) {
+        serverRepo_->setPrimary(id);
+    }
+    loadServers();
+}
+
 void ServerListViewModel::loadServers() {
     if (!serverRepo_) return;
 
@@ -272,6 +457,9 @@ void ServerListViewModel::syncXtreamServer(const iptvxs::Server &server) {
 
     connect(client, &iptvxs::XtreamClient::liveCategoriesReady, this,
             [this, client, serverId](const QVector<iptvxs::XtreamCategory> &cats) {
+                qInfo("Xtream live categories ready for server %lld: %lld",
+                      static_cast<long long>(serverId),
+                      static_cast<long long>(cats.size()));
                 saveXtreamCategories(serverId, cats, QStringLiteral("live"));
                 setSyncStatus(QStringLiteral("Fetching channels..."));
                 client->fetchLiveStreams();
@@ -279,6 +467,9 @@ void ServerListViewModel::syncXtreamServer(const iptvxs::Server &server) {
 
     connect(client, &iptvxs::XtreamClient::liveStreamsReady, this,
             [this, client, serverId](const QVector<iptvxs::XtreamStream> &streams) {
+                qInfo("Xtream live streams ready for server %lld: %lld",
+                      static_cast<long long>(serverId),
+                      static_cast<long long>(streams.size()));
                 saveXtreamStreams(serverId, streams, QStringLiteral("live"),
                                  QStringLiteral("live"));
                 setSyncStatus(QStringLiteral("Fetching VOD categories..."));
@@ -287,6 +478,9 @@ void ServerListViewModel::syncXtreamServer(const iptvxs::Server &server) {
 
     connect(client, &iptvxs::XtreamClient::vodCategoriesReady, this,
             [this, client, serverId](const QVector<iptvxs::XtreamCategory> &cats) {
+                qInfo("Xtream VOD categories ready for server %lld: %lld",
+                      static_cast<long long>(serverId),
+                      static_cast<long long>(cats.size()));
                 saveXtreamCategories(serverId, cats, QStringLiteral("vod"));
                 setSyncStatus(QStringLiteral("Fetching VOD streams..."));
                 client->fetchVodStreams();
@@ -294,6 +488,9 @@ void ServerListViewModel::syncXtreamServer(const iptvxs::Server &server) {
 
     connect(client, &iptvxs::XtreamClient::vodStreamsReady, this,
             [this, client, serverId](const QVector<iptvxs::XtreamStream> &streams) {
+                qInfo("Xtream VOD streams ready for server %lld: %lld",
+                      static_cast<long long>(serverId),
+                      static_cast<long long>(streams.size()));
                 saveXtreamStreams(serverId, streams, QStringLiteral("vod"),
                                  QStringLiteral("movie"));
                 setSyncStatus(QStringLiteral("Fetching series categories..."));
@@ -302,6 +499,9 @@ void ServerListViewModel::syncXtreamServer(const iptvxs::Server &server) {
 
     connect(client, &iptvxs::XtreamClient::seriesCategoriesReady, this,
             [this, client, serverId](const QVector<iptvxs::XtreamCategory> &cats) {
+                qInfo("Xtream series categories ready for server %lld: %lld",
+                      static_cast<long long>(serverId),
+                      static_cast<long long>(cats.size()));
                 saveXtreamCategories(serverId, cats, QStringLiteral("series"));
                 setSyncStatus(QStringLiteral("Fetching series..."));
                 client->fetchSeries();
@@ -309,6 +509,9 @@ void ServerListViewModel::syncXtreamServer(const iptvxs::Server &server) {
 
     connect(client, &iptvxs::XtreamClient::seriesReady, this,
             [this, client, http, serverId](const QVector<iptvxs::XtreamStream> &streams) {
+                qInfo("Xtream series ready for server %lld: %lld",
+                      static_cast<long long>(serverId),
+                      static_cast<long long>(streams.size()));
                 saveXtreamStreams(serverId, streams, QStringLiteral("series"),
                                  QStringLiteral("series"));
 
@@ -344,11 +547,12 @@ void ServerListViewModel::syncM3uServer(const iptvxs::Server &server) {
     setSyncStatus(QStringLiteral("Downloading M3U playlist..."));
 
     auto *http = new iptvxs::HttpClient(this);
-    auto *reply = http->get(QUrl(server.url));
+    auto *reply = isFreePlaylistUrl(server.url) ? http->get(buildPlaylistRequest(server.url))
+                                                : http->get(QUrl(server.url));
     auto serverId = server.id;
 
     connect(reply, &QNetworkReply::finished, this,
-            [this, reply, http, serverId]() {
+            [this, reply, http, server, serverId]() {
                 if (reply->error() != QNetworkReply::NoError) {
                     setSyncStatus(
                         QStringLiteral("Download failed: %1").arg(reply->errorString()));
@@ -368,6 +572,24 @@ void ServerListViewModel::syncM3uServer(const iptvxs::Server &server) {
                 buffer.open(QIODevice::ReadOnly);
                 iptvxs::M3uParser parser;
                 auto channels = parser.parseAll(&buffer, serverId);
+                if (channels.isEmpty()) {
+                    qWarning("M3U sync returned no channels for server %lld; keeping existing rows",
+                             static_cast<long long>(serverId));
+                    setSyncStatus(QStringLiteral("Sync returned no channels; keeping existing data"));
+                    setSyncing(false);
+                    http->deleteLater();
+                    return;
+                }
+
+                const auto playlistEpgUrl = parser.playlistEpgUrl();
+                if (!playlistEpgUrl.isEmpty() && serverRepo_) {
+                    auto updatedServer = server;
+                    updatedServer.epgUrl = playlistEpgUrl;
+                    if (!serverRepo_->update(updatedServer)) {
+                        qWarning("Failed to persist playlist EPG URL for server %lld",
+                                 static_cast<long long>(serverId));
+                    }
+                }
 
                 // Save discovered categories and build group→id map
                 QHash<QString, int64_t> catMap;
@@ -396,6 +618,7 @@ void ServerListViewModel::syncM3uServer(const iptvxs::Server &server) {
                         dbCats.append(cat);
                     }
                     categoryRepo_->batchUpsert(dbCats);
+                    categoryRepo_->deleteMissingByServer(serverId, dbCats);
 
                     auto savedCats = categoryRepo_->findByServer(serverId);
                     for (const auto &c : savedCats) {
@@ -413,14 +636,19 @@ void ServerListViewModel::syncM3uServer(const iptvxs::Server &server) {
                     QStringLiteral("Saving %1 channels...").arg(channels.size()));
 
                 channelRepo_->batchUpsert(channels);
+                channelRepo_->deleteMissingByServer(serverId, channels);
+                if (categoryRepo_) {
+                    categoryRepo_->deleteEmptyByServer(serverId);
+                }
 
                 if (serverRepo_) {
                     auto now = QDateTime::currentSecsSinceEpoch();
                     serverRepo_->updateLastSynced(serverId, now);
                 }
 
-                qInfo("Channel sync complete: %d channels for server %lld",
-                      channels.size(), serverId);
+                qInfo("Channel sync complete: %lld channels for server %lld",
+                      static_cast<long long>(channels.size()),
+                      static_cast<long long>(serverId));
                 setSyncStatus(QStringLiteral("Sync complete"));
                 setSyncing(false);
                 loadServers();
@@ -447,6 +675,11 @@ void ServerListViewModel::saveXtreamCategories(
     int64_t serverId, const QVector<iptvxs::XtreamCategory> &cats,
     const QString &type) {
     if (!categoryRepo_) return;
+    if (type == QStringLiteral("live") && cats.isEmpty()) {
+        qWarning("Xtream live category sync returned no categories for server %lld; keeping existing rows",
+                 static_cast<long long>(serverId));
+        return;
+    }
     setSyncStatus(QStringLiteral("Saving %1 %2 categories...")
                       .arg(cats.size())
                       .arg(type));
@@ -462,12 +695,18 @@ void ServerListViewModel::saveXtreamCategories(
         dbCats.append(cat);
     }
     categoryRepo_->batchUpsert(dbCats);
+    categoryRepo_->deleteMissingByServerAndType(serverId, type, dbCats);
 }
 
 void ServerListViewModel::saveXtreamStreams(
     int64_t serverId, const QVector<iptvxs::XtreamStream> &streams,
     const QString &type, const QString &urlSegment) {
     if (!channelRepo_ || !serverRepo_) return;
+    if (type == QStringLiteral("live") && streams.isEmpty()) {
+        qWarning("Xtream live stream sync returned no streams for server %lld; keeping existing rows",
+                 static_cast<long long>(serverId));
+        return;
+    }
     setSyncStatus(QStringLiteral("Saving %1 %2 streams...")
                       .arg(streams.size())
                       .arg(type));
@@ -509,4 +748,10 @@ void ServerListViewModel::saveXtreamStreams(
         dbChannels.append(ch);
     }
     channelRepo_->batchUpsert(dbChannels);
+    if (!dbChannels.isEmpty()) {
+        channelRepo_->deleteMissingByServerAndType(serverId, type, dbChannels);
+    }
+    if (categoryRepo_) {
+        categoryRepo_->deleteEmptyByServer(serverId, type);
+    }
 }

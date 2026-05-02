@@ -264,9 +264,16 @@ void ChannelListViewModel::loadChannels(bool append) {
     emit loadingChanged();
 
     int offset = append ? static_cast<int>(channels_.size()) : 0;
+    const auto recentSince = QDateTime::currentSecsSinceEpoch() - 7 * 24 * 3600;
 
     QVector<iptvxs::Channel> result;
-    if (!searchQuery_.isEmpty() && !typeFilter_.isEmpty()) {
+    if (recentlyAddedFilter_ && searchQuery_.isEmpty() && categoryId_ <= 0) {
+        if (typeFilter_.isEmpty()) {
+            result = repo_->findRecentlyAdded(serverId_, recentSince, kPageSize, offset);
+        } else {
+            result = repo_->findRecentlyAdded(serverId_, recentSince, typeFilter_, kPageSize, offset);
+        }
+    } else if (!searchQuery_.isEmpty() && !typeFilter_.isEmpty()) {
         result = repo_->searchWithType(serverId_, searchQuery_, typeFilter_, kPageSize, offset);
     } else if (!searchQuery_.isEmpty()) {
         result = repo_->search(serverId_, searchQuery_, kPageSize, offset);
@@ -291,13 +298,13 @@ void ChannelListViewModel::loadChannels(bool append) {
         }
     }
 
-    if (recentlyAddedFilter_) {
-        auto sinceSecs = QDateTime::currentSecsSinceEpoch() - 7 * 24 * 3600;
+    if (recentlyAddedFilter_ && !(searchQuery_.isEmpty() && categoryId_ <= 0)) {
         QVector<iptvxs::Channel> filtered;
         filtered.reserve(result.size());
         std::copy_if(result.begin(), result.end(), std::back_inserter(filtered),
-                     [sinceSecs](const iptvxs::Channel &ch) {
-                         return ch.addedAt >= sinceSecs;
+                     [recentSince](const iptvxs::Channel &ch) {
+                         auto addedAt = ch.addedAt > 0 ? ch.addedAt : ch.firstSeenAt;
+                         return addedAt >= recentSince;
                      });
         result = filtered;
     }
@@ -325,7 +332,14 @@ void ChannelListViewModel::loadChannels(bool append) {
 
 void ChannelListViewModel::updateTotalCount() {
     int newTotal = 0;
-    if (!searchQuery_.isEmpty() && !typeFilter_.isEmpty()) {
+    const auto recentSince = QDateTime::currentSecsSinceEpoch() - 7 * 24 * 3600;
+    if (recentlyAddedFilter_ && searchQuery_.isEmpty() && categoryId_ <= 0) {
+        if (typeFilter_.isEmpty()) {
+            newTotal = repo_->countRecentlyAdded(serverId_, recentSince);
+        } else {
+            newTotal = repo_->countRecentlyAdded(serverId_, recentSince, typeFilter_);
+        }
+    } else if (!searchQuery_.isEmpty() && !typeFilter_.isEmpty()) {
         newTotal = repo_->countBySearchWithType(serverId_, searchQuery_, typeFilter_);
     } else if (!searchQuery_.isEmpty()) {
         newTotal = repo_->countBySearch(serverId_, searchQuery_);

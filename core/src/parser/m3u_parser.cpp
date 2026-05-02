@@ -10,11 +10,26 @@
 
 namespace iptvxs {
 
+namespace {
+QString normalizeEpgChannelId(const QString &input) {
+    auto id = input.trimmed().toLower();
+    if (id.isEmpty()) {
+        return id;
+    }
+    const auto at = id.indexOf(u'@');
+    if (at > 0) {
+        id = id.left(at);
+    }
+    return id;
+}
+} // namespace
+
 M3uParser::M3uParser(QObject *parent)
     : QObject(parent) {}
 
 void M3uParser::parse(QIODevice *device, int64_t serverId) {
     discoveredGroups_.clear();
+    playlistEpgUrl_.clear();
     QTextStream stream(device);
     stream.setEncoding(QStringConverter::Utf8);
 
@@ -38,6 +53,9 @@ void M3uParser::parse(QIODevice *device, int64_t serverId) {
         }
 
         if (line.startsWith("#EXTM3U")) {
+            if (playlistEpgUrl_.isEmpty()) {
+                playlistEpgUrl_ = extractAttribute(line, QStringLiteral("x-tvg-url"));
+            }
             continue;
         }
 
@@ -66,7 +84,7 @@ void M3uParser::parse(QIODevice *device, int64_t serverId) {
         channel.name = currentInfo.name;
         channel.streamUrl = line;
         channel.logoUrl = currentInfo.tvgLogo;
-        channel.epgChannelId = currentInfo.tvgId;
+        channel.epgChannelId = normalizeEpgChannelId(currentInfo.tvgId);
         channel.type = detectChannelType(currentInfo.groupTitle, line);
         channel.groupTitle = currentInfo.groupTitle;
 
@@ -99,6 +117,10 @@ QVector<Channel> M3uParser::parseAll(QIODevice *device, int64_t serverId) {
 
     disconnect(this, &M3uParser::channelParsed, this, nullptr);
     return channels;
+}
+
+QString M3uParser::playlistEpgUrl() const {
+    return playlistEpgUrl_;
 }
 
 void M3uParser::fromUrl(HttpClient *http, const QUrl &url, int64_t serverId,

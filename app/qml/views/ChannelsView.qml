@@ -608,6 +608,14 @@ Item {
                             Keys.onDownPressed: {
                                 channelsView.focusPrimary()
                             }
+                            Keys.onPressed: function(event) {
+                                if (event.key === Qt.Key_Back || event.key === Qt.Key_Escape) {
+                                    if (Window.window && Window.window.focusSidebar) {
+                                        Window.window.focusSidebar()
+                                    }
+                                    event.accepted = true
+                                }
+                            }
                         }
                     }
                 }

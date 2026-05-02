@@ -15,9 +15,17 @@ Dialog {
 
     property Item firstTypeOption: null
     property string serverType: "xtream"
-    property bool canAdd: nameField.text.length > 0 && urlField.text.length > 0
+    property bool canAdd: nameField.text.length > 0
+                            && (builtinFreeServer || urlField.text.length > 0)
     property bool editMode: false
     property int editIndex: -1
+    property bool builtinFreeServer: false
+    property string builtinFreeServerUrl: "https://iptvxs.schelstraete.org/api/v1/playlist.m3u"
+    property string builtinFreeServerLabel: "Built-in iptvXS Free server"
+    property int epgSourceId: 0
+    property bool showEpgSelector: editMode && editIndex >= 0 && !builtinFreeServer
+    property bool validationPending: false
+    property string validationMessage: ""
 
     background: Rectangle {
         color: Theme.surfaceElevated
@@ -160,18 +168,21 @@ Dialog {
                 id: nameField
                 Layout.fillWidth: true
                 placeholderText: "Server Name"
-                nextItem: urlField
+                nextItem: builtinFreeServer ? (showEpgSelector ? epgSourceCombo : addButton) : urlField
                 prevItem: firstTypeOption
                 escapeAction: function() { dialog.close() }
             }
 
             StyledTextField {
                 id: urlField
+                visible: !builtinFreeServer
                 Layout.fillWidth: true
                 placeholderText: serverType === "xtream"
                     ? "http://example.com:8080"
                     : "http://example.com/playlist.m3u"
-                nextItem: usernameField.visible ? usernameField : epgUrlField
+                nextItem: usernameField.visible
+                    ? usernameField
+                    : (showEpgSelector ? epgSourceCombo : addButton)
                 prevItem: nameField
                 escapeAction: function() { dialog.close() }
             }
@@ -192,18 +203,136 @@ Dialog {
                 Layout.fillWidth: true
                 placeholderText: "Password"
                 echoMode: TextInput.Password
-                nextItem: epgUrlField
+                nextItem: showEpgSelector ? epgSourceCombo : addButton
                 prevItem: usernameField
                 escapeAction: function() { dialog.close() }
             }
 
-            StyledTextField {
-                id: epgUrlField
+            ComboBox {
+                id: epgSourceCombo
+                visible: showEpgSelector
                 Layout.fillWidth: true
-                placeholderText: "EPG URL (optional, XMLTV format)"
-                nextItem: cancelButton
-                prevItem: passwordField.visible ? passwordField : urlField
-                escapeAction: function() { dialog.close() }
+                model: appViewModel ? appViewModel.epgSourceList : null
+                textRole: "name"
+                valueRole: "epgSourceId"
+                currentIndex: -1
+
+                background: Rectangle {
+                    radius: Theme.borderRadiusSmall
+                    color: Theme.surfaceElevated
+                    border.color: epgSourceCombo.activeFocus ? Theme.accent : Theme.surfaceBorder
+                    border.width: 1
+                }
+
+                contentItem: Text {
+                    text: epgSourceCombo.currentIndex >= 0
+                        ? epgSourceCombo.displayText
+                        : "EPG Source (optional)"
+                    font.pixelSize: Theme.fontSizeSm
+                    color: epgSourceCombo.currentIndex >= 0 ? Theme.textPrimary : Theme.textMuted
+                    verticalAlignment: Text.AlignVCenter
+                    leftPadding: Theme.spacingSm
+                    elide: Text.ElideRight
+                }
+
+                delegate: ItemDelegate {
+                    width: epgSourceCombo.width
+                    height: model.enabled ? 36 : 0
+                    visible: model.enabled
+                    contentItem: Text {
+                        text: model.name
+                        font.pixelSize: Theme.fontSizeSm
+                        color: highlighted ? Theme.textOnAccent : Theme.textPrimary
+                        verticalAlignment: Text.AlignVCenter
+                    }
+                    highlighted: epgSourceCombo.highlightedIndex === index
+                    background: Rectangle {
+                        color: highlighted ? Theme.accent : (hovered ? Theme.surfaceHover : Theme.surfaceElevated)
+                    }
+                }
+
+                popup: Popup {
+                    y: epgSourceCombo.height
+                    width: epgSourceCombo.width
+                    implicitHeight: contentItem.implicitHeight + 2
+                    padding: 1
+                    contentItem: ListView {
+                        clip: true
+                        implicitHeight: Math.min(contentHeight, 250)
+                        model: epgSourceCombo.popup.visible ? epgSourceCombo.delegateModel : null
+                        ScrollBar.vertical: ScrollBar { active: true }
+                    }
+                    background: Rectangle {
+                        color: Theme.surfaceElevated
+                        border.color: Theme.surfaceBorder
+                        border.width: 1
+                        radius: Theme.borderRadiusSmall
+                    }
+                }
+
+                onCurrentValueChanged: {
+                    if (currentValue > 0) {
+                        epgSourceId = currentValue
+                    } else if (currentIndex < 0) {
+                        epgSourceId = 0
+                    }
+                }
+
+                Keys.onDownPressed: {
+                    if (cancelButton) cancelButton.forceActiveFocus()
+                }
+                Keys.onUpPressed: {
+                    if (passwordField.visible) passwordField.forceActiveFocus()
+                    else if (usernameField.visible) usernameField.forceActiveFocus()
+                    else if (urlField.visible) urlField.forceActiveFocus()
+                    else if (nameField) nameField.forceActiveFocus()
+                }
+                Keys.onPressed: function(event) {
+                    if (event.key === Qt.Key_B || event.key === Qt.Key_Escape) {
+                        dialog.close()
+                        event.accepted = true
+                    }
+                }
+            }
+
+            Text {
+                visible: builtinFreeServer
+                Layout.fillWidth: true
+                text: builtinFreeServerLabel
+                font.pixelSize: Theme.fontSizeSm
+                color: Theme.textSecondary
+            }
+
+            Text {
+                visible: builtinFreeServer
+                Layout.fillWidth: true
+                text: "Attached EPG source: Built-in EPG"
+                font.pixelSize: Theme.fontSizeSm
+                color: Theme.textSecondary
+                elide: Text.ElideRight
+            }
+
+            Text {
+                visible: showEpgSelector
+                Layout.fillWidth: true
+                text: epgSourceId > 0 && appViewModel && appViewModel.epgSourceList
+                    ? "Attached EPG source: " + appViewModel.epgSourceList.sourceNameAt(
+                          appViewModel.epgSourceList.indexOfSource(epgSourceId))
+                    : (serverType === "xtream"
+                        ? "Attached EPG source: Built-in EPG"
+                        : "Attached EPG source: none")
+                font.pixelSize: Theme.fontSizeSm
+                color: Theme.textSecondary
+                elide: Text.ElideRight
+            }
+
+            Text {
+                visible: validationPending || validationMessage.length > 0
+                Layout.fillWidth: true
+                text: validationPending ? "Validating URL..." : validationMessage
+                font.pixelSize: Theme.fontSizeSm
+                color: validationPending ? Theme.textMuted : Theme.error
+                wrapMode: Text.WordWrap
             }
         }
     }
@@ -257,7 +386,7 @@ Dialog {
                 }
 
                 Keys.onUpPressed: {
-                    if (epgUrlField) epgUrlField.forceActiveFocus()
+                    if (epgSourceCombo) epgSourceCombo.forceActiveFocus()
                 }
                 Keys.onRightPressed: {
                     if (addButton) addButton.forceActiveFocus()
@@ -279,7 +408,7 @@ Dialog {
                 Layout.preferredHeight: 36
                 radius: Theme.borderRadius
                 color: addHovered || addButton.activeFocus ? Theme.accentHover : Theme.accent
-                opacity: canAdd ? 1.0 : 0.5
+                opacity: canAdd && !validationPending ? 1.0 : 0.5
                 focus: false
                 activeFocusOnTab: true
 
@@ -301,25 +430,54 @@ Dialog {
                 MouseArea {
                     anchors.fill: parent
                     hoverEnabled: true
-                    cursorShape: canAdd ? Qt.PointingHandCursor : Qt.ArrowCursor
+                    cursorShape: canAdd && !validationPending ? Qt.PointingHandCursor : Qt.ArrowCursor
                     onEntered: parent.addHovered = true
                     onExited: parent.addHovered = false
                     onClicked: addButton.performActivate()
                 }
 
                 function performActivate() {
-                    if (!canAdd) return
+                    if (!canAdd || validationPending) return
+                    validationMessage = ""
+                    if (!appViewModel) {
+                        performSave()
+                        return
+                    }
+                    if (builtinFreeServer) {
+                        performSave()
+                        return
+                    }
+                    validationPending = true
+                    if (serverType === "xtream") {
+                        appViewModel.validateServerInput(
+                            serverType,
+                            builtinFreeServer ? builtinFreeServerUrl : urlField.text,
+                            usernameField.text,
+                            passwordField.text)
+                    } else {
+                        appViewModel.validateServerInput(
+                            serverType,
+                            builtinFreeServer ? builtinFreeServerUrl : urlField.text,
+                            "",
+                            "")
+                    }
+                }
+
+                function performSave() {
                     if (appViewModel) {
                         if (editMode) {
                             appViewModel.serverList.updateServer(
-                                editIndex, nameField.text, urlField.text,
+                                editIndex, nameField.text, builtinFreeServer ? builtinFreeServerUrl : urlField.text,
                                 usernameField.text, passwordField.text,
-                                epgUrlField.text)
+                                "",
+                                epgSourceId)
                         } else {
                             appViewModel.serverList.addServer(
-                                nameField.text, serverType, urlField.text,
+                                nameField.text, serverType,
+                                builtinFreeServer ? builtinFreeServerUrl : urlField.text,
                                 usernameField.text, passwordField.text,
-                                epgUrlField.text)
+                                "",
+                                epgSourceId)
                         }
                     }
                     dialog.close()
@@ -327,7 +485,7 @@ Dialog {
                 }
 
                 Keys.onUpPressed: {
-                    if (epgUrlField) epgUrlField.forceActiveFocus()
+                    if (epgSourceCombo) epgSourceCombo.forceActiveFocus()
                 }
                 Keys.onLeftPressed: {
                     if (cancelButton) cancelButton.forceActiveFocus()
@@ -347,15 +505,21 @@ Dialog {
         }
     }
 
-    function openForEdit(index, name, type, url, username, password, epgUrl) {
+    function openForEdit(index, name, type, url, username, password, epgSourceIdValue, isBuiltinFreeServer) {
         editMode = true
         editIndex = index
         serverType = type
+        builtinFreeServer = !!isBuiltinFreeServer
         nameField.text = name
-        urlField.text = url
+        urlField.text = builtinFreeServer ? builtinFreeServerUrl : url
         usernameField.text = username
         passwordField.text = password || ""
-        epgUrlField.text = epgUrl || ""
+        epgSourceId = epgSourceIdValue || 0
+        if (epgSourceCombo && showEpgSelector) {
+            epgSourceCombo.currentIndex = (appViewModel && appViewModel.epgSourceList)
+                ? appViewModel.epgSourceList.indexOfSource(epgSourceId)
+                : -1
+        }
         dialog.open()
     }
 
@@ -364,17 +528,45 @@ Dialog {
         urlField.text = ""
         usernameField.text = ""
         passwordField.text = ""
-        epgUrlField.text = ""
+        epgSourceId = 0
+        if (epgSourceCombo) epgSourceCombo.currentIndex = -1
         serverType = "xtream"
+        builtinFreeServer = false
         editMode = false
         editIndex = -1
     }
 
     onOpened: {
+        if (editIndex < 0) {
+            editMode = false
+            epgSourceId = 0
+            if (epgSourceCombo) epgSourceCombo.currentIndex = -1
+        }
+        validationPending = false
+        validationMessage = ""
         focusFirstTypeTimer.restart()
     }
 
-    onClosed: resetFields()
+    onClosed: {
+        validationPending = false
+        validationMessage = ""
+        resetFields()
+    }
+
+    Connections {
+        target: appViewModel
+        function onUrlValidationFinished(context, ok, message) {
+            if (context !== "server" || !dialog.validationPending) {
+                return
+            }
+            dialog.validationPending = false
+            if (!ok) {
+                dialog.validationMessage = message
+                return
+            }
+            addButton.performSave()
+        }
+    }
 
     Timer {
         id: focusFirstTypeTimer

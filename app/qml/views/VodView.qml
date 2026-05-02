@@ -331,6 +331,13 @@ Item {
                                 else Qt.inputMethod.hide()
                             }
 
+                            Keys.onPressed: function(event) {
+                                if (event.key === Qt.Key_Back || event.key === Qt.Key_Escape) {
+                                    vodView.focusCategorySidebar()
+                                    event.accepted = true
+                                }
+                            }
+
                             Text {
                                 anchors.verticalCenter: parent.verticalCenter
                                 text: "Filter categories..."
@@ -716,22 +723,28 @@ Item {
                                     visible: !vodSearch.text && !vodSearch.activeFocus
                                 }
 
-                                onTextChanged: vodSearchTimer.restart()
+                            onTextChanged: vodSearchTimer.restart()
 
-                                Keys.onLeftPressed: {
+                            Keys.onLeftPressed: {
+                                vodView.focusCategorySidebar()
+                            }
+                            Keys.onRightPressed: {
+                                vodView.focusPrimary()
+                            }
+                            Keys.onDownPressed: {
+                                vodView.focusPrimary()
+                            }
+                            Keys.onPressed: function(event) {
+                                if (event.key === Qt.Key_Back || event.key === Qt.Key_Escape) {
                                     vodView.focusCategorySidebar()
+                                    event.accepted = true
                                 }
-                                Keys.onRightPressed: {
-                                    vodView.focusPrimary()
-                                }
-                                Keys.onDownPressed: {
-                                    vodView.focusPrimary()
-                                }
+                            }
 
-                                Timer {
-                                    id: vodSearchTimer
-                                    interval: 300
-                                    onTriggered: {
+                            Timer {
+                                id: vodSearchTimer
+                                interval: 300
+                                onTriggered: {
                                         if (appViewModel)
                                             appViewModel.channelList.searchQuery = vodSearch.text
                                     }

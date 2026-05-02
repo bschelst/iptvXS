@@ -28,11 +28,18 @@ public:
     QVector<Channel> searchAll(const QString &query, int limit = 50) const;
     QVector<Channel> findRecentlyAdded(int64_t serverId, int64_t sinceSecs,
                                        int limit = 200, int offset = 0) const;
+    QVector<Channel> findRecentlyAdded(int64_t serverId, int64_t sinceSecs,
+                                       const QString &type, int limit = 200,
+                                       int offset = 0) const;
     int countRecentlyAdded(int64_t serverId, int64_t sinceSecs) const;
+    int countRecentlyAdded(int64_t serverId, int64_t sinceSecs, const QString &type) const;
 
     void batchUpsert(const QVector<Channel> &channels);
     bool deleteByServer(int64_t serverId);
     void deleteByServerAndTypeWithEmptyExternalId(int64_t serverId, const QString &type);
+    void deleteMissingByServer(int64_t serverId, const QVector<Channel> &keepChannels);
+    void deleteMissingByServerAndType(int64_t serverId, const QString &type,
+                                      const QVector<Channel> &keepChannels);
 
     int count(int64_t serverId) const;
     int countByCategory(int64_t categoryId) const;

@@ -36,7 +36,7 @@ ApplicationWindow {
         "vod_movies": "VOD Movies",
         "vod_series": "VOD Series",
         "favorites": "Favorites",
-        "groups": "Channel Groups",
+        "groups": "Groups",
         "epg": "TV Guide",
         "recordings": "Recordings",
         "history": "Play History",
@@ -92,6 +92,11 @@ ApplicationWindow {
                 Layout.fillHeight: true
                 source: "views/HomeView.qml"
                 asynchronous: false
+                onLoaded: {
+                    if (!sidebar.activeFocus) {
+                        requestViewFocusRestore()
+                    }
+                }
 
                 Behavior on opacity {
                     NumberAnimation {
@@ -156,6 +161,44 @@ ApplicationWindow {
         focusCurrentViewPrimary()
     }
 
+    property bool focusRestorePending: false
+    property int focusRestoreAttempts: 0
+
+    function requestViewFocusRestore() {
+        focusRestorePending = true
+        focusRestoreAttempts = 0
+        focusContentTimer.restart()
+    }
+
+    function tryRestoreViewFocus() {
+        if (!focusRestorePending) return
+        if (!viewLoader.item) {
+            if (++focusRestoreAttempts < 20) {
+                focusContentTimer.restart()
+            } else {
+                focusRestorePending = false
+            }
+            return
+        }
+
+        if (viewLoader.item.requestFocusRestore) {
+            viewLoader.item.requestFocusRestore()
+        } else if (viewLoader.item.focusPrimary) {
+            viewLoader.item.focusPrimary()
+        }
+
+        if (viewLoader.item.activeFocus) {
+            focusRestorePending = false
+            return
+        }
+
+        if (++focusRestoreAttempts < 20) {
+            focusContentTimer.restart()
+        } else {
+            focusRestorePending = false
+        }
+    }
+
     Connections {
         target: appViewModel ? appViewModel.chromecast : null
         function onResumeLocal(url, title) {
@@ -181,15 +224,11 @@ ApplicationWindow {
             } else {
                 viewLoader.setSource(src)
             }
-            Qt.callLater(function() {
-                if (!sidebar.activeFocus) {
-                    focusCurrentViewPrimary()
-                }
-            })
             if (sidebar.activeFocus) {
+                focusRestorePending = false
                 focusContentTimer.stop()
             } else {
-                focusContentTimer.restart()
+                requestViewFocusRestore()
             }
         }
         function onDatabaseReadyChanged() {
@@ -203,7 +242,7 @@ ApplicationWindow {
     Timer {
         id: focusContentTimer
         interval: 100
-        onTriggered: focusCurrentViewPrimary()
+        onTriggered: tryRestoreViewFocus()
     }
 
     Component.onCompleted: {
@@ -211,7 +250,7 @@ ApplicationWindow {
             var savedTheme = appViewModel.theme
             if (savedTheme) Theme.applyTheme(savedTheme)
         }
-        focusCurrentViewPrimary()
+        requestViewFocusRestore()
     }
 
     // --- Single persistent video surface with PIP ---

@@ -21,6 +21,10 @@ public:
     int64_t upsert(const Category &category);
     void batchUpsert(const QVector<Category> &categories);
     bool deleteByServer(int64_t serverId);
+    void deleteMissingByServer(int64_t serverId, const QVector<Category> &keepCategories);
+    void deleteMissingByServerAndType(int64_t serverId, const QString &type,
+                                      const QVector<Category> &keepCategories);
+    void deleteEmptyByServer(int64_t serverId, const QString &type = {});
     int count(int64_t serverId) const;
 
 signals:

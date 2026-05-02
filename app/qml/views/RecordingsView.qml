@@ -647,6 +647,11 @@ Item {
                                             return false
                                         }
 
+                                        function openActionsPopup() {
+                                            actionFocusMode = true
+                                            recordingActionsPopup.open()
+                                        }
+
                                         function focusNextCard() {
                                             if (cardIndex < rowItems.length - 1) {
                                                 recordingSection.focusCardAt(cardIndex + 1)
@@ -922,6 +927,7 @@ Item {
                                                     id: actionStrip
                                                     readonly property bool actionStripVisible: recordingCard.activeFocus
                                                         || recordingCard.actionFocusMode
+                                                        || recordingActionsPopup.visible
                                                         || recordingCard.cardHovered
                                                         || recordingSection.currentCardIndex === cardIndex
                                                     Layout.fillWidth: true
@@ -1019,7 +1025,7 @@ Item {
                                                                 cursorShape: Qt.PointingHandCursor
                                                                 onEntered: parent.moreHov = true
                                                                 onExited: parent.moreHov = false
-                                                                onClicked: recordingActionsPopup.open()
+                                                                onClicked: recordingCard.openActionsPopup()
                                                             }
 
                                                             Keys.onLeftPressed: {
@@ -1030,7 +1036,7 @@ Item {
                                                                 }
                                                             }
                                                             Keys.onRightPressed: {
-                                                                recordingActionsPopup.open()
+                                                                recordingCard.openActionsPopup()
                                                             }
                                                             Keys.onUpPressed: {
                                                                 recordingCard.forceActiveFocus()
@@ -1039,11 +1045,11 @@ Item {
                                                             Keys.onDownPressed: {
                                                                 recordingSection.focusCardAt(cardIndex)
                                                             }
-                                                            Keys.onReturnPressed: recordingActionsPopup.open()
+                                                            Keys.onReturnPressed: recordingCard.openActionsPopup()
                                                             Keys.onEnterPressed: Keys.onReturnPressed(event)
                                                             Keys.onPressed: function(event) {
                                                                 if (event.key === Qt.Key_Select || event.key === Qt.Key_Space) {
-                                                                    recordingActionsPopup.open()
+                                                                    recordingCard.openActionsPopup()
                                                                     event.accepted = true
                                                                 }
                                                             }
@@ -1056,6 +1062,7 @@ Item {
                                                     parent: recordingsView
                                                     modal: false
                                                     focus: true
+                                                    z: 1000
                                                     closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutsideParent
                                                     x: {
                                                         var cardPos = recordingCard.mapToItem(recordingsView, 0, 0)
@@ -1131,6 +1138,7 @@ Item {
                                                     onOpened: {
                                                         actionIndex = 0
                                                         selectAction(0)
+                                                        if (popupFocusRoot) popupFocusRoot.forceActiveFocus()
                                                     }
                                                     onClosed: {
                                                         recordingCard.actionFocusMode = false
@@ -1188,9 +1196,9 @@ Item {
                                                                 radius: 12
                                                                 activeFocusOnTab: true
                                                                 property bool selected: recordingActionsPopup.actionIndex === 0
-                                                                color: pinActionHov || selected ? Theme.accent : Theme.surface
+                                                                color: selected ? Theme.surfaceElevated : (pinActionHov ? Theme.accent : Theme.surface)
                                                                 border.width: selected ? 2 : 1
-                                                                border.color: selected ? Theme.textOnAccent : (modelData.pinned ? Theme.accent : Theme.surfaceBorder)
+                                                                border.color: selected ? Theme.accent : (modelData.pinned ? Theme.accent : Theme.surfaceBorder)
                                                                 property bool pinActionHov: false
                                                                 scale: selected ? 1.01 : 1.0
 
@@ -1201,7 +1209,8 @@ Item {
                                                                     text: modelData.pinned ? "Unpin" : "Pin"
                                                                     font.pixelSize: 11
                                                                     font.bold: true
-                                                                    color: (pinAction.pinActionHov || pinAction.selected) ? "#000000" : "#ffffff"
+                                                                    color: pinAction.selected ? Theme.textPrimary
+                                                                        : (pinAction.pinActionHov ? "#000000" : "#ffffff")
                                                                 }
 
                                                                 MouseArea {
@@ -1220,6 +1229,9 @@ Item {
                                                                     recordingCard.togglePinned()
                                                                     recordingActionsPopup.closeAndReturn()
                                                                 }
+                                                                Keys.onReturnPressed: {
+                                                                    if (pinAction.activateAction) pinAction.activateAction()
+                                                                }
                                                                 Keys.onPressed: function(event) {
                                                                     recordingActionsPopup.handleCancelKey(event)
                                                                 }
@@ -1232,9 +1244,9 @@ Item {
                                                                 radius: 12
                                                                 activeFocusOnTab: true
                                                                 property bool selected: recordingActionsPopup.actionIndex === 1
-                                                                color: deleteActionHov || selected ? Theme.error : "#3a1010"
+                                                                color: selected ? Theme.surfaceElevated : (deleteActionHov ? Theme.error : "#3a1010")
                                                                 border.width: selected ? 2 : 1
-                                                                border.color: selected ? "#ffffff" : Theme.error
+                                                                border.color: selected ? Theme.error : Theme.error
                                                                 property bool deleteActionHov: false
                                                                 scale: selected ? 1.01 : 1.0
 
@@ -1245,7 +1257,7 @@ Item {
                                                                     text: "Delete Recording"
                                                                     font.pixelSize: 11
                                                                     font.bold: true
-                                                                    color: "#ffffff"
+                                                                    color: deleteAction.selected ? Theme.textPrimary : "#ffffff"
                                                                 }
 
                                                                 MouseArea {
@@ -1264,6 +1276,9 @@ Item {
                                                                     recordingCard.requestDelete()
                                                                     recordingActionsPopup.closeAndReturn()
                                                                 }
+                                                                Keys.onReturnPressed: {
+                                                                    if (deleteAction.activateAction) deleteAction.activateAction()
+                                                                }
                                                                 Keys.onPressed: function(event) {
                                                                     recordingActionsPopup.handleCancelKey(event)
                                                                 }
@@ -1278,7 +1293,7 @@ Item {
                                                                 radius: 12
                                                                 activeFocusOnTab: true
                                                                 property bool selected: recordingActionsPopup.actionIndex === 2
-                                                                color: deleteFileActionHov || selected ? Theme.surfaceHover : Theme.surface
+                                                                color: selected ? Theme.surfaceElevated : (deleteFileActionHov ? Theme.surfaceHover : Theme.surface)
                                                                 border.width: selected ? 2 : 1
                                                                 border.color: selected ? Theme.accent : Theme.surfaceBorder
                                                                 property bool deleteFileActionHov: false
@@ -1291,7 +1306,7 @@ Item {
                                                                     text: "Delete File"
                                                                     font.pixelSize: 11
                                                                     font.bold: true
-                                                                    color: "#ffffff"
+                                                                    color: deleteFileAction.selected ? Theme.textPrimary : "#ffffff"
                                                                 }
 
                                                                 MouseArea {
@@ -1318,6 +1333,9 @@ Item {
                                                                     deleteLocalDialog.visible = true
                                                                     recordingActionsPopup.closeAndReturn()
                                                                 }
+                                                                Keys.onReturnPressed: {
+                                                                    if (deleteFileAction.activateAction) deleteFileAction.activateAction()
+                                                                }
                                                                 Keys.onPressed: function(event) {
                                                                     recordingActionsPopup.handleCancelKey(event)
                                                                 }
@@ -1330,7 +1348,7 @@ Item {
                                                                 radius: 12
                                                                 activeFocusOnTab: true
                                                                 property bool selected: recordingActionsPopup.actionIndex === (deleteFileAction.visible ? 3 : 2)
-                                                                color: cancelActionHov || selected ? Theme.surfaceHover : Theme.surface
+                                                                color: selected ? Theme.surfaceElevated : (cancelActionHov ? Theme.surfaceHover : Theme.surface)
                                                                 border.width: selected ? 2 : 1
                                                                 border.color: selected ? Theme.accent : Theme.surfaceBorder
                                                                 property bool cancelActionHov: false
@@ -1343,7 +1361,7 @@ Item {
                                                                     text: "Cancel"
                                                                     font.pixelSize: 11
                                                                     font.bold: true
-                                                                    color: Theme.textPrimary
+                                                                    color: cancelAction.selected ? Theme.textPrimary : Theme.textPrimary
                                                                 }
 
                                                                 MouseArea {
@@ -1356,6 +1374,9 @@ Item {
                                                                 }
                                                                 function activateAction() {
                                                                     recordingActionsPopup.closeAndReturn()
+                                                                }
+                                                                Keys.onReturnPressed: {
+                                                                    if (cancelAction.activateAction) cancelAction.activateAction()
                                                                 }
                                                                 Keys.onPressed: function(event) {
                                                                     recordingActionsPopup.handleCancelKey(event)

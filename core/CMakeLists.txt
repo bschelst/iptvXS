@@ -13,6 +13,7 @@ add_library(iptvxs-core STATIC
     src/db/database.cpp
     src/db/settings_repository.cpp
     src/db/server_repository.cpp
+    src/db/epg_source_repository.cpp
     src/db/category_repository.cpp
     src/db/channel_repository.cpp
     src/db/favorite_repository.cpp
@@ -39,6 +40,7 @@ add_library(iptvxs-core STATIC
     include/iptvxs/db/database.h
     include/iptvxs/db/settings_repository.h
     include/iptvxs/db/server_repository.h
+    include/iptvxs/db/epg_source_repository.h
     include/iptvxs/db/category_repository.h
     include/iptvxs/db/channel_repository.h
     include/iptvxs/db/favorite_repository.h
@@ -58,6 +60,7 @@ add_library(iptvxs-core STATIC
     include/iptvxs/db/channel_group_repository.h
     include/iptvxs/db/category_settings_repository.h
     include/iptvxs/db/series_cache_repository.h
+    include/iptvxs/models/epg_source.h
     include/iptvxs/models/channel_group.h
     include/iptvxs/cache/logo_cache.h
     include/iptvxs/cast/chromecast_manager.h

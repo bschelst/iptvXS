@@ -2,6 +2,7 @@
 #include "iptvxs/db/channel_repository.h"
 
 #include <QCoreApplication>
+#include <QSet>
 #include <QSqlError>
 #include <QSqlQuery>
 #include <QVariant>
@@ -244,6 +245,133 @@ void ChannelRepository::deleteByServerAndTypeWithEmptyExternalId(
     query.exec();
 }
 
+void ChannelRepository::deleteMissingByServer(int64_t serverId,
+                                              const QVector<Channel> &keepChannels) {
+    QSet<QString> keepKeys;
+    keepKeys.reserve(keepChannels.size());
+    for (const auto &ch : keepChannels) {
+        keepKeys.insert(QStringLiteral("%1\u001f%2").arg(ch.type, ch.externalId));
+    }
+
+    QSqlQuery query(db_);
+    query.prepare("SELECT id, external_id, name, type FROM channels WHERE server_id = ?");
+    query.addBindValue(toVariant(serverId));
+    if (!query.exec()) {
+        emit errorOccurred(QStringLiteral("Failed to query stale channels: %1")
+                               .arg(query.lastError().text()));
+        return;
+    }
+
+    QVector<int64_t> staleIds;
+    QVector<QString> staleNames;
+    while (query.next()) {
+        auto externalId = query.value(1).toString();
+        auto name = query.value(2).toString();
+        auto type = query.value(3).toString();
+        auto key = QStringLiteral("%1\u001f%2").arg(type, externalId);
+        if (!keepKeys.contains(key)) {
+            staleIds.append(query.value(0).toLongLong());
+            staleNames.append(name.isEmpty() ? externalId : name);
+        }
+    }
+
+    if (staleIds.isEmpty()) {
+        return;
+    }
+
+    if (!db_.transaction()) {
+        emit errorOccurred(QStringLiteral("Failed to start channel cleanup transaction"));
+        return;
+    }
+
+    QSqlQuery deleteQuery(db_);
+    deleteQuery.prepare("DELETE FROM channels WHERE id = ?");
+    for (int i = 0; i < staleIds.size(); ++i) {
+        auto id = staleIds.at(i);
+        auto name = staleNames.value(i);
+        deleteQuery.addBindValue(toVariant(id));
+        if (!deleteQuery.exec()) {
+            db_.rollback();
+            emit errorOccurred(QStringLiteral("Failed to delete stale channel: %1")
+                                   .arg(deleteQuery.lastError().text()));
+            return;
+        }
+        qInfo("Removed stale channel during sync: %s (id %lld)",
+              qPrintable(name), static_cast<long long>(id));
+        deleteQuery.finish();
+    }
+
+    if (!db_.commit()) {
+        db_.rollback();
+        emit errorOccurred(QStringLiteral("Failed to commit stale channel cleanup"));
+    }
+}
+
+void ChannelRepository::deleteMissingByServerAndType(
+    int64_t serverId, const QString &type, const QVector<Channel> &keepChannels) {
+    QSet<QString> keepKeys;
+    keepKeys.reserve(keepChannels.size());
+    for (const auto &ch : keepChannels) {
+        keepKeys.insert(QStringLiteral("%1\u001f%2").arg(ch.type, ch.externalId));
+    }
+
+    QSqlQuery query(db_);
+    query.prepare("SELECT id, external_id, name, type FROM channels "
+                  "WHERE server_id = ? AND type = ?");
+    query.addBindValue(toVariant(serverId));
+    query.addBindValue(type);
+    if (!query.exec()) {
+        emit errorOccurred(QStringLiteral("Failed to query stale channels by type: %1")
+                               .arg(query.lastError().text()));
+        return;
+    }
+
+    QVector<int64_t> staleIds;
+    QVector<QString> staleNames;
+    while (query.next()) {
+        auto externalId = query.value(1).toString();
+        auto name = query.value(2).toString();
+        auto rowType = query.value(3).toString();
+        auto key = QStringLiteral("%1\u001f%2").arg(rowType, externalId);
+        if (!keepKeys.contains(key)) {
+            staleIds.append(query.value(0).toLongLong());
+            staleNames.append(name.isEmpty() ? externalId : name);
+        }
+    }
+
+    if (staleIds.isEmpty()) {
+        return;
+    }
+
+    if (!db_.transaction()) {
+        emit errorOccurred(QStringLiteral("Failed to start channel cleanup transaction"));
+        return;
+    }
+
+    QSqlQuery deleteQuery(db_);
+    deleteQuery.prepare("DELETE FROM channels WHERE id = ?");
+    for (int i = 0; i < staleIds.size(); ++i) {
+        auto id = staleIds.at(i);
+        auto name = staleNames.value(i);
+        deleteQuery.addBindValue(toVariant(id));
+        if (!deleteQuery.exec()) {
+            db_.rollback();
+            emit errorOccurred(QStringLiteral("Failed to delete stale channel: %1")
+                                   .arg(deleteQuery.lastError().text()));
+            return;
+        }
+        qInfo("Removed stale channel during sync: %s [%s] (id %lld)",
+              qPrintable(name), qPrintable(type),
+              static_cast<long long>(id));
+        deleteQuery.finish();
+    }
+
+    if (!db_.commit()) {
+        db_.rollback();
+        emit errorOccurred(QStringLiteral("Failed to commit stale channel cleanup"));
+    }
+}
+
 int ChannelRepository::count(int64_t serverId) const {
     QSqlQuery query(db_);
     query.prepare("SELECT COUNT(*) FROM channels WHERE server_id = ?");
@@ -329,10 +457,49 @@ QVector<Channel> ChannelRepository::findRecentlyAdded(int64_t serverId, int64_t 
     return channels;
 }
 
+QVector<Channel> ChannelRepository::findRecentlyAdded(int64_t serverId, int64_t sinceSecs,
+                                                       const QString &type, int limit,
+                                                       int offset) const {
+    QSqlQuery query(db_);
+    query.prepare("SELECT id, server_id, category_id, external_id, name, stream_url, "
+                  "logo_url, epg_channel_id, type, added_at, first_seen_at "
+                  "FROM channels WHERE server_id = ? AND type = ? AND first_seen_at > ? "
+                  "ORDER BY first_seen_at DESC LIMIT ? OFFSET ?");
+    query.addBindValue(toVariant(serverId));
+    query.addBindValue(type);
+    query.addBindValue(toVariant(sinceSecs));
+    query.addBindValue(limit);
+    query.addBindValue(offset);
+
+    if (!query.exec()) {
+        return {};
+    }
+
+    QVector<Channel> channels;
+    channels.reserve(limit);
+    while (query.next()) {
+        channels.append(fromQuery(query));
+    }
+    return channels;
+}
+
 int ChannelRepository::countRecentlyAdded(int64_t serverId, int64_t sinceSecs) const {
     QSqlQuery query(db_);
     query.prepare("SELECT COUNT(*) FROM channels WHERE server_id = ? AND first_seen_at > ?");
     query.addBindValue(toVariant(serverId));
+    query.addBindValue(toVariant(sinceSecs));
+    if (!query.exec() || !query.next()) {
+        return 0;
+    }
+    return query.value(0).toInt();
+}
+
+int ChannelRepository::countRecentlyAdded(int64_t serverId, int64_t sinceSecs,
+                                           const QString &type) const {
+    QSqlQuery query(db_);
+    query.prepare("SELECT COUNT(*) FROM channels WHERE server_id = ? AND type = ? AND first_seen_at > ?");
+    query.addBindValue(toVariant(serverId));
+    query.addBindValue(type);
     query.addBindValue(toVariant(sinceSecs));
     if (!query.exec() || !query.next()) {
         return 0;

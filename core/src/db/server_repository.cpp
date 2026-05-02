@@ -17,7 +17,7 @@ ServerRepository::ServerRepository(QSqlDatabase db, QObject *parent)
 QVector<Server> ServerRepository::findAll() const {
     QSqlQuery query(db_);
     query.prepare("SELECT id, name, type, url, username, password, user_agent, "
-                  "epg_url, last_synced_at, created_at, enabled, is_primary "
+                  "epg_url, epg_source_id, last_synced_at, created_at, enabled, is_primary, is_builtin_free "
                   "FROM servers ORDER BY is_primary DESC, enabled DESC, name");
     if (!query.exec()) {
         return {};
@@ -33,7 +33,7 @@ QVector<Server> ServerRepository::findAll() const {
 std::optional<Server> ServerRepository::findById(int64_t id) const {
     QSqlQuery query(db_);
     query.prepare("SELECT id, name, type, url, username, password, user_agent, "
-                  "epg_url, last_synced_at, created_at, enabled, is_primary "
+                  "epg_url, epg_source_id, last_synced_at, created_at, enabled, is_primary, is_builtin_free "
                   "FROM servers WHERE id = ?");
     query.addBindValue(toVariant(id));
     if (!query.exec() || !query.next()) {
@@ -44,8 +44,8 @@ std::optional<Server> ServerRepository::findById(int64_t id) const {
 
 int64_t ServerRepository::create(const Server &server) {
     QSqlQuery query(db_);
-    query.prepare("INSERT INTO servers (name, type, url, username, password, user_agent, epg_url) "
-                  "VALUES (?, ?, ?, ?, ?, ?, ?)");
+    query.prepare("INSERT INTO servers (name, type, url, username, password, user_agent, epg_url, epg_source_id, is_builtin_free) "
+                  "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
     query.addBindValue(server.name);
     query.addBindValue(server.type);
     query.addBindValue(server.url);
@@ -53,6 +53,8 @@ int64_t ServerRepository::create(const Server &server) {
     query.addBindValue(server.password);
     query.addBindValue(server.userAgent);
     query.addBindValue(server.epgUrl);
+    query.addBindValue(server.epgSourceId > 0 ? QVariant(static_cast<qlonglong>(server.epgSourceId)) : QVariant());
+    query.addBindValue(server.isBuiltinFree ? 1 : 0);
     if (!query.exec()) {
         emit errorOccurred(QStringLiteral("Failed to create server: %1")
                                .arg(query.lastError().text()));
@@ -64,7 +66,7 @@ int64_t ServerRepository::create(const Server &server) {
 bool ServerRepository::update(const Server &server) {
     QSqlQuery query(db_);
     query.prepare("UPDATE servers SET name = ?, type = ?, url = ?, username = ?, "
-                  "password = ?, user_agent = ?, epg_url = ? WHERE id = ?");
+                  "password = ?, user_agent = ?, epg_url = ?, epg_source_id = ?, is_builtin_free = ? WHERE id = ?");
     query.addBindValue(server.name);
     query.addBindValue(server.type);
     query.addBindValue(server.url);
@@ -72,6 +74,8 @@ bool ServerRepository::update(const Server &server) {
     query.addBindValue(server.password);
     query.addBindValue(server.userAgent);
     query.addBindValue(server.epgUrl);
+    query.addBindValue(server.epgSourceId > 0 ? QVariant(static_cast<qlonglong>(server.epgSourceId)) : QVariant());
+    query.addBindValue(server.isBuiltinFree ? 1 : 0);
     query.addBindValue(toVariant(server.id));
     if (!query.exec()) {
         emit errorOccurred(QStringLiteral("Failed to update server: %1")
@@ -155,11 +159,26 @@ Server ServerRepository::fromQuery(const QSqlQuery &query) {
     s.password = query.value(5).toString();
     s.userAgent = query.value(6).toString();
     s.epgUrl = query.value(7).toString();
-    s.lastSyncedAt = query.value(8).toLongLong();
-    s.createdAt = query.value(9).toLongLong();
-    s.enabled = query.value(10).toInt() != 0;
-    s.isPrimary = query.value(11).toInt() != 0;
+    s.epgSourceId = query.value(8).toLongLong();
+    s.lastSyncedAt = query.value(9).toLongLong();
+    s.createdAt = query.value(10).toLongLong();
+    s.enabled = query.value(11).toInt() != 0;
+    s.isPrimary = query.value(12).toInt() != 0;
+    s.isBuiltinFree = query.value(13).toInt() != 0;
     return s;
+}
+
+bool ServerRepository::setEpgSource(int64_t id, int64_t epgSourceId) {
+    QSqlQuery query(db_);
+    query.prepare("UPDATE servers SET epg_source_id = ? WHERE id = ?");
+    query.addBindValue(epgSourceId > 0 ? QVariant(static_cast<qlonglong>(epgSourceId)) : QVariant());
+    query.addBindValue(toVariant(id));
+    if (!query.exec()) {
+        emit errorOccurred(QStringLiteral("Failed to set EPG source: %1")
+                               .arg(query.lastError().text()));
+        return false;
+    }
+    return query.numRowsAffected() > 0;
 }
 
 } // namespace iptvxs
