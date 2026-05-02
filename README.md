@@ -43,41 +43,35 @@ I created this app because I was a bit disappointed in the IPTV clients on Linux
 - **Xtream Codes API** and **M3U playlist** support
 - High-quality playback via **libmpv** with hardware-accelerated decoding
 - Channel categories with search and filtering
-- **Channel Groups** — create custom playlists, add channels via built-in search picker
-- **Recently Added** filter — highlights channels added in the last 7 days
-- Horizontal poster rows with category browsing
+- **Channel Groups** — create custom playlists, add channels via built-in search picker. Static and Dynamic groups.
 - Series support with season/episode picker
 - **Audio track selection** for multi-language VOD content
 - **Picture-in-Picture (PIP)** — draggable floating mini-player for live TV when navigating away
 - **Chromecast casting** — cast live TV and VOD to any Chromecast device on the network
   - Automatic device discovery via mDNS
-  - Local HLS proxy (ffmpeg remux, no transcoding overhead)
-  - Auto-next episode for series, resume local playback on stop
-  - Enable/disable in Settings
-- **Favourites-first sorting** — favourite channels always appear at the top
+  - Local HLS proxy
 
 
 ### Electronic Programme Guide (EPG)
 
 - XMLTV parser with automatic EPG updates (configurable interval, default 6h)
-- Full TV Guide grid with programme details popup
-- **Record from EPG** — one-click recording with confirmation dialog
+- Full TV Guide grid
+- **Record from EPG** — one-click recording
 - **EPG recording padding** — configurable start-early / end-late (0–5 minutes)
 - Now/Next programme display in the player for live TV
 - Channel search within the guide
 
 ### Recording
 
-- Live and scheduled recording via FFmpeg
-- **In-player stream recording** — record directly from the video player
-- **Record from EPG** with programme title capture
-- **Schedule recordings** with custom start time (day, hour, minute picker)
+- Live and scheduled recording 
+- **In-player stream recording** 
+- **Record from EPG** 
+- **Schedule recordings** 
 - **EPG padding** — start recording early, end late (configurable in Settings)
 - Recordings saved to `~/Videos/iptvXS/` (configurable)
-- **Storage quota** (default 2 GB) with visual usage bar
-- Delete recording
-- **Google Drive upload** with resumable chunked uploads and cross-session resume
-- **Retry failed uploads** directly from the Recordings view
+- **Storage quota** (default 2 GB) configuration
+- **Google Drive upload** with resumable uploads and cross-session resume
+- **Retry failed uploads** 
 - **Auto-delete** local files after successful Google Drive upload
 
 ### Subtitles
@@ -90,12 +84,12 @@ I created this app because I was a bit disappointed in the IPTV clients on Linux
 ### Video Enhancement & Player Tuning
 
 - GPU-accelerated video processing presets (Off / Light / Medium / Strong)
-- **Debanding** to remove color banding artifacts
-- **High-quality scaling** via ewa_lanczossharp with sigmoid upscaling
-- **Denoising** via hqdn3d filter for cleaner picture
+- **Debanding** 
+- **High-quality scaling**
+- **Denoising**  for cleaner picture
 - **Hardware decoding** modes (Auto Safe / Auto / Software)
-- **Deinterlace** toggle for interlaced content
-
+- **Deinterlace**
+  
 ### Theming
 
 - 7 built-in themes: Midnight, Ocean, Forest, Sunset, Nord, Light, **High Contrast**
@@ -110,9 +104,9 @@ I created this app because I was a bit disappointed in the IPTV clients on Linux
 
 ### Steam Deck & Controller Support
 
-- **D-pad/controller navigation** throughout the entire UI
-- **External controller support** — USB and Bluetooth gamepads via SDL2 HIDAPI
-- **GameScope Google Drive auth** — Steam overlay browser integration with hint dialog
+- **D-pad/controller navigation** 
+- **External controller support** 
+- **GameScope Google Drive auth** 
 - Optimized for Steam Deck's display and input
 - Available as a **Flatpak** for easy installation
 - Works in both Desktop Mode and Game Mode
@@ -120,12 +114,12 @@ I created this app because I was a bit disappointed in the IPTV clients on Linux
 ### Settings & Management
 
 - **Logo cache management** — auto-prune (30 days), configurable max size (100 MB – 2 GB), clear button
-- **Database reset** with full reconnection of all repositories
+- **Database reset** 
 - **Auto-sync** channels and EPG (configurable interval, default 6 hours)
 - Configurable stream buffer time
-- **Application log** with auto-refresh, level filtering, and search
-- **Database maintenance** — automatic daily cleanup of old EPG data, orphaned entries, and disabled server channels with manual trigger in Settings
-
+- **Application log**
+- **Database maintenance**
+  
 ---
 
 ## Screenshots
