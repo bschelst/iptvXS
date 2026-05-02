@@ -100,36 +100,29 @@ I created this app because I was a bit disappointed in the IPTV clients on Linux
 
 - 7 built-in themes: Midnight, Ocean, Forest, Sunset, Nord, Light, **High Contrast**
 - High Contrast theme with `textOnAccent` token for maximum readability
-- Consistent accent-aware text across all buttons, badges, and dropdowns
-- Theme persists across sessions
+
 
 ### Play History
 
 - Automatic tracking of watched channels, movies, and series
 - Browse history sorted by most recent, grouped by type
 - Remove individual entries or clear all history
-- One-click replay from history
 
 ### Steam Deck & Controller Support
 
 - **D-pad/controller navigation** throughout the entire UI
 - **External controller support** — USB and Bluetooth gamepads via SDL2 HIDAPI
-- **D-pad debounce** (120ms) prevents cursor double-jumping
 - **GameScope Google Drive auth** — Steam overlay browser integration with hint dialog
 - Optimized for Steam Deck's display and input
-- **Screensaver inhibition** during video playback
 - Available as a **Flatpak** for easy installation
 - Works in both Desktop Mode and Game Mode
 
 ### Settings & Management
 
-- **Version check** — automatic check for updates
-- **Database statistics** — server, channel, movie, series, recording counts
 - **Logo cache management** — auto-prune (30 days), configurable max size (100 MB – 2 GB), clear button
 - **Database reset** with full reconnection of all repositories
 - **Auto-sync** channels and EPG (configurable interval, default 6 hours)
 - Configurable stream buffer time
-- Close-to-tray option
 - **Application log** with auto-refresh, level filtering, and search
 - **Database maintenance** — automatic daily cleanup of old EPG data, orphaned entries, and disabled server channels with manual trigger in Settings
 
