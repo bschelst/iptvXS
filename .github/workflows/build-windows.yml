@@ -73,7 +73,7 @@ jobs:
 
       - name: Download WinSparkle
         run: |
-          $url = "https://github.com/nicola-buechel-net/winsparkle/releases/download/v0.8.5/WinSparkle-0.8.5.zip"
+          $url = "https://github.com/vslavik/winsparkle/releases/download/v0.9.2/WinSparkle-0.9.2.zip"
           Invoke-WebRequest -Uri $url -OutFile winsparkle.zip -MaximumRetryCount 3
           Expand-Archive -Path winsparkle.zip -DestinationPath winsparkle-extract
           $dir = Get-ChildItem -Path winsparkle-extract -Directory | Select-Object -First 1
