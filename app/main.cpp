@@ -7,6 +7,8 @@
 #include <QDir>
 #include <QFile>
 #include <QIcon>
+#include <QLocalServer>
+#include <QLocalSocket>
 #include <QMenu>
 #include <QMutex>
 #include <QMutexLocker>
@@ -61,6 +63,24 @@ static QString legacyDatabasePath(const QString &dataPath) {
 
 static QString databasePath(const QString &dataPath) {
     return dataPath + QStringLiteral("/iptvXS.db");
+}
+
+static QString singleInstanceServerName() {
+    return QStringLiteral("iptvXS-single-instance");
+}
+
+static bool notifyExistingInstance() {
+    QLocalSocket socket;
+    socket.connectToServer(singleInstanceServerName());
+    if (!socket.waitForConnected(250)) {
+        return false;
+    }
+
+    socket.write("show");
+    socket.flush();
+    socket.waitForBytesWritten(250);
+    socket.disconnectFromServer();
+    return true;
 }
 
 static bool renameLegacyDatabaseFiles(const QString &dataPath) {
@@ -203,8 +223,48 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
+    QLocalServer instanceServer;
+    QQmlApplicationEngine *enginePtr = nullptr;
+    bool activateRequested = false;
+    auto requestActivate = [&]() {
+        activateRequested = true;
+        if (enginePtr) {
+            showMainWindow(*enginePtr);
+        }
+    };
+
+    if (instanceServer.listen(singleInstanceServerName())) {
+        QObject::connect(&instanceServer, &QLocalServer::newConnection, &app,
+                         [&]() {
+                             while (instanceServer.hasPendingConnections()) {
+                                 auto *socket = instanceServer.nextPendingConnection();
+                                 if (socket) socket->deleteLater();
+                             }
+                             requestActivate();
+                         });
+    } else {
+        QLocalServer::removeServer(singleInstanceServerName());
+        if (instanceServer.listen(singleInstanceServerName())) {
+            QObject::connect(&instanceServer, &QLocalServer::newConnection, &app,
+                             [&]() {
+                                 while (instanceServer.hasPendingConnections()) {
+                                     auto *socket = instanceServer.nextPendingConnection();
+                                     if (socket) socket->deleteLater();
+                                 }
+                                 requestActivate();
+                             });
+        } else if (notifyExistingInstance()) {
+            qInfo("Existing iptvXS instance activated from tray");
+            return 0;
+        } else {
+            qWarning("Failed to establish single-instance server: %s",
+                     qPrintable(instanceServer.errorString()));
+        }
+    }
+
     auto applyQuitPolicy = [viewModel, &app]() {
-        const bool tray = viewModel->closeToTray();
+        const bool tray = viewModel->closeToTray() &&
+                          QSystemTrayIcon::isSystemTrayAvailable();
         app.setQuitOnLastWindowClosed(!tray);
         qInfo("Quit policy: quitOnLastWindowClosed=%s (closeToTray=%s)",
               tray ? "false" : "true", tray ? "on" : "off");
@@ -214,14 +274,20 @@ int main(int argc, char *argv[]) {
                      applyQuitPolicy);
 
     QQmlApplicationEngine engine;
+    enginePtr = &engine;
 
     engine.rootContext()->setContextProperty("appViewModel", viewModel);
+    engine.rootContext()->setContextProperty("systemTrayAvailable",
+                                             QSystemTrayIcon::isSystemTrayAvailable());
 
     QObject::connect(
         &engine, &QQmlApplicationEngine::objectCreationFailed, &app,
         []() { QCoreApplication::exit(1); }, Qt::QueuedConnection);
 
     engine.loadFromModule("app.iptvxs", "Main");
+    if (activateRequested) {
+        showMainWindow(engine);
+    }
 
     QSystemTrayIcon trayIcon(&app);
     trayIcon.setIcon(QIcon(QStringLiteral(":/images/iptvxs_tray.png")));
@@ -279,11 +345,12 @@ int main(int argc, char *argv[]) {
         });
 
     auto applyTrayVisibility = [viewModel, &trayIcon]() {
-        if (!QSystemTrayIcon::isSystemTrayAvailable()) {
+        const bool trayAvailable = QSystemTrayIcon::isSystemTrayAvailable();
+        const bool tray = viewModel->closeToTray() && trayAvailable;
+        if (!trayAvailable) {
             trayIcon.hide();
             return;
         }
-        const bool tray = viewModel->closeToTray();
         if (tray) {
             trayIcon.show();
         } else {

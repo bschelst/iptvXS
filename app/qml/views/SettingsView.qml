@@ -19,7 +19,7 @@ Item {
 
     // Direct lookup by index — returns the QML item for the given focus slot.
     // Using a function (not a property) so ids resolve after component completion.
-    readonly property int focusItemCount: 32
+    readonly property int focusItemCount: 31
 
     function focusTarget() {
         switch (currentFocusIndex) {
@@ -28,33 +28,32 @@ Item {
         case  2: return bufferFlow
         case  3: return hwdecFlow
         case  4: return gridColFlow
-        case  5: return closeToTraySwitch
-        case  6: return chromecastSwitch
-        case  7: return videoEnhFlow
-        case  8: return deinterlaceSwitch
-        case  9: return subtitlesSwitch
-        case 10: return subLangFlow
-        case 11: return secSubLangFlow
-        case 12: return subSizeRow
-        case 13: return subColorFlow
-        case 14: return subBgFlow
-        case 15: return syncIntervalFlow
-        case 16: return epgSyncFlow
-        case 17: return gdriveConnectBtn
-        case 18: return gdriveSaveFolderBtn
-        case 19: return recDestFlow
-        case 20: return keepLocalSwitch
-        case 21: return recBrowseBtn
-        case 22: return maxRecSizeFlow
-        case 23: return leadTimeFlow
-        case 24: return overrunFlow
-        case 25: return logoCacheMaxFlow
-        case 26: return clearCacheBtn
-        case 27: return resetDbBtn
-        case 28: return githubBtn
-        case 29: return checkUpdatesBtn
-        case 30: return freeServerSwitchRow
-        case 31: return freeServerReAddBtn
+        case  5: return chromecastSwitch
+        case  6: return videoEnhFlow
+        case  7: return deinterlaceSwitch
+        case  8: return subtitlesSwitch
+        case  9: return subLangFlow
+        case 10: return secSubLangFlow
+        case 11: return subSizeRow
+        case 12: return subColorFlow
+        case 13: return subBgFlow
+        case 14: return syncIntervalFlow
+        case 15: return epgSyncFlow
+        case 16: return gdriveConnectBtn
+        case 17: return gdriveSaveFolderBtn
+        case 18: return recDestFlow
+        case 19: return keepLocalSwitch
+        case 20: return recBrowseBtn
+        case 21: return maxRecSizeFlow
+        case 22: return leadTimeFlow
+        case 23: return overrunFlow
+        case 24: return logoCacheMaxFlow
+        case 25: return clearCacheBtn
+        case 26: return resetDbBtn
+        case 27: return githubBtn
+        case 28: return checkUpdatesBtn
+        case 29: return freeServerSwitchRow
+        case 30: return freeServerReAddBtn
         default: return null
         }
     }
@@ -373,13 +372,13 @@ Item {
                             spacing: Theme.spacingXs
 
                             Text {
-                                text: "Start minimized to tray"
+                                text: "Minimize to tray on close"
                                 font.pixelSize: Theme.fontSizeSm
                                 color: Theme.textPrimary
                             }
 
                             Text {
-                                text: "Launch the application minimized in the system tray"
+                                text: "Close the window to keep iptvXS running in the system tray"
                                 font.pixelSize: Theme.fontSizeXs
                                 color: Theme.textMuted
                             }
@@ -387,7 +386,10 @@ Item {
 
                         Switch {
                             id: startMinSwitchCtrl
-                            checked: false
+                            checked: appViewModel ? appViewModel.closeToTray : false
+                            onToggled: {
+                                if (appViewModel) appViewModel.closeToTray = checked
+                            }
                         }
                     }
                 }
@@ -673,38 +675,6 @@ Item {
                         font.pixelSize: Theme.fontSizeMd
                         font.bold: true
                         color: Theme.textPrimary
-                    }
-
-                    RowLayout {
-                        id: closeToTraySwitch
-                        Layout.fillWidth: true
-                        spacing: Theme.spacingMd
-                        function toggle() { closeToTraySwitchCtrl.toggle() }
-
-                        ColumnLayout {
-                            Layout.fillWidth: true
-                            spacing: 2
-
-                            Text {
-                                text: "Minimize to tray on close"
-                                font.pixelSize: Theme.fontSizeSm
-                                color: Theme.textPrimary
-                            }
-
-                            Text {
-                                text: "Keep app running in background when closing the window"
-                                font.pixelSize: Theme.fontSizeXs
-                                color: Theme.textMuted
-                            }
-                        }
-
-                        Switch {
-                            id: closeToTraySwitchCtrl
-                            checked: appViewModel ? appViewModel.closeToTray : false
-                            onToggled: {
-                                if (appViewModel) appViewModel.closeToTray = checked
-                            }
-                        }
                     }
 
                     RowLayout {

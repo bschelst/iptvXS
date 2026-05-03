@@ -17,7 +17,7 @@ ApplicationWindow {
     color: Theme.background
 
     onClosing: function(close) {
-        if (appViewModel && appViewModel.closeToTray) {
+        if (appViewModel && appViewModel.closeToTray && systemTrayAvailable) {
             close.accepted = false
             window.hide()
             return
