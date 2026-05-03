@@ -286,17 +286,12 @@ std::vector<Database::Migration> Database::migrations() const {
          }},
         {15, "Add built-in free server flag", [](QSqlDatabase &db) -> bool {
              QSqlQuery q(db);
-             const QStringList statements = {
-                 "ALTER TABLE servers ADD COLUMN is_builtin_free INTEGER NOT NULL DEFAULT 0",
-                 "UPDATE servers SET is_builtin_free = 1 "
-                 "WHERE type = 'm3u' "
-                 "AND name = 'iptvXS Free' "
-                 "AND url = 'https://iptvxs.schelstraete.org/api/v1/playlist.m3u'",
-             };
-             for (const auto &sql : statements) {
-                 if (!q.exec(sql)) {
-                     return false;
-                 }
+             q.exec("ALTER TABLE servers ADD COLUMN is_builtin_free INTEGER NOT NULL DEFAULT 0");
+             if (!q.exec("UPDATE servers SET is_builtin_free = 1 "
+                         "WHERE type = 'm3u' "
+                         "AND name = 'iptvXS Free' "
+                         "AND url = 'https://iptvxs.schelstraete.org/api/v1/playlist.m3u'")) {
+                 return false;
              }
              return true;
          }},
