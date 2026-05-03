@@ -254,6 +254,7 @@ Item {
                     Item { Layout.fillWidth: true }
 
                     Row {
+                        id: statsRow
                         spacing: 6
                         visible: appViewModel && appViewModel.databaseReady
 
@@ -261,22 +262,22 @@ Item {
 
                         Connections {
                             target: appViewModel ? appViewModel.serverList : null
-                            function onCountChanged() { parent.statsRevision++ }
-                            function onSyncFinished() { parent.statsRevision++ }
-                            function onDataChanged() { parent.statsRevision++ }
+                            function onCountChanged() { statsRow.statsRevision++ }
+                            function onSyncFinished() { statsRow.statsRevision++ }
+                            function onDataChanged() { statsRow.statsRevision++ }
                         }
                         Connections {
                             target: appViewModel ? appViewModel.favoriteList : null
-                            function onCountChanged() { parent.statsRevision++ }
+                            function onCountChanged() { statsRow.statsRevision++ }
                         }
                         Connections {
                             target: appViewModel ? appViewModel.recordingList : null
-                            function onCountChanged() { parent.statsRevision++ }
+                            function onCountChanged() { statsRow.statsRevision++ }
                         }
 
                         Repeater {
                             model: {
-                                var _ = parent.statsRevision
+                                var _ = statsRow.statsRevision
                                 if (!appViewModel || !appViewModel.databaseReady) return []
                                 var s = appViewModel.databaseStats()
                                 var items = []
