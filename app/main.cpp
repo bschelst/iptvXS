@@ -286,12 +286,17 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    auto applyQuitPolicy = [viewModel, &app]() {
+    const bool isGamescope = qEnvironmentVariableIsSet("GAMESCOPE_WAYLAND_DISPLAY")
+                             || qEnvironmentVariableIsSet("SteamDeck");
+
+    auto applyQuitPolicy = [viewModel, &app, isGamescope]() {
         const bool tray = viewModel->closeToTray() &&
                           QSystemTrayIcon::isSystemTrayAvailable();
-        app.setQuitOnLastWindowClosed(!tray);
-        qInfo("Quit policy: quitOnLastWindowClosed=%s (closeToTray=%s)",
-              tray ? "false" : "true", tray ? "on" : "off");
+        const bool keepAlive = tray || isGamescope;
+        app.setQuitOnLastWindowClosed(!keepAlive);
+        qInfo("Quit policy: quitOnLastWindowClosed=%s (closeToTray=%s gamescope=%s)",
+              keepAlive ? "false" : "true", tray ? "on" : "off",
+              isGamescope ? "yes" : "no");
     };
     applyQuitPolicy();
     QObject::connect(viewModel, &AppViewModel::closeToTrayChanged, &app,
