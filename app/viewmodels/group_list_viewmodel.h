@@ -74,6 +74,7 @@ public:
     Q_INVOKABLE QString logoUrlAt(int index) const;
     Q_INVOKABLE int64_t channelIdAt(int index) const;
     Q_INVOKABLE QString typeAt(int index) const;
+    Q_INVOKABLE QVariantList membersAsList() const;
     Q_INVOKABLE QVariantList searchChannels(const QString &query, int limit = 50) const;
     Q_INVOKABLE int memberCount(int64_t groupId) const;
 

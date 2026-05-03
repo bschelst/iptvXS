@@ -248,6 +248,23 @@ QString GroupListViewModel::typeAt(int index) const {
     return members_.at(index).channel.type;
 }
 
+QVariantList GroupListViewModel::membersAsList() const {
+    QVariantList result;
+    for (const auto &m : members_) {
+        QVariantMap item;
+        item[QStringLiteral("channelId")] = QVariant::fromValue(m.channelId);
+        item[QStringLiteral("name")] = m.channel.name;
+        item[QStringLiteral("streamUrl")] = m.channel.streamUrl;
+        item[QStringLiteral("logoUrl")] = m.channel.logoUrl;
+        item[QStringLiteral("type")] = m.channel.type;
+        item[QStringLiteral("serverId")] = QVariant::fromValue(m.channel.serverId);
+        item[QStringLiteral("externalId")] = m.channel.externalId;
+        item[QStringLiteral("epgChannelId")] = m.channel.epgChannelId;
+        result.append(item);
+    }
+    return result;
+}
+
 void GroupListViewModel::setChannelRepository(iptvxs::ChannelRepository *repo) {
     channelRepo_ = repo;
 }

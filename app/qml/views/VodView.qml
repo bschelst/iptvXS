@@ -1559,13 +1559,18 @@ Item {
     Connections {
         target: appViewModel
         function onSeriesEpisodesReady(seriesName, seasons) {
-            episodeDialog.seriesTitle = seriesName
-            episodeDialog.seasonsData = seasons
-            episodeDialog.selectedSeason = 0
-            episodeDialog.visible = true
-            episodeList.forceActiveFocus()
-            episodeList.currentIndex = 0
+            showSeriesDialog(seriesName, seasons)
         }
+    }
+
+    function showSeriesDialog(seriesName, seasons) {
+        episodeDialog.seriesTitle = seriesName
+        episodeDialog.seasonsData = seasons
+        episodeDialog.selectedSeason = 0
+        episodeDialog.visible = true
+        episodeList.forceActiveFocus()
+        episodeList.currentIndex = 0
+        if (appViewModel) appViewModel.clearPendingSeriesEpisodes()
     }
 
     Rectangle {
@@ -1987,6 +1992,8 @@ Item {
                 appViewModel.activeSeriesId(),
                 appViewModel.activeSeriesName(),
                 appViewModel.activeSeriesLogo())
+        } else if (appViewModel && appViewModel.hasPendingSeriesEpisodes()) {
+            showSeriesDialog(appViewModel.pendingSeriesName(), appViewModel.pendingSeriesEpisodes())
         }
     }
 

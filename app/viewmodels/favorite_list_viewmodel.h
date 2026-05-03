@@ -40,6 +40,7 @@ public:
     Q_INVOKABLE void toggleFavorite(int64_t channelId);
     Q_INVOKABLE bool isFavorite(int64_t channelId) const;
     Q_INVOKABLE void moveItem(int fromIndex, int toIndex);
+    Q_INVOKABLE QVariantList favoritesAsList() const;
 
 signals:
     void countChanged();

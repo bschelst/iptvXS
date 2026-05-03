@@ -256,12 +256,13 @@ ApplicationWindow {
     // --- Single persistent video surface with PIP ---
     property bool _inPlayer: appViewModel && appViewModel.currentView === "player"
     property bool _playing: appViewModel && !appViewModel.player.stopped
-    property bool pipMode: _playing && !_inPlayer && appViewModel.player.isLive
+    property bool _reconnecting: appViewModel && appViewModel.player.reconnecting
+    property bool pipMode: _playing && !_inPlayer && appViewModel.player.isLive && !_reconnecting
 
 
-    Rectangle {
-        id: videoContainer
-        visible: _playing
+        Rectangle {
+            id: videoContainer
+            visible: _playing
         focus: pipMode
         z: _inPlayer ? 0 : (pipMode ? 1000 : -1)
         color: "#000000"
@@ -282,6 +283,7 @@ ApplicationWindow {
             if (event.key === Qt.Key_Escape || event.key === Qt.Key_Back
                     || event.key === Qt.Key_B || event.key === Qt.Key_Delete) {
                 if (appViewModel) appViewModel.player.stop()
+                if (appViewModel) appViewModel.currentView = "home"
                 event.accepted = true
             } else if (event.key === Qt.Key_Select) {
                 if (appViewModel) appViewModel.currentView = "player"
@@ -330,7 +332,35 @@ ApplicationWindow {
 
         MpvVideoItem {
             anchors.fill: parent
+            visible: !_reconnecting
             player: appViewModel ? appViewModel.player.mpvPlayer : null
+        }
+
+        Rectangle {
+            id: reconnectOverlay
+            anchors.fill: parent
+            visible: _reconnecting
+            color: "#000000"
+            z: 1
+
+            Image {
+                anchors.centerIn: parent
+                width: 128
+                height: 128
+                source: "qrc:/images/iptvxs_tray.png"
+                fillMode: Image.PreserveAspectFit
+                opacity: 0.18
+            }
+
+            Text {
+                anchors.horizontalCenter: parent.horizontalCenter
+                anchors.top: parent.verticalCenter
+                anchors.topMargin: 84
+                text: "Reconnecting..."
+                font.pixelSize: Theme.fontSizeSm
+                font.bold: true
+                color: "#ccffffff"
+            }
         }
 
         MouseArea {
@@ -370,10 +400,20 @@ ApplicationWindow {
                 cursorShape: Qt.PointingHandCursor
                 onEntered: parent.pipCloseHov = true
                 onExited: parent.pipCloseHov = false
-                onClicked: { if (appViewModel) appViewModel.player.stop() }
+                onClicked: {
+                    if (appViewModel) {
+                        appViewModel.player.stop()
+                        appViewModel.currentView = "home"
+                    }
+                }
             }
 
-            Keys.onReturnPressed: { if (appViewModel) appViewModel.player.stop() }
+            Keys.onReturnPressed: {
+                if (appViewModel) {
+                    appViewModel.player.stop()
+                    appViewModel.currentView = "home"
+                }
+            }
             Keys.onEnterPressed: Keys.onReturnPressed(event)
             Keys.onUpPressed: { if (pipMode) videoContainer.forceActiveFocus() }
             Keys.onLeftPressed: { if (pipMode) videoContainer.forceActiveFocus() }
@@ -385,6 +425,7 @@ ApplicationWindow {
                 } else if (event.key === Qt.Key_Escape || event.key === Qt.Key_Back
                         || event.key === Qt.Key_B || event.key === Qt.Key_Delete) {
                     if (appViewModel) appViewModel.player.stop()
+                    if (appViewModel) appViewModel.currentView = "home"
                     event.accepted = true
                 }
             }
@@ -449,12 +490,7 @@ ApplicationWindow {
         onActivated: {
             if (appViewModel && appViewModel.currentView === "player") {
                 appViewModel.player.stop()
-                var prev = appViewModel.previousView()
-                if (prev && prev !== "player") {
-                    appViewModel.currentView = prev
-                } else {
-                    appViewModel.currentView = "channels"
-                }
+                appViewModel.currentView = "home"
             } else if (window.visibility === Window.FullScreen) {
                 window.showNormal()
             }

@@ -253,6 +253,8 @@ Item {
                                     width: serverListView.width
                                     height: 132
                                     radius: Theme.borderRadiusLarge
+                                    focus: serverListView.activeFocus && serverListView.currentIndex === index
+                                    activeFocusOnTab: true
                                     color: model.enabled
                                         ? (delegateHovered ? Theme.surfaceHover : Theme.surfaceElevated)
                                         : Theme.surface
@@ -281,6 +283,33 @@ Item {
                                         hoverEnabled: true
                                         onEntered: parent.delegateHovered = true
                                         onExited: parent.delegateHovered = false
+                                        onClicked: serverInfoCol.focusRow()
+                                    }
+
+                                    Keys.onRightPressed: serverInfoCol.focusActionAt(0)
+                                    Keys.onLeftPressed: {
+                                        if (Window.window && Window.window.focusSidebar) Window.window.focusSidebar()
+                                    }
+                                    Keys.onUpPressed: {
+                                        if (index > 0) {
+                                            serverListView.currentIndex = index - 1
+                                            serverListView.forceActiveFocus()
+                                            serverInfoCol.focusActionAt(0)
+                                        } else if (addServerButton) {
+                                            addServerButton.forceActiveFocus()
+                                        }
+                                    }
+                                    Keys.onDownPressed: {
+                                        if (index < serverListView.count - 1) {
+                                            serverListView.currentIndex = index + 1
+                                            serverListView.forceActiveFocus()
+                                            serverInfoCol.focusActionAt(0)
+                                        } else if (epgSourceListView.count > 0) {
+                                            if (epgSourceListView.currentIndex < 0) epgSourceListView.currentIndex = 0
+                                            epgSourceListView.forceActiveFocus()
+                                        } else if (addEpgButton) {
+                                            addEpgButton.forceActiveFocus()
+                                        }
                                     }
 
                                     RowLayout {
@@ -867,6 +896,8 @@ Item {
                                     width: epgSourceListView.width
                                     height: 92
                                     radius: Theme.borderRadiusLarge
+                                    focus: epgSourceListView.activeFocus && epgSourceListView.currentIndex === index
+                                    activeFocusOnTab: true
                                     color: model.enabled
                                         ? (epgHovered ? Theme.surfaceHover : Theme.surfaceElevated)
                                         : Theme.surface
@@ -901,6 +932,28 @@ Item {
                                         hoverEnabled: true
                                         onEntered: parent.epgHovered = true
                                         onExited: parent.epgHovered = false
+                                        onClicked: epgInfoCol.focusRow()
+                                    }
+
+                                    Keys.onRightPressed: epgInfoCol.focusActionAt(0)
+                                    Keys.onLeftPressed: {
+                                        if (Window.window && Window.window.focusSidebar) Window.window.focusSidebar()
+                                    }
+                                    Keys.onUpPressed: {
+                                        if (index > 0) {
+                                            epgSourceListView.currentIndex = index - 1
+                                            epgSourceListView.forceActiveFocus()
+                                            epgInfoCol.focusActionAt(0)
+                                        } else if (addEpgButton) {
+                                            addEpgButton.forceActiveFocus()
+                                        }
+                                    }
+                                    Keys.onDownPressed: {
+                                        if (index < epgSourceListView.count - 1) {
+                                            epgSourceListView.currentIndex = index + 1
+                                            epgSourceListView.forceActiveFocus()
+                                            epgInfoCol.focusActionAt(0)
+                                        }
                                     }
 
                                     RowLayout {

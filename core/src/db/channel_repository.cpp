@@ -5,10 +5,25 @@
 #include <QSet>
 #include <QSqlError>
 #include <QSqlQuery>
+#include <QUrl>
 #include <QVariant>
 
 namespace {
 inline QVariant toVariant(int64_t val) { return QVariant(static_cast<qlonglong>(val)); }
+
+QString sanitizeRemoteUrl(const QString &input) {
+    QUrl url(input.trimmed());
+    if (!url.isValid() ||
+        (url.scheme() != QStringLiteral("http") && url.scheme() != QStringLiteral("https"))) {
+        return {};
+    }
+    auto path = url.path();
+    while (path.startsWith(QStringLiteral("//"))) {
+        path.remove(0, 1);
+    }
+    url.setPath(path);
+    return url.toString(QUrl::FullyEncoded);
+}
 } // namespace
 
 namespace iptvxs {
@@ -514,8 +529,8 @@ Channel ChannelRepository::fromQuery(const QSqlQuery &query) {
     ch.categoryId = query.value(2).toLongLong();
     ch.externalId = query.value(3).toString();
     ch.name = query.value(4).toString();
-    ch.streamUrl = query.value(5).toString();
-    ch.logoUrl = query.value(6).toString();
+    ch.streamUrl = sanitizeRemoteUrl(query.value(5).toString());
+    ch.logoUrl = sanitizeRemoteUrl(query.value(6).toString());
     ch.epgChannelId = query.value(7).toString();
     ch.type = query.value(8).toString();
     ch.addedAt = query.value(9).toLongLong();

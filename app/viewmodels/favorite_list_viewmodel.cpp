@@ -112,3 +112,20 @@ void FavoriteListViewModel::loadFavorites() {
     endResetModel();
     emit countChanged();
 }
+
+QVariantList FavoriteListViewModel::favoritesAsList() const {
+    QVariantList result;
+    for (const auto &fav : favorites_) {
+        QVariantMap item;
+        item[QStringLiteral("channelId")] = QVariant::fromValue(fav.channelId);
+        item[QStringLiteral("name")] = fav.channel.name;
+        item[QStringLiteral("streamUrl")] = fav.channel.streamUrl;
+        item[QStringLiteral("logoUrl")] = fav.channel.logoUrl;
+        item[QStringLiteral("type")] = fav.channel.type;
+        item[QStringLiteral("externalId")] = fav.channel.externalId;
+        item[QStringLiteral("serverId")] = QVariant::fromValue(fav.channel.serverId);
+        item[QStringLiteral("epgChannelId")] = fav.channel.epgChannelId;
+        result.append(item);
+    }
+    return result;
+}

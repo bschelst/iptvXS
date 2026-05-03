@@ -87,7 +87,10 @@ Item {
         if (!appViewModel || channelId <= 0) return
         var ch = appViewModel.channelInfo(channelId)
         if (ch.type === "series" && ch.externalId) {
-            appViewModel.fetchSeriesEpisodes(ch.serverId, ch.externalId, ch.name, ch.logoUrl)
+            var vm = appViewModel
+            vm.setActiveSeriesDialog(ch.name, ch.serverId, ch.externalId, ch.logoUrl, channelId)
+            vm.currentView = "player"
+            vm.fetchSeriesEpisodes(ch.serverId, ch.externalId, ch.name, ch.logoUrl)
         } else {
             appViewModel.playChannelById(channelId)
         }
@@ -458,7 +461,6 @@ Item {
             var channelId = hist.data(idx, 258)  // ChannelIdRole (UserRole+2)
             var streamUrl = hist.data(idx, 264)  // StreamUrlRole
             var isFinished = totalDur > 0 && posSecs >= totalDur * 0.95
-            if (isFinished) continue
 
             // Series: dedup by series id so only the latest in-progress episode appears.
             // Others: dedup by channelId or URL.
@@ -466,7 +468,14 @@ Item {
                 ? "series:" + channelId
                 : ((!channelId || channelId <= 0) ? "url:" + streamUrl : "id:" + channelId)
             if (seen[dedupeKey]) continue
+
+            if (cType !== "series" && isFinished) {
+                seen[dedupeKey] = true
+                continue
+            }
+
             seen[dedupeKey] = true
+            if (cType === "series" && isFinished) continue
             continueWatchingModel.append({
                 channelId:   channelId,
                 channelName: hist.data(idx, 259),  // ChannelNameRole (UserRole+3)
@@ -667,19 +676,41 @@ Item {
                 }
             }
 
-            function activateCurrentCard() {
-                if (currentIndex < 0 || !appViewModel) return
-                if (cardRow.isQuickAccess) {
-                    var qa = quickAccessModel.get(currentIndex)
-                    if (qa) appViewModel.currentView = qa.target
-                    return
+    function activateCurrentCard() {
+        if (currentIndex < 0 || !appViewModel) return
+        if (cardRow.isQuickAccess) {
+            var qa = quickAccessModel.get(currentIndex)
+            if (qa) appViewModel.currentView = qa.target
+            return
+        }
+        if (cardRow.isHistory) {
+            var hItem = continueWatchingModel.get(currentIndex)
+            if (!hItem) return
+            if ((hItem.channelType || "") === "live") {
+                var liveItems = []
+                for (var i = 0; i < continueWatchingModel.count; i++) {
+                    var li = continueWatchingModel.get(i)
+                    if (!li || (li.channelType || "") !== "live") continue
+                    liveItems.push({
+                        channelId: li.channelId,
+                        name: li.channelName,
+                        streamUrl: li.streamUrl,
+                        logoUrl: li.channelLogo,
+                        type: li.channelType,
+                        epgChannelId: ""
+                    })
                 }
-                if (cardRow.isHistory) {
-                    var hItem = continueWatchingModel.get(currentIndex)
-                    if (!hItem) return
-                    appViewModel.playHistoryEntry(hItem.historyId)
-                    return
+                if (liveItems.length > 0) {
+                    appViewModel.setZapContext(liveItems, hItem.channelId, "Continue Watching")
+                } else {
+                    appViewModel.clearZapContext()
                 }
+            } else {
+                appViewModel.clearZapContext()
+            }
+            appViewModel.playHistoryEntry(hItem.historyId)
+            return
+        }
                 var item = currentItem
                 if (item && item.itemChannelId) {
                     homeView.openOrPlayChannel(item.itemChannelId)
@@ -879,7 +910,7 @@ Item {
 
                 Text {
                     anchors.centerIn: parent
-                    text: "✓"
+                    text: "×"
                     font.pixelSize: 14
                     font.bold: true
                     color: "#ffffff"

@@ -653,7 +653,7 @@ Item {
                             cursorShape: Qt.PointingHandCursor
                             onClicked: {
                                 if (appViewModel) {
-                                    appViewModel.player.play(model.streamUrl, model.channelName, model.channelLogo, model.channelId, model.epgChannelId || "")
+                                    appViewModel.player.play(model.streamUrl, model.channelName, model.channelLogo, model.channelId, model.epgChannelId || "", 0, true, true)
                                     appViewModel.currentView = "player"
                                 }
                             }
@@ -767,7 +767,7 @@ Item {
                             var row = appViewModel.epg.rowData(currentChannelIndex)
                             if (row) {
                                 appViewModel.player.play(row.streamUrl, row.channelName,
-                                    row.channelLogo, row.channelId, row.epgChannelId || "")
+                                    row.channelLogo, row.channelId, row.epgChannelId || "", 0, true, true)
                                 appViewModel.currentView = "player"
                             }
                         }

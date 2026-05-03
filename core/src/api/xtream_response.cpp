@@ -3,8 +3,25 @@
 
 #include <QDebug>
 #include <QJsonArray>
+#include <QUrl>
 
 namespace iptvxs {
+
+namespace {
+QString normalizeRemoteUrl(const QString &input) {
+    QUrl url(input.trimmed());
+    if (!url.isValid() ||
+        (url.scheme() != QStringLiteral("http") && url.scheme() != QStringLiteral("https"))) {
+        return {};
+    }
+    auto path = url.path();
+    while (path.startsWith(QStringLiteral("//"))) {
+        path.remove(0, 1);
+    }
+    url.setPath(path);
+    return url.toString(QUrl::FullyEncoded);
+}
+} // namespace
 
 XtreamUserInfo XtreamUserInfo::fromJson(const QJsonObject &obj) {
     XtreamUserInfo info;
@@ -60,16 +77,16 @@ XtreamStream XtreamStream::fromJson(const QJsonObject &obj) {
               qPrintable(stream.name),
               qPrintable(obj.keys().join(", ")));
     }
-    stream.streamIcon = obj.value("stream_icon").toString();
+    stream.streamIcon = normalizeRemoteUrl(obj.value("stream_icon").toString());
     if (stream.streamIcon.isEmpty()) {
-        stream.streamIcon = obj.value("cover").toString();
+        stream.streamIcon = normalizeRemoteUrl(obj.value("cover").toString());
     }
     stream.epgChannelId = obj.value("epg_channel_id").toString();
     stream.added = obj.value("added").toVariant().toLongLong();
     stream.categoryId = obj.value("category_id").toVariant().toString();
     stream.customSid = obj.value("custom_sid").toString();
     stream.tvArchive = obj.value("tv_archive").toVariant().toInt();
-    stream.directSource = obj.value("direct_source").toString();
+    stream.directSource = normalizeRemoteUrl(obj.value("direct_source").toString());
     stream.tvArchiveDuration = obj.value("tv_archive_duration").toVariant().toInt();
     return stream;
 }

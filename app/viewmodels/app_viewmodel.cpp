@@ -1116,6 +1116,8 @@ void AppViewModel::fetchSeriesEpisodes(int64_t serverId, const QString &seriesId
         if (cached) {
             auto seasons = parseSeriesEpisodes(*cached, seriesName, logoUrl);
             if (!seasons.isEmpty()) {
+                pendingSeriesName_ = seriesName;
+                pendingSeriesEpisodes_ = seasons;
                 emit seriesEpisodesReady(seriesName, seasons);
                 return;
             }
@@ -1141,6 +1143,8 @@ void AppViewModel::fetchSeriesEpisodes(int64_t serverId, const QString &seriesId
                     return;
                 }
 
+                pendingSeriesName_ = seriesName;
+                pendingSeriesEpisodes_ = seasons;
                 emit seriesEpisodesReady(seriesName, seasons);
             });
 
@@ -1633,7 +1637,8 @@ void AppViewModel::playChannelById(int64_t channelId, int startPositionSecs) {
     if (!channelRepo_ || channelId <= 0) return;
     auto ch = channelRepo_->findById(channelId);
     if (!ch) return;
-    playerVm_->play(ch->streamUrl, ch->name, ch->logoUrl, ch->id, ch->epgChannelId, startPositionSecs);
+    playerVm_->play(ch->streamUrl, ch->name, ch->logoUrl, ch->id, ch->epgChannelId,
+                    startPositionSecs, true, ch->type == QStringLiteral("live"));
     setCurrentView(QStringLiteral("player"));
 }
 
@@ -1675,7 +1680,9 @@ void AppViewModel::playHistoryEntry(int64_t historyId) {
                 setActiveSeriesDialog(ch->name, ch->serverId, ch->externalId, ch->logoUrl);
             }
         }
-        playerVm_->play(playUrl, playTitle, playLogo, entry->channelId, {}, startPositionSecs);
+        const bool isLiveEntry = entry->channelType == QStringLiteral("live");
+        playerVm_->play(playUrl, playTitle, playLogo, entry->channelId, {},
+                        startPositionSecs, true, isLiveEntry);
         iptvxs::HistoryEntry resumeEntry = *entry;
         resumeEntry.streamUrl = playUrl;
         resumeEntry.channelName = playTitle;
@@ -1694,7 +1701,8 @@ void AppViewModel::playHistoryEntry(int64_t historyId) {
                 setActiveSeriesDialog(ch->name, ch->serverId, ch->externalId, ch->logoUrl);
             }
             playerVm_->play(ch->streamUrl, ch->name, ch->logoUrl, ch->id,
-                            ch->epgChannelId, startPositionSecs);
+                            ch->epgChannelId, startPositionSecs, true,
+                            ch->type == QStringLiteral("live"));
             iptvxs::HistoryEntry resumeEntry = *entry;
             resumeEntry.streamUrl = ch->streamUrl;
             resumeEntry.channelName = ch->name;
@@ -1953,7 +1961,7 @@ void AppViewModel::playRecordingFromDrive(int64_t recordingId) {
             : QFileInfo(rec->filePath).baseName();
 
         qInfo("Playing recording %lld from Google Drive", static_cast<long long>(recordingId));
-        playerVm_->play(url, channelName, {}, 0);
+        playerVm_->play(url, channelName, {}, 0, {}, 0, true, true);
         setCurrentView(QStringLiteral("player"));
 
         if (gdrivePlaybackCleanupConnection_) {
@@ -1995,6 +2003,89 @@ void AppViewModel::playRecordingFromDrive(int64_t recordingId) {
     startPlayback();
 }
 
+void AppViewModel::setZapContext(const QVariantList &items, int64_t currentChannelId, const QString &title) {
+    QVariantList filtered;
+    filtered.reserve(items.size());
+    for (const auto &value : items) {
+        const auto map = value.toMap();
+        const auto type = map.value(QStringLiteral("type")).toString();
+        const auto channelId = map.value(QStringLiteral("channelId")).toLongLong();
+        const auto streamUrl = map.value(QStringLiteral("streamUrl")).toString();
+        if (type != QStringLiteral("live") || channelId <= 0 || streamUrl.isEmpty()) {
+            continue;
+        }
+        filtered.append(map);
+    }
+
+    zapContextItems_ = filtered;
+    zapContextTitle_ = title;
+    zapContextIndex_ = -1;
+    for (int i = 0; i < zapContextItems_.size(); ++i) {
+        const auto map = zapContextItems_.at(i).toMap();
+        if (map.value(QStringLiteral("channelId")).toLongLong() == currentChannelId) {
+            zapContextIndex_ = i;
+            break;
+        }
+    }
+    if (zapContextIndex_ < 0 && !zapContextItems_.isEmpty()) {
+        zapContextIndex_ = 0;
+    }
+    emit zapContextChanged();
+}
+
+void AppViewModel::clearZapContext() {
+    if (zapContextItems_.isEmpty() && zapContextIndex_ < 0 && zapContextTitle_.isEmpty()) return;
+    zapContextItems_.clear();
+    zapContextIndex_ = -1;
+    zapContextTitle_.clear();
+    emit zapContextChanged();
+}
+
+bool AppViewModel::hasZapContext() const {
+    return !zapContextItems_.isEmpty();
+}
+
+QVariantList AppViewModel::zapContext() const {
+    return zapContextItems_;
+}
+
+int AppViewModel::zapContextIndex() const {
+    return zapContextIndex_;
+}
+
+QString AppViewModel::zapContextTitle() const {
+    return zapContextTitle_;
+}
+
+void AppViewModel::zapPlayIndex(int index) {
+    if (!playerVm_ || index < 0 || index >= zapContextItems_.size()) return;
+    const auto item = zapContextItems_.at(index).toMap();
+    const auto channelId = item.value(QStringLiteral("channelId")).toLongLong();
+    const auto streamUrl = item.value(QStringLiteral("streamUrl")).toString();
+    const auto name = item.value(QStringLiteral("name")).toString();
+    const auto logoUrl = item.value(QStringLiteral("logoUrl")).toString();
+    const auto epgChannelId = item.value(QStringLiteral("epgChannelId")).toString();
+    if (channelId <= 0 || streamUrl.isEmpty() || name.isEmpty()) return;
+
+    zapContextIndex_ = index;
+    emit zapContextChanged();
+    playerVm_->setReconnecting(true);
+    playerVm_->play(streamUrl, name, logoUrl, channelId, epgChannelId, 0, true, true);
+    setCurrentView(QStringLiteral("player"));
+}
+
+void AppViewModel::zapNext() {
+    if (zapContextItems_.isEmpty()) return;
+    const int next = qMin(zapContextIndex_ + 1, zapContextItems_.size() - 1);
+    zapPlayIndex(next);
+}
+
+void AppViewModel::zapPrevious() {
+    if (zapContextItems_.isEmpty()) return;
+    const int prev = qMax(zapContextIndex_ - 1, 0);
+    zapPlayIndex(prev);
+}
+
 void AppViewModel::playChannelByName(const QString &name) {
     if (!channelRepo_ || !serverRepo_ || name.isEmpty()) return;
     auto servers = serverRepo_->findAll();
@@ -2002,7 +2093,8 @@ void AppViewModel::playChannelByName(const QString &name) {
         auto results = channelRepo_->search(srv.id, name, 1, 0);
         if (!results.isEmpty()) {
             const auto &ch = results.first();
-            playerVm_->play(ch.streamUrl, ch.name, ch.logoUrl, ch.id, ch.epgChannelId);
+            playerVm_->play(ch.streamUrl, ch.name, ch.logoUrl, ch.id, ch.epgChannelId, 0, true,
+                            ch.type == QStringLiteral("live"));
             setCurrentView(QStringLiteral("player"));
             return;
         }
@@ -2014,7 +2106,7 @@ void AppViewModel::playSeriesEpisode(const QString &episodeId, const QString &ex
                                       int64_t channelId) {
     auto url = QStringLiteral("%1/series/%2/%3/%4.%5")
                    .arg(seriesServerUrl_, seriesUsername_, seriesPassword_, episodeId, ext);
-    playerVm_->play(url, title, logoUrl, channelId);
+    playerVm_->play(url, title, logoUrl, channelId, {}, 0, true, false);
     setCurrentView(QStringLiteral("player"));
 }
 
@@ -2023,11 +2115,12 @@ bool AppViewModel::isCategoryHidden(int64_t categoryId) const {
     return categorySettingsRepo_->isHidden(categoryId);
 }
 
-void AppViewModel::setActiveSeriesDialog(const QString &name, int64_t serverId, const QString &seriesId, const QString &logoUrl) {
+void AppViewModel::setActiveSeriesDialog(const QString &name, int64_t serverId, const QString &seriesId, const QString &logoUrl, int64_t channelId) {
     activeSeriesName_ = name;
     activeSeriesServerId_ = serverId;
     activeSeriesId_ = seriesId;
     activeSeriesLogo_ = logoUrl;
+    if (channelId > 0) activeSeriesChannelId_ = channelId;
 }
 
 void AppViewModel::clearActiveSeriesDialog() {
@@ -2035,6 +2128,7 @@ void AppViewModel::clearActiveSeriesDialog() {
     activeSeriesServerId_ = 0;
     activeSeriesId_.clear();
     activeSeriesLogo_.clear();
+    activeSeriesChannelId_ = 0;
 }
 
 void AppViewModel::reopenSeriesEpisodes() {
@@ -2047,6 +2141,24 @@ QString AppViewModel::activeSeriesName() const { return activeSeriesName_; }
 int64_t AppViewModel::activeSeriesServerId() const { return activeSeriesServerId_; }
 QString AppViewModel::activeSeriesId() const { return activeSeriesId_; }
 QString AppViewModel::activeSeriesLogo() const { return activeSeriesLogo_; }
+int64_t AppViewModel::activeSeriesChannelId() const { return activeSeriesChannelId_; }
+
+bool AppViewModel::hasPendingSeriesEpisodes() const {
+    return !pendingSeriesEpisodes_.isEmpty();
+}
+
+QString AppViewModel::pendingSeriesName() const {
+    return pendingSeriesName_;
+}
+
+QVariantList AppViewModel::pendingSeriesEpisodes() const {
+    return pendingSeriesEpisodes_;
+}
+
+void AppViewModel::clearPendingSeriesEpisodes() {
+    pendingSeriesName_.clear();
+    pendingSeriesEpisodes_.clear();
+}
 
 bool AppViewModel::hasWatched(int64_t channelId) const {
     if (!historyRepo_ || channelId <= 0) return false;

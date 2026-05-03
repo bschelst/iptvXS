@@ -55,6 +55,7 @@ bool MpvPlayer::initialize() {
     mpvSetOptionString(mpv_, "input-vo-keyboard", "no");
     mpvSetOptionString(mpv_, "osc", "no");
     mpvSetOptionString(mpv_, "ytdl", "no");
+    mpvSetOptionString(mpv_, "sub-auto", "no");
     mpvSetOptionString(mpv_, "cache", "yes");
     mpvSetOptionString(mpv_, "demuxer-max-bytes", "50MiB");
     mpvSetOptionString(mpv_, "demuxer-readahead-secs", "60");

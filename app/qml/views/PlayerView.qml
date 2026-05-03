@@ -14,9 +14,15 @@ Item {
     property string pendingCastUrl: ""
     property string pendingCastName: ""
     property string pendingCastCt: ""
+    property bool seriesDialogVisible: false
+    property string seriesDialogTitle: ""
+    property var seriesDialogSeasons: []
+    property int seriesDialogSelectedSeason: 0
+    property int seriesDialogChannelId: 0
+    property bool zapDialogVisible: false
 
     function visibleControlButtons() {
-        var buttons = [playPauseBtn, stopBtn, favBtn, recBtn, castBtn, ccBtn, audioBtn, episodeBtn, muteBtn, stretchBtn, fullscreenBtn]
+        var buttons = [playPauseBtn, stopBtn, favBtn, recBtn, castBtn, ccBtn, audioBtn, episodeBtn, zapPrevBtn, zapNextBtn, zapBtn, muteBtn, stretchBtn, fullscreenBtn]
         var visibleButtons = []
         for (var i = 0; i < buttons.length; i++) {
             if (buttons[i] && buttons[i].visible)
@@ -99,6 +105,30 @@ Item {
     function formatResolution(height) {
         if (!height || height <= 0) return ""
         return height + "p"
+    }
+
+    function showSeriesDialog(seriesName, seasons) {
+        seriesDialogTitle = seriesName
+        seriesDialogSeasons = seasons || []
+        seriesDialogSelectedSeason = 0
+        seriesDialogChannelId = appViewModel ? appViewModel.activeSeriesChannelId() : 0
+        seriesDialogVisible = seriesDialogSeasons.length > 0
+        if (seriesDialogVisible && seriesEpisodeList) {
+            seriesEpisodeList.currentIndex = 0
+            seriesEpisodeList.forceActiveFocus()
+        }
+        if (appViewModel) appViewModel.clearPendingSeriesEpisodes()
+    }
+
+    function showZapDialog() {
+        if (!appViewModel || !appViewModel.hasZapContext) return
+        zapDialogVisible = appViewModel.hasZapContext
+        if (zapDialogVisible && zapList) {
+            var idx = appViewModel.zapContextIndex
+            zapList.currentIndex = idx >= 0 ? idx : 0
+            zapList.forceActiveFocus()
+            zapList.positionViewAtIndex(zapList.currentIndex, ListView.Contain)
+        }
     }
 
     Rectangle {
@@ -409,11 +439,11 @@ Item {
                                 castBtn.forceActiveFocus()
                                 if (appViewModel && appViewModel.chromecast.connected) {
                                     castStopPopup.visible = !castStopPopup.visible
-                                    castDevicePopup.visible = false
+                                    if (castStopPopup.visible && castDevicePopup.visible) castDevicePopup.closeDialog()
                                 } else if (appViewModel) {
                                     appViewModel.chromecast.startDiscovery()
                                     castDevicePopup.visible = !castDevicePopup.visible
-                                    castStopPopup.visible = false
+                                    if (castDevicePopup.visible && castStopPopup.visible) castStopPopup.closeDialog()
                                 }
                             }
                         }
@@ -426,7 +456,8 @@ Item {
 
                     PlayerButton {
                         id: ccBtn
-                        visible: appViewModel && appViewModel.subtitlesEnabled && !appViewModel.player.isLive
+                        visible: appViewModel && appViewModel.subtitlesEnabled
+                                 && !appViewModel.player.isLive
                         text: "CC"
                         iconSize: 14
                         onClicked: subTrackPopup.visible = !subTrackPopup.visible
@@ -448,16 +479,48 @@ Item {
                         iconSize: 12
                         onClicked: {
                             if (appViewModel) {
-                                appViewModel.player.stop()
-                                appViewModel.reopenSeriesEpisodes()
-                                appViewModel.currentView = "vod_series"
+                                if (appViewModel.hasPendingSeriesEpisodes()) {
+                                    showSeriesDialog(appViewModel.pendingSeriesName(), appViewModel.pendingSeriesEpisodes())
+                                } else {
+                                    appViewModel.reopenSeriesEpisodes()
+                                }
                             }
                         }
                     }
 
+                    PlayerButton {
+                        id: zapPrevBtn
+                        visible: appViewModel && appViewModel.hasZapContext && appViewModel.player.isLive
+                        text: "CH-"
+                        iconSize: 11
+                        onClicked: {
+                            if (appViewModel) appViewModel.zapPrevious()
+                            zapDialogVisible = false
+                        }
+                    }
+
+                    PlayerButton {
+                        id: zapNextBtn
+                        visible: appViewModel && appViewModel.hasZapContext && appViewModel.player.isLive
+                        text: "CH+"
+                        iconSize: 11
+                        onClicked: {
+                            if (appViewModel) appViewModel.zapNext()
+                            zapDialogVisible = false
+                        }
+                    }
+
+                    PlayerButton {
+                        id: zapBtn
+                        visible: appViewModel && appViewModel.hasZapContext && appViewModel.player.isLive
+                        text: "ZAP"
+                        iconSize: 11
+                        onClicked: showZapDialog()
+                    }
+
                     Rectangle {
                         width: 1; height: 28; color: "#40ffffff"
-                        visible: ccBtn.visible || audioBtn.visible || episodeBtn.visible
+                        visible: ccBtn.visible || audioBtn.visible || episodeBtn.visible || zapPrevBtn.visible || zapNextBtn.visible || zapBtn.visible
                     }
 
                     Rectangle {
@@ -863,6 +926,524 @@ Item {
             }
         }
 
+        // --- Series episode picker popup ---
+        Rectangle {
+            id: seriesDialog
+            visible: seriesDialogVisible
+            anchors.fill: parent
+            color: "#C0000000"
+            z: 220
+
+            function playEpisode(idx) {
+                if (idx < 0 || !appViewModel) return
+                if (!seriesDialogSeasons.length || !seriesDialogSeasons[seriesDialogSelectedSeason]) return
+                var episodes = seriesDialogSeasons[seriesDialogSelectedSeason].episodes
+                if (!episodes || idx >= episodes.length) return
+                var ep = episodes[idx]
+                var seasonNum = seriesDialogSeasons[seriesDialogSelectedSeason].season
+                var displayTitle = seriesDialogTitle + " - S" + seasonNum + "E" + (ep.episodeNum || (idx + 1))
+                if (ep.title) displayTitle += " - " + ep.title
+                appViewModel.playSeriesEpisode(ep.id, ep.ext, displayTitle, ep.logoUrl, seriesDialogChannelId)
+
+                if (idx + 1 < episodes.length) {
+                    var nextEp = episodes[idx + 1]
+                    var nextNum = nextEp.episodeNum || (idx + 2)
+                    var nextTitle = seriesDialogTitle + " - S" + seasonNum + "E" + nextNum
+                    if (nextEp.title) nextTitle += " - " + nextEp.title
+                    var nextUrl = appViewModel.buildSeriesEpisodeUrl(nextEp.id, nextEp.ext)
+                    appViewModel.player.setNextEpisode(nextUrl, nextTitle, nextEp.logoUrl || "", seriesDialogChannelId)
+                    if (appViewModel.chromecast.connected)
+                        appViewModel.chromecast.setNextEpisode(nextUrl, nextTitle)
+                }
+
+                seriesDialog.closeDialog()
+            }
+
+            function closeDialog() {
+                seriesDialogVisible = false
+                seriesDialogChannelId = 0
+                if (appViewModel) appViewModel.clearPendingSeriesEpisodes()
+                if (appViewModel && appViewModel.currentView === "player" && appViewModel.player.stopped) {
+                    appViewModel.currentView = "home"
+                }
+            }
+
+            function pokeAutoHide() {
+                seriesAutoHideTimer.restart()
+            }
+
+            Timer {
+                id: seriesAutoHideTimer
+                interval: 5000
+                repeat: false
+                onTriggered: seriesDialog.closeDialog()
+            }
+
+            MouseArea {
+                anchors.fill: parent
+                onClicked: seriesDialog.closeDialog()
+            }
+
+            Keys.onPressed: function(event) {
+                if (event.key === Qt.Key_Escape || event.key === Qt.Key_Back
+                        || event.key === Qt.Key_B || event.key === Qt.Key_Delete) {
+                    seriesDialog.closeDialog()
+                    event.accepted = true
+                } else if (event.key === Qt.Key_Up || event.key === Qt.Key_Down
+                           || event.key === Qt.Key_Left || event.key === Qt.Key_Right
+                           || event.key === Qt.Key_Select || event.key === Qt.Key_Space) {
+                    seriesDialog.pokeAutoHide()
+                }
+            }
+
+            Rectangle {
+                anchors.centerIn: parent
+                width: Math.min(parent.width - 80, 600)
+                height: Math.min(parent.height - 80, 500)
+                radius: Theme.borderRadiusLarge
+                color: Theme.surfaceElevated
+                border.color: Theme.surfaceBorder
+                border.width: 1
+
+                ColumnLayout {
+                    anchors.fill: parent
+                    anchors.margins: Theme.spacingLg
+                    spacing: Theme.spacingMd
+
+                    RowLayout {
+                        Layout.fillWidth: true
+
+                        Text {
+                            text: seriesDialogTitle
+                            font.pixelSize: Theme.fontSizeLg
+                            font.bold: true
+                            color: Theme.textPrimary
+                            elide: Text.ElideRight
+                            Layout.fillWidth: true
+                        }
+
+                        Rectangle {
+                            width: 28
+                            height: 28
+                            radius: 14
+                            color: seriesCloseHov ? Theme.surfaceHover : "transparent"
+                            property bool seriesCloseHov: false
+
+                            Text {
+                                anchors.centerIn: parent
+                                text: "✕"
+                                font.pixelSize: 16
+                                font.bold: true
+                                color: Theme.textSecondary
+                            }
+
+                            MouseArea {
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onEntered: { parent.seriesCloseHov = true; seriesDialog.pokeAutoHide() }
+                                onExited: { parent.seriesCloseHov = false; seriesDialog.pokeAutoHide() }
+                                onClicked: seriesDialog.closeDialog()
+                            }
+                        }
+                    }
+
+                    Row {
+                        Layout.fillWidth: true
+                        spacing: 4
+
+                        Repeater {
+                            model: seriesDialogSeasons
+
+                            Rectangle {
+                                width: seasonLabel.implicitWidth + 20
+                                height: 32
+                                radius: 16
+                                color: seriesDialogSelectedSeason === index
+                                    ? Theme.accent : seasonTabHov ? Theme.surfaceHover : Theme.surface
+                                border.color: seriesDialogSelectedSeason === index
+                                    ? Theme.accent : Theme.surfaceBorder
+                                border.width: 1
+                                focus: false
+                                activeFocusOnTab: true
+                                property bool seasonTabHov: false
+
+                                Text {
+                                    id: seasonLabel
+                                    anchors.centerIn: parent
+                                    text: "S" + modelData.season
+                                    font.pixelSize: Theme.fontSizeSm
+                                    font.bold: seriesDialogSelectedSeason === index
+                                    color: seriesDialogSelectedSeason === index
+                                        ? Theme.textOnAccent : Theme.textSecondary
+                                }
+
+                                MouseArea {
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    cursorShape: Qt.PointingHandCursor
+                                    onEntered: { parent.seasonTabHov = true; seriesDialog.pokeAutoHide() }
+                                    onExited: { parent.seasonTabHov = false; seriesDialog.pokeAutoHide() }
+                                    onClicked: {
+                                        seriesDialogSelectedSeason = index
+                                        seriesDialog.pokeAutoHide()
+                                    }
+                                }
+
+                                Keys.onReturnPressed: {
+                                    seriesDialogSelectedSeason = index
+                                    seriesDialog.pokeAutoHide()
+                                }
+                                Keys.onEnterPressed: Keys.onReturnPressed(event)
+                                Keys.onPressed: function(event) {
+                                    if (event.key === Qt.Key_Select || event.key === Qt.Key_Space) {
+                                        seriesDialogSelectedSeason = index
+                                        event.accepted = true
+                                        seriesDialog.pokeAutoHide()
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    ListView {
+                        id: seriesEpisodeList
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        clip: true
+                        spacing: 2
+                        focus: true
+                        keyNavigationEnabled: true
+                        highlight: Rectangle { color: Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.13); radius: Theme.borderRadiusSmall }
+                        highlightFollowsCurrentItem: true
+                        model: seriesDialogSeasons.length > 0
+                            ? seriesDialogSeasons[seriesDialogSelectedSeason].episodes
+                            : []
+
+                        Keys.onReturnPressed: playEpisode(currentIndex)
+                        Keys.onEnterPressed: playEpisode(currentIndex)
+                        Keys.onEscapePressed: seriesDialog.closeDialog()
+                        Keys.onLeftPressed: {
+                            if (seriesDialogSelectedSeason > 0) seriesDialogSelectedSeason--
+                            seriesDialog.pokeAutoHide()
+                        }
+                        Keys.onRightPressed: {
+                            if (seriesDialogSelectedSeason < seriesDialogSeasons.length - 1) seriesDialogSelectedSeason++
+                            seriesDialog.pokeAutoHide()
+                        }
+
+                        ScrollBar.vertical: ScrollBar {
+                            active: true
+                            policy: ScrollBar.AsNeeded
+                            contentItem: Rectangle {
+                                implicitWidth: 6
+                                radius: 3
+                                color: Theme.accent
+                                opacity: parent.active ? 0.8 : 0.0
+                                Behavior on opacity { NumberAnimation { duration: Theme.animNormal } }
+                            }
+                            background: Rectangle {
+                                implicitWidth: 6
+                                color: "transparent"
+                            }
+                        }
+
+                        delegate: Rectangle {
+                            width: seriesEpisodeList.width
+                            height: 44
+                            radius: Theme.borderRadiusSmall
+                            color: epHov ? Theme.surfaceHover : "transparent"
+                            property bool epHov: false
+
+                            RowLayout {
+                                anchors.fill: parent
+                                anchors.leftMargin: Theme.spacingMd
+                                anchors.rightMargin: Theme.spacingMd
+                                spacing: Theme.spacingSm
+
+                                Text {
+                                    text: "E" + (modelData.episodeNum || (index + 1))
+                                    font.pixelSize: Theme.fontSizeSm
+                                    font.bold: true
+                                    color: Theme.accent
+                                    Layout.preferredWidth: 36
+                                }
+
+                                Text {
+                                    text: {
+                                        var t = modelData.title || ("Episode " + (index + 1))
+                                        var series = seriesDialogTitle
+                                        if (series && t.indexOf(series) === 0) {
+                                            t = t.substring(series.length).replace(/^\s*-\s*/, "")
+                                        }
+                                        t = t.replace(/^S\d+E\d+\s*-?\s*/i, "")
+                                        return t || ("Episode " + (index + 1))
+                                    }
+                                    font.pixelSize: Theme.fontSizeSm
+                                    color: Theme.textPrimary
+                                    elide: Text.ElideRight
+                                    Layout.fillWidth: true
+                                }
+
+                                Text {
+                                    visible: {
+                                        if (!appViewModel) return false
+                                        var url = appViewModel.buildSeriesEpisodeUrl(modelData.id, modelData.ext)
+                                        return appViewModel.hasWatchedUrl(url)
+                                    }
+                                    text: "\u2713"
+                                    font.pixelSize: 14
+                                    font.bold: true
+                                    color: Theme.success
+                                }
+
+                                Text {
+                                    text: "\u203A"
+                                    font.pixelSize: 18
+                                    font.bold: true
+                                    color: Theme.textSecondary
+                                }
+                            }
+
+                            MouseArea {
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onEntered: parent.epHov = true
+                                onExited: parent.epHov = false
+                                onClicked: seriesDialog.playEpisode(index)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // --- Live TV zap popup ---
+        Rectangle {
+            id: zapDialog
+            visible: zapDialogVisible
+            focus: visible
+            anchors.fill: parent
+            color: "#C0000000"
+            z: 221
+
+            onVisibleChanged: {
+                if (visible && zapList) {
+                    var idx = appViewModel ? appViewModel.zapContextIndex : -1
+                    zapList.currentIndex = idx >= 0 ? idx : 0
+                    zapList.forceActiveFocus()
+                    zapList.positionViewAtIndex(zapList.currentIndex, ListView.Contain)
+                }
+            }
+
+            function playItem(idx) {
+                if (!appViewModel || idx < 0) return
+                var items = appViewModel.zapContext
+                if (!items || idx >= items.length) return
+                var item = items[idx]
+                if (!item || !item.channelId || !item.streamUrl) return
+                if (item.type && item.type !== "live") return
+                appViewModel.zapPlayIndex(idx)
+                zapDialogVisible = false
+            }
+
+            function closeDialog() {
+                zapDialogVisible = false
+            }
+
+            MouseArea {
+                anchors.fill: parent
+                onClicked: zapDialog.closeDialog()
+            }
+
+            Keys.onPressed: function(event) {
+                if (event.key === Qt.Key_Escape || event.key === Qt.Key_Back
+                        || event.key === Qt.Key_B || event.key === Qt.Key_Delete) {
+                    zapDialog.closeDialog()
+                    event.accepted = true
+                }
+            }
+
+            Rectangle {
+                anchors.centerIn: parent
+                width: Math.min(parent.width - 80, 520)
+                height: Math.min(parent.height - 80, 560)
+                radius: Theme.borderRadiusLarge
+                color: Theme.surfaceElevated
+                border.color: Theme.surfaceBorder
+                border.width: 1
+
+                ColumnLayout {
+                    anchors.fill: parent
+                    anchors.margins: Theme.spacingLg
+                    spacing: Theme.spacingMd
+
+                    RowLayout {
+                        Layout.fillWidth: true
+
+                        Text {
+                            text: (appViewModel ? appViewModel.zapContextTitle : "") + "  •  " + (appViewModel ? (appViewModel.zapContextIndex + 1) : 0) + "/" + (appViewModel ? appViewModel.zapContext.length : 0)
+                            font.pixelSize: Theme.fontSizeLg
+                            font.bold: true
+                            color: Theme.textPrimary
+                            elide: Text.ElideRight
+                            Layout.fillWidth: true
+                        }
+
+                        Rectangle {
+                            width: 28
+                            height: 28
+                            radius: 14
+                            color: zapCloseHov ? Theme.surfaceHover : "transparent"
+                            property bool zapCloseHov: false
+
+                            Text {
+                                anchors.centerIn: parent
+                                text: "✕"
+                                font.pixelSize: 16
+                                font.bold: true
+                                color: Theme.textSecondary
+                            }
+
+                            MouseArea {
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onEntered: parent.zapCloseHov = true
+                                onExited: parent.zapCloseHov = false
+                                onClicked: zapDialog.closeDialog()
+                            }
+                        }
+                    }
+
+            ListView {
+                        id: zapList
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        clip: true
+                        spacing: 2
+                        focus: true
+                        keyNavigationEnabled: true
+                        highlightFollowsCurrentItem: true
+                        currentIndex: appViewModel ? appViewModel.zapContextIndex : -1
+                        model: appViewModel ? appViewModel.zapContext : []
+
+                        ScrollBar.vertical: ScrollBar {
+                            active: true
+                            policy: ScrollBar.AsNeeded
+                            contentItem: Rectangle {
+                                implicitWidth: 6
+                                radius: 3
+                                color: Theme.accent
+                                opacity: parent.active ? 0.8 : 0.0
+                                Behavior on opacity { NumberAnimation { duration: Theme.animNormal } }
+                            }
+                            background: Rectangle {
+                                implicitWidth: 6
+                                color: "transparent"
+                            }
+                        }
+
+                        Keys.onReturnPressed: zapDialog.playItem(currentIndex)
+                        Keys.onEnterPressed: zapDialog.playItem(currentIndex)
+                        Keys.onPressed: function(event) {
+                            if (event.key === Qt.Key_Space || event.key === Qt.Key_Select) {
+                                zapDialog.playItem(currentIndex)
+                                event.accepted = true
+                            }
+                        }
+                        Keys.onEscapePressed: zapDialog.closeDialog()
+                        Keys.onLeftPressed: zapDialog.closeDialog()
+
+                        delegate: Rectangle {
+                            width: zapList.width
+                            height: 60
+                            radius: Theme.borderRadiusSmall
+                            color: zapHov ? Theme.surfaceHover : "transparent"
+                            property bool zapHov: false
+
+                            RowLayout {
+                                anchors.fill: parent
+                                anchors.leftMargin: Theme.spacingMd
+                                anchors.rightMargin: Theme.spacingMd
+                                spacing: Theme.spacingMd
+
+                                Rectangle {
+                                    width: 44
+                                    height: 44
+                                    radius: 6
+                                    color: Theme.surface
+                                    clip: true
+                                    Layout.preferredWidth: 44
+                                    Layout.preferredHeight: 44
+
+                                    Image {
+                                        anchors.fill: parent
+                                        anchors.margins: 4
+                                        source: modelData.logoUrl || ""
+                                        fillMode: Image.PreserveAspectFit
+                                        asynchronous: true
+                                        visible: status === Image.Ready
+                                    }
+
+                                    Text {
+                                        anchors.centerIn: parent
+                                        text: "▭"
+                                        font.pixelSize: 16
+                                        visible: !modelData.logoUrl
+                                    }
+                                }
+
+                                ColumnLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 2
+
+                                    Text {
+                                        text: modelData.name || ""
+                                        font.pixelSize: Theme.fontSizeSm
+                                        font.bold: true
+                                        color: Theme.textPrimary
+                                        elide: Text.ElideRight
+                                        Layout.fillWidth: true
+                                    }
+
+                                }
+
+                                Text {
+                                    text: "\u203A"
+                                    font.pixelSize: 18
+                                    font.bold: true
+                                    color: Theme.textSecondary
+                                }
+                            }
+
+                            Rectangle {
+                                anchors.fill: parent
+                                radius: parent.radius
+                                color: "transparent"
+                                border.color: (zapList.activeFocus && zapList.currentIndex === index) ? Theme.accent : "transparent"
+                                border.width: (zapList.activeFocus && zapList.currentIndex === index) ? 2 : 0
+                            }
+
+                            MouseArea {
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onEntered: parent.zapHov = true
+                                onExited: parent.zapHov = false
+                                onClicked: zapDialog.playItem(index)
+                            }
+                        }
+
+                        onCurrentIndexChanged: {
+                            if (currentIndex < 0 && count > 0) currentIndex = 0
+                        }
+                    }
+                }
+            }
+        }
+
         // --- Subtitle track picker popup ---
         Rectangle {
             id: subTrackPopup
@@ -878,12 +1459,28 @@ Item {
             color: "#e0202020"
             z: 15
 
+            function closeDialog() {
+                visible = false
+            }
+
+            function pokeAutoHide() {
+                subTrackAutoHideTimer.restart()
+            }
+
             onVisibleChanged: {
                 if (visible) {
                     if (appViewModel) appViewModel.player.refreshSubtitleTracks()
                     subTrackList.forceActiveFocus()
                     if (subTrackList.currentIndex < 0) subTrackList.currentIndex = 0
+                    pokeAutoHide()
                 }
+            }
+
+            Timer {
+                id: subTrackAutoHideTimer
+                interval: 5000
+                repeat: false
+                onTriggered: subTrackPopup.closeDialog()
             }
 
             ColumnLayout {
@@ -940,12 +1537,13 @@ Item {
                         clip: true
                         keyNavigationEnabled: true
                         highlightFollowsCurrentItem: true
-                        Keys.onReturnPressed: if (currentIndex >= 0 && currentItem) { appViewModel.player.selectSubtitleTrack(model[currentIndex].id); subTrackPopup.visible = false }
+                        Keys.onReturnPressed: if (currentIndex >= 0 && currentItem) { appViewModel.player.selectSubtitleTrack(model[currentIndex].id); subTrackPopup.closeDialog() }
                         Keys.onEnterPressed: Keys.onReturnPressed(event)
-                        Keys.onEscapePressed: subTrackPopup.visible = false
+                        Keys.onEscapePressed: subTrackPopup.closeDialog()
                         Keys.onPressed: function(event) {
-                            if (event.key === Qt.Key_Select) { Keys.onReturnPressed(event); event.accepted = true }
-                            else if (event.key === Qt.Key_Back) { subTrackPopup.visible = false; event.accepted = true }
+                            if (event.key === Qt.Key_Select || event.key === Qt.Key_Space) { Keys.onReturnPressed(event); event.accepted = true }
+                            else if (event.key === Qt.Key_Back || event.key === Qt.Key_B || event.key === Qt.Key_Delete) { subTrackPopup.closeDialog(); event.accepted = true }
+                            else if (event.key === Qt.Key_Up || event.key === Qt.Key_Down || event.key === Qt.Key_Left || event.key === Qt.Key_Right) { subTrackPopup.pokeAutoHide() }
                         }
                         model: {
                             if (!appViewModel) return []
@@ -957,19 +1555,21 @@ Item {
                             function labelTrack(item) {
                                 var lang = playerView.langName(item.lang)
                                 if (!lang) lang = "Unknown"
+                                var labeled = {}
+                                for (var k in item) labeled[k] = item[k]
                                 if (item.external) {
                                     var key = lang.toLowerCase()
                                     externalCounts[key] = (externalCounts[key] || 0) + 1
-                                    item.displayLabel = lang + " - Ext - #" + externalCounts[key]
+                                    labeled.displayLabel = lang + " - Ext #" + externalCounts[key]
                                 } else {
-                                    item.displayLabel = lang + " - Builtin"
+                                    labeled.displayLabel = lang + " - Builtin"
                                 }
-                                return item
+                                return labeled
                             }
 
                             for (var i = 0; i < tracks.length; i++) {
                                 var t = tracks[i]
-                                labelTrack(t)
+                                t = labelTrack(t)
                                 if (t.selected
                                     || playerView.langMatches(t.lang, primary)
                                     || playerView.langMatches(t.lang, secondary)
@@ -1020,11 +1620,11 @@ Item {
                                 anchors.fill: parent
                                 hoverEnabled: true
                                 cursorShape: Qt.PointingHandCursor
-                                onEntered: parent.stHov = true
-                                onExited: parent.stHov = false
+                                onEntered: { parent.stHov = true; subTrackPopup.pokeAutoHide() }
+                                onExited: { parent.stHov = false; subTrackPopup.pokeAutoHide() }
                                 onClicked: {
                                     if (appViewModel) appViewModel.player.selectSubtitleTrack(modelData.id)
-                                    subTrackPopup.visible = false
+                                    subTrackPopup.closeDialog()
                                 }
                             }
                         }
@@ -1146,17 +1746,35 @@ Item {
                             if (item) item.forceActiveFocus()
                         }
                     })
+                    pokeAutoHide()
                 }
             }
             border.color: "#40ffffff"
             border.width: 1
             z: 50
 
-            Keys.onEscapePressed: audioTrackPopup.visible = false
+            function closeDialog() {
+                visible = false
+            }
+
+            function pokeAutoHide() {
+                audioTrackAutoHideTimer.restart()
+            }
+
+            Timer {
+                id: audioTrackAutoHideTimer
+                interval: 5000
+                repeat: false
+                onTriggered: audioTrackPopup.closeDialog()
+            }
+
+            Keys.onEscapePressed: audioTrackPopup.closeDialog()
             Keys.onPressed: function(event) {
                 if (event.key === Qt.Key_Back || event.key === Qt.Key_B || event.key === Qt.Key_Delete) {
-                    audioTrackPopup.visible = false
+                    audioTrackPopup.closeDialog()
                     event.accepted = true
+                } else if (event.key === Qt.Key_Up || event.key === Qt.Key_Down || event.key === Qt.Key_Left || event.key === Qt.Key_Right) {
+                    audioTrackPopup.pokeAutoHide()
                 }
             }
 
@@ -1243,19 +1861,19 @@ Item {
                                 anchors.fill: parent
                                 hoverEnabled: true
                                 cursorShape: Qt.PointingHandCursor
-                                onEntered: parent.atHov = true
-                                onExited: parent.atHov = false
+                                onEntered: { parent.atHov = true; audioTrackPopup.pokeAutoHide() }
+                                onExited: { parent.atHov = false; audioTrackPopup.pokeAutoHide() }
                                 onClicked: {
                                     if (appViewModel) appViewModel.player.selectAudioTrack(modelData.id)
-                                    audioTrackPopup.visible = false
+                                    audioTrackPopup.closeDialog()
                                 }
                             }
 
-                            onActiveFocusChanged: parent.atHov = activeFocus
+                            onActiveFocusChanged: { atHov = activeFocus; audioTrackPopup.pokeAutoHide() }
 
                             Keys.onReturnPressed: {
                                 if (appViewModel) appViewModel.player.selectAudioTrack(modelData.id)
-                                audioTrackPopup.visible = false
+                                audioTrackPopup.closeDialog()
                             }
                             Keys.onEnterPressed: Keys.onReturnPressed(event)
                             Keys.onUpPressed: audioTrackPopup.focusAudioTrackAt(index - 1)
@@ -1264,6 +1882,8 @@ Item {
                                 if (event.key === Qt.Key_Select || event.key === Qt.Key_Space) {
                                     Keys.onReturnPressed(event)
                                     event.accepted = true
+                                } else if (event.key === Qt.Key_Up || event.key === Qt.Key_Down || event.key === Qt.Key_Left || event.key === Qt.Key_Right) {
+                                    audioTrackPopup.pokeAutoHide()
                                 }
                             }
                         }
@@ -1290,23 +1910,43 @@ Item {
             z: 50
             property int castDeviceFocusIndex: 0
 
+            function closeDialog() {
+                visible = false
+            }
+
+            function pokeAutoHide() {
+                castDeviceAutoHideTimer.restart()
+            }
+
+            Timer {
+                id: castDeviceAutoHideTimer
+                interval: 5000
+                repeat: false
+                onTriggered: castDevicePopup.closeDialog()
+            }
+
             onVisibleChanged: {
                 if (visible) {
                     Qt.callLater(function() {
                         if (castDeviceRepeater.count > 0) {
                             castDeviceFocusIndex = 0
-                            var item = castDeviceRepeater.itemAt(0)
-                            if (item) item.forceActiveFocus()
-                        }
-                    })
+                                var item = castDeviceRepeater.itemAt(0)
+                                if (item) item.forceActiveFocus()
+                            }
+                        })
+                    pokeAutoHide()
                 }
             }
 
-            Keys.onEscapePressed: castDevicePopup.visible = false
+            Keys.onEscapePressed: castDevicePopup.closeDialog()
             Keys.onPressed: function(event) {
                 if (event.key === Qt.Key_Back || event.key === Qt.Key_B || event.key === Qt.Key_Delete) {
-                    castDevicePopup.visible = false
+                    castDevicePopup.closeDialog()
                     event.accepted = true
+                } else if (event.key === Qt.Key_Up || event.key === Qt.Key_Down
+                           || event.key === Qt.Key_Left || event.key === Qt.Key_Right
+                           || event.key === Qt.Key_Select || event.key === Qt.Key_Space) {
+                    castDevicePopup.pokeAutoHide()
                 }
             }
 
@@ -1389,8 +2029,8 @@ Item {
                             anchors.fill: parent
                             hoverEnabled: true
                             cursorShape: Qt.PointingHandCursor
-                            onEntered: parent.castDevHov = true
-                            onExited: parent.castDevHov = false
+                            onEntered: { parent.castDevHov = true; castDevicePopup.pokeAutoHide() }
+                            onExited: { parent.castDevHov = false; castDevicePopup.pokeAutoHide() }
                             onClicked: {
                                 if (appViewModel) {
                                     // Capture URL before stopping player
@@ -1398,13 +2038,13 @@ Item {
                                     playerView.pendingCastName = appViewModel.player.channelName
                                     playerView.pendingCastCt = appViewModel.player.isLive ? "video/mp2t" : "video/mp4"
                                     appViewModel.chromecast.connectToDevice(index)
-                                    castDevicePopup.visible = false
+                                    castDevicePopup.closeDialog()
                                     castConnectTimer.start()
                                 }
                             }
                         }
 
-                        onActiveFocusChanged: parent.castDevHov = activeFocus
+                        onActiveFocusChanged: { parent.castDevHov = activeFocus; castDevicePopup.pokeAutoHide() }
 
                         Keys.onReturnPressed: {
                             if (appViewModel) {
@@ -1412,7 +2052,7 @@ Item {
                                 playerView.pendingCastName = appViewModel.player.channelName
                                 playerView.pendingCastCt = appViewModel.player.isLive ? "video/mp2t" : "video/mp4"
                                 appViewModel.chromecast.connectToDevice(index)
-                                castDevicePopup.visible = false
+                                castDevicePopup.closeDialog()
                                 castConnectTimer.start()
                             }
                         }
@@ -1423,6 +2063,9 @@ Item {
                             if (event.key === Qt.Key_Select || event.key === Qt.Key_Space) {
                                 Keys.onReturnPressed(event)
                                 event.accepted = true
+                            } else if (event.key === Qt.Key_Up || event.key === Qt.Key_Down
+                                       || event.key === Qt.Key_Left || event.key === Qt.Key_Right) {
+                                castDevicePopup.pokeAutoHide()
                             }
                         }
                     }
@@ -1446,11 +2089,30 @@ Item {
             border.color: "#40ffffff"
             border.width: 1
             z: 50
-            Keys.onEscapePressed: castStopPopup.visible = false
+            function closeDialog() {
+                visible = false
+            }
+
+            function pokeAutoHide() {
+                castStopAutoHideTimer.restart()
+            }
+
+            Timer {
+                id: castStopAutoHideTimer
+                interval: 5000
+                repeat: false
+                onTriggered: castStopPopup.closeDialog()
+            }
+
+            Keys.onEscapePressed: castStopPopup.closeDialog()
             Keys.onPressed: function(event) {
                 if (event.key === Qt.Key_Back || event.key === Qt.Key_B || event.key === Qt.Key_Delete) {
-                    castStopPopup.visible = false
+                    castStopPopup.closeDialog()
                     event.accepted = true
+                } else if (event.key === Qt.Key_Up || event.key === Qt.Key_Down
+                           || event.key === Qt.Key_Left || event.key === Qt.Key_Right
+                           || event.key === Qt.Key_Select || event.key === Qt.Key_Space) {
+                    castStopPopup.pokeAutoHide()
                 }
             }
 
@@ -1489,24 +2151,24 @@ Item {
                         anchors.fill: parent
                         hoverEnabled: true
                         cursorShape: Qt.PointingHandCursor
-                        onEntered: parent.castStopBtnHov = true
-                        onExited: parent.castStopBtnHov = false
+                        onEntered: { parent.castStopBtnHov = true; castStopPopup.pokeAutoHide() }
+                        onExited: { parent.castStopBtnHov = false; castStopPopup.pokeAutoHide() }
                         onClicked: {
                             if (appViewModel) {
                                 appViewModel.chromecast.stopMedia()
                                 appViewModel.chromecast.disconnect()
-                                castStopPopup.visible = false
+                                castStopPopup.closeDialog()
                             }
                         }
                     }
 
-                    onActiveFocusChanged: parent.castStopBtnHov = activeFocus
+                    onActiveFocusChanged: { parent.castStopBtnHov = activeFocus; castStopPopup.pokeAutoHide() }
 
                     Keys.onReturnPressed: {
                         if (appViewModel) {
                             appViewModel.chromecast.stopMedia()
                             appViewModel.chromecast.disconnect()
-                            castStopPopup.visible = false
+                            castStopPopup.closeDialog()
                         }
                     }
                     Keys.onEnterPressed: Keys.onReturnPressed(event)
@@ -1514,6 +2176,9 @@ Item {
                         if (event.key === Qt.Key_Select || event.key === Qt.Key_Space) {
                             Keys.onReturnPressed(event)
                             event.accepted = true
+                        } else if (event.key === Qt.Key_Up || event.key === Qt.Key_Down
+                                   || event.key === Qt.Key_Left || event.key === Qt.Key_Right) {
+                            castStopPopup.pokeAutoHide()
                         }
                     }
                 }
@@ -1536,7 +2201,7 @@ Item {
         Image {
             id: logoPlaceholder
             anchors.centerIn: parent
-            property bool isLoading: appViewModel ? (appViewModel.player.position <= 0 && !appViewModel.player.stopped) : false
+            property bool isLoading: appViewModel ? (appViewModel.player.position <= 0 && (!appViewModel.player.stopped || appViewModel.player.reconnecting)) : false
             visible: (appViewModel ? appViewModel.player.stopped : true) || isLoading
             width: 128; height: 128
             source: "qrc:/images/iptvxs_tray.png"
@@ -1738,6 +2403,10 @@ Item {
         if (appViewModel && appViewModel.player.isLive) {
             topOverlay.refreshEpg()
         }
+
+        if (appViewModel && appViewModel.hasPendingSeriesEpisodes()) {
+            showSeriesDialog(appViewModel.pendingSeriesName(), appViewModel.pendingSeriesEpisodes())
+        }
     }
 
     Connections {
@@ -1765,6 +2434,31 @@ Item {
         }
     }
 
+    Connections {
+        target: appViewModel && appViewModel.player ? appViewModel.player.mpvPlayer : null
+        function onMediaLoaded() {
+            if (!appViewModel || appViewModel.player.isLive) return
+            appViewModel.player.refreshSubtitleTracks()
+            appViewModel.player.refreshAudioTracks()
+            if (appViewModel.subtitlesEnabled) {
+                var name = appViewModel.player.channelName
+                if (name) appViewModel.searchSubtitles(name)
+            }
+            if (subSearchTimer.running) {
+                subSearchTimer.restart()
+            } else {
+                subSearchTimer.start()
+            }
+        }
+    }
+
+    Connections {
+        target: appViewModel
+        function onSeriesEpisodesReady(seriesName, seasons) {
+            showSeriesDialog(seriesName, seasons)
+        }
+    }
+
     function toggleVideoFullscreen() {
         if (!appViewModel) return
         var win = playerView.Window.window
@@ -1784,12 +2478,10 @@ Item {
             appViewModel.videoFullscreen = false
             var win = playerView.Window.window
             if (win) win.showNormal()
-            return
         }
         if (appViewModel) {
             appViewModel.player.stop()
-            var prev = appViewModel.previousView()
-            appViewModel.currentView = prev
+            appViewModel.currentView = "home"
             Qt.callLater(function() {
                 var w = playerView.Window.window
                 if (w && w.requestViewFocusRestore) {

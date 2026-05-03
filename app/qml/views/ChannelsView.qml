@@ -813,6 +813,13 @@ Item {
                                 keyNavigationEnabled: true
                                 property int rowIndex: index
 
+                                function playChannelAt(idx) {
+                                    if (idx < 0 || !appViewModel) return
+                                    var item = model.get(idx)
+                                    if (!item) return
+                                    playLiveChannel(item.channelId, item.streamUrl, item.name, item.logoUrl, item.epgChannelId, catIdValue)
+                                }
+
                                 Keys.onReturnPressed: playCurrentItem()
                                 Keys.onEnterPressed: playCurrentItem()
                                 Keys.onLeftPressed: {
@@ -832,10 +839,7 @@ Item {
                                 }
 
                                 function playCurrentItem() {
-                                    if (currentIndex < 0 || !appViewModel) return
-                                    var item = model.get(currentIndex)
-                                    appViewModel.player.play(item.streamUrl, item.name, item.logoUrl, item.channelId, item.epgChannelId || "")
-                                    appViewModel.currentView = "player"
+                                    playChannelAt(currentIndex)
                                 }
 
                                 delegate: Item {
@@ -843,6 +847,10 @@ Item {
                                     height: 182
                                     focus: chRowListView.activeFocus && chRowListView.currentIndex === index
                                     activeFocusOnTab: true
+
+                                    function activate() {
+                                        chRowListView.playCurrentItem()
+                                    }
 
                                     Rectangle {
                                         id: chNetCard
@@ -906,21 +914,21 @@ Item {
                                             anchors.centerIn: parent
                                             width: parent.width - 16
                                             text: model.name
-                                                font.pixelSize: Theme.fontSizeXs
-                                                font.bold: true
-                                                color: Theme.textPrimary
-                                                elide: Text.ElideRight
-                                                maximumLineCount: 2
-                                                wrapMode: Text.Wrap
+                                            font.pixelSize: Theme.fontSizeXs
+                                            font.bold: true
+                                            color: Theme.textPrimary
+                                            elide: Text.ElideRight
+                                            maximumLineCount: 2
+                                            wrapMode: Text.Wrap
                                             horizontalAlignment: Text.AlignHCenter
                                         }
                                     }
 
-                                    Keys.onReturnPressed: chNetCard.activate()
+                                    Keys.onReturnPressed: activate()
                                     Keys.onEnterPressed: Keys.onReturnPressed(event)
                                     Keys.onPressed: function(event) {
                                         if (event.key === Qt.Key_Select || event.key === Qt.Key_Space) {
-                                            chNetCard.activate()
+                                            activate()
                                             event.accepted = true
                                         }
                                     }
@@ -943,12 +951,7 @@ Item {
                                             cursorShape: Qt.PointingHandCursor
                                             onEntered: chNetCard.chNetHov = true
                                             onExited: chNetCard.chNetHov = false
-                                            onClicked: {
-                                                if (appViewModel) {
-                                                    appViewModel.player.play(model.streamUrl, model.name, model.logoUrl, model.channelId, model.epgChannelId || "")
-                                                    appViewModel.currentView = "player"
-                                                }
-                                            }
+                                            onClicked: activate()
                                         }
 
                                         Rectangle {
@@ -1028,13 +1031,9 @@ Item {
 
                 function playCurrentItem() {
                     if (currentIndex < 0 || !appViewModel) return
-                    var cl = appViewModel.channelList
-                    appViewModel.player.play(cl.channelUrlAt(currentIndex),
-                                             cl.nameAt(currentIndex),
-                                             cl.logoUrlAt(currentIndex),
-                                             cl.channelIdAt(currentIndex),
-                                             cl.epgChannelIdAt(currentIndex))
-                    appViewModel.currentView = "player"
+                    if (currentItem && currentItem.activate) {
+                        currentItem.activate()
+                    }
                 }
 
                 ScrollBar.vertical: ScrollBar {
@@ -1054,7 +1053,9 @@ Item {
                     height: channelGrid.cellHeight
                     focus: channelGrid.activeFocus && channelGrid.currentIndex === index
                     activeFocusOnTab: true
-                    function activate() { chNetCard.activate() }
+                    function activate() {
+                        playLiveChannel(model.channelId, model.streamUrl, model.name, model.logoUrl, model.epgChannelId, selectedCategoryId)
+                    }
 
                     Rectangle {
                         id: chNetCard
@@ -1076,16 +1077,15 @@ Item {
 
                         function activate() {
                             if (appViewModel) {
-                                appViewModel.player.play(model.streamUrl, model.name, model.logoUrl, model.channelId, model.epgChannelId || "")
-                                appViewModel.currentView = "player"
+                                playLiveChannel(model.channelId, model.streamUrl, model.name, model.logoUrl, model.epgChannelId, selectedCategoryId)
                             }
                         }
 
-                        Keys.onReturnPressed: chNetCard.activate()
+                        Keys.onReturnPressed: activate()
                         Keys.onEnterPressed: Keys.onReturnPressed(event)
                         Keys.onPressed: function(event) {
                             if (event.key === Qt.Key_Select || event.key === Qt.Key_Space) {
-                                chNetCard.activate()
+                                activate()
                                 event.accepted = true
                             }
                         }
@@ -1134,7 +1134,7 @@ Item {
                             cursorShape: Qt.PointingHandCursor
                             onEntered: chNetCard.chHovered = true
                             onExited: chNetCard.chHovered = false
-                            onClicked: chNetCard.activate()
+                            onClicked: activate()
                         }
 
                         Rectangle {
@@ -1215,6 +1215,33 @@ Item {
         if (appViewModel) {
             appViewModel.channelList.categoryId = catId
         }
+    }
+
+    function categoryNameForId(catId) {
+        if (!appViewModel || !appViewModel.categoryList || catId <= 0) return ""
+        for (var i = 0; i < appViewModel.categoryList.count; i++) {
+            if (appViewModel.categoryList.categoryIdAt(i) === catId) {
+                return appViewModel.categoryList.categoryNameAt(i)
+            }
+        }
+        return ""
+    }
+
+    function seedZapContextForCategory(catId, currentChannelId) {
+        if (!appViewModel) return
+        if (catId <= 0 || chSearchInput.text.length > 0) {
+            appViewModel.clearZapContext()
+            return
+        }
+        var zapItems = appViewModel.channelList.channelsForCategory(catId, 500)
+        appViewModel.setZapContext(zapItems, currentChannelId, categoryNameForId(catId) || "Live TV")
+    }
+
+    function playLiveChannel(channelId, streamUrl, name, logoUrl, epgChannelId, categoryId) {
+        if (!appViewModel || !streamUrl || !name) return
+        seedZapContextForCategory(categoryId, channelId)
+        appViewModel.player.play(streamUrl, name, logoUrl, channelId, epgChannelId || "", 0, true, true)
+        appViewModel.currentView = "player"
     }
 
     Component.onCompleted: {

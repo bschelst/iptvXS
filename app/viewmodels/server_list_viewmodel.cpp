@@ -20,7 +20,7 @@ QString normalizeHttpUrl(const QString &input) {
     QUrl url(input);
     if (!url.isValid() ||
         (url.scheme() != QStringLiteral("http") && url.scheme() != QStringLiteral("https"))) {
-        return input;
+        return {};
     }
 
     QString path = url.path();
@@ -446,12 +446,18 @@ void ServerListViewModel::loadServers() {
 }
 
 void ServerListViewModel::syncXtreamServer(const iptvxs::Server &server) {
+    const auto sanitizedServerUrl = normalizeHttpUrl(server.url);
+    if (sanitizedServerUrl.isEmpty()) {
+        setSyncStatus(QStringLiteral("Sync failed: invalid or local server URL"));
+        emit errorOccurred(QStringLiteral("Invalid or local server URL"));
+        return;
+    }
     setSyncing(true);
     setSyncStatus(QStringLiteral("Connecting to server..."));
 
     auto *http = new iptvxs::HttpClient(this);
     auto *client = new iptvxs::XtreamClient(
-        http, server.url, server.username, server.password, this);
+        http, sanitizedServerUrl, server.username, server.password, this);
 
     auto serverId = server.id;
 
@@ -543,12 +549,18 @@ void ServerListViewModel::syncXtreamServer(const iptvxs::Server &server) {
 }
 
 void ServerListViewModel::syncM3uServer(const iptvxs::Server &server) {
+    const auto sanitizedServerUrl = normalizeHttpUrl(server.url);
+    if (sanitizedServerUrl.isEmpty() && !isFreePlaylistUrl(server.url)) {
+        setSyncStatus(QStringLiteral("Sync failed: invalid or local playlist URL"));
+        emit errorOccurred(QStringLiteral("Invalid or local playlist URL"));
+        return;
+    }
     setSyncing(true);
     setSyncStatus(QStringLiteral("Downloading M3U playlist..."));
 
     auto *http = new iptvxs::HttpClient(this);
-    auto *reply = isFreePlaylistUrl(server.url) ? http->get(buildPlaylistRequest(server.url))
-                                                : http->get(QUrl(server.url));
+    auto *reply = isFreePlaylistUrl(server.url) ? http->get(buildPlaylistRequest(sanitizedServerUrl))
+                                                : http->get(QUrl(sanitizedServerUrl));
     auto serverId = server.id;
 
     connect(reply, &QNetworkReply::finished, this,
@@ -733,17 +745,24 @@ void ServerListViewModel::saveXtreamStreams(
         ch.serverId = serverId;
         ch.externalId = s.streamId;
         ch.name = s.name;
-        ch.logoUrl = s.streamIcon;
+        ch.logoUrl = normalizeHttpUrl(s.streamIcon);
         ch.categoryId = catMap.value(s.categoryId, 0);
         ch.epgChannelId = s.epgChannelId;
         ch.type = type;
         auto ext = (type == QStringLiteral("live"))
             ? QStringLiteral(".ts") : QStringLiteral(".mkv");
-        ch.streamUrl = s.directSource.isEmpty()
-            ? QStringLiteral("%1/%2/%3/%4/%5%6")
-                  .arg(srv->url, urlSegment, srv->username, srv->password,
-                       s.streamId, ext)
-            : s.directSource;
+        const auto directSource = normalizeHttpUrl(s.directSource);
+        const auto fallbackStreamUrl = normalizeHttpUrl(
+            QStringLiteral("%1/%2/%3/%4/%5%6")
+                .arg(srv->url, urlSegment, srv->username, srv->password,
+                     s.streamId, ext));
+        ch.streamUrl = !directSource.isEmpty() ? directSource : fallbackStreamUrl;
+        if (ch.streamUrl.isEmpty()) {
+            qWarning("Skipping stream '%s' on server %lld due to invalid or local URL",
+                     qPrintable(ch.name),
+                     static_cast<long long>(serverId));
+            continue;
+        }
         ch.addedAt = s.added;
         dbChannels.append(ch);
     }

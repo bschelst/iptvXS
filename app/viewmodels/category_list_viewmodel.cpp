@@ -2,7 +2,54 @@
 #include "category_list_viewmodel.h"
 
 #include <algorithm>
+#include <QLocale>
+#include <QRegularExpression>
 #include <QStringList>
+
+namespace {
+QString countryNameForCode(QString code) {
+    code = code.trimmed().toUpper();
+    if (code == QStringLiteral("UK")) {
+        return QStringLiteral("United Kingdom");
+    }
+
+    const auto country = QLocale::codeToTerritory(code);
+    if (country == QLocale::AnyTerritory) {
+        return {};
+    }
+    return QLocale::territoryToString(country);
+}
+
+QString compactCountryName(QString countryName) {
+    countryName = countryName.trimmed();
+    if (countryName.isEmpty()) {
+        return countryName;
+    }
+    if (countryName.size() <= 12) {
+        return countryName;
+    }
+
+    const auto parts = countryName.split(QRegularExpression(QStringLiteral("[\\s\\-]+")),
+                                         Qt::SkipEmptyParts);
+    QString compact;
+    for (const auto &part : parts) {
+        const auto trimmed = part.trimmed();
+        if (trimmed.isEmpty()) continue;
+        const auto lower = trimmed.toLower();
+        if (lower == QStringLiteral("and") || lower == QStringLiteral("of") ||
+            lower == QStringLiteral("the")) {
+            continue;
+        }
+        compact.append(trimmed.left(1).toUpper());
+    }
+
+    if (compact.size() >= 2) {
+        return compact;
+    }
+
+    return countryName.left(12).trimmed() + QStringLiteral("…");
+}
+} // namespace
 
 QString CategoryListViewModel::displayNameFor(const QString &name) {
     const auto parts = name.split(';', Qt::KeepEmptyParts);
@@ -14,8 +61,15 @@ QString CategoryListViewModel::displayNameFor(const QString &name) {
     cleaned.reserve(parts.size());
     for (const auto &part : parts) {
         const auto trimmed = part.trimmed();
-        if (!trimmed.isEmpty()) {
-            cleaned.append(trimmed);
+            if (!trimmed.isEmpty()) {
+                if (cleaned.isEmpty() && trimmed.size() == 2 && trimmed == trimmed.toUpper()) {
+                    const auto countryName = countryNameForCode(trimmed);
+                    if (!countryName.isEmpty()) {
+                        cleaned.append(compactCountryName(countryName));
+                        continue;
+                    }
+                }
+                cleaned.append(trimmed);
         }
     }
     if (cleaned.isEmpty()) {

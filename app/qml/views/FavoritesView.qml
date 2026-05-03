@@ -114,7 +114,12 @@ Item {
                         favEpDialog.seriesChannelId = model.channelId
                         appViewModel.fetchSeriesEpisodes(model.serverId, model.externalId, model.name, model.logoUrl)
                     } else {
-                        appViewModel.player.play(model.streamUrl, model.name, model.logoUrl, model.channelId)
+                        if (model.type === "live") {
+                            appViewModel.setZapContext(appViewModel.favoriteList.favoritesAsList(), model.channelId, "Favorites")
+                        } else {
+                            appViewModel.clearZapContext()
+                        }
+                        appViewModel.player.play(model.streamUrl, model.name, model.logoUrl, model.channelId, "", 0, true, true)
                         appViewModel.currentView = "player"
                     }
                 }
@@ -219,14 +224,18 @@ Item {
                     onEntered: parent.favHovered = true
                     onExited: parent.favHovered = false
                     onClicked: {
-                        if (appViewModel) {
-                            if (model.type === "series") {
-                                favEpDialog.seriesChannelId = model.channelId
-                                appViewModel.fetchSeriesEpisodes(model.serverId, model.externalId, model.name, model.logoUrl)
+                        if (!appViewModel) return
+                        if (model.type === "series") {
+                            favEpDialog.seriesChannelId = model.channelId
+                            appViewModel.fetchSeriesEpisodes(model.serverId, model.externalId, model.name, model.logoUrl)
+                        } else {
+                            if (model.type === "live") {
+                                appViewModel.setZapContext(appViewModel.favoriteList.favoritesAsList(), model.channelId, "Favorites")
                             } else {
-                                appViewModel.player.play(model.streamUrl, model.name, model.logoUrl, model.channelId)
-                                appViewModel.currentView = "player"
+                                appViewModel.clearZapContext()
                             }
+                            appViewModel.player.play(model.streamUrl, model.name, model.logoUrl, model.channelId, "", 0, true, true)
+                            appViewModel.currentView = "player"
                         }
                     }
 

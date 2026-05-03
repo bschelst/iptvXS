@@ -4,10 +4,25 @@
 #include <QDateTime>
 #include <QSqlError>
 #include <QSqlQuery>
+#include <QUrl>
 #include <QVariant>
 
 namespace {
 inline QVariant toVariant(int64_t val) { return QVariant(static_cast<qlonglong>(val)); }
+
+QString sanitizeRemoteUrl(const QString &input) {
+    QUrl url(input.trimmed());
+    if (!url.isValid() ||
+        (url.scheme() != QStringLiteral("http") && url.scheme() != QStringLiteral("https"))) {
+        return {};
+    }
+    auto path = url.path();
+    while (path.startsWith(QStringLiteral("//"))) {
+        path.remove(0, 1);
+    }
+    url.setPath(path);
+    return url.toString(QUrl::FullyEncoded);
+}
 
 QString normalizeKind(const QString &kind) {
     return kind == QLatin1String("dynamic") ? QStringLiteral("dynamic") : QStringLiteral("static");
@@ -318,8 +333,8 @@ QVector<GroupMember> ChannelGroupRepository::findStaticMembers(int64_t groupId) 
         m.channel.categoryId = q.value(6).toLongLong();
         m.channel.externalId = q.value(7).toString();
         m.channel.name = q.value(8).toString();
-        m.channel.streamUrl = q.value(9).toString();
-        m.channel.logoUrl = q.value(10).toString();
+        m.channel.streamUrl = sanitizeRemoteUrl(q.value(9).toString());
+        m.channel.logoUrl = sanitizeRemoteUrl(q.value(10).toString());
         m.channel.epgChannelId = q.value(11).toString();
         m.channel.type = q.value(12).toString();
         m.channel.addedAt = q.value(13).toLongLong();
@@ -354,8 +369,8 @@ QVector<GroupMember> ChannelGroupRepository::findDynamicMembers(const ChannelGro
         m.channel.categoryId = q.value(2).toLongLong();
         m.channel.externalId = q.value(3).toString();
         m.channel.name = q.value(4).toString();
-        m.channel.streamUrl = q.value(5).toString();
-        m.channel.logoUrl = q.value(6).toString();
+        m.channel.streamUrl = sanitizeRemoteUrl(q.value(5).toString());
+        m.channel.logoUrl = sanitizeRemoteUrl(q.value(6).toString());
         m.channel.epgChannelId = q.value(7).toString();
         m.channel.type = q.value(8).toString();
         m.channel.addedAt = q.value(9).toLongLong();

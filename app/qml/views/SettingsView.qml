@@ -578,13 +578,13 @@ Item {
                         spacing: Theme.spacingXs
 
                         Text {
-                            text: "Grid Detail Columns"
+                            text: "VOD Grid Columns"
                             font.pixelSize: Theme.fontSizeSm
                             color: Theme.textPrimary
                         }
 
                         Text {
-                            text: "Number of columns in TV Channels and VOD grids"
+                            text: "Number of columns in the VOD search results grid"
                             font.pixelSize: Theme.fontSizeXs
                             color: Theme.textMuted
                         }

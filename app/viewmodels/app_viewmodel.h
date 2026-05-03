@@ -8,6 +8,7 @@
 #include <QObject>
 #include <QQmlEngine>
 #include <QString>
+#include <QVariantList>
 #include <QTimer>
 
 #include "iptvxs/db/database.h"
@@ -99,6 +100,10 @@ class AppViewModel : public QObject {
     Q_PROPERTY(bool updateAvailable READ updateAvailable NOTIFY latestVersionChanged)
     Q_PROPERTY(iptvxs::ChromecastManager *chromecast READ chromecast CONSTANT)
     Q_PROPERTY(bool chromecastEnabled READ chromecastEnabled WRITE setChromecastEnabled NOTIFY chromecastEnabledChanged)
+    Q_PROPERTY(bool hasZapContext READ hasZapContext NOTIFY zapContextChanged)
+    Q_PROPERTY(QVariantList zapContext READ zapContext NOTIFY zapContextChanged)
+    Q_PROPERTY(int zapContextIndex READ zapContextIndex NOTIFY zapContextChanged)
+    Q_PROPERTY(QString zapContextTitle READ zapContextTitle NOTIFY zapContextChanged)
 
 public:
     explicit AppViewModel(QObject *parent = nullptr);
@@ -204,8 +209,17 @@ public:
                                         const QString &title, const QString &logoUrl,
                                         int64_t channelId = 0);
     Q_INVOKABLE void playRecordingFromDrive(int64_t recordingId);
+    Q_INVOKABLE void setZapContext(const QVariantList &items, int64_t currentChannelId, const QString &title);
+    Q_INVOKABLE void clearZapContext();
+    Q_INVOKABLE bool hasZapContext() const;
+    Q_INVOKABLE QVariantList zapContext() const;
+    Q_INVOKABLE int zapContextIndex() const;
+    Q_INVOKABLE QString zapContextTitle() const;
+    Q_INVOKABLE void zapPlayIndex(int index);
+    Q_INVOKABLE void zapNext();
+    Q_INVOKABLE void zapPrevious();
     Q_INVOKABLE bool isCategoryHidden(int64_t categoryId) const;
-    Q_INVOKABLE void setActiveSeriesDialog(const QString &name, int64_t serverId, const QString &seriesId, const QString &logoUrl);
+    Q_INVOKABLE void setActiveSeriesDialog(const QString &name, int64_t serverId, const QString &seriesId, const QString &logoUrl, int64_t channelId = 0);
     Q_INVOKABLE void clearActiveSeriesDialog();
     Q_INVOKABLE void reopenSeriesEpisodes();
     Q_INVOKABLE bool hasActiveSeriesDialog() const;
@@ -213,6 +227,11 @@ public:
     Q_INVOKABLE int64_t activeSeriesServerId() const;
     Q_INVOKABLE QString activeSeriesId() const;
     Q_INVOKABLE QString activeSeriesLogo() const;
+    Q_INVOKABLE int64_t activeSeriesChannelId() const;
+    Q_INVOKABLE bool hasPendingSeriesEpisodes() const;
+    Q_INVOKABLE QString pendingSeriesName() const;
+    Q_INVOKABLE QVariantList pendingSeriesEpisodes() const;
+    Q_INVOKABLE void clearPendingSeriesEpisodes();
     Q_INVOKABLE bool hasWatched(int64_t channelId) const;
     Q_INVOKABLE bool hasWatchedUrl(const QString &url) const;
     Q_INVOKABLE QString buildSeriesEpisodeUrl(const QString &episodeId, const QString &ext) const;
@@ -258,6 +277,7 @@ signals:
     void latestVersionChanged();
     void logoCacheMaxMbChanged();
     void chromecastEnabledChanged();
+    void zapContextChanged();
     void showAuthHint(const QString &url);
     void urlValidationFinished(const QString &context, bool ok, const QString &message);
 
@@ -350,6 +370,12 @@ private:
     int64_t activeSeriesServerId_{0};
     QString activeSeriesId_;
     QString activeSeriesLogo_;
+    int64_t activeSeriesChannelId_{0};
+    QString pendingSeriesName_;
+    QVariantList pendingSeriesEpisodes_;
+    QVariantList zapContextItems_;
+    int zapContextIndex_{-1};
+    QString zapContextTitle_;
 
 public:
     bool videoFullscreen() const;

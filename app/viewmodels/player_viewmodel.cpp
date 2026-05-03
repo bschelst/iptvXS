@@ -26,16 +26,7 @@ PlayerViewModel::PlayerViewModel(QObject *parent)
     connect(player_, &iptvxs::MpvPlayer::durationChanged, this,
             [this](double dur) {
                 emit durationChanged();
-                bool urlIsLive = currentUrl_.contains(QStringLiteral("/live/"));
-                bool urlIsVod = currentUrl_.contains(QStringLiteral("/movie/"))
-                             || currentUrl_.contains(QStringLiteral("/series/"));
-                if (dur <= 0.0 && !isLive_ && !urlIsVod) {
-                    isLive_ = true;
-                    emit isLiveChanged();
-                } else if (dur > 0.0 && isLive_ && !urlIsLive) {
-                    isLive_ = false;
-                    emit isLiveChanged();
-                }
+                Q_UNUSED(dur);
             });
     connect(player_, &iptvxs::MpvPlayer::positionChanged, this,
             [this](double) {
@@ -54,6 +45,10 @@ PlayerViewModel::PlayerViewModel(QObject *parent)
     connect(player_, &iptvxs::MpvPlayer::videoHeightChanged, this,
             [this](int) { emit videoHeightChanged(); });
     connect(player_, &iptvxs::MpvPlayer::mediaLoaded, this, [this]() {
+        if (reconnecting_) {
+            reconnecting_ = false;
+            emit reconnectingChanged();
+        }
         if (pendingSeekSeconds_ > 0) {
             const auto seekSeconds = pendingSeekSeconds_;
             pendingSeekSeconds_ = 0;
@@ -80,6 +75,10 @@ PlayerViewModel::PlayerViewModel(QObject *parent)
             if (liveReconnectAttempts_ < kMaxLiveReconnectAttempts) {
                 const int attempt = ++liveReconnectAttempts_;
                 const int delayMs = qMin(5000, 750 * attempt);
+                if (!reconnecting_) {
+                    reconnecting_ = true;
+                    emit reconnectingChanged();
+                }
                 qWarning("Live stream ended prematurely, reconnecting attempt %d/%d in %d ms",
                          attempt, kMaxLiveReconnectAttempts, delayMs);
                 QTimer::singleShot(delayMs, this, [this]() {
@@ -193,7 +192,8 @@ void PlayerViewModel::play(const QString &url, const QString &name,
                            const QString &logo, int64_t channelId,
                            const QString &epgChannelId,
                            int startPositionSecs,
-                           bool resetReconnectAttempts) {
+                           bool resetReconnectAttempts,
+                           bool forceLive) {
     // Idempotent: if the same URL is already loaded and playing, do not reload.
     // Reloading would issue `loadfile` in mpv, which resets file-local
     // properties including `stream-record` — stopping any active recording.
@@ -203,6 +203,10 @@ void PlayerViewModel::play(const QString &url, const QString &name,
                     player_->state() == iptvxs::MpvPlayer::State::Paused ||
                     player_->state() == iptvxs::MpvPlayer::State::Loading);
     if (alreadyActive) {
+        if (reconnecting_) {
+            reconnecting_ = false;
+            emit reconnectingChanged();
+        }
         // Metadata may still need refreshing (e.g. logo) but skip the reload.
         if (channelName_ != name) {
             channelName_ = name;
@@ -258,9 +262,7 @@ void PlayerViewModel::play(const QString &url, const QString &name,
         emit epgChannelIdChanged();
     }
     manualStop_ = false;
-    isLive_ = url.contains(QStringLiteral("/live/"))
-              || url.endsWith(QStringLiteral(".ts"))
-              || url.endsWith(QStringLiteral(".m3u8"));
+    isLive_ = forceLive;
     subtitleTracks_.clear();
     audioTracks_.clear();
     emit channelNameChanged();
@@ -275,6 +277,11 @@ void PlayerViewModel::play(const QString &url, const QString &name,
         liveReconnectAttempts_ = 0;
     }
     pendingSeekSeconds_ = startPositionSecs > 0 ? startPositionSecs : 0;
+    if (isLive_) {
+        player_->setProperty(QStringLiteral("sid"), QVariant(QStringLiteral("no")));
+        player_->setProperty(QStringLiteral("secondary-sid"), QVariant(QStringLiteral("no")));
+        player_->setProperty(QStringLiteral("sub-visibility"), QVariant(false));
+    }
 
     inhibitScreenSaver();
     player_->play(url);
@@ -299,6 +306,10 @@ void PlayerViewModel::stop() {
     manualStop_ = true;
     pendingSeekSeconds_ = 0;
     liveReconnectAttempts_ = 0;
+    if (reconnecting_) {
+        reconnecting_ = false;
+        emit reconnectingChanged();
+    }
     player_->stop();
     channelName_.clear();
     channelLogo_.clear();
@@ -310,6 +321,14 @@ void PlayerViewModel::stop() {
     emit channelNameChanged();
     emit channelLogoChanged();
     emit channelIdChanged();
+}
+
+bool PlayerViewModel::reconnecting() const { return reconnecting_; }
+
+void PlayerViewModel::setReconnecting(bool reconnecting) {
+    if (reconnecting_ == reconnecting) return;
+    reconnecting_ = reconnecting;
+    emit reconnectingChanged();
 }
 
 void PlayerViewModel::seek(double seconds) { player_->seek(seconds); }

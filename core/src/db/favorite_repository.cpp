@@ -3,8 +3,25 @@
 
 #include <QSqlError>
 #include <QSqlQuery>
+#include <QUrl>
 
 namespace iptvxs {
+
+namespace {
+QString sanitizeRemoteUrl(const QString &input) {
+    QUrl url(input.trimmed());
+    if (!url.isValid() ||
+        (url.scheme() != QStringLiteral("http") && url.scheme() != QStringLiteral("https"))) {
+        return {};
+    }
+    auto path = url.path();
+    while (path.startsWith(QStringLiteral("//"))) {
+        path.remove(0, 1);
+    }
+    url.setPath(path);
+    return url.toString(QUrl::FullyEncoded);
+}
+} // namespace
 
 FavoriteRepository::FavoriteRepository(QSqlDatabase db, QObject *parent)
     : QObject(parent), db_(db) {}
@@ -38,8 +55,8 @@ QVector<Favorite> FavoriteRepository::findAll() const {
         fav.channel.categoryId = q.value(6).toLongLong();
         fav.channel.externalId = q.value(7).toString();
         fav.channel.name = q.value(8).toString();
-        fav.channel.streamUrl = q.value(9).toString();
-        fav.channel.logoUrl = q.value(10).toString();
+        fav.channel.streamUrl = sanitizeRemoteUrl(q.value(9).toString());
+        fav.channel.logoUrl = sanitizeRemoteUrl(q.value(10).toString());
         fav.channel.epgChannelId = q.value(11).toString();
         fav.channel.type = q.value(12).toString();
         fav.channel.addedAt = q.value(13).toLongLong();

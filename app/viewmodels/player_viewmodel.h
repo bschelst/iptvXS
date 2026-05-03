@@ -29,6 +29,7 @@ class PlayerViewModel : public QObject {
     Q_PROPERTY(QString channelLogo READ channelLogo NOTIFY channelLogoChanged)
     Q_PROPERTY(iptvxs::MpvPlayer *mpvPlayer READ mpvPlayer CONSTANT)
     Q_PROPERTY(bool isLive READ isLive NOTIFY isLiveChanged)
+    Q_PROPERTY(bool reconnecting READ reconnecting NOTIFY reconnectingChanged)
     Q_PROPERTY(QVariantList subtitleTracks READ subtitleTracks NOTIFY subtitleTracksChanged)
     Q_PROPERTY(QVariantList audioTracks READ audioTracks NOTIFY audioTracksChanged)
     Q_PROPERTY(bool recording READ recording NOTIFY recordingChanged)
@@ -69,7 +70,8 @@ public:
                           const QString &logo = {}, int64_t channelId = 0,
                           const QString &epgChannelId = {},
                           int startPositionSecs = 0,
-                          bool resetReconnectAttempts = true);
+                          bool resetReconnectAttempts = true,
+                          bool forceLive = false);
     Q_INVOKABLE void togglePause();
     Q_INVOKABLE void stop();
     Q_INVOKABLE void seek(double seconds);
@@ -107,6 +109,8 @@ public:
     QString nextEpisodeName() const;
     QString epgChannelId() const;
     void setEpgChannelId(const QString &id);
+    bool reconnecting() const;
+    Q_INVOKABLE void setReconnecting(bool reconnecting);
 
     Q_INVOKABLE QString formatTime(double seconds) const;
 
@@ -124,6 +128,7 @@ signals:
     void channelLogoChanged();
     void channelIdChanged();
     void isLiveChanged();
+    void reconnectingChanged();
     void subtitleTracksChanged();
     void audioTracksChanged();
     void recordingChanged();
@@ -145,6 +150,7 @@ private:
     int64_t channelId_{0};
     QString epgChannelId_;
     bool isLive_{false};
+    bool reconnecting_{false};
     QVariantList subtitleTracks_;
     QVariantList audioTracks_;
     bool recording_{false};

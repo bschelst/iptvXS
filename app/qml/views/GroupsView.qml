@@ -560,7 +560,12 @@ Item {
                 Keys.onReturnPressed: {
                     if (currentIndex >= 0 && currentIndex < count && appViewModel) {
                         var item = memberListModel.get(currentIndex)
-                        appViewModel.player.play(item.mstreamUrl, item.mname, item.mlogoUrl, item.mchannelId)
+                        if (item && item.mtype === "live") {
+                            appViewModel.setZapContext(appViewModel.groupList.membersAsList(), item.mchannelId, selectedGroupName || "Groups")
+                        } else {
+                            appViewModel.clearZapContext()
+                        }
+                        appViewModel.player.play(item.mstreamUrl, item.mname, item.mlogoUrl, item.mchannelId, "", 0, true, true)
                         appViewModel.currentView = "player"
                     }
                 }
@@ -688,12 +693,17 @@ Item {
                         cursorShape: Qt.PointingHandCursor
                         onEntered: parent.memHov = true
                         onExited: parent.memHov = false
-                        onClicked: {
-                            if (appViewModel) {
-                                appViewModel.player.play(model.mstreamUrl, model.mname, model.mlogoUrl, model.mchannelId)
-                                appViewModel.currentView = "player"
+                    onClicked: {
+                        if (appViewModel) {
+                            if (model.mtype === "live") {
+                                appViewModel.setZapContext(appViewModel.groupList.membersAsList(), model.mchannelId, selectedGroupName || "Groups")
+                            } else {
+                                appViewModel.clearZapContext()
                             }
+                            appViewModel.player.play(model.mstreamUrl, model.mname, model.mlogoUrl, model.mchannelId, "", 0, true, true)
+                            appViewModel.currentView = "player"
                         }
+                    }
                     }
                 }
 

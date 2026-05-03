@@ -3,9 +3,26 @@
 
 #include <QDateTime>
 #include <QSqlQuery>
+#include <QUrl>
 #include <QVariant>
 
 namespace iptvxs {
+
+namespace {
+QString sanitizeRemoteUrl(const QString &input) {
+    QUrl url(input.trimmed());
+    if (!url.isValid() ||
+        (url.scheme() != QStringLiteral("http") && url.scheme() != QStringLiteral("https"))) {
+        return {};
+    }
+    auto path = url.path();
+    while (path.startsWith(QStringLiteral("//"))) {
+        path.remove(0, 1);
+    }
+    url.setPath(path);
+    return url.toString(QUrl::FullyEncoded);
+}
+} // namespace
 
 HistoryRepository::HistoryRepository(QSqlDatabase db, QObject *parent)
     : QObject(parent), db_(std::move(db)) {}
@@ -88,11 +105,11 @@ std::optional<HistoryEntry> HistoryRepository::findById(int64_t id) const {
     e.id = query.value(0).toLongLong();
     e.channelId = query.value(1).toLongLong();
     e.channelName = query.value(2).toString();
-    e.channelLogo = query.value(3).toString();
+    e.channelLogo = sanitizeRemoteUrl(query.value(3).toString());
     e.channelType = query.value(4).toString();
     e.watchedAt = query.value(5).toLongLong();
     e.durationSecs = query.value(6).toInt();
-    e.streamUrl = query.value(7).toString();
+    e.streamUrl = sanitizeRemoteUrl(query.value(7).toString());
     e.positionSecs = query.value(8).toInt();
     e.totalDurationSecs = query.value(9).toInt();
     return e;
@@ -122,11 +139,11 @@ QVector<HistoryEntry> HistoryRepository::findRecent(int limit, int offset) const
             e.id = query.value(0).toLongLong();
             e.channelId = query.value(1).toLongLong();
             e.channelName = query.value(2).toString();
-            e.channelLogo = query.value(3).toString();
+            e.channelLogo = sanitizeRemoteUrl(query.value(3).toString());
             e.channelType = query.value(4).toString();
             e.watchedAt = query.value(5).toLongLong();
             e.durationSecs = query.value(6).toInt();
-            e.streamUrl = query.value(7).toString();
+            e.streamUrl = sanitizeRemoteUrl(query.value(7).toString());
             e.positionSecs = query.value(8).toInt();
             e.totalDurationSecs = query.value(9).toInt();
             entries.append(e);

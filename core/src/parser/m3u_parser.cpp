@@ -22,6 +22,21 @@ QString normalizeEpgChannelId(const QString &input) {
     }
     return id;
 }
+
+QString normalizeRemoteUrl(const QString &input) {
+    QUrl url(input.trimmed());
+    if (!url.isValid() ||
+        (url.scheme() != QStringLiteral("http") && url.scheme() != QStringLiteral("https"))) {
+        return {};
+    }
+
+    auto path = url.path();
+    while (path.startsWith(QStringLiteral("//"))) {
+        path.remove(0, 1);
+    }
+    url.setPath(path);
+    return url.toString(QUrl::FullyEncoded);
+}
 } // namespace
 
 M3uParser::M3uParser(QObject *parent)
@@ -54,7 +69,8 @@ void M3uParser::parse(QIODevice *device, int64_t serverId) {
 
         if (line.startsWith("#EXTM3U")) {
             if (playlistEpgUrl_.isEmpty()) {
-                playlistEpgUrl_ = extractAttribute(line, QStringLiteral("x-tvg-url"));
+                playlistEpgUrl_ = normalizeRemoteUrl(
+                    extractAttribute(line, QStringLiteral("x-tvg-url")));
             }
             continue;
         }
@@ -82,8 +98,14 @@ void M3uParser::parse(QIODevice *device, int64_t serverId) {
                   QString::number(qHash(line), 16))
             : currentInfo.tvgId;
         channel.name = currentInfo.name;
-        channel.streamUrl = line;
-        channel.logoUrl = currentInfo.tvgLogo;
+        channel.streamUrl = normalizeRemoteUrl(line);
+        if (channel.streamUrl.isEmpty()) {
+            emit errorOccurred(QStringLiteral("Invalid or local stream URL"), lineNumber);
+            hasExtInf = false;
+            currentInfo = {};
+            continue;
+        }
+        channel.logoUrl = normalizeRemoteUrl(currentInfo.tvgLogo);
         channel.epgChannelId = normalizeEpgChannelId(currentInfo.tvgId);
         channel.type = detectChannelType(currentInfo.groupTitle, line);
         channel.groupTitle = currentInfo.groupTitle;
