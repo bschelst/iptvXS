@@ -2657,7 +2657,7 @@ Item {
                                 radius: Theme.borderRadius
                                 color: checkHov ? Theme.accentHover : Theme.accent
                                 property bool checkHov: false
-                                function activate() { if (appViewModel) appViewModel.checkForUpdates() }
+                                function activate() { if (appViewModel) appViewModel.checkForUpdatesWithUI() }
 
                                 Text {
                                     id: checkLabel
@@ -2674,7 +2674,7 @@ Item {
                                     cursorShape: Qt.PointingHandCursor
                                     onEntered: parent.checkHov = true
                                     onExited: parent.checkHov = false
-                                    onClicked: { if (appViewModel) appViewModel.checkForUpdates() }
+                                    onClicked: { if (appViewModel) appViewModel.checkForUpdatesWithUI() }
                                 }
                             }
                         }

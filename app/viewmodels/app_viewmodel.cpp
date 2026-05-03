@@ -2278,8 +2278,10 @@ void AppViewModel::checkForUpdates() {
 
 void AppViewModel::checkForUpdatesWithUI() {
 #ifdef Q_OS_WIN
+    qInfo("Manual update check requested");
     win_sparkle_check_update_with_ui();
 #else
+    qInfo("Manual update check requested");
     checkForUpdates();
 #endif
 }

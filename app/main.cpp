@@ -223,13 +223,23 @@ int main(int argc, char *argv[]) {
     // Tied to closeToTray setting below, once viewModel is available.
     app.setQuitOnLastWindowClosed(true);
 
+    const QString dataPath = localAppDataPath();
+    QDir().mkpath(dataPath);
+    QLockFile instanceLock(dataPath + QStringLiteral("/iptvXS.lock"));
+    if (!instanceLock.tryLock(100)) {
+        if (notifyExistingInstanceWithRetry()) {
+            qInfo("Existing iptvXS instance activated from tray");
+        } else {
+            qWarning("Another iptvXS instance is already running, but activation failed");
+        }
+        return 0;
+    }
+
     QQuickStyle::setStyle("Basic");
 
     // Ensure Qt finds imageformat plugins (WebP etc.) in Flatpak
     app.addLibraryPath(QStringLiteral("/app/lib/plugins"));
 
-    QString dataPath = localAppDataPath();
-    QDir().mkpath(dataPath);
     const bool renamedLegacyDb = renameLegacyDatabaseFiles(dataPath);
 
     auto logFilePath = dataPath + "/iptvXS.log";
@@ -252,16 +262,6 @@ int main(int argc, char *argv[]) {
     }
 
     QString dbPath = databasePath(dataPath);
-
-    QLockFile instanceLock(dataPath + QStringLiteral("/iptvXS.lock"));
-    if (!instanceLock.tryLock(100)) {
-        if (notifyExistingInstanceWithRetry()) {
-            qInfo("Existing iptvXS instance activated from tray");
-        } else {
-            qWarning("Another iptvXS instance is already running, but activation failed");
-        }
-        return 0;
-    }
 
     QLocalServer instanceServer;
     QQmlApplicationEngine *enginePtr = nullptr;
