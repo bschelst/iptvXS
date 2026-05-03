@@ -518,6 +518,7 @@ bool AppViewModel::initialize(const QString &dbPath) {
     if (deinterlace()) {
         playerVm_->mpvPlayer()->setProperty(QStringLiteral("deinterlace"), QVariant(QStringLiteral("yes")));
     }
+    applyToneMappingToPlayer();
 
     // Clean up stale recordings left in "recording" state from a previous crash/shutdown
     auto staleRecordings = recordingRepo_->findByStatus(QStringLiteral("recording"));
@@ -892,7 +893,7 @@ void AppViewModel::setSubtitleLanguageSecondary(const QString &lang) {
 }
 
 bool AppViewModel::subtitlesEnabled() const {
-    return settingsRepo_ ? settingsRepo_->getBool(QStringLiteral("subtitles_enabled"), false) : false;
+    return settingsRepo_ ? settingsRepo_->getBool(QStringLiteral("subtitles_enabled"), true) : true;
 }
 
 void AppViewModel::setSubtitlesEnabled(bool enabled) {
@@ -1055,6 +1056,28 @@ void AppViewModel::setDeinterlace(bool enabled) {
     settingsRepo_->set(QStringLiteral("deinterlace"), enabled ? QStringLiteral("true") : QStringLiteral("false"));
     if (playerVm_) playerVm_->mpvPlayer()->setProperty(QStringLiteral("deinterlace"), QVariant(enabled ? QStringLiteral("yes") : QStringLiteral("no")));
     emit deinterlaceChanged();
+}
+
+bool AppViewModel::toneMapping() const {
+    return settingsRepo_ ? settingsRepo_->getBool(QStringLiteral("tone_mapping"), false) : false;
+}
+
+void AppViewModel::setToneMapping(bool enabled) {
+    if (!settingsRepo_) return;
+    settingsRepo_->set(QStringLiteral("tone_mapping"), enabled ? QStringLiteral("true") : QStringLiteral("false"));
+    applyToneMappingToPlayer();
+    emit toneMappingChanged();
+}
+
+QString AppViewModel::toneMappingAlgorithm() const {
+    return settingsRepo_ ? settingsRepo_->getString(QStringLiteral("tone_mapping_algorithm"), QStringLiteral("auto")) : QStringLiteral("auto");
+}
+
+void AppViewModel::setToneMappingAlgorithm(const QString &algorithm) {
+    if (!settingsRepo_) return;
+    settingsRepo_->set(QStringLiteral("tone_mapping_algorithm"), algorithm);
+    applyToneMappingToPlayer();
+    emit toneMappingAlgorithmChanged();
 }
 
 bool AppViewModel::keepLocalCopy() const {
@@ -1243,6 +1266,23 @@ void AppViewModel::ensureDefaultServers() {
         settingsRepo_->set(seedKey, true);
         defaultFreeServerBootstrapPending_ = true;
         qInfo("Seeded default server: iptvXS Free");
+    }
+}
+
+void AppViewModel::applyToneMappingToPlayer() {
+    if (!playerVm_) return;
+    auto *mpv = playerVm_->mpvPlayer();
+    if (toneMapping()) {
+        auto algo = toneMappingAlgorithm();
+        mpv->setProperty(QStringLiteral("tone-mapping"), QVariant(algo));
+        mpv->setProperty(QStringLiteral("tone-mapping-mode"), QVariant(QStringLiteral("auto")));
+        mpv->setProperty(QStringLiteral("hdr-compute-peak"), QVariant(QStringLiteral("yes")));
+        qInfo("Tone mapping enabled: algorithm=%s", qPrintable(algo));
+    } else {
+        mpv->setProperty(QStringLiteral("tone-mapping"), QVariant(QStringLiteral("auto")));
+        mpv->setProperty(QStringLiteral("tone-mapping-mode"), QVariant(QStringLiteral("auto")));
+        mpv->setProperty(QStringLiteral("hdr-compute-peak"), QVariant(QStringLiteral("auto")));
+        qInfo("Tone mapping disabled (using mpv defaults)");
     }
 }
 

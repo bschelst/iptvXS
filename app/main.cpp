@@ -68,6 +68,10 @@ static QString databasePath(const QString &dataPath) {
     return dataPath + QStringLiteral("/iptvXS.db");
 }
 
+static QString logsDirectoryPath(const QString &dataPath) {
+    return dataPath + QStringLiteral("/logs");
+}
+
 static QString singleInstanceServerName() {
     return QStringLiteral("iptvXS-single-instance");
 }
@@ -242,7 +246,9 @@ int main(int argc, char *argv[]) {
 
     const bool renamedLegacyDb = renameLegacyDatabaseFiles(dataPath);
 
-    auto logFilePath = dataPath + "/iptvXS.log";
+    const auto logDirPath = logsDirectoryPath(dataPath);
+    QDir().mkpath(logDirPath);
+    auto logFilePath = logDirPath + QStringLiteral("/iptvXS.log");
     g_logFilePath = logFilePath;
     rotateStartupLogs(logFilePath);
     g_logFile = new QFile(logFilePath);

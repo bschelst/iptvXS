@@ -212,11 +212,6 @@ ApplicationWindow {
         target: appViewModel
         function onCurrentViewChanged() {
             var view = appViewModel.currentView
-            if (view !== "player" && !appViewModel.player.stopped) {
-                if (!appViewModel.player.isLive) {
-                    appViewModel.player.stop()
-                }
-            }
             sidebar.activeItem = view
             var src = viewForName(view)
             if (view === "vod_movies" || view === "vod_series") {
@@ -257,7 +252,7 @@ ApplicationWindow {
     property bool _inPlayer: appViewModel && appViewModel.currentView === "player"
     property bool _playing: appViewModel && !appViewModel.player.stopped
     property bool _reconnecting: appViewModel && appViewModel.player.reconnecting
-    property bool pipMode: _playing && !_inPlayer && appViewModel.player.isLive && !_reconnecting
+    property bool pipMode: _playing && !_inPlayer && !_reconnecting
 
 
         Rectangle {

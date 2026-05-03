@@ -134,7 +134,11 @@ Item {
         if (delta > 0) {
             loadMoreVodRows()
         } else if (delta < 0) {
-            focusSearchField()
+            if (selectedCategoryId !== 0 && vodSearch.text.length === 0) {
+                focusCategorySidebar()
+            } else {
+                focusSearchField()
+            }
         }
     }
 
@@ -1161,8 +1165,11 @@ Item {
                 Keys.onReturnPressed: playCurrentItem()
                 Keys.onEnterPressed: playCurrentItem()
                 Keys.onUpPressed: {
-                    if (currentIndex >= 0 && currentIndex < cols) {
-                        vodView.focusSearchField()
+                    if (currentIndex >= cols) {
+                        currentIndex -= cols
+                    } else if (currentIndex >= 0) {
+                        if (selectedCategoryId !== 0) vodView.focusCategorySidebar()
+                        else vodView.focusSearchField()
                     }
                 }
                 Keys.onLeftPressed: {

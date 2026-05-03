@@ -1,9 +1,16 @@
 // iptvXS Project - Schelstraete Bart - https://iptvxs.schelstraete.org
 #include "iptvxs/db/server_repository.h"
 
+#include <QPair>
 #include <QSqlError>
 #include <QSqlQuery>
 #include <QVariant>
+
+#include <utility>
+
+#include "iptvxs/security/credential_vault.h"
+
+#include <QDebug>
 
 namespace {
 inline QVariant toVariant(int64_t val) { return QVariant(static_cast<qlonglong>(val)); }
@@ -12,7 +19,22 @@ inline QVariant toVariant(int64_t val) { return QVariant(static_cast<qlonglong>(
 namespace iptvxs {
 
 ServerRepository::ServerRepository(QSqlDatabase db, QObject *parent)
-    : QObject(parent), db_(std::move(db)) {}
+    : QObject(parent), db_(std::move(db)) {
+    ownedCredentialVault_ = std::make_unique<CredentialVault>();
+    credentialVaultPtr_ = ownedCredentialVault_.get();
+    migrateCredentialStorage();
+}
+
+ServerRepository::ServerRepository(QSqlDatabase db, CredentialVault *credentialVault, QObject *parent)
+    : QObject(parent), db_(std::move(db)) {
+    if (credentialVault) {
+        credentialVaultPtr_ = credentialVault;
+    } else {
+        ownedCredentialVault_ = std::make_unique<CredentialVault>();
+        credentialVaultPtr_ = ownedCredentialVault_.get();
+    }
+    migrateCredentialStorage();
+}
 
 QVector<Server> ServerRepository::findAll() const {
     QSqlQuery query(db_);
@@ -25,7 +47,7 @@ QVector<Server> ServerRepository::findAll() const {
 
     QVector<Server> servers;
     while (query.next()) {
-        servers.append(fromQuery(query));
+        servers.append(withDecryptedCredentials(fromQuery(query)));
     }
     return servers;
 }
@@ -39,18 +61,29 @@ std::optional<Server> ServerRepository::findById(int64_t id) const {
     if (!query.exec() || !query.next()) {
         return std::nullopt;
     }
-    return fromQuery(query);
+    return withDecryptedCredentials(fromQuery(query));
 }
 
 int64_t ServerRepository::create(const Server &server) {
+    if (!credentialVaultPtr_ || !credentialVaultPtr_->isReady()) {
+        emit errorOccurred(QStringLiteral("Credential vault unavailable; cannot store server credentials securely"));
+        return -1;
+    }
+
     QSqlQuery query(db_);
     query.prepare("INSERT INTO servers (name, type, url, username, password, user_agent, epg_url, epg_source_id, is_builtin_free) "
                   "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
     query.addBindValue(server.name);
     query.addBindValue(server.type);
     query.addBindValue(server.url);
-    query.addBindValue(server.username);
-    query.addBindValue(server.password);
+    const auto protectedServer = withProtectedCredentials(server);
+    if (( !server.username.isEmpty() && protectedServer.username.isEmpty())
+        || (!server.password.isEmpty() && protectedServer.password.isEmpty())) {
+        emit errorOccurred(QStringLiteral("Failed to encrypt server credentials"));
+        return -1;
+    }
+    query.addBindValue(protectedServer.username);
+    query.addBindValue(protectedServer.password);
     query.addBindValue(server.userAgent);
     query.addBindValue(server.epgUrl);
     query.addBindValue(server.epgSourceId > 0 ? QVariant(static_cast<qlonglong>(server.epgSourceId)) : QVariant());
@@ -64,14 +97,25 @@ int64_t ServerRepository::create(const Server &server) {
 }
 
 bool ServerRepository::update(const Server &server) {
+    if (!credentialVaultPtr_ || !credentialVaultPtr_->isReady()) {
+        emit errorOccurred(QStringLiteral("Credential vault unavailable; cannot update server credentials securely"));
+        return false;
+    }
+
     QSqlQuery query(db_);
     query.prepare("UPDATE servers SET name = ?, type = ?, url = ?, username = ?, "
                   "password = ?, user_agent = ?, epg_url = ?, epg_source_id = ?, is_builtin_free = ? WHERE id = ?");
     query.addBindValue(server.name);
     query.addBindValue(server.type);
     query.addBindValue(server.url);
-    query.addBindValue(server.username);
-    query.addBindValue(server.password);
+    const auto protectedServer = withProtectedCredentials(server);
+    if (( !server.username.isEmpty() && protectedServer.username.isEmpty())
+        || (!server.password.isEmpty() && protectedServer.password.isEmpty())) {
+        emit errorOccurred(QStringLiteral("Failed to encrypt server credentials"));
+        return false;
+    }
+    query.addBindValue(protectedServer.username);
+    query.addBindValue(protectedServer.password);
     query.addBindValue(server.userAgent);
     query.addBindValue(server.epgUrl);
     query.addBindValue(server.epgSourceId > 0 ? QVariant(static_cast<qlonglong>(server.epgSourceId)) : QVariant());
@@ -166,6 +210,93 @@ Server ServerRepository::fromQuery(const QSqlQuery &query) {
     s.isPrimary = query.value(12).toInt() != 0;
     s.isBuiltinFree = query.value(13).toInt() != 0;
     return s;
+}
+
+Server ServerRepository::withProtectedCredentials(Server server) const {
+    if (server.username.isEmpty() && server.password.isEmpty()) {
+        return server;
+    }
+    server.username = credentialVaultPtr_->encrypt(server.username, QStringLiteral("username"));
+    server.password = credentialVaultPtr_->encrypt(server.password, QStringLiteral("password"));
+    return server;
+}
+
+Server ServerRepository::withDecryptedCredentials(Server server) const {
+    if (!credentialVaultPtr_ || !credentialVaultPtr_->isReady()) {
+        return server;
+    }
+    server.username = credentialVaultPtr_->decrypt(server.username, QStringLiteral("username"));
+    server.password = credentialVaultPtr_->decrypt(server.password, QStringLiteral("password"));
+    return server;
+}
+
+bool ServerRepository::migrateCredentialStorage() {
+    if (!credentialVaultPtr_ || !credentialVaultPtr_->isReady()) {
+        return false;
+    }
+
+    QSqlQuery query(db_);
+    if (!query.exec("SELECT id, username, password FROM servers")) {
+        return false;
+    }
+
+    QVector<QPair<qlonglong, QString>> usernameUpdates;
+    QVector<QPair<qlonglong, QString>> passwordUpdates;
+    while (query.next()) {
+        const auto id = query.value(0).toLongLong();
+        const auto username = query.value(1).toString();
+        const auto password = query.value(2).toString();
+
+        const auto encryptedUsername = credentialVaultPtr_->isEncryptedValue(username)
+            ? username
+            : credentialVaultPtr_->encrypt(username, QStringLiteral("username"));
+        const auto encryptedPassword = credentialVaultPtr_->isEncryptedValue(password)
+            ? password
+            : credentialVaultPtr_->encrypt(password, QStringLiteral("password"));
+
+        if (!encryptedUsername.isEmpty() && encryptedUsername != username) {
+            usernameUpdates.append({id, encryptedUsername});
+        }
+        if (!encryptedPassword.isEmpty() && encryptedPassword != password) {
+            passwordUpdates.append({id, encryptedPassword});
+        }
+    }
+
+    if (usernameUpdates.isEmpty() && passwordUpdates.isEmpty()) {
+        return true;
+    }
+
+    qInfo("Migrating plaintext server credentials to encrypted storage");
+    if (!db_.transaction()) {
+        return false;
+    }
+
+    QSqlQuery update(db_);
+    update.prepare("UPDATE servers SET username = ? WHERE id = ?");
+    for (const auto &row : usernameUpdates) {
+        update.bindValue(0, row.second);
+        update.bindValue(1, row.first);
+        if (!update.exec()) {
+            db_.rollback();
+            return false;
+        }
+    }
+
+    update.prepare("UPDATE servers SET password = ? WHERE id = ?");
+    for (const auto &row : passwordUpdates) {
+        update.bindValue(0, row.second);
+        update.bindValue(1, row.first);
+        if (!update.exec()) {
+            db_.rollback();
+            return false;
+        }
+    }
+
+    if (!db_.commit()) {
+        db_.rollback();
+        return false;
+    }
+    return true;
 }
 
 bool ServerRepository::setEpgSource(int64_t id, int64_t epgSourceId) {

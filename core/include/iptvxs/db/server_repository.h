@@ -3,10 +3,13 @@
 
 #include <QObject>
 #include <QSqlDatabase>
+#include <QSqlQuery>
 #include <QVector>
+#include <memory>
 #include <optional>
 
 #include "iptvxs/models/server.h"
+#include "iptvxs/security/credential_vault.h"
 
 namespace iptvxs {
 
@@ -15,6 +18,7 @@ class ServerRepository : public QObject {
 
 public:
     explicit ServerRepository(QSqlDatabase db, QObject *parent = nullptr);
+    ServerRepository(QSqlDatabase db, CredentialVault *credentialVault, QObject *parent = nullptr);
 
     QVector<Server> findAll() const;
     std::optional<Server> findById(int64_t id) const;
@@ -32,7 +36,13 @@ signals:
 
 private:
     static Server fromQuery(const QSqlQuery &query);
+    Server withProtectedCredentials(Server server) const;
+    Server withDecryptedCredentials(Server server) const;
+    bool migrateCredentialStorage();
+
     QSqlDatabase db_;
+    std::unique_ptr<CredentialVault> ownedCredentialVault_;
+    CredentialVault *credentialVaultPtr_{nullptr};
 };
 
 } // namespace iptvxs

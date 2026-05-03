@@ -92,6 +92,8 @@ class AppViewModel : public QObject {
     Q_PROPERTY(QString videoEnhancement READ videoEnhancement WRITE setVideoEnhancement NOTIFY videoEnhancementChanged)
     Q_PROPERTY(QString hwdecMode READ hwdecMode WRITE setHwdecMode NOTIFY hwdecModeChanged)
     Q_PROPERTY(bool deinterlace READ deinterlace WRITE setDeinterlace NOTIFY deinterlaceChanged)
+    Q_PROPERTY(bool toneMapping READ toneMapping WRITE setToneMapping NOTIFY toneMappingChanged)
+    Q_PROPERTY(QString toneMappingAlgorithm READ toneMappingAlgorithm WRITE setToneMappingAlgorithm NOTIFY toneMappingAlgorithmChanged)
     Q_PROPERTY(bool keepLocalCopy READ keepLocalCopy WRITE setKeepLocalCopy NOTIFY keepLocalCopyChanged)
     Q_PROPERTY(GroupListViewModel *groupList READ groupList CONSTANT)
     Q_PROPERTY(iptvxs::LogoCache *logoCache READ logoCache CONSTANT)
@@ -187,6 +189,10 @@ public:
     void setHwdecMode(const QString &mode);
     bool deinterlace() const;
     void setDeinterlace(bool enabled);
+    bool toneMapping() const;
+    void setToneMapping(bool enabled);
+    QString toneMappingAlgorithm() const;
+    void setToneMappingAlgorithm(const QString &algorithm);
     bool keepLocalCopy() const;
     void setKeepLocalCopy(bool keep);
 
@@ -270,6 +276,8 @@ signals:
     void videoEnhancementChanged();
     void hwdecModeChanged();
     void deinterlaceChanged();
+    void toneMappingChanged();
+    void toneMappingAlgorithmChanged();
     void keepLocalCopyChanged();
     void errorOccurred(const QString &message);
     void subtitlesFound(int count);
@@ -288,6 +296,7 @@ public slots:
 private:
     void ensureDefaultServers();
     void bootstrapDefaultFreeServerSync();
+    void applyToneMappingToPlayer();
 
     std::unique_ptr<iptvxs::Database> database_;
     std::unique_ptr<iptvxs::SettingsRepository> settingsRepo_;

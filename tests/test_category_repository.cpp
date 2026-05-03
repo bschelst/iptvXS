@@ -4,6 +4,7 @@
 #include "iptvxs/db/category_repository.h"
 #include "iptvxs/db/database.h"
 #include "iptvxs/db/server_repository.h"
+#include "iptvxs/security/credential_vault.h"
 
 class TestCategoryRepository : public QObject {
     Q_OBJECT
@@ -14,12 +15,15 @@ private slots:
         QVERIFY(tmpDir_->isValid());
         db_ = std::make_unique<iptvxs::Database>();
         QVERIFY(db_->open(tmpDir_->filePath("test.db")));
+        vault_ = std::make_unique<iptvxs::CredentialVault>(QByteArray(32, '\x42'));
 
-        iptvxs::ServerRepository serverRepo(db_->connection());
+        iptvxs::ServerRepository serverRepo(db_->connection(), vault_.get());
         iptvxs::Server server;
         server.name = QStringLiteral("Test Server");
         server.type = QStringLiteral("xtream");
         server.url = QStringLiteral("http://example.com");
+        server.username = QStringLiteral("user");
+        server.password = QStringLiteral("pass");
         serverId_ = serverRepo.create(server);
         QVERIFY(serverId_ > 0);
     }
@@ -106,7 +110,7 @@ private slots:
 
     void testDeleteByServer() {
         iptvxs::CategoryRepository repo(db_->connection());
-        iptvxs::ServerRepository serverRepo(db_->connection());
+        iptvxs::ServerRepository serverRepo(db_->connection(), vault_.get());
 
         iptvxs::Server server;
         server.name = QStringLiteral("Delete Test");
@@ -129,6 +133,7 @@ private slots:
 private:
     std::unique_ptr<QTemporaryDir> tmpDir_;
     std::unique_ptr<iptvxs::Database> db_;
+    std::unique_ptr<iptvxs::CredentialVault> vault_;
     int64_t serverId_{0};
 };
 

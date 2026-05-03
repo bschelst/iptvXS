@@ -53,12 +53,26 @@ jobs:
           name: iptvxs-flatpak
           path: iptvxs.flatpak
 
-      - name: Upload Flatpak to release
-        if: startsWith(github.ref, 'refs/tags/v')
-        uses: softprops/action-gh-release@v2
-        with:
-          files: iptvxs.flatpak
-
       - name: Clean up gateway secret
         if: always()
         run: rm -f .secrets
+
+  publish:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-24.04
+    environment: release
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download Flatpak artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: iptvxs-flatpak
+          path: release-artifacts
+
+      - name: Upload Flatpak to release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release-artifacts/iptvxs.flatpak

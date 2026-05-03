@@ -71,7 +71,11 @@ Item {
         if (delta > 0) {
             loadMoreChannelRows()
         } else if (delta < 0) {
-            focusSearchField()
+            if (selectedCategoryId !== 0 && chSearchInput.text.length === 0) {
+                focusCategorySidebar()
+            } else {
+                focusSearchField()
+            }
         }
     }
 
@@ -1003,8 +1007,11 @@ Item {
                 Keys.onReturnPressed: function(event) { playCurrentItem(); event.accepted = true }
                 Keys.onEnterPressed: function(event) { playCurrentItem(); event.accepted = true }
                 Keys.onUpPressed: {
-                    if (currentIndex >= 0 && currentIndex < cols) {
-                        channelsView.focusSearchField()
+                    if (currentIndex >= cols) {
+                        currentIndex -= cols
+                    } else if (currentIndex >= 0) {
+                        if (selectedCategoryId !== 0) channelsView.focusCategorySidebar()
+                        else channelsView.focusSearchField()
                     }
                 }
                 Keys.onLeftPressed: {

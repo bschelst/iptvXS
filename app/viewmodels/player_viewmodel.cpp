@@ -58,6 +58,13 @@ PlayerViewModel::PlayerViewModel(QObject *parent)
                 }
             });
         }
+        // mpv can populate subtitle/audio track metadata a moment after FILE_LOADED,
+        // especially on slower devices and some Steam Deck paths.
+        QTimer::singleShot(150, this, [this]() {
+            if (!player_) return;
+            refreshSubtitleTracks();
+            refreshAudioTracks();
+        });
     });
     connect(player_, &iptvxs::MpvPlayer::endOfFile, this, [this]() {
         if (!nextEpisodeUrl_.isEmpty()) {
@@ -372,6 +379,10 @@ qint64 PlayerViewModel::recordingStartTime() const { return recordingStartTime_;
 
 void PlayerViewModel::loadSubtitleFile(const QString &filePath) {
     player_->command({QStringLiteral("sub-add"), filePath, QStringLiteral("select")});
+    player_->setProperty(QStringLiteral("sub-visibility"), QVariant(true));
+    QTimer::singleShot(150, this, [this]() {
+        if (player_) refreshSubtitleTracks();
+    });
 }
 
 void PlayerViewModel::setSubtitleDelay(double seconds) {
@@ -451,7 +462,9 @@ void PlayerViewModel::refreshSubtitleTracks() {
 void PlayerViewModel::selectSubtitleTrack(int trackId) {
     player_->setProperty(QStringLiteral("sid"), QVariant(trackId));
     player_->setProperty(QStringLiteral("sub-visibility"), QVariant(true));
-    refreshSubtitleTracks();
+    QTimer::singleShot(0, this, [this]() {
+        if (player_) refreshSubtitleTracks();
+    });
 }
 
 QVariantList PlayerViewModel::audioTracks() const { return audioTracks_; }

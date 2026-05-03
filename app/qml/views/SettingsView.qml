@@ -19,7 +19,7 @@ Item {
 
     // Direct lookup by index — returns the QML item for the given focus slot.
     // Using a function (not a property) so ids resolve after component completion.
-    readonly property int focusItemCount: 31
+    readonly property int focusItemCount: 32
 
     function focusTarget() {
         switch (currentFocusIndex) {
@@ -31,29 +31,30 @@ Item {
         case  5: return chromecastSwitch
         case  6: return videoEnhFlow
         case  7: return deinterlaceSwitch
-        case  8: return subtitlesSwitch
-        case  9: return subLangFlow
-        case 10: return secSubLangFlow
-        case 11: return subSizeRow
-        case 12: return subColorFlow
-        case 13: return subBgFlow
-        case 14: return syncIntervalFlow
-        case 15: return epgSyncFlow
-        case 16: return gdriveConnectBtn
-        case 17: return gdriveSaveFolderBtn
-        case 18: return recDestFlow
-        case 19: return keepLocalSwitch
-        case 20: return recBrowseBtn
-        case 21: return maxRecSizeFlow
-        case 22: return leadTimeFlow
-        case 23: return overrunFlow
-        case 24: return logoCacheMaxFlow
-        case 25: return clearCacheBtn
-        case 26: return resetDbBtn
-        case 27: return githubBtn
-        case 28: return checkUpdatesBtn
-        case 29: return freeServerSwitchRow
-        case 30: return freeServerReAddBtn
+        case  8: return toneMappingSwitch
+        case  9: return subtitlesSwitch
+        case 10: return subLangFlow
+        case 11: return secSubLangFlow
+        case 12: return subSizeRow
+        case 13: return subColorFlow
+        case 14: return subBgFlow
+        case 15: return syncIntervalFlow
+        case 16: return epgSyncFlow
+        case 17: return gdriveConnectBtn
+        case 18: return gdriveSaveFolderBtn
+        case 19: return recDestFlow
+        case 20: return keepLocalSwitch
+        case 21: return recBrowseBtn
+        case 22: return maxRecSizeFlow
+        case 23: return leadTimeFlow
+        case 24: return overrunFlow
+        case 25: return logoCacheMaxFlow
+        case 26: return clearCacheBtn
+        case 27: return resetDbBtn
+        case 28: return githubBtn
+        case 29: return checkUpdatesBtn
+        case 30: return freeServerSwitchRow
+        case 31: return freeServerReAddBtn
         default: return null
         }
     }
@@ -814,6 +815,94 @@ Item {
                             checked: appViewModel ? appViewModel.deinterlace : false
                             onToggled: {
                                 if (appViewModel) appViewModel.deinterlace = checked
+                            }
+                        }
+                    }
+
+                    Rectangle { Layout.fillWidth: true; height: 1; color: Theme.surfaceBorder }
+
+                    RowLayout {
+                        id: toneMappingSwitch
+                        Layout.fillWidth: true
+                        spacing: Theme.spacingMd
+                        function toggle() { toneMappingSwitchCtrl.toggle() }
+
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            spacing: Theme.spacingXs
+
+                            Text {
+                                text: "Tone Mapping (HDR \u2192 SDR)"
+                                font.pixelSize: Theme.fontSizeSm
+                                color: Theme.textPrimary
+                            }
+
+                            Text {
+                                text: "Convert HDR content for SDR displays"
+                                font.pixelSize: Theme.fontSizeXs
+                                color: Theme.textMuted
+                            }
+                        }
+
+                        Switch {
+                            id: toneMappingSwitchCtrl
+                            checked: appViewModel ? appViewModel.toneMapping : false
+                            onToggled: {
+                                if (appViewModel) appViewModel.toneMapping = checked
+                            }
+                        }
+                    }
+
+                    RowLayout {
+                        visible: toneMappingSwitchCtrl.checked
+                        Layout.fillWidth: true
+                        spacing: Theme.spacingMd
+
+                        Text {
+                            text: "Algorithm"
+                            font.pixelSize: Theme.fontSizeSm
+                            color: Theme.textSecondary
+                            Layout.preferredWidth: 80
+                        }
+
+                        Row {
+                            spacing: 4
+                            property string currentAlgo: appViewModel ? appViewModel.toneMappingAlgorithm : "auto"
+
+                            Repeater {
+                                model: [
+                                    { value: "auto", label: "Auto" },
+                                    { value: "mobius", label: "Mobius" },
+                                    { value: "reinhard", label: "Reinhard" },
+                                    { value: "hable", label: "Hable" },
+                                    { value: "bt.2390", label: "BT.2390" }
+                                ]
+
+                                Rectangle {
+                                    width: algoLabel.implicitWidth + 16
+                                    height: 28
+                                    radius: 14
+                                    color: parent.currentAlgo === modelData.value ? Theme.accent : "transparent"
+                                    border.color: parent.currentAlgo === modelData.value ? Theme.accent : Theme.surfaceBorder
+                                    border.width: 1
+
+                                    Text {
+                                        id: algoLabel
+                                        anchors.centerIn: parent
+                                        text: modelData.label
+                                        font.pixelSize: Theme.fontSizeXs
+                                        font.bold: parent.parent.currentAlgo === modelData.value
+                                        color: parent.parent.currentAlgo === modelData.value ? Theme.textOnAccent : Theme.textSecondary
+                                    }
+
+                                    MouseArea {
+                                        anchors.fill: parent
+                                        cursorShape: Qt.PointingHandCursor
+                                        onClicked: {
+                                            if (appViewModel) appViewModel.toneMappingAlgorithm = modelData.value
+                                        }
+                                    }
+                                }
                             }
                         }
                     }

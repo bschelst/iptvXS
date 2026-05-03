@@ -4,9 +4,12 @@ if(WIN32)
         find_path(MPV_INCLUDE_DIRS mpv/client.h)
         find_library(MPV_LIBRARIES NAMES mpv libmpv)
     endif()
+    find_package(OpenSSL REQUIRED)
 else()
     find_package(PkgConfig REQUIRED)
     pkg_check_modules(MPV REQUIRED mpv)
+    pkg_check_modules(LIBSECRET REQUIRED IMPORTED_TARGET libsecret-1)
+    find_package(OpenSSL REQUIRED)
 endif()
 
 add_library(iptvxs-core STATIC
@@ -37,6 +40,7 @@ add_library(iptvxs-core STATIC
     src/cache/logo_cache.cpp
     src/cast/chromecast_manager.cpp
     src/cast/hls_proxy.cpp
+    src/security/credential_vault.cpp
     include/iptvxs/db/database.h
     include/iptvxs/db/settings_repository.h
     include/iptvxs/db/server_repository.h
@@ -65,6 +69,7 @@ add_library(iptvxs-core STATIC
     include/iptvxs/cache/logo_cache.h
     include/iptvxs/cast/chromecast_manager.h
     include/iptvxs/cast/hls_proxy.h
+    include/iptvxs/security/credential_vault.h
 )
 
 target_include_directories(iptvxs-core
@@ -113,9 +118,13 @@ target_link_libraries(iptvxs-core
         Qt6::Core
         Qt6::Sql
         Qt6::Network
+        OpenSSL::Crypto
         ${MPV_LIBRARIES}
 )
 
 if(WIN32)
     target_link_libraries(iptvxs-core PUBLIC ws2_32)
+    target_link_libraries(iptvxs-core PUBLIC crypt32)
+else()
+    target_link_libraries(iptvxs-core PUBLIC PkgConfig::LIBSECRET)
 endif()

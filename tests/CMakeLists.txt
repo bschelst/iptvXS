@@ -10,6 +10,7 @@ function(add_iptvxs_test name)
 endfunction()
 
 add_iptvxs_test(test_settings_repository)
+add_iptvxs_test(test_credential_vault)
 add_iptvxs_test(test_xtream_client)
 add_iptvxs_test(test_m3u_parser)
 add_iptvxs_test(test_server_repository)

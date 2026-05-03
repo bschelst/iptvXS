@@ -1120,7 +1120,7 @@ Item {
                                                         return null
                                                     }
 
-                                                    property int actionIndex: 0
+                                                    property int popupActionIndex: 0
 
                                                     function maxActionIndex() {
                                                         var offset = actionOffset()
@@ -1144,19 +1144,19 @@ Item {
 
                                                     function selectAction(idx) {
                                                         var maxIdx = maxActionIndex()
-                                                        actionIndex = Math.max(0, Math.min(maxIdx, idx))
-                                                        var item = actionItemForIndex(actionIndex)
+                                                        popupActionIndex = Math.max(0, Math.min(maxIdx, idx))
+                                                        var item = actionItemForIndex(popupActionIndex)
                                                         if (item) item.forceActiveFocus()
                                                     }
 
                                                     onOpened: {
-                                                        actionIndex = 0
+                                                        popupActionIndex = 0
                                                         selectAction(0)
                                                         if (popupFocusRoot) popupFocusRoot.forceActiveFocus()
                                                     }
                                                     onClosed: {
                                                         recordingCard.actionFocusMode = false
-                                                        actionIndex = 0
+                                                        popupActionIndex = 0
                                                         Qt.callLater(function() {
                                                             if (!recordingCard || !recordingCard.visible) return
                                                             if (moreBtn && moreBtn.visible) moreBtn.forceActiveFocus()
@@ -1171,10 +1171,10 @@ Item {
                                                         focus: true
 
                                                         Keys.onUpPressed: {
-                                                            if (actionIndex > 0) selectAction(actionIndex - 1)
+                                                            if (popupActionIndex > 0) selectAction(popupActionIndex - 1)
                                                         }
                                                         Keys.onDownPressed: {
-                                                            if (actionIndex < maxActionIndex()) selectAction(actionIndex + 1)
+                                                            if (popupActionIndex < maxActionIndex()) selectAction(popupActionIndex + 1)
                                                         }
                                                         Keys.onLeftPressed: {
                                                             recordingCard.closeRecordingActionsPopup()
@@ -1183,13 +1183,13 @@ Item {
                                                             recordingCard.closeRecordingActionsPopup()
                                                         }
                                                         Keys.onReturnPressed: {
-                                                            var item = actionItemForIndex(actionIndex)
+                                                            var item = actionItemForIndex(popupActionIndex)
                                                             if (item && item.activateAction) item.activateAction()
                                                         }
                                                         Keys.onEnterPressed: Keys.onReturnPressed(event)
                                                         Keys.onPressed: function(event) {
                                                             if (event.key === Qt.Key_Select || event.key === Qt.Key_Space) {
-                                                                var item = actionItemForIndex(actionIndex)
+                                                                var item = actionItemForIndex(popupActionIndex)
                                                                 if (item && item.activateAction) item.activateAction()
                                                                 event.accepted = true
                                                             } else if (event.key === Qt.Key_Back || event.key === Qt.Key_B || event.key === Qt.Key_Escape) {
@@ -1210,7 +1210,7 @@ Item {
                                                                 height: 40
                                                                 radius: 12
                                                                 activeFocusOnTab: true
-                                                                property bool selected: recordingActionsPopup.actionIndex === 0
+                                                                property bool selected: recordingActionsPopup.popupActionIndex === 0
                                                                 color: selected ? Theme.surfaceElevated : (stopActionHov ? Theme.error : "#3a1010")
                                                                 border.width: selected ? 2 : 1
                                                                 border.color: selected ? Theme.error : Theme.error
@@ -1261,7 +1261,7 @@ Item {
                                                                 height: 40
                                                                 radius: 12
                                                                 activeFocusOnTab: true
-                                                                property bool selected: recordingActionsPopup.actionIndex === 0
+                                                                property bool selected: recordingActionsPopup.popupActionIndex === 0
                                                                 color: selected ? Theme.surfaceElevated : (pinActionHov ? Theme.accent : Theme.surface)
                                                                 border.width: selected ? 2 : 1
                                                                 border.color: selected ? Theme.accent : (modelData.pinned ? Theme.accent : Theme.surfaceBorder)
@@ -1309,7 +1309,7 @@ Item {
                                                                 height: 40
                                                                 radius: 12
                                                                 activeFocusOnTab: true
-                                                                property bool selected: recordingActionsPopup.actionIndex === 1
+                                                                property bool selected: recordingActionsPopup.popupActionIndex === 1
                                                                 color: selected ? Theme.surfaceElevated : (deleteActionHov ? Theme.error : "#3a1010")
                                                                 border.width: selected ? 2 : 1
                                                                 border.color: selected ? Theme.error : Theme.error
@@ -1358,7 +1358,7 @@ Item {
                                                                 height: 40
                                                                 radius: 12
                                                                 activeFocusOnTab: true
-                                                                property bool selected: recordingActionsPopup.actionIndex === 2
+                                                                property bool selected: recordingActionsPopup.popupActionIndex === 2
                                                                 color: selected ? Theme.surfaceElevated : (deleteFileActionHov ? Theme.surfaceHover : Theme.surface)
                                                                 border.width: selected ? 2 : 1
                                                                 border.color: selected ? Theme.accent : Theme.surfaceBorder
@@ -1413,7 +1413,7 @@ Item {
                                                                 height: 40
                                                                 radius: 12
                                                                 activeFocusOnTab: true
-                                                                property bool selected: recordingActionsPopup.actionIndex === (deleteFileAction.visible ? 3 : 2)
+                                                                property bool selected: recordingActionsPopup.popupActionIndex === (deleteFileAction.visible ? 3 : 2)
                                                                 color: selected ? Theme.surfaceElevated : (cancelActionHov ? Theme.surfaceHover : Theme.surface)
                                                                 border.width: selected ? 2 : 1
                                                                 border.color: selected ? Theme.accent : Theme.surfaceBorder
