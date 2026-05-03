@@ -20,6 +20,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Write gateway secret for CMake
+        env:
+          GATEWAY_API_KEY: ${{ secrets.IPTVXS_GATEWAY_API_KEY }}
+        run: |
+          if ($env:GATEWAY_API_KEY) {
+            "IPTVXS_GATEWAY_API_KEY=$env:GATEWAY_API_KEY" | Set-Content -Encoding ASCII .secrets
+          }
+
       - name: Install Qt
         uses: jurplel/install-qt-action@v4
         with:
@@ -135,3 +143,7 @@ jobs:
           files: |
             iptvXS-windows-x64.zip
             iptvXS-setup-x64.exe
+
+      - name: Clean up gateway secret
+        if: always()
+        run: Remove-Item -Force .secrets -ErrorAction SilentlyContinue

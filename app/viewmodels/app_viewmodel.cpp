@@ -69,6 +69,10 @@ bool contentTypeLooksBinary(const QString &contentType) {
         || contentType.contains(QStringLiteral("multipart/"));
 }
 
+bool hasGatewayApiKey() {
+    return QStringLiteral(IPTVXS_GATEWAY_API_KEY).isEmpty() == false;
+}
+
 QByteArray stripBomAndWhitespace(QByteArray data) {
     if (data.startsWith("\xEF\xBB\xBF")) {
         data.remove(0, 3);
@@ -1264,6 +1268,12 @@ void AppViewModel::bootstrapDefaultFreeServerSync() {
         }
     }
     if (idx < 0) {
+        return;
+    }
+
+    if (!hasGatewayApiKey()) {
+        defaultFreeServerBootstrapPending_ = false;
+        qInfo("Skipping built-in iptvXS Free bootstrap: gateway API key unavailable in this build");
         return;
     }
 

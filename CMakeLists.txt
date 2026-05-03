@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.22)
 
 project(iptvxs
-    VERSION 0.3.10
+    VERSION 0.3.11
     DESCRIPTION "Cross-platform IPTV viewer"
     LANGUAGES CXX
 )

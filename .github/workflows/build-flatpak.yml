@@ -28,6 +28,14 @@ jobs:
       - name: Add Flathub remote
         run: flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
 
+      - name: Write gateway secret for CMake
+        env:
+          GATEWAY_API_KEY: ${{ secrets.IPTVXS_GATEWAY_API_KEY }}
+        run: |
+          if [ -n "$GATEWAY_API_KEY" ]; then
+            printf 'IPTVXS_GATEWAY_API_KEY=%s\n' "$GATEWAY_API_KEY" > .secrets
+          fi
+
       - name: Install SDK and runtime
         run: flatpak install --user -y flathub org.kde.Platform//6.10 org.kde.Sdk//6.10 || true
 
@@ -50,3 +58,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: iptvxs.flatpak
+
+      - name: Clean up gateway secret
+        if: always()
+        run: rm -f .secrets

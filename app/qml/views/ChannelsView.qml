@@ -3,7 +3,6 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import QtQuick.Window
-import Qt5Compat.GraphicalEffects
 import app.iptvxs
 
 Item {
@@ -863,14 +862,6 @@ Item {
                                             ? Theme.accent
                                             : "transparent"
                                         clip: true
-                                        layer.enabled: true
-                                        layer.effect: OpacityMask {
-                                            maskSource: Rectangle {
-                                                width: chNetCard.width
-                                                height: chNetCard.height
-                                                radius: chNetCard.radius
-                                            }
-                                        }
                                         property bool chNetHov: false
 
                                         // Logo area (centered, not cropped)
@@ -1064,15 +1055,6 @@ Item {
                         radius: 10
                         color: Theme.surfaceElevated
                         clip: true
-                        layer.enabled: true
-                        layer.effect: OpacityMask {
-                            maskSource: Rectangle {
-                                width: chNetCard.width
-                                height: chNetCard.height
-                                radius: chNetCard.radius
-                            }
-                        }
-
                         property bool chHovered: false
 
                         function activate() {

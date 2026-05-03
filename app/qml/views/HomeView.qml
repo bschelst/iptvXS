@@ -3,7 +3,6 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import QtQuick.Window
-import Qt5Compat.GraphicalEffects
 import app.iptvxs
 
 Item {
@@ -742,13 +741,6 @@ Item {
                     radius: 10
                 color: Theme.surfaceElevated
                 clip: true
-                layer.enabled: true
-                layer.effect: OpacityMask {
-                    maskSource: Rectangle {
-                        width: posterCard.width; height: posterCard.height; radius: posterCard.radius
-                    }
-                }
-
                 property bool cardHovered: false
 
                 // Poster image area

@@ -74,6 +74,10 @@ bool isFreePlaylistUrl(const QString &url) {
     return normalizeHttpUrl(url) == QString::fromLatin1(kFreePlaylistUrl);
 }
 
+bool hasGatewayApiKey() {
+    return QStringLiteral(IPTVXS_GATEWAY_API_KEY).isEmpty() == false;
+}
+
 int findBuiltinFreeServerIndex(const QVector<iptvxs::Server> &servers) {
     for (int i = 0; i < servers.size(); ++i) {
         if (servers.at(i).isBuiltinFree) {
@@ -553,6 +557,11 @@ void ServerListViewModel::syncM3uServer(const iptvxs::Server &server) {
     if (sanitizedServerUrl.isEmpty() && !isFreePlaylistUrl(server.url)) {
         setSyncStatus(QStringLiteral("Sync failed: invalid or local playlist URL"));
         emit errorOccurred(QStringLiteral("Invalid or local playlist URL"));
+        return;
+    }
+    if (isFreePlaylistUrl(server.url) && !hasGatewayApiKey()) {
+        setSyncStatus(QStringLiteral("Sync failed: built-in Free server is unavailable in this build"));
+        emit errorOccurred(QStringLiteral("Built-in Free server requires a gateway API key"));
         return;
     }
     setSyncing(true);

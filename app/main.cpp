@@ -1,5 +1,6 @@
 // iptvXS Project - Schelstraete Bart - https://iptvxs.schelstraete.org
 #include <clocale>
+#include <functional>
 #include <memory>
 
 #include <QApplication>
@@ -9,6 +10,7 @@
 #include <QIcon>
 #include <QLocalServer>
 #include <QLocalSocket>
+#include <QLockFile>
 #include <QMenu>
 #include <QMutex>
 #include <QMutexLocker>
@@ -19,6 +21,7 @@
 #include <QStandardPaths>
 #include <QSystemTrayIcon>
 #include <QTextStream>
+#include <QThread>
 
 #ifndef Q_OS_WIN
 #include "controller_input_bridge.h"
@@ -81,6 +84,42 @@ static bool notifyExistingInstance() {
     socket.waitForBytesWritten(250);
     socket.disconnectFromServer();
     return true;
+}
+
+static bool startSingleInstanceServer(QLocalServer &server,
+                                      const std::function<void()> &onActivate) {
+    auto connectHandler = [&server, onActivate]() {
+        while (server.hasPendingConnections()) {
+            auto *socket = server.nextPendingConnection();
+            if (socket) socket->deleteLater();
+        }
+        if (onActivate) onActivate();
+    };
+
+    if (server.listen(singleInstanceServerName())) {
+        QObject::connect(&server, &QLocalServer::newConnection, &server,
+                         connectHandler);
+        return true;
+    }
+
+    QLocalServer::removeServer(singleInstanceServerName());
+    if (server.listen(singleInstanceServerName())) {
+        QObject::connect(&server, &QLocalServer::newConnection, &server,
+                         connectHandler);
+        return true;
+    }
+
+    return false;
+}
+
+static bool notifyExistingInstanceWithRetry(int attempts = 10, int delayMs = 100) {
+    for (int i = 0; i < attempts; ++i) {
+        if (notifyExistingInstance()) {
+            return true;
+        }
+        QThread::msleep(static_cast<unsigned long>(delayMs));
+    }
+    return false;
 }
 
 static bool renameLegacyDatabaseFiles(const QString &dataPath) {
@@ -214,13 +253,14 @@ int main(int argc, char *argv[]) {
 
     QString dbPath = databasePath(dataPath);
 
-    auto viewModel = new AppViewModel(&app);
-    viewModel->setLogViewModel(logVm);
-    QObject::connect(viewModel, &AppViewModel::errorOccurred, &app,
-                     [](const QString &message) { qWarning("%s", qPrintable(message)); });
-    if (!viewModel->initialize(dbPath)) {
-        qCritical("Failed to initialize database at %s", qPrintable(dbPath));
-        return 1;
+    QLockFile instanceLock(dataPath + QStringLiteral("/iptvXS.lock"));
+    if (!instanceLock.tryLock(100)) {
+        if (notifyExistingInstanceWithRetry()) {
+            qInfo("Existing iptvXS instance activated from tray");
+        } else {
+            qWarning("Another iptvXS instance is already running, but activation failed");
+        }
+        return 0;
     }
 
     QLocalServer instanceServer;
@@ -232,34 +272,18 @@ int main(int argc, char *argv[]) {
             showMainWindow(*enginePtr);
         }
     };
+    if (!startSingleInstanceServer(instanceServer, requestActivate)) {
+        qWarning("Failed to establish activation server: %s",
+                 qPrintable(instanceServer.errorString()));
+    }
 
-    if (instanceServer.listen(singleInstanceServerName())) {
-        QObject::connect(&instanceServer, &QLocalServer::newConnection, &app,
-                         [&]() {
-                             while (instanceServer.hasPendingConnections()) {
-                                 auto *socket = instanceServer.nextPendingConnection();
-                                 if (socket) socket->deleteLater();
-                             }
-                             requestActivate();
-                         });
-    } else {
-        QLocalServer::removeServer(singleInstanceServerName());
-        if (instanceServer.listen(singleInstanceServerName())) {
-            QObject::connect(&instanceServer, &QLocalServer::newConnection, &app,
-                             [&]() {
-                                 while (instanceServer.hasPendingConnections()) {
-                                     auto *socket = instanceServer.nextPendingConnection();
-                                     if (socket) socket->deleteLater();
-                                 }
-                                 requestActivate();
-                             });
-        } else if (notifyExistingInstance()) {
-            qInfo("Existing iptvXS instance activated from tray");
-            return 0;
-        } else {
-            qWarning("Failed to establish single-instance server: %s",
-                     qPrintable(instanceServer.errorString()));
-        }
+    auto viewModel = new AppViewModel(&app);
+    viewModel->setLogViewModel(logVm);
+    QObject::connect(viewModel, &AppViewModel::errorOccurred, &app,
+                     [](const QString &message) { qWarning("%s", qPrintable(message)); });
+    if (!viewModel->initialize(dbPath)) {
+        qCritical("Failed to initialize database at %s", qPrintable(dbPath));
+        return 1;
     }
 
     auto applyQuitPolicy = [viewModel, &app]() {
