@@ -1273,14 +1273,17 @@ void AppViewModel::ensureDefaultServers() {
 
 void AppViewModel::applyToneMappingToPlayer() {
     if (!playerVm_ || !playerVm_->mpvPlayer()->handle()) return;
-    auto algo = toneMapping() ? toneMappingAlgorithm() : QStringLiteral("auto");
-    auto hdrPeak = toneMapping() ? QStringLiteral("yes") : QStringLiteral("auto");
-    const QStringList toneCmd{QStringLiteral("set"), QStringLiteral("tone-mapping"), algo};
+    const auto algo = toneMapping() ? toneMappingAlgorithm() : QString();
+    const auto hdrPeak = toneMapping() ? QStringLiteral("yes") : QStringLiteral("no");
+    if (!algo.isEmpty() && algo != QStringLiteral("auto")) {
+        const QStringList toneCmd{QStringLiteral("set"), QStringLiteral("tone-mapping"), algo};
+        playerVm_->mpvPlayer()->command(toneCmd);
+    }
     const QStringList hdrCmd{QStringLiteral("set"), QStringLiteral("hdr-compute-peak"), hdrPeak};
-    playerVm_->mpvPlayer()->command(toneCmd);
     playerVm_->mpvPlayer()->command(hdrCmd);
     qInfo("Tone mapping %s: algorithm=%s hdr-compute-peak=%s",
-          toneMapping() ? "enabled" : "disabled", qPrintable(algo),
+          toneMapping() ? "enabled" : "disabled",
+          algo.isEmpty() ? "auto/default" : qPrintable(algo),
           qPrintable(hdrPeak));
 }
 
