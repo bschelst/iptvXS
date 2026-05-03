@@ -1,7 +1,22 @@
 cmake_minimum_required(VERSION 3.22)
 
+find_package(Git QUIET)
+set(IPTVXS_VERSION "0.3.13")
+if(GIT_FOUND)
+    execute_process(
+        COMMAND "${GIT_EXECUTABLE}" describe --tags --match "v*" --abbrev=0
+        WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+        OUTPUT_VARIABLE IPTVXS_GIT_TAG
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        ERROR_QUIET
+    )
+    if(IPTVXS_GIT_TAG MATCHES "^v([0-9]+\\.[0-9]+\\.[0-9]+)$")
+        set(IPTVXS_VERSION "${CMAKE_MATCH_1}")
+    endif()
+endif()
+
 project(iptvxs
-    VERSION 0.3.12
+    VERSION ${IPTVXS_VERSION}
     DESCRIPTION "Cross-platform IPTV viewer"
     LANGUAGES CXX
 )

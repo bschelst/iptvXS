@@ -51,6 +51,7 @@ public:
 
     void command(const QStringList &args);
     void setProperty(const QString &name, const QVariant &value);
+    int setOptionString(const QString &name, const QString &value);
     QVariant getProperty(const QString &name) const;
 
 signals:

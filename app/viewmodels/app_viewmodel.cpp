@@ -1270,20 +1270,14 @@ void AppViewModel::ensureDefaultServers() {
 }
 
 void AppViewModel::applyToneMappingToPlayer() {
-    if (!playerVm_) return;
-    auto *mpv = playerVm_->mpvPlayer();
-    if (toneMapping()) {
-        auto algo = toneMappingAlgorithm();
-        mpv->setProperty(QStringLiteral("tone-mapping"), QVariant(algo));
-        mpv->setProperty(QStringLiteral("tone-mapping-mode"), QVariant(QStringLiteral("auto")));
-        mpv->setProperty(QStringLiteral("hdr-compute-peak"), QVariant(QStringLiteral("yes")));
-        qInfo("Tone mapping enabled: algorithm=%s", qPrintable(algo));
-    } else {
-        mpv->setProperty(QStringLiteral("tone-mapping"), QVariant(QStringLiteral("auto")));
-        mpv->setProperty(QStringLiteral("tone-mapping-mode"), QVariant(QStringLiteral("auto")));
-        mpv->setProperty(QStringLiteral("hdr-compute-peak"), QVariant(QStringLiteral("auto")));
-        qInfo("Tone mapping disabled (using mpv defaults)");
-    }
+    if (!playerVm_ || !playerVm_->mpvPlayer()->handle()) return;
+    auto *h = playerVm_->mpvPlayer()->handle();
+    auto algo = toneMapping() ? toneMappingAlgorithm() : QStringLiteral("auto");
+    auto hdrPeak = toneMapping() ? QStringLiteral("yes") : QStringLiteral("auto");
+    int r1 = mpv_set_property_string(h, "tone-mapping", algo.toUtf8().constData());
+    int r2 = mpv_set_property_string(h, "hdr-compute-peak", hdrPeak.toUtf8().constData());
+    qInfo("Tone mapping %s: algorithm=%s (mpv: tone-mapping=%d hdr-compute-peak=%d)",
+          toneMapping() ? "enabled" : "disabled", qPrintable(algo), r1, r2);
 }
 
 void AppViewModel::bootstrapDefaultFreeServerSync() {

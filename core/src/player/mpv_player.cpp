@@ -217,6 +217,11 @@ void MpvPlayer::command(const QStringList &args) {
     mpv_command_async(mpv_, 0, cArgs.data());
 }
 
+int MpvPlayer::setOptionString(const QString &name, const QString &value) {
+    if (!mpv_) return -1;
+    return mpv_set_option_string(mpv_, name.toUtf8().constData(), value.toUtf8().constData());
+}
+
 void MpvPlayer::setProperty(const QString &name, const QVariant &value) {
     if (!mpv_) return;
     auto nameUtf8 = name.toUtf8();

@@ -1505,7 +1505,7 @@ Item {
                         Layout.fillWidth: true
                     }
 
-                    Switch {
+                    ThemeSwitch {
                         id: subVisSwitch
                         checked: true
                         onToggled: {

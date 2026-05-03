@@ -23,6 +23,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Write gateway secret for CMake
         env:
@@ -106,7 +108,7 @@ jobs:
 
       - name: Create MSIX staging area
         run: |
-          $version = (Select-String -Path CMakeLists.txt -Pattern 'VERSION\s+(\d+\.\d+\.\d+)').Matches.Groups[1].Value
+          $version = (git describe --tags --match "v*" --abbrev=0).TrimStart("v")
           $staging = "msix-staging"
           $packageId = if ($env:MSIX_PACKAGE_ID) { $env:MSIX_PACKAGE_ID } else { "schelstraete.org.iptvXS" }
           $publisher = if ($env:MSIX_PUBLISHER) { $env:MSIX_PUBLISHER } else { "CN=D82BF36F-A091-4FAE-8386-D481B2E795E3" }

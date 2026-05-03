@@ -385,7 +385,7 @@ Item {
                             }
                         }
 
-                        Switch {
+                        ThemeSwitch {
                             id: startMinSwitchCtrl
                             checked: appViewModel ? appViewModel.closeToTray : false
                             onToggled: {
@@ -701,7 +701,7 @@ Item {
                             }
                         }
 
-                        Switch {
+                        ThemeSwitch {
                             id: chromecastSwitchCtrl
                             checked: appViewModel ? appViewModel.chromecastEnabled : true
                             onToggled: {
@@ -810,7 +810,7 @@ Item {
                             }
                         }
 
-                        Switch {
+                        ThemeSwitch {
                             id: deinterlaceSwitchCtrl
                             checked: appViewModel ? appViewModel.deinterlace : false
                             onToggled: {
@@ -844,7 +844,7 @@ Item {
                             }
                         }
 
-                        Switch {
+                        ThemeSwitch {
                             id: toneMappingSwitchCtrl
                             checked: appViewModel ? appViewModel.toneMapping : false
                             onToggled: {
@@ -953,7 +953,7 @@ Item {
                             }
                         }
 
-                        Switch {
+                        ThemeSwitch {
                             id: subtitlesSwitchCtrl
                             checked: appViewModel ? appViewModel.subtitlesEnabled : false
                             onToggled: {
@@ -1810,7 +1810,7 @@ Item {
                             }
                         }
 
-                        Switch {
+                        ThemeSwitch {
                             id: keepLocalSwitchCtrl
                             checked: appViewModel ? appViewModel.keepLocalCopy : false
                             onToggled: {
@@ -2554,7 +2554,7 @@ Item {
                             }
                         }
 
-                        Switch {
+                        ThemeSwitch {
                             id: freeServerSwitchCtrl
                             checked: appViewModel && appViewModel.serverList
                                 ? appViewModel.serverList.freeServerEnabled : false

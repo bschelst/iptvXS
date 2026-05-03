@@ -19,6 +19,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Write gateway secret for CMake
         env:
@@ -124,7 +126,7 @@ jobs:
 
       - name: Build installer
         run: |
-          $version = (Select-String -Path CMakeLists.txt -Pattern 'VERSION\s+(\d+\.\d+\.\d+)').Matches.Groups[1].Value
+          $version = (git describe --tags --match "v*" --abbrev=0).TrimStart("v")
           (Get-Content packaging/windows/installer.iss) -replace 'AppVersion=.*', "AppVersion=$version" | Set-Content packaging/windows/installer.iss
           iscc packaging/windows/installer.iss
 
