@@ -2,6 +2,10 @@
 #include "app_viewmodel.h"
 #include "log_viewmodel.h"
 
+#ifdef Q_OS_WIN
+#include <winsparkle.h>
+#endif
+
 #include <QDateTime>
 #include <QDesktopServices>
 #include <QJsonArray>
@@ -2260,6 +2264,14 @@ void AppViewModel::checkForUpdates() {
             qInfo("Latest version: %s (current: %s)", qPrintable(tag), qPrintable(appVersion()));
         }
     });
+}
+
+void AppViewModel::checkForUpdatesWithUI() {
+#ifdef Q_OS_WIN
+    win_sparkle_check_update_with_ui();
+#else
+    checkForUpdates();
+#endif
 }
 
 void AppViewModel::openGitHub() {

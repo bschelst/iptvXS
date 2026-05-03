@@ -193,6 +193,7 @@ public:
     QString latestVersion() const;
     bool updateAvailable() const;
     Q_INVOKABLE void checkForUpdates();
+    Q_INVOKABLE void checkForUpdatesWithUI();
     Q_INVOKABLE void openGitHub();
 
     Q_INVOKABLE bool fileExists(const QString &path) const;

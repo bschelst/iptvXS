@@ -110,6 +110,14 @@ target_include_directories(iptvXS
         ${MPV_INCLUDE_DIRS}
 )
 
+if(WIN32)
+    set(WINSPARKLE_DIR "" CACHE PATH "Path to WinSparkle directory")
+    if(WINSPARKLE_DIR)
+        target_include_directories(iptvXS PRIVATE "${WINSPARKLE_DIR}/include")
+        target_link_libraries(iptvXS PRIVATE "${WINSPARKLE_DIR}/x64/Release/WinSparkle.lib")
+    endif()
+endif()
+
 target_link_libraries(iptvXS
     PRIVATE
         iptvxs-core

@@ -71,13 +71,26 @@ jobs:
           Write-Host "Files after lib generation:"
           dir *.lib, *.dll, *.def
 
+      - name: Download WinSparkle
+        run: |
+          $url = "https://github.com/nicola-buechel-net/winsparkle/releases/download/v0.8.5/WinSparkle-0.8.5.zip"
+          Invoke-WebRequest -Uri $url -OutFile winsparkle.zip -MaximumRetryCount 3
+          Expand-Archive -Path winsparkle.zip -DestinationPath winsparkle-extract
+          $dir = Get-ChildItem -Path winsparkle-extract -Directory | Select-Object -First 1
+          Move-Item $dir.FullName winsparkle
+          Write-Host "WinSparkle files:"
+          dir winsparkle -Recurse -Include *.dll,*.lib,*.h | Select-Object FullName
+
       - name: Configure CMake
+        env:
+          WORKSPACE: ${{ github.workspace }}
         run: |
           cmake -B build -G "Ninja" `
             -DCMAKE_BUILD_TYPE=Release `
             -DIPTVXS_BUILD_TESTS=OFF `
-            -DMPV_INCLUDE_DIRS="${{ github.workspace }}/mpv-dev/include" `
-            -DMPV_LIBRARIES="${{ github.workspace }}/mpv-dev/mpv.lib"
+            -DMPV_INCLUDE_DIRS="$env:WORKSPACE/mpv-dev/include" `
+            -DMPV_LIBRARIES="$env:WORKSPACE/mpv-dev/mpv.lib" `
+            -DWINSPARKLE_DIR="$env:WORKSPACE/winsparkle"
 
       - name: Build
         run: cmake --build build --config Release
@@ -95,6 +108,7 @@ jobs:
           cd package
           windeployqt --qmldir ../app/qml iptvXS.exe
           Copy-Item ../mpv-dev/libmpv-2.dll .
+          Copy-Item ../winsparkle/x64/Release/WinSparkle.dll .
 
       - name: Create ZIP
         run: |

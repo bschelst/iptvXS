@@ -20,6 +20,8 @@
 
 #ifndef Q_OS_WIN
 #include "controller_input_bridge.h"
+#else
+#include <winsparkle.h>
 #endif
 #include "viewmodels/app_viewmodel.h"
 #include "viewmodels/log_viewmodel.h"
@@ -296,12 +298,23 @@ int main(int argc, char *argv[]) {
     auto *mainWindow = showMainWindow(engine);
 #ifndef Q_OS_WIN
     auto controllerBridge = std::make_unique<ControllerInputBridge>(mainWindow, &app);
+#else
+    win_sparkle_set_appcast_url("https://iptvxs.schelstraete.org/api/v1/appcast.xml");
+    win_sparkle_set_app_details(L"iptvXS", L"iptvXS",
+                                app.applicationVersion().toStdWString().c_str());
+    win_sparkle_set_automatic_check_for_updates(1);
+    win_sparkle_set_update_check_interval(86400);
+    win_sparkle_init();
+    qInfo("WinSparkle auto-update initialized");
 #endif
 
     qInfo("Application started successfully");
 
     auto result = QApplication::exec();
 
+#ifdef Q_OS_WIN
+    win_sparkle_cleanup();
+#endif
     qInfo("Application shutting down");
     qInstallMessageHandler(nullptr);
     g_logViewModel = nullptr;
