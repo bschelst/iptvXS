@@ -1,0 +1,160 @@
+name: Build Windows MSIX
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+env:
+  MPV_VERSION: "0.41.0"
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    env:
+      MSIX_PACKAGE_ID: ${{ vars.MSIX_PACKAGE_ID }}
+      MSIX_PUBLISHER: ${{ vars.MSIX_PUBLISHER }}
+      MSIX_PUBLISHER_DISPLAY_NAME: ${{ vars.MSIX_PUBLISHER_DISPLAY_NAME }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Write gateway secret for CMake
+        env:
+          GATEWAY_API_KEY: ${{ secrets.IPTVXS_GATEWAY_API_KEY }}
+        run: |
+          if ($env:GATEWAY_API_KEY) {
+            "IPTVXS_GATEWAY_API_KEY=$env:GATEWAY_API_KEY" | Set-Content -Encoding ASCII .secrets
+          }
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.8.2'
+          host: windows
+          target: desktop
+          arch: win64_msvc2022_64
+          modules: 'qtquick3d qtshadertools'
+
+      - name: Setup MSVC
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Cache mpv dev
+        id: cache-mpv
+        uses: actions/cache@v4
+        with:
+          path: mpv-dev
+          key: mpv-dev-x86_64-20260421
+
+      - name: Download mpv dev libraries
+        if: steps.cache-mpv.outputs.cache-hit != 'true'
+        run: |
+          $url = "https://github.com/shinchiro/mpv-winbuild-cmake/releases/download/20260421/mpv-dev-x86_64-v3-20260421-git-5921fe5.7z"
+          Write-Host "Downloading $url"
+          Invoke-WebRequest -Uri $url -OutFile mpv-dev.7z -MaximumRetryCount 3
+          7z x mpv-dev.7z -ompv-dev
+          dir mpv-dev
+
+      - name: Generate MSVC import library
+        run: |
+          cd mpv-dev
+          if (Test-Path "libmpv-2.dll") {
+            $exports = dumpbin /exports libmpv-2.dll | Select-String "^\s+\d+\s+[0-9A-F]+\s+[0-9A-F]+\s+(\S+)" | ForEach-Object { $_.Matches.Groups[1].Value }
+            "LIBRARY libmpv-2.dll" | Out-File -Encoding ASCII mpv.def
+            "EXPORTS" | Out-File -Encoding ASCII -Append mpv.def
+            $exports | ForEach-Object { "  $_" | Out-File -Encoding ASCII -Append mpv.def }
+            Write-Host "Generated mpv.def with $($exports.Count) exports"
+            lib /def:mpv.def /out:mpv.lib /machine:x64
+          } else {
+            Write-Host "ERROR: libmpv-2.dll not found"
+            Get-ChildItem -Recurse | Select-Object FullName
+            exit 1
+          }
+          Write-Host "Files after lib generation:"
+          dir *.lib, *.dll, *.def
+
+      - name: Download WinSparkle
+        run: |
+          $url = "https://github.com/vslavik/winsparkle/releases/download/v0.9.2/WinSparkle-0.9.2.zip"
+          Invoke-WebRequest -Uri $url -OutFile winsparkle.zip -MaximumRetryCount 3
+          Expand-Archive -Path winsparkle.zip -DestinationPath winsparkle-extract
+          $dir = Get-ChildItem -Path winsparkle-extract -Directory | Select-Object -First 1
+          Move-Item $dir.FullName winsparkle
+          Write-Host "WinSparkle files:"
+          dir winsparkle -Recurse -Include *.dll,*.lib,*.h | Select-Object FullName
+
+      - name: Configure CMake
+        env:
+          WORKSPACE: ${{ github.workspace }}
+        run: |
+          cmake -B build -G "Ninja" `
+            -DCMAKE_BUILD_TYPE=Release `
+            -DIPTVXS_BUILD_TESTS=OFF `
+            -DMPV_INCLUDE_DIRS="$env:WORKSPACE/mpv-dev/include" `
+            -DMPV_LIBRARIES="$env:WORKSPACE/mpv-dev/mpv.lib" `
+            -DWINSPARKLE_DIR="$env:WORKSPACE/winsparkle"
+
+      - name: Build
+        run: cmake --build build --config Release
+
+      - name: Create MSIX staging area
+        run: |
+          $version = (Select-String -Path CMakeLists.txt -Pattern 'VERSION\s+(\d+\.\d+\.\d+)').Matches.Groups[1].Value
+          $staging = "msix-staging"
+          $packageId = if ($env:MSIX_PACKAGE_ID) { $env:MSIX_PACKAGE_ID } else { "org.schelstraete.iptvxs" }
+          $publisher = if ($env:MSIX_PUBLISHER) { $env:MSIX_PUBLISHER } else { "CN=Schelstraete Bart" }
+          $publisherDisplayName = if ($env:MSIX_PUBLISHER_DISPLAY_NAME) { $env:MSIX_PUBLISHER_DISPLAY_NAME } else { "Bart Schelstraete" }
+          if (-not $env:MSIX_PACKAGE_ID -or -not $env:MSIX_PUBLISHER -or -not $env:MSIX_PUBLISHER_DISPLAY_NAME) {
+            Write-Host "WARNING: MSIX package identity is using repository defaults. Set MSIX_PACKAGE_ID, MSIX_PUBLISHER, and MSIX_PUBLISHER_DISPLAY_NAME GitHub Variables for Store submission."
+          }
+          New-Item -ItemType Directory -Force -Path $staging, "$staging\Assets" | Out-Null
+          Copy-Item packaging/windows/msix/assets/* "$staging\Assets\"
+          $manifest = Get-Content packaging/windows/msix/AppxManifest.template.xml -Raw
+          $manifest = $manifest.Replace("__VERSION__", "$version.0")
+          $manifest = $manifest.Replace("__PACKAGE_ID__", $packageId)
+          $manifest = $manifest.Replace("__PUBLISHER__", $publisher)
+          $manifest = $manifest.Replace("__PUBLISHER_DISPLAY_NAME__", $publisherDisplayName)
+          Set-Content -Encoding utf8 "$staging\AppxManifest.xml" $manifest
+
+          $exe = Get-ChildItem -Path build -Recurse -Filter "iptvXS.exe" | Select-Object -First 1
+          if (-not $exe) {
+            Write-Host "ERROR: iptvXS.exe not found"
+            Get-ChildItem -Path build -Recurse -Filter "*.exe" | Select-Object FullName
+            exit 1
+          }
+          Copy-Item $exe.FullName $staging/
+          cd $staging
+          windeployqt --qmldir ../app/qml iptvXS.exe
+          Copy-Item ../mpv-dev/libmpv-2.dll .
+          Copy-Item ../winsparkle/x64/Release/WinSparkle.dll .
+
+      - name: Build MSIX
+        run: |
+          $makeappx = (Get-Command makeappx.exe -ErrorAction Stop).Source
+          & $makeappx pack /d msix-staging /p iptvXS-windows-msix.msix /o /nv
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: iptvXS-windows-msix
+          path: |
+            iptvXS-windows-msix.msix
+            msix-staging\AppxManifest.xml
+
+      - name: Upload to release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            iptvXS-windows-msix.msix
+
+      - name: Clean up gateway secret
+        if: always()
+        run: Remove-Item -Force .secrets -ErrorAction SilentlyContinue
