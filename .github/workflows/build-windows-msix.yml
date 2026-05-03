@@ -108,9 +108,9 @@ jobs:
         run: |
           $version = (Select-String -Path CMakeLists.txt -Pattern 'VERSION\s+(\d+\.\d+\.\d+)').Matches.Groups[1].Value
           $staging = "msix-staging"
-          $packageId = if ($env:MSIX_PACKAGE_ID) { $env:MSIX_PACKAGE_ID } else { "org.schelstraete.iptvxs" }
-          $publisher = if ($env:MSIX_PUBLISHER) { $env:MSIX_PUBLISHER } else { "CN=Schelstraete Bart" }
-          $publisherDisplayName = if ($env:MSIX_PUBLISHER_DISPLAY_NAME) { $env:MSIX_PUBLISHER_DISPLAY_NAME } else { "Bart Schelstraete" }
+          $packageId = if ($env:MSIX_PACKAGE_ID) { $env:MSIX_PACKAGE_ID } else { "schelstraete.org.iptvXS" }
+          $publisher = if ($env:MSIX_PUBLISHER) { $env:MSIX_PUBLISHER } else { "CN=D82BF36F-A091-4FAE-8386-D481B2E795E3" }
+          $publisherDisplayName = if ($env:MSIX_PUBLISHER_DISPLAY_NAME) { $env:MSIX_PUBLISHER_DISPLAY_NAME } else { "schelstraete.org" }
           if (-not $env:MSIX_PACKAGE_ID -or -not $env:MSIX_PUBLISHER -or -not $env:MSIX_PUBLISHER_DISPLAY_NAME) {
             Write-Host "WARNING: MSIX package identity is using repository defaults. Set MSIX_PACKAGE_ID, MSIX_PUBLISHER, and MSIX_PUBLISHER_DISPLAY_NAME GitHub Variables for Store submission."
           }
