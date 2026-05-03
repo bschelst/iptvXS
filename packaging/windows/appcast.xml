@@ -6,20 +6,20 @@
     <description>Most recent updates for iptvXS</description>
     <language>en</language>
     <item>
-      <title>iptvXS v0.3.10</title>
+      <title>iptvXS v0.3.13</title>
       <description><![CDATA[
-        <h2>What's New in v0.3.10</h2>
+        <h2>What's New in v0.3.13</h2>
         <ul>
-          <li>Updated iptvXS Free channel sources</li>
-          <li>Additional controller navigation fixes</li>
-          <li>EPG source sync improvements</li>
-          <li>Dynamic groups feature</li>
+          <li>Encrypted stored Xtream credentials at rest</li>
+          <li>Added a themed high-contrast toggle component</li>
+          <li>Moved log files into a dedicated logs folder</li>
+          <li>Release workflow now waits for manual approval</li>
         </ul>
       ]]></description>
       <pubDate>Sat, 03 May 2026 00:00:00 +0000</pubDate>
-      <sparkle:version>0.3.10</sparkle:version>
+      <sparkle:version>0.3.13</sparkle:version>
       <enclosure
-        url="https://github.com/bschelst/iptvXS/releases/download/v0.3.10/iptvXS-setup-x64.exe"
+        url="https://github.com/bschelst/iptvXS/releases/download/v0.3.13/iptvXS-setup-x64.exe"
         length="0"
         type="application/octet-stream"
         sparkle:installerArguments="/SILENT /SP-"

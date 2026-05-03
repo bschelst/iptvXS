@@ -2,6 +2,8 @@
 #include "app_viewmodel.h"
 #include "log_viewmodel.h"
 
+#include <mpv/client.h>
+
 #ifdef Q_OS_WIN
 #include <winsparkle.h>
 #endif
@@ -1271,13 +1273,15 @@ void AppViewModel::ensureDefaultServers() {
 
 void AppViewModel::applyToneMappingToPlayer() {
     if (!playerVm_ || !playerVm_->mpvPlayer()->handle()) return;
-    auto *h = playerVm_->mpvPlayer()->handle();
     auto algo = toneMapping() ? toneMappingAlgorithm() : QStringLiteral("auto");
     auto hdrPeak = toneMapping() ? QStringLiteral("yes") : QStringLiteral("auto");
-    int r1 = mpv_set_property_string(h, "tone-mapping", algo.toUtf8().constData());
-    int r2 = mpv_set_property_string(h, "hdr-compute-peak", hdrPeak.toUtf8().constData());
-    qInfo("Tone mapping %s: algorithm=%s (mpv: tone-mapping=%d hdr-compute-peak=%d)",
-          toneMapping() ? "enabled" : "disabled", qPrintable(algo), r1, r2);
+    const QStringList toneCmd{QStringLiteral("set"), QStringLiteral("tone-mapping"), algo};
+    const QStringList hdrCmd{QStringLiteral("set"), QStringLiteral("hdr-compute-peak"), hdrPeak};
+    playerVm_->mpvPlayer()->command(toneCmd);
+    playerVm_->mpvPlayer()->command(hdrCmd);
+    qInfo("Tone mapping %s: algorithm=%s hdr-compute-peak=%s",
+          toneMapping() ? "enabled" : "disabled", qPrintable(algo),
+          qPrintable(hdrPeak));
 }
 
 void AppViewModel::bootstrapDefaultFreeServerSync() {

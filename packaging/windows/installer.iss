@@ -1,6 +1,6 @@
 [Setup]
 AppName=iptvXS
-AppVersion=0.3.10
+AppVersion=0.3.13
 AppPublisher=Bart Schelstraete
 AppPublisherURL=https://github.com/bschelst/iptvXS
 DefaultDirName={autopf}\iptvXS
