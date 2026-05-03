@@ -116,6 +116,8 @@ jobs:
 
       - name: Build installer
         run: |
+          $version = (Select-String -Path CMakeLists.txt -Pattern 'VERSION\s+(\d+\.\d+\.\d+)').Matches.Groups[1].Value
+          (Get-Content packaging/windows/installer.iss) -replace 'AppVersion=.*', "AppVersion=$version" | Set-Content packaging/windows/installer.iss
           iscc packaging/windows/installer.iss
 
       - name: Upload artifacts
