@@ -9,6 +9,14 @@
 </p>
 
 <p align="center">
+  <img src="https://img.shields.io/badge/status-in%20development-orange" alt="Status" />
+  <img src="https://img.shields.io/github/v/tag/bschelst/iptvXS?label=version" alt="Version" />
+  <img src="https://img.shields.io/github/actions/workflow/status/bschelst/iptvXS/build-windows.yml?label=windows" alt="Windows Build" />
+  <img src="https://img.shields.io/github/actions/workflow/status/bschelst/iptvXS/build-flatpak.yml?label=flatpak" alt="Flatpak Build" />
+  <img src="https://img.shields.io/github/actions/workflow/status/bschelst/iptvXS/build-appimage.yml?label=appimage" alt="AppImage Build" />
+</p>
+
+<p align="center">
   <b>This project is under active development. Expect bugs, incomplete features, and rough edges. I'm still fully testing, and there are a lot of outstanding actions — use at your own risk.</b>
 </p>
 <p>
