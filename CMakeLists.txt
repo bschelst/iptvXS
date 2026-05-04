@@ -52,11 +52,19 @@ endif()
 
 if(UNIX AND NOT APPLE)
     include(GNUInstallDirs)
+    string(TIMESTAMP IPTVXS_RELEASE_DATE "%Y-%m-%d" UTC)
+    set(IPTVXS_RELEASE_NOTES_SUMMARY "Built from git tag v${IPTVXS_VERSION}.")
+    set(IPTVXS_RELEASE_NOTES "      <li>Built from git tag v${IPTVXS_VERSION}.</li>")
+    configure_file(
+        packaging/linux/org.schelstraete.iptvxs.metainfo.xml.in
+        ${CMAKE_CURRENT_BINARY_DIR}/packaging/linux/org.schelstraete.iptvxs.metainfo.xml
+        @ONLY
+    )
 
     install(FILES packaging/linux/org.schelstraete.iptvxs.desktop
         DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/applications)
 
-    install(FILES packaging/linux/org.schelstraete.iptvxs.metainfo.xml
+    install(FILES ${CMAKE_CURRENT_BINARY_DIR}/packaging/linux/org.schelstraete.iptvxs.metainfo.xml
         DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/metainfo)
 
     install(FILES packaging/linux/org.schelstraete.iptvxs.svg

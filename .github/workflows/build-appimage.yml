@@ -72,7 +72,7 @@ jobs:
           cp packaging/linux/org.schelstraete.iptvxs.desktop AppDir/
           cp packaging/linux/org.schelstraete.iptvxs.svg AppDir/usr/share/icons/hicolor/scalable/apps/
           cp packaging/linux/org.schelstraete.iptvxs.svg AppDir/org.schelstraete.iptvxs.svg
-          cp packaging/linux/org.schelstraete.iptvxs.metainfo.xml AppDir/usr/share/metainfo/
+          cp build/packaging/linux/org.schelstraete.iptvxs.metainfo.xml AppDir/usr/share/metainfo/
 
       - name: Download linuxdeploy
         run: |

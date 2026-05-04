@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>org.schelstraete.iptvxs</id>
+  <name>iptvXS</name>
+  <summary>Cross-platform IPTV viewer</summary>
+  <metadata_license>FSFAP</metadata_license>
+  <project_license>GPL-3.0-or-later</project_license>
+
+  <description>
+    <p>
+      iptvXS is a modern IPTV viewer built with Qt6 and libmpv. It supports
+      Xtream Codes and M3U playlist formats with features including an
+      electronic programme guide (EPG), scheduled and live recording,
+      Google Drive upload, favorites, and a theming system.
+    </p>
+    <p>Features:</p>
+    <ul>
+      <li>Xtream Codes API and M3U playlist support</li>
+      <li>High-quality playback via libmpv with OpenGL rendering</li>
+      <li>Electronic Programme Guide (EPG) with XMLTV parser</li>
+      <li>Scheduled and live recording with ffmpeg</li>
+      <li>Google Drive upload for recordings</li>
+      <li>Favorites and channel search</li>
+      <li>Stream speed testing</li>
+      <li>Multiple themes (Midnight, Ocean, Forest, Sunset, Nord, Light)</li>
+      <li>System tray integration</li>
+    </ul>
+  </description>
+
+  <launchable type="desktop-id">org.schelstraete.iptvxs.desktop</launchable>
+
+  <url type="homepage">https://github.com/bschelst/iptvXS</url>
+  <url type="bugtracker">https://github.com/bschelst/iptvXS/issues</url>
+
+  <provides>
+    <binary>iptvXS</binary>
+  </provides>
+
+  <developer id="org.schelstraete">
+    <name>Schelstraete Bart</name>
+  </developer>
+
+  <content_rating type="oars-1.1" />
+
+  <releases>
+    <release version="@IPTVXS_VERSION@" date="@IPTVXS_RELEASE_DATE@">
+      <description>
+        <p>@IPTVXS_RELEASE_NOTES_SUMMARY@</p>
+        <ul>
+@IPTVXS_RELEASE_NOTES@
+        </ul>
+      </description>
+    </release>
+  </releases>
+</component>
