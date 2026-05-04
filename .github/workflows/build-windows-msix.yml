@@ -136,15 +136,21 @@ jobs:
           windeployqt --qmldir ../app/qml iptvXS.exe
           Copy-Item ../mpv-dev/libmpv-2.dll .
           Copy-Item ../winsparkle/x64/Release/WinSparkle.dll .
-          $opensslDlls = @(
-            Get-ChildItem -Path "$env:ProgramFiles\OpenSSL-Win64\bin" -Filter "libcrypto-*-x64.dll" -ErrorAction SilentlyContinue,
-            Get-ChildItem -Path "$env:ProgramFiles\OpenSSL-Win64\bin" -Filter "libssl-*-x64.dll" -ErrorAction SilentlyContinue,
-            Get-ChildItem -Path "${env:ProgramFiles(x86)}\OpenSSL-Win32\bin" -Filter "libcrypto-*.dll" -ErrorAction SilentlyContinue,
-            Get-ChildItem -Path "${env:ProgramFiles(x86)}\OpenSSL-Win32\bin" -Filter "libssl-*.dll" -ErrorAction SilentlyContinue
-          ) | Where-Object { $_ }
+          $searchRoots = @(
+            "$env:ProgramFiles\OpenSSL-Win64\bin",
+            "$env:ProgramFiles\Git\mingw64\bin",
+            "$env:ProgramFiles\Git\usr\bin",
+            "${env:ProgramFiles(x86)}\OpenSSL-Win32\bin",
+            "${env:ProgramFiles(x86)}\Git\mingw64\bin",
+            "${env:ProgramFiles(x86)}\Git\usr\bin"
+          ) | Where-Object { Test-Path $_ }
+          $opensslDlls = foreach ($root in $searchRoots) {
+            Get-ChildItem -Path $root -Filter "libcrypto-*-x64.dll" -ErrorAction SilentlyContinue
+            Get-ChildItem -Path $root -Filter "libssl-*-x64.dll" -ErrorAction SilentlyContinue
+          } | Sort-Object FullName -Unique
           if (-not $opensslDlls) {
             Write-Host "ERROR: OpenSSL runtime DLLs not found"
-            Get-ChildItem -Path "$env:ProgramFiles\OpenSSL-Win64\bin", "${env:ProgramFiles(x86)}\OpenSSL-Win32\bin" -ErrorAction SilentlyContinue | Select-Object FullName
+            Get-ChildItem -Path $searchRoots -ErrorAction SilentlyContinue | Select-Object FullName
             exit 1
           }
           $opensslDlls | ForEach-Object { Copy-Item $_.FullName . }
