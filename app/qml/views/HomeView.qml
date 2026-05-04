@@ -22,6 +22,7 @@ Item {
             if (rows[i] && rows[i].visible && rows[i].cardListView && rows[i].cardListView.count > 0) {
                 currentRowIndex = allRows.indexOf(rows[i])
                 rows[i].cardListView.currentIndex = 0
+                rows[i].activeCardItem = rows[i].cardListView.currentItem
                 rows[i].cardListView.forceActiveFocus()
                 return
             }
@@ -29,6 +30,9 @@ Item {
         for (var j = 0; j < allRows.length; j++) {
             if (allRows[j] && allRows[j].visible) {
                 currentRowIndex = j
+                if (allRows[j].cardListView && allRows[j].cardListView.currentIndex >= 0) {
+                    allRows[j].activeCardItem = allRows[j].cardListView.currentItem
+                }
                 allRows[j].cardListView.forceActiveFocus()
                 return
             }
@@ -658,6 +662,18 @@ Item {
 
             model: cardRow.listModel
 
+            onCountChanged: {
+                if (count > 0 && currentIndex < 0) {
+                    currentIndex = 0
+                }
+            }
+
+            onActiveFocusChanged: {
+                if (activeFocus && currentIndex < 0 && count > 0) {
+                    currentIndex = 0
+                }
+            }
+
             Keys.onReturnPressed: activateCurrentCard()
             Keys.onEnterPressed: activateCurrentCard()
             Keys.onLeftPressed: {
@@ -676,7 +692,7 @@ Item {
                 }
             }
 
-    function activateCurrentCard() {
+            function activateCurrentCard() {
         if (currentIndex < 0 || !appViewModel) return
         if (cardRow.isQuickAccess) {
             var qa = quickAccessModel.get(currentIndex)
@@ -742,7 +758,7 @@ Item {
                     radius: 10
                 color: Theme.surfaceElevated
                 clip: true
-                property bool cardHovered: false
+                property bool cardHovered: posterHoverHandler.hovered
 
                 // Poster image area
                 Rectangle {
@@ -766,7 +782,8 @@ Item {
 
                     Image {
                         anchors.centerIn: parent
-                        width: parent.width * 0.4; height: parent.width * 0.4
+                        width: Math.min(parent.width * 0.28, 48)
+                        height: width
                         source: "qrc:/images/iptvxs_tray.png"
                         fillMode: Image.PreserveAspectFit
                         opacity: 0.4
@@ -835,8 +852,7 @@ Item {
 
                 // Mouse interaction
                 scale: {
-                    var lv = posterDelegate.ListView.view
-                    return (posterCard.cardHovered && lv && lv.activeFocus) ? 1.03 : 1.0
+                    return posterHoverHandler.hovered ? 1.03 : 1.0
                 }
                 Behavior on scale {
                     NumberAnimation { duration: Theme.animFast; easing.type: Easing.OutCubic }
@@ -849,8 +865,6 @@ Item {
                 anchors.fill: parent
                 hoverEnabled: true
                 cursorShape: Qt.PointingHandCursor
-                onEntered: posterCard.cardHovered = true
-                onExited: posterCard.cardHovered = false
                 onClicked: function(mouse) {
                     // Check if click is on the ✓ button area (top-right corner)
                     var btnRight = posterDelegate.width - 4   // posterCard right edge
@@ -873,6 +887,11 @@ Item {
                 }
             }
 
+            HoverHandler {
+                id: posterHoverHandler
+                target: posterDelegate
+            }
+
             // Focus/hover border
             Rectangle {
                 anchors.fill: posterCard
@@ -880,9 +899,9 @@ Item {
                 color: "transparent"
                 border.width: 2
                 border.color: {
+                    if (posterHoverHandler.hovered) return Theme.accent
                     var lv = posterDelegate.ListView.view
-                    if (posterCard.cardHovered && lv && lv.activeFocus) return Theme.accent
-                    if (lv && lv.activeFocus && lv.currentIndex === model.index) return Theme.accent
+                    if (lv && lv.activeFocus && lv.currentIndex === index) return Theme.accent
                     return "transparent"
                 }
                 z: 100
@@ -923,7 +942,7 @@ Item {
             width: 160
             height: 112
 
-            property var itemChannelId: 0
+                property var itemChannelId: 0
 
             Rectangle {
                 id: qaCard
@@ -933,25 +952,24 @@ Item {
                 color: qaCard.cardHovered ? Theme.surfaceHover : Theme.surfaceElevated
                 border.width: {
                     var lv = qaDelegate.ListView.view
-                    return (lv && lv.activeFocus && lv.currentIndex === index) ? 2 : 1
+                    return (lv && lv.currentIndex === index) ? 2 : 1
                 }
                 border.color: {
+                    if (qaHoverHandler.hovered) {
+                        return Theme.accent
+                    }
                     var lv = qaDelegate.ListView.view
                     if (lv && lv.activeFocus && lv.currentIndex === index) return Theme.accent
-                    if (qaCard.cardHovered && lv && lv.activeFocus) {
-                        return Qt.rgba(model.accentR, model.accentG, model.accentB, 0.25)
-                    }
                     return Theme.surfaceBorder
                 }
 
-                property bool cardHovered: false
+                property bool cardHovered: qaHoverHandler.hovered
 
                 Behavior on color { ColorAnimation { duration: Theme.animFast } }
                 Behavior on border.color { ColorAnimation { duration: Theme.animFast } }
 
                 scale: {
-                    var lv = qaDelegate.ListView.view
-                    return (cardHovered && lv && lv.activeFocus) ? 1.03 : 1.0
+                    return qaHoverHandler.hovered ? 1.03 : 1.0
                 }
                 Behavior on scale {
                     NumberAnimation { duration: Theme.animFast; easing.type: Easing.OutCubic }
@@ -1001,16 +1019,19 @@ Item {
                 }
 
                 MouseArea {
+                    id: qaMouseArea
                     anchors.fill: parent
-                    hoverEnabled: true
                     cursorShape: Qt.PointingHandCursor
-                    onEntered: qaCard.cardHovered = true
-                    onExited: qaCard.cardHovered = false
                     onClicked: {
                         var node = qaDelegate.parent
                         while (node && !node.activateCard) node = node.parent
-                        if (node) node.activateCard(model.index)
+                        if (node) node.activateCard(index)
                     }
+                }
+
+                HoverHandler {
+                    id: qaHoverHandler
+                    target: qaDelegate
                 }
             }
         }

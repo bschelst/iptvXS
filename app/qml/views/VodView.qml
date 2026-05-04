@@ -980,7 +980,8 @@ Item {
 
                                         Image {
                                             anchors.centerIn: parent
-                                            width: parent.width * 0.5; height: parent.width * 0.5
+                                            width: Math.min(parent.width * 0.28, 48)
+                                            height: width
                                             source: "qrc:/images/iptvxs_tray.png"
                                             fillMode: Image.PreserveAspectFit
                                             opacity: 0.2
@@ -1106,6 +1107,8 @@ Item {
                                                 episodeDialog.seriesChannelId = channelId
                                                 appViewModel.fetchSeriesEpisodes(serverId, externalId, name, logoUrl)
                                             } else {
+                                                appViewModel.clearActiveSeriesDialog()
+                                                appViewModel.clearPendingSeriesEpisodes()
                                                 appViewModel.player.play(streamUrl, name, logoUrl, channelId)
                                                 appViewModel.currentView = "player"
                                             }
@@ -1233,7 +1236,8 @@ Item {
 
                         Image {
                             anchors.centerIn: parent
-                            width: parent.width * 0.5; height: parent.width * 0.5
+                            width: Math.min(parent.width * 0.28, 48)
+                            height: width
                             source: "qrc:/images/iptvxs_tray.png"
                             fillMode: Image.PreserveAspectFit
                             opacity: 0.2
@@ -1288,6 +1292,8 @@ Item {
                                 episodeDialog.seriesChannelId = model.channelId
                                 appViewModel.fetchSeriesEpisodes(model.serverId, model.externalId, model.name, model.logoUrl)
                             } else {
+                                appViewModel.clearActiveSeriesDialog()
+                                appViewModel.clearPendingSeriesEpisodes()
                                 appViewModel.player.play(model.streamUrl, model.name, model.logoUrl, model.channelId)
                                 appViewModel.currentView = "player"
                             }
@@ -1502,6 +1508,8 @@ Item {
                                 episodeDialog.seriesChannelId = model.channelId
                                 appViewModel.fetchSeriesEpisodes(model.serverId, model.externalId, model.name, model.logoUrl)
                             } else {
+                                appViewModel.clearActiveSeriesDialog()
+                                appViewModel.clearPendingSeriesEpisodes()
                                 appViewModel.player.play(model.streamUrl, model.name, model.logoUrl, model.channelId)
                                 appViewModel.currentView = "player"
                             }

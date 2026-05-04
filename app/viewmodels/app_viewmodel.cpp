@@ -1692,6 +1692,10 @@ void AppViewModel::playChannelById(int64_t channelId, int startPositionSecs) {
     if (!channelRepo_ || channelId <= 0) return;
     auto ch = channelRepo_->findById(channelId);
     if (!ch) return;
+    if (ch->type != QStringLiteral("series")) {
+        clearActiveSeriesDialog();
+        clearPendingSeriesEpisodes();
+    }
     playerVm_->play(ch->streamUrl, ch->name, ch->logoUrl, ch->id, ch->epgChannelId,
                     startPositionSecs, true, ch->type == QStringLiteral("live"));
     setCurrentView(QStringLiteral("player"));
@@ -1717,6 +1721,8 @@ void AppViewModel::playHistoryEntry(int64_t historyId) {
     const auto startPositionVar = resumePlan.value(QStringLiteral("startPositionSecs"));
     const auto startPositionSecs = startPositionVar.isValid() ? startPositionVar.toInt() : entry->positionSecs;
     const auto jumpedToNext = resumePlan.value(QStringLiteral("jumpedToNext")).toBool();
+    const bool isSeriesEntry = entry->channelType == QStringLiteral("series")
+                               || entry->streamUrl.contains(QStringLiteral("/series/"));
 
     if (!jumpedToNext) {
         resumeHistoryPending_ = true;
@@ -1729,6 +1735,10 @@ void AppViewModel::playHistoryEntry(int64_t historyId) {
     }
 
     if (!playUrl.isEmpty()) {
+        if (!isSeriesEntry) {
+            clearActiveSeriesDialog();
+            clearPendingSeriesEpisodes();
+        }
         if (entry->channelId > 0 && channelRepo_) {
             auto ch = channelRepo_->findById(entry->channelId);
             if (ch && ch->type == QStringLiteral("series") && !ch->externalId.isEmpty()) {

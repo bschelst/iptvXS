@@ -12,6 +12,8 @@
 namespace {
 constexpr auto kFreePlaylistUrl = "https://iptvxs.schelstraete.org/api/v1/playlist.m3u";
 constexpr auto kFreeEpgUrl = "https://iptvxs.schelstraete.org/api/v1/epg.xml";
+// This client-side signature is only meant to slow down casual scraping of the
+// free gateway endpoints. It is not a strong security boundary.
 constexpr auto kPlaylistHmacSecretB64 =
     "OWYzYTdjOGIyZDFlNmE0ZjVjMGI5ZDhlN2ExZjJjM2Q0ZTViNmE3YzhkOWUwZjFhMmIzYzRkNWU2"
     "ZjdhOGI5Yw==";

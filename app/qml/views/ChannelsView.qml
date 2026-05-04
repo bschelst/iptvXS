@@ -1094,7 +1094,8 @@ Item {
                         Image {
                             anchors.centerIn: parent
                             anchors.verticalCenterOffset: -20
-                            width: parent.width * 0.4; height: parent.width * 0.4
+                            width: Math.min(parent.width * 0.28, 48)
+                            height: width
                             source: "qrc:/images/iptvxs_tray.png"
                             fillMode: Image.PreserveAspectFit
                             opacity: 0.15

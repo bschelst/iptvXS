@@ -25,10 +25,10 @@ Item {
         switch (currentFocusIndex) {
         case  0: return themeFlow
         case  1: return startMinSwitch
-        case  2: return bufferFlow
-        case  3: return hwdecFlow
-        case  4: return gridColFlow
-        case  5: return chromecastSwitch
+        case  2: return gridColFlow
+        case  3: return bufferFlow
+        case  4: return chromecastSwitch
+        case  5: return hwdecFlow
         case  6: return videoEnhFlow
         case  7: return deinterlaceSwitch
         case  8: return toneMappingSwitch
@@ -385,14 +385,14 @@ Item {
                             }
                         }
 
-                        ThemeSwitch {
-                            id: startMinSwitchCtrl
-                            checked: appViewModel ? appViewModel.closeToTray : false
-                            onToggled: {
-                                if (appViewModel) appViewModel.closeToTray = checked
-                            }
+                    ThemeSwitch {
+                        id: startMinSwitchCtrl
+                        checked: appViewModel ? appViewModel.closeToTray : false
+                        onToggled: {
+                            if (appViewModel) appViewModel.closeToTray = checked
                         }
                     }
+                }
                 }
             }
 
@@ -467,7 +467,7 @@ Item {
                                             ? Theme.accent : bufHovered
                                                 ? Theme.surfaceHover : Theme.surface
                                         border.width: 1
-                                        border.color: (settingsView.currentFocusIndex === 2 && settingsView.activeFocus && bufferFlow.subFocusIndex === index)
+                                        border.color: (settingsView.currentFocusIndex === 3 && settingsView.activeFocus && bufferFlow.subFocusIndex === index)
                                             ? Theme.accent : Theme.surfaceBorder
 
                                         property bool bufHovered: false
@@ -497,83 +497,59 @@ Item {
                         }
                     }
 
-                    ColumnLayout {
+                    RowLayout {
+                        id: chromecastSwitch
                         Layout.fillWidth: true
-                        spacing: Theme.spacingXs
+                        spacing: Theme.spacingMd
+                        function toggle() { chromecastSwitchCtrl.toggle() }
 
-                        Text {
-                            text: "Hardware decoding"
-                            font.pixelSize: Theme.fontSizeSm
-                            color: Theme.textPrimary
-                        }
-
-                        Text {
-                            text: "GPU-accelerated video decoding for lower CPU usage"
-                            font.pixelSize: Theme.fontSizeXs
-                            color: Theme.textMuted
-                        }
-
-                        Item {
-                            id: hwdecFlow
+                        ColumnLayout {
                             Layout.fillWidth: true
-                            Layout.topMargin: Theme.spacingXs
-                            implicitHeight: hwdecFlowInner.implicitHeight
-                            property int subFocusIndex: 0
-                            property int subCount: 3
-                            property var subValues: ["auto-safe", "auto", "no"]
-                            function activateSubIndex(idx) {
-                                if (appViewModel && idx >= 0 && idx < subValues.length)
-                                    appViewModel.hwdecMode = subValues[idx]
+                            spacing: 2
+
+                            Text {
+                                text: "Chromecast"
+                                font.pixelSize: Theme.fontSizeSm
+                                color: Theme.textPrimary
                             }
 
-                            Flow {
-                                id: hwdecFlowInner
-                                width: parent.width
-                                spacing: Theme.spacingSm
-
-                                Repeater {
-                                    model: [
-                                        { value: "auto-safe", label: "Auto Safe" },
-                                        { value: "auto", label: "Auto" },
-                                        { value: "no", label: "Software" }
-                                    ]
-
-                                    Rectangle {
-                                        width: 80
-                                        height: 32
-                                        radius: Theme.borderRadiusSmall
-                                        color: appViewModel && appViewModel.hwdecMode === modelData.value
-                                            ? Theme.accent : hwdecHov
-                                                ? Theme.surfaceHover : Theme.surface
-                                        border.width: 1
-                                        border.color: (settingsView.currentFocusIndex === 3 && settingsView.activeFocus && hwdecFlow.subFocusIndex === index)
-                                            ? Theme.accent : Theme.surfaceBorder
-
-                                        property bool hwdecHov: false
-
-                                        Text {
-                                            anchors.centerIn: parent
-                                            text: modelData.label
-                                            font.pixelSize: Theme.fontSizeXs
-                                            color: appViewModel && appViewModel.hwdecMode === modelData.value
-                                                ? Theme.textOnAccent : Theme.textSecondary
-                                        }
-
-                                        MouseArea {
-                                            anchors.fill: parent
-                                            hoverEnabled: true
-                                            cursorShape: Qt.PointingHandCursor
-                                            onEntered: parent.hwdecHov = true
-                                            onExited: parent.hwdecHov = false
-                                            onClicked: {
-                                                if (appViewModel)
-                                                    appViewModel.hwdecMode = modelData.value
-                                            }
-                                        }
-                                    }
-                                }
+                            Text {
+                                text: "Show cast button in the player to stream to Chromecast devices"
+                                font.pixelSize: Theme.fontSizeXs
+                                color: Theme.textMuted
                             }
                         }
+
+                        ThemeSwitch {
+                            id: chromecastSwitchCtrl
+                            checked: appViewModel ? appViewModel.chromecastEnabled : true
+                            onToggled: {
+                                if (appViewModel) appViewModel.chromecastEnabled = checked
+                            }
+                        }
+                    }
+                }
+            }
+
+            Rectangle {
+                Layout.fillWidth: true
+                Layout.preferredHeight: appBehaviorCol.implicitHeight + Theme.spacingLg * 2
+                radius: Theme.borderRadiusLarge
+                color: Theme.surfaceElevated
+                border.color: Theme.surfaceBorder
+                border.width: 1
+
+                ColumnLayout {
+                    id: appBehaviorCol
+                    anchors.fill: parent
+                    anchors.margins: Theme.spacingLg
+                    spacing: Theme.spacingMd
+
+                    Text {
+                        text: "Application"
+                        font.pixelSize: Theme.fontSizeMd
+                        font.bold: true
+                        color: Theme.textPrimary
                     }
 
                     ColumnLayout {
@@ -625,7 +601,7 @@ Item {
                                         ? Theme.accent : colHovered
                                             ? Theme.surfaceHover : Theme.surface
                                     border.width: 1
-                                    border.color: (settingsView.currentFocusIndex === 4 && settingsView.activeFocus && gridColFlow.subFocusIndex === index)
+                                    border.color: (settingsView.currentFocusIndex === 2 && settingsView.activeFocus && gridColFlow.subFocusIndex === index)
                                         ? Theme.accent : Theme.surfaceBorder
 
                                     property bool colHovered: false
@@ -654,58 +630,106 @@ Item {
                         }
                         }
                     }
+
                 }
             }
 
             Rectangle {
                 Layout.fillWidth: true
-                Layout.preferredHeight: appBehaviorCol.implicitHeight + Theme.spacingLg * 2
+                Layout.preferredHeight: videoCol.implicitHeight + Theme.spacingLg * 2
                 radius: Theme.borderRadiusLarge
                 color: Theme.surfaceElevated
                 border.color: Theme.surfaceBorder
                 border.width: 1
 
                 ColumnLayout {
-                    id: appBehaviorCol
+                    id: videoCol
                     anchors.fill: parent
                     anchors.margins: Theme.spacingLg
                     spacing: Theme.spacingMd
 
                     Text {
-                        text: "Application"
+                        text: "Video"
                         font.pixelSize: Theme.fontSizeMd
                         font.bold: true
                         color: Theme.textPrimary
                     }
 
-                    RowLayout {
-                        id: chromecastSwitch
+                    ColumnLayout {
                         Layout.fillWidth: true
-                        spacing: Theme.spacingMd
-                        function toggle() { chromecastSwitchCtrl.toggle() }
+                        spacing: Theme.spacingXs
 
-                        ColumnLayout {
-                            Layout.fillWidth: true
-                            spacing: 2
-
-                            Text {
-                                text: "Chromecast"
-                                font.pixelSize: Theme.fontSizeSm
-                                color: Theme.textPrimary
-                            }
-
-                            Text {
-                                text: "Show cast button in the player to stream to Chromecast devices"
-                                font.pixelSize: Theme.fontSizeXs
-                                color: Theme.textMuted
-                            }
+                        Text {
+                            text: "Hardware decoding"
+                            font.pixelSize: Theme.fontSizeSm
+                            color: Theme.textPrimary
                         }
 
-                        ThemeSwitch {
-                            id: chromecastSwitchCtrl
-                            checked: appViewModel ? appViewModel.chromecastEnabled : true
-                            onToggled: {
-                                if (appViewModel) appViewModel.chromecastEnabled = checked
+                        Text {
+                            text: "GPU-accelerated video decoding for lower CPU usage"
+                            font.pixelSize: Theme.fontSizeXs
+                            color: Theme.textMuted
+                        }
+
+                        Item {
+                            id: hwdecFlow
+                            Layout.fillWidth: true
+                            Layout.topMargin: Theme.spacingXs
+                            implicitHeight: hwdecFlowInner.implicitHeight
+                            property int subFocusIndex: 0
+                            property int subCount: 3
+                            property var subValues: ["auto-safe", "auto", "no"]
+                            function activateSubIndex(idx) {
+                                if (appViewModel && idx >= 0 && idx < subValues.length)
+                                    appViewModel.hwdecMode = subValues[idx]
+                            }
+
+                            Flow {
+                                id: hwdecFlowInner
+                                width: parent.width
+                                spacing: Theme.spacingSm
+
+                                Repeater {
+                                    model: [
+                                        { value: "auto-safe", label: "Auto Safe" },
+                                        { value: "auto", label: "Auto" },
+                                        { value: "no", label: "Software" }
+                                    ]
+
+                                    Rectangle {
+                                        width: 80
+                                        height: 32
+                                        radius: Theme.borderRadiusSmall
+                                        color: appViewModel && appViewModel.hwdecMode === modelData.value
+                                            ? Theme.accent : hwdecHov
+                                                ? Theme.surfaceHover : Theme.surface
+                                        border.width: 1
+                                        border.color: (settingsView.currentFocusIndex === 5 && settingsView.activeFocus && hwdecFlow.subFocusIndex === index)
+                                            ? Theme.accent : Theme.surfaceBorder
+
+                                        property bool hwdecHov: false
+
+                                        Text {
+                                            anchors.centerIn: parent
+                                            text: modelData.label
+                                            font.pixelSize: Theme.fontSizeXs
+                                            color: appViewModel && appViewModel.hwdecMode === modelData.value
+                                                ? Theme.textOnAccent : Theme.textSecondary
+                                        }
+
+                                        MouseArea {
+                                            anchors.fill: parent
+                                            hoverEnabled: true
+                                            cursorShape: Qt.PointingHandCursor
+                                            onEntered: parent.hwdecHov = true
+                                            onExited: parent.hwdecHov = false
+                                            onClicked: {
+                                                if (appViewModel)
+                                                    appViewModel.hwdecMode = modelData.value
+                                            }
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
@@ -1475,82 +1499,110 @@ Item {
                         color: Theme.textPrimary
                     }
 
-                    RowLayout {
+                    Rectangle {
                         Layout.fillWidth: true
-                        spacing: Theme.spacingMd
+                        radius: Theme.borderRadiusLarge
+                        color: Theme.surface
+                        border.color: Theme.surfaceBorder
+                        border.width: 1
+                        Layout.preferredHeight: gdriveAccountCol.implicitHeight + Theme.spacingMd * 2
 
                         ColumnLayout {
-                            Layout.fillWidth: true
-                            spacing: Theme.spacingXs
+                            id: gdriveAccountCol
+                            anchors.fill: parent
+                            anchors.margins: Theme.spacingMd
+                            spacing: Theme.spacingSm
 
                             Text {
-                                text: "Connection Status"
-                                font.pixelSize: Theme.fontSizeSm
-                                color: Theme.textSecondary
+                                text: "Account"
+                                font.pixelSize: Theme.fontSizeXs
+                                color: Theme.textMuted
                             }
 
                             RowLayout {
-                                spacing: Theme.spacingSm
+                                Layout.fillWidth: true
+                                spacing: Theme.spacingMd
+
+                                ColumnLayout {
+                                    Layout.fillWidth: true
+                                    spacing: Theme.spacingXs
+
+                                    Text {
+                                        text: "Connection Status"
+                                        font.pixelSize: Theme.fontSizeSm
+                                        color: Theme.textSecondary
+                                    }
+
+                                    RowLayout {
+                                        spacing: Theme.spacingSm
+
+                                        Rectangle {
+                                            width: 8
+                                            height: 8
+                                            radius: 4
+                                            color: appViewModel && appViewModel.gdrive.authenticated
+                                                ? Theme.success : Theme.textMuted
+                                        }
+
+                                        Text {
+                                            text: appViewModel && appViewModel.gdrive.authenticated
+                                                ? "Connected" : "Not connected"
+                                            font.pixelSize: Theme.fontSizeSm
+                                            color: Theme.textPrimary
+                                        }
+                                    }
+                                }
+
+                                Item { Layout.fillWidth: true }
 
                                 Rectangle {
-                                    width: 8
-                                    height: 8
-                                    radius: 4
+                                    id: gdriveConnectBtn
+                                    Layout.preferredWidth: gdriveBtnLabel.implicitWidth + Theme.spacingLg
+                                    Layout.preferredHeight: 36
+                                    radius: Theme.borderRadius
                                     color: appViewModel && appViewModel.gdrive.authenticated
-                                        ? Theme.success : Theme.textMuted
-                                }
+                                        ? (gdriveBtnHovered
+                                            ? Qt.darker(Theme.error, 1.04)
+                                            : Qt.rgba(Theme.error.r, Theme.error.g, Theme.error.b, 0.28))
+                                        : (gdriveBtnHovered ? Theme.accentHover : Theme.accent)
+                                    border.color: appViewModel && appViewModel.gdrive.authenticated
+                                        ? Theme.error : Theme.accent
+                                    border.width: 1
+                                    Layout.alignment: Qt.AlignRight
 
-                                Text {
-                                    text: appViewModel && appViewModel.gdrive.authenticated
-                                        ? "Connected" : "Not connected"
-                                    font.pixelSize: Theme.fontSizeSm
-                                    color: Theme.textPrimary
-                                }
-                            }
-                        }
+                                    property bool gdriveBtnHovered: false
+                                    function activate() {
+                                        if (appViewModel) {
+                                            if (appViewModel.gdrive.authenticated) appViewModel.gdrive.logout()
+                                            else appViewModel.gdrive.login()
+                                        }
+                                    }
 
-                        Rectangle {
-                            id: gdriveConnectBtn
-                            Layout.preferredWidth: gdriveBtnLabel.implicitWidth + Theme.spacingLg
-                            Layout.preferredHeight: 36
-                            radius: Theme.borderRadius
-                            color: gdriveBtnHovered
-                                ? (appViewModel && appViewModel.gdrive.authenticated ? Qt.rgba(Theme.error.r, Theme.error.g, Theme.error.b, 0.19) : Theme.accentHover)
-                                : (appViewModel && appViewModel.gdrive.authenticated ? Qt.rgba(Theme.error.r, Theme.error.g, Theme.error.b, 0.13) : Theme.accent)
-                            border.color: appViewModel && appViewModel.gdrive.authenticated
-                                ? Theme.error : Theme.accent
-                            border.width: 1
+                                    Text {
+                                        id: gdriveBtnLabel
+                                        anchors.centerIn: parent
+                                        text: appViewModel && appViewModel.gdrive.authenticated
+                                            ? "Disconnect" : "Connect"
+                                        font.pixelSize: Theme.fontSizeSm
+                                        font.bold: true
+                                        color: appViewModel && appViewModel.gdrive.authenticated
+                                            ? Theme.textPrimary : Theme.textOnAccent
+                                    }
 
-                            property bool gdriveBtnHovered: false
-                            function activate() {
-                                if (appViewModel) {
-                                    if (appViewModel.gdrive.authenticated) appViewModel.gdrive.logout()
-                                    else appViewModel.gdrive.login()
-                                }
-                            }
-
-                            Text {
-                                id: gdriveBtnLabel
-                                anchors.centerIn: parent
-                                text: appViewModel && appViewModel.gdrive.authenticated
-                                    ? "Disconnect" : "Connect"
-                                font.pixelSize: Theme.fontSizeSm
-                                color: appViewModel && appViewModel.gdrive.authenticated
-                                    ? Theme.error : Theme.textOnAccent
-                            }
-
-                            MouseArea {
-                                anchors.fill: parent
-                                hoverEnabled: true
-                                cursorShape: Qt.PointingHandCursor
-                                onEntered: parent.gdriveBtnHovered = true
-                                onExited: parent.gdriveBtnHovered = false
-                                onClicked: {
-                                    if (appViewModel) {
-                                        if (appViewModel.gdrive.authenticated) {
-                                            appViewModel.gdrive.logout()
-                                        } else {
-                                            appViewModel.gdrive.login()
+                                    MouseArea {
+                                        anchors.fill: parent
+                                        hoverEnabled: true
+                                        cursorShape: Qt.PointingHandCursor
+                                        onEntered: parent.gdriveBtnHovered = true
+                                        onExited: parent.gdriveBtnHovered = false
+                                        onClicked: {
+                                            if (appViewModel) {
+                                                if (appViewModel.gdrive.authenticated) {
+                                                    appViewModel.gdrive.logout()
+                                                } else {
+                                                    appViewModel.gdrive.login()
+                                                }
+                                            }
                                         }
                                     }
                                 }
@@ -1564,6 +1616,13 @@ Item {
                         font.pixelSize: Theme.fontSizeXs
                         color: Theme.textMuted
                         wrapMode: Text.WordWrap
+                    }
+
+                    Rectangle {
+                        Layout.fillWidth: true
+                        height: 1
+                        color: Theme.surfaceBorder
+                        opacity: 0.75
                     }
 
                     ColumnLayout {
@@ -2209,7 +2268,7 @@ Item {
                             width: clearCacheLabel.implicitWidth + Theme.spacingLg * 2
                             height: 36
                             radius: Theme.borderRadius
-                            color: clearCacheHov ? Theme.error : Qt.rgba(Theme.error.r, Theme.error.g, Theme.error.b, 0.19)
+                            color: clearCacheHov ? Qt.darker(Theme.error, 1.04) : Qt.rgba(Theme.error.r, Theme.error.g, Theme.error.b, 0.28)
                             border.color: Theme.error
                             border.width: 1
                             property bool clearCacheHov: false
@@ -2221,7 +2280,7 @@ Item {
                                 text: "Clear Logo Cache"
                                 font.pixelSize: Theme.fontSizeSm
                                 font.bold: true
-                                color: clearCacheLabel.parent.clearCacheHov ? Theme.textOnAccent : Theme.textSecondary
+                                color: Theme.textPrimary
                             }
                             MouseArea {
                                 anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
@@ -2438,7 +2497,9 @@ Item {
                             Layout.preferredWidth: resetBtnText.implicitWidth + Theme.spacingLg * 2
                             Layout.preferredHeight: 36
                             radius: Theme.borderRadius
-                            color: resetBtnHovered ? Qt.darker(Theme.error, 1.2) : Theme.error
+                            color: resetBtnHovered ? Qt.darker(Theme.error, 1.04) : Qt.rgba(Theme.error.r, Theme.error.g, Theme.error.b, 0.28)
+                            border.color: Theme.error
+                            border.width: 1
 
                             property bool resetBtnHovered: false
                             function activate() { resetConfirmDialog.open() }
@@ -2449,7 +2510,7 @@ Item {
                                 text: "Reset Database"
                                 font.pixelSize: Theme.fontSizeSm
                                 font.bold: true
-                                color: "#ffffff"
+                                color: Theme.textPrimary
                             }
 
                             MouseArea {
@@ -2639,7 +2700,7 @@ Item {
 
                             Text {
                                 text: "iptvXS"
-                                font.pixelSize: Theme.fontSizeLg
+                                font.pixelSize: Theme.fontSizeXl
                                 font.bold: true
                                 color: Theme.textPrimary
                             }
@@ -2669,45 +2730,143 @@ Item {
                             color: Theme.textMuted
                         }
 
-                        Text {
-                            text: "Author: Schelstraete Bart"
-                            font.pixelSize: Theme.fontSizeSm
-                            color: Theme.textSecondary
+                        RowLayout {
+                            spacing: Theme.spacingSm
+
+                            Rectangle {
+                                Layout.preferredHeight: 22
+                                Layout.preferredWidth: qtTag.implicitWidth + 16
+                                radius: 11
+                                color: Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.12)
+                                border.color: Theme.accent
+                                border.width: 1
+
+                                Text {
+                                    id: qtTag
+                                    anchors.centerIn: parent
+                                    text: "Qt6"
+                                    font.pixelSize: Theme.fontSizeXs
+                                    font.bold: true
+                                    color: Theme.accent
+                                }
+                            }
+
+                            Rectangle {
+                                Layout.preferredHeight: 22
+                                Layout.preferredWidth: mpvTag.implicitWidth + 16
+                                radius: 11
+                                color: Qt.rgba(Theme.success.r, Theme.success.g, Theme.success.b, 0.10)
+                                border.color: Theme.success
+                                border.width: 1
+
+                                Text {
+                                    id: mpvTag
+                                    anchors.centerIn: parent
+                                    text: "libmpv"
+                                    font.pixelSize: Theme.fontSizeXs
+                                    font.bold: true
+                                    color: Theme.success
+                                }
+                            }
+
+                            Rectangle {
+                                Layout.preferredHeight: 22
+                                Layout.preferredWidth: licenseTag.implicitWidth + 16
+                                radius: 11
+                                color: Qt.rgba(Theme.textMuted.r, Theme.textMuted.g, Theme.textMuted.b, 0.12)
+                                border.color: Theme.surfaceBorder
+                                border.width: 1
+
+                                Text {
+                                    id: licenseTag
+                                    anchors.centerIn: parent
+                                    text: "GPL-3.0+"
+                                    font.pixelSize: Theme.fontSizeXs
+                                    font.bold: true
+                                    color: Theme.textSecondary
+                                }
+                            }
+                        }
+
+                        Rectangle {
+                            id: aboutInfoCard
+                            Layout.fillWidth: true
+                            radius: Theme.borderRadiusLarge
+                            color: Theme.surface
+                            border.color: Theme.surfaceBorder
+                            border.width: 1
+                            Layout.preferredHeight: aboutInfoCol.implicitHeight + Theme.spacingMd * 2
+
+                            ColumnLayout {
+                                id: aboutInfoCol
+                                anchors.fill: parent
+                                anchors.margins: Theme.spacingMd
+                                spacing: Theme.spacingSm
+
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    spacing: Theme.spacingMd
+
+                                    ColumnLayout {
+                                        Layout.fillWidth: true
+                                        spacing: 2
+
+                                        Text {
+                                            text: "Author"
+                                            font.pixelSize: Theme.fontSizeXs
+                                            color: Theme.textMuted
+                                        }
+
+                                        Text {
+                                            text: "Schelstraete Bart"
+                                            font.pixelSize: Theme.fontSizeSm
+                                            font.bold: true
+                                            color: Theme.textPrimary
+                                        }
+                                    }
+
+                                    ColumnLayout {
+                                        Layout.fillWidth: true
+                                        spacing: 2
+
+                                        Text {
+                                            text: "Current"
+                                            font.pixelSize: Theme.fontSizeXs
+                                            color: Theme.textMuted
+                                        }
+
+                                        Text {
+                                            text: "v" + (appViewModel ? appViewModel.appVersion : "?")
+                                            font.pixelSize: Theme.fontSizeSm
+                                            font.bold: true
+                                            color: Theme.textPrimary
+                                        }
+                                    }
+
+                                    ColumnLayout {
+                                        Layout.fillWidth: true
+                                        spacing: 2
+
+                                        Text {
+                                            text: "Latest"
+                                            font.pixelSize: Theme.fontSizeXs
+                                            color: Theme.textMuted
+                                        }
+
+                                        Text {
+                                            text: appViewModel && appViewModel.latestVersion ? appViewModel.latestVersion : "checking..."
+                                            font.pixelSize: Theme.fontSizeSm
+                                            font.bold: true
+                                            color: appViewModel && appViewModel.updateAvailable ? Theme.accent : Theme.textPrimary
+                                        }
+                                    }
+                                }
+                            }
                         }
 
                         RowLayout {
-                            spacing: Theme.spacingMd
-
-                            Text {
-                                text: "Current version:"
-                                font.pixelSize: Theme.fontSizeXs
-                                color: Theme.textMuted
-                            }
-                            Text {
-                                text: "v" + (appViewModel ? appViewModel.appVersion : "?")
-                                font.pixelSize: Theme.fontSizeXs
-                                color: Theme.textPrimary
-                                font.bold: true
-                            }
-                        }
-
-                        RowLayout {
-                            spacing: Theme.spacingMd
-
-                            Text {
-                                text: "Latest version:"
-                                font.pixelSize: Theme.fontSizeXs
-                                color: Theme.textMuted
-                            }
-                            Text {
-                                text: appViewModel && appViewModel.latestVersion ? appViewModel.latestVersion : "checking..."
-                                font.pixelSize: Theme.fontSizeXs
-                                color: appViewModel && appViewModel.updateAvailable ? Theme.accent : Theme.textPrimary
-                                font.bold: true
-                            }
-                        }
-
-                        RowLayout {
+                            Layout.topMargin: Theme.spacingXs
+                            Layout.fillWidth: true
                             spacing: Theme.spacingSm
 
                             Rectangle {
@@ -2769,13 +2928,25 @@ Item {
                         }
                     }
 
-                    Image {
-                        Layout.preferredWidth: 128
-                        Layout.preferredHeight: 128
+                    Rectangle {
+                        Layout.preferredWidth: 144
+                        Layout.preferredHeight: 144
+                        Layout.minimumWidth: 144
+                        Layout.minimumHeight: 144
                         Layout.alignment: Qt.AlignRight | Qt.AlignVCenter
-                        source: "qrc:/images/iptvxs_tray.png"
-                        fillMode: Image.PreserveAspectFit
-                        opacity: 0.6
+                        radius: Theme.borderRadiusLarge
+                        color: Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.06)
+                        border.color: Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.45)
+                        border.width: 1
+
+                        Image {
+                            anchors.centerIn: parent
+                            width: 108
+                            height: 108
+                            source: "qrc:/images/iptvxs_tray.png"
+                            fillMode: Image.PreserveAspectFit
+                            opacity: 0.82
+                        }
                     }
                 }
             }
