@@ -31,6 +31,7 @@ modules:
     buildsystem: autotools
     config-opts:
       - --disable-doc
+      - --enable-openssl
       - --enable-shared
       - --disable-static
     sources:
