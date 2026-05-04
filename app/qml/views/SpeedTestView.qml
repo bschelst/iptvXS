@@ -42,9 +42,12 @@ Item {
     Component.onCompleted: {
         if (channelList && channelList.rowCount() === 0
                 && appViewModel && appViewModel.serverList.count > 0) {
-            var firstServerId = appViewModel.serverList.serverIdAt(0)
-            if (firstServerId > 0) {
-                channelList.serverId = firstServerId
+            var firstEnabledIdx = appViewModel.serverList.firstEnabledServerIndex()
+            if (firstEnabledIdx >= 0) {
+                var firstServerId = appViewModel.serverList.serverIdAt(firstEnabledIdx)
+                if (firstServerId > 0) {
+                    channelList.serverId = firstServerId
+                }
             }
         }
     }

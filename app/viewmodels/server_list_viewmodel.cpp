@@ -330,6 +330,7 @@ void ServerListViewModel::setEnabled(int index, bool enabled) {
     if (isFreeServer(index)) {
         loadServers();
     }
+    emit serverEnabledChanged(serverId, enabled);
 }
 
 void ServerListViewModel::setPrimary(int index) {
@@ -390,6 +391,13 @@ int ServerListViewModel::firstLiveServerIndex() const {
     return -1;
 }
 
+int ServerListViewModel::firstEnabledServerIndex() const {
+    for (int i = 0; i < servers_.size(); ++i) {
+        if (servers_.at(i).enabled) return i;
+    }
+    return -1;
+}
+
 bool ServerListViewModel::isFreeServer(int index) const {
     if (index < 0 || index >= servers_.size()) return false;
     return servers_.at(index).isBuiltinFree;
@@ -407,11 +415,13 @@ bool ServerListViewModel::freeServerEnabled() const {
 void ServerListViewModel::setFreeServerEnabled(bool enabled) {
     const auto idx = findBuiltinFreeServerIndex(servers_);
     if (idx < 0 || !serverRepo_) return;
+    const auto serverId = servers_.at(idx).id;
     if (!serverRepo_->setEnabled(servers_.at(idx).id, enabled)) {
         emit errorOccurred(QStringLiteral("Failed to update free server enabled state"));
         return;
     }
     loadServers();
+    emit serverEnabledChanged(serverId, enabled);
 }
 
 void ServerListViewModel::reAddFreeServer() {
@@ -440,6 +450,7 @@ void ServerListViewModel::reAddFreeServer() {
         serverRepo_->setPrimary(id);
     }
     loadServers();
+    emit serverEnabledChanged(id, true);
 }
 
 void ServerListViewModel::loadServers() {

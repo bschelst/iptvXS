@@ -128,3 +128,5 @@ if(WIN32)
 else()
     target_link_libraries(iptvxs-core PUBLIC PkgConfig::LIBSECRET)
 endif()
+
+target_compile_definitions(iptvxs-core PUBLIC IPTVXS_VERSION="${PROJECT_VERSION}")

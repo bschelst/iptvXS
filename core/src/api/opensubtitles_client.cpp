@@ -14,7 +14,7 @@ namespace iptvxs {
 
 static const QString kApiUrl =
     QStringLiteral("https://api.opensubtitles.org/xml-rpc");
-static const QString kUserAgent = QStringLiteral("iptvXS v0.1.0");
+static const QString kUserAgent = QStringLiteral("iptvXS v" IPTVXS_VERSION);
 
 static QByteArray buildXmlRpc(const QString &method,
                                std::function<void(QXmlStreamWriter &)> writeParams) {

@@ -55,6 +55,7 @@ qt_add_qml_module(iptvXS
         qml/components/AddEpgSourceDialog.qml
         qml/components/StyledTextField.qml
         qml/components/ThemeSwitch.qml
+        qml/components/FallbackLogo.qml
         qml/themes/Theme.qml
     SOURCES
         viewmodels/app_viewmodel.h

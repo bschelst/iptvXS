@@ -33,7 +33,7 @@ jobs:
             libxcb-keysyms1 libxcb-render-util0 libxcb-shape0 \
             libvulkan-dev libsecret-1-dev libssl-dev \
             libdbus-1-dev libfontconfig1-dev libfreetype6-dev \
-            libfuse2 file desktop-file-utils \
+            libfuse2 file desktop-file-utils nasm \
             python3-pip
 
       - name: Install Qt via aqtinstall
@@ -60,6 +60,20 @@ jobs:
             -DIPTVXS_GATEWAY_URL="https://iptvxs.schelstraete.org"
           cmake --build build --parallel $(nproc)
 
+      - name: Build bundled ffmpeg 8.1.1
+        run: |
+          curl -L -o ffmpeg-8.1.1.tar.xz https://ffmpeg.org/releases/ffmpeg-8.1.1.tar.xz
+          tar -xf ffmpeg-8.1.1.tar.xz
+          cd ffmpeg-8.1.1
+          ./configure \
+            --prefix="$GITHUB_WORKSPACE/ffmpeg-install" \
+            --disable-doc \
+            --enable-openssl \
+            --disable-shared \
+            --enable-static
+          make -j"$(nproc)"
+          make install
+
       - name: Prepare AppDir
         run: |
           mkdir -p AppDir/usr/bin
@@ -68,6 +82,7 @@ jobs:
           mkdir -p AppDir/usr/share/metainfo
 
           cp build/app/iptvXS AppDir/usr/bin/
+          cp ffmpeg-install/bin/ffmpeg AppDir/usr/bin/
           cp packaging/linux/org.schelstraete.iptvxs.desktop AppDir/usr/share/applications/
           cp packaging/linux/org.schelstraete.iptvxs.desktop AppDir/
           cp packaging/linux/org.schelstraete.iptvxs.svg AppDir/usr/share/icons/hicolor/scalable/apps/

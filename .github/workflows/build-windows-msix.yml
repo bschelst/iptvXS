@@ -92,6 +92,37 @@ jobs:
           Write-Host "WinSparkle files:"
           dir winsparkle -Recurse -Include *.dll,*.lib,*.h | Select-Object FullName
 
+      - name: Setup MSYS2
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: >-
+            mingw-w64-x86_64-toolchain
+            mingw-w64-x86_64-openssl
+            mingw-w64-x86_64-pkgconf
+            mingw-w64-x86_64-nasm
+            make
+            tar
+            curl
+
+      - name: Build bundled ffmpeg 8.1.1
+        shell: msys2 {0}
+        run: |
+          set -euo pipefail
+          cd "$GITHUB_WORKSPACE"
+          curl -L -o ffmpeg-8.1.1.tar.xz https://ffmpeg.org/releases/ffmpeg-8.1.1.tar.xz
+          tar -xf ffmpeg-8.1.1.tar.xz
+          cd ffmpeg-8.1.1
+          ./configure \
+            --prefix="$GITHUB_WORKSPACE/ffmpeg-install" \
+            --disable-doc \
+            --enable-openssl \
+            --disable-shared \
+            --enable-static
+          make -j"$(nproc)"
+          make install
+
       - name: Configure CMake
         env:
           WORKSPACE: ${{ github.workspace }}
@@ -132,6 +163,7 @@ jobs:
             exit 1
           }
           Copy-Item $exe.FullName $staging/
+          Copy-Item ffmpeg-install/bin/ffmpeg.exe $staging/
           cd $staging
           windeployqt --qmldir ../app/qml iptvXS.exe
           Copy-Item ../mpv-dev/libmpv-2.dll .

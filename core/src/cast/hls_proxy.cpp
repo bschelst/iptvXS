@@ -2,6 +2,7 @@
 #include "iptvxs/cast/hls_proxy.h"
 
 #include <QDir>
+#include <QCoreApplication>
 #include <QFile>
 #include <QFileInfo>
 #include <QNetworkInterface>
@@ -32,9 +33,18 @@ QString HlsProxy::findLocalIp() const {
 }
 
 QString HlsProxy::findFfmpeg() const {
-    // Flatpak: /app/bin/ffmpeg, System: ffmpeg on PATH
-    if (QFileInfo::exists("/app/bin/ffmpeg"))
-        return "/app/bin/ffmpeg";
+    const auto appDir = QCoreApplication::applicationDirPath();
+    const QStringList candidates = {
+        appDir + QStringLiteral("/ffmpeg"),
+        appDir + QStringLiteral("/ffmpeg.exe"),
+        QStringLiteral("/app/bin/ffmpeg"),
+        QStringLiteral("ffmpeg")
+    };
+    for (const auto &candidate : candidates) {
+        if (candidate == QStringLiteral("ffmpeg") || QFileInfo::exists(candidate)) {
+            return candidate;
+        }
+    }
     return "ffmpeg";
 }
 

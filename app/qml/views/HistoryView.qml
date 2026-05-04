@@ -294,13 +294,9 @@ Item {
                             visible: status === Image.Ready
                         }
 
-                        Image {
-                            anchors.centerIn: parent
-                            width: 28
-                            height: 28
-                            source: "qrc:/images/iptvxs_tray.png"
-                            fillMode: Image.PreserveAspectFit
-                            opacity: 0.4
+                        FallbackLogo {
+                            logoOpacity: 0.4
+                            logoYOffset: -20
                             visible: !histLogo.visible
                         }
                     }

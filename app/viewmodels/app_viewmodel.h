@@ -295,8 +295,12 @@ public slots:
 
 private:
     void ensureDefaultServers();
+    void purgeDisabledServersOnStartup();
+    void purgeOrphanProgrammes();
     void bootstrapDefaultFreeServerSync();
     void applyToneMappingToPlayer();
+    void purgeDisabledServerData(int64_t serverId);
+    void refreshAfterServerStateChange(int64_t serverId, bool enabled);
 
     std::unique_ptr<iptvxs::Database> database_;
     std::unique_ptr<iptvxs::SettingsRepository> settingsRepo_;

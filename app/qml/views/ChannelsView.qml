@@ -888,12 +888,8 @@ Item {
                                                 visible: status === Image.Ready
                                             }
 
-                                            Image {
-                                                anchors.centerIn: parent
-                                                width: parent.width * 0.5; height: parent.width * 0.5
-                                                source: "qrc:/images/iptvxs_tray.png"
-                                                fillMode: Image.PreserveAspectFit
-                                                opacity: 0.2
+                                            FallbackLogo {
+                                                logoOpacity: 0.2
                                                 visible: chNetLogoImg.status !== Image.Ready
                                             }
                                         }
@@ -1091,14 +1087,9 @@ Item {
                             visible: status === Image.Ready
                         }
 
-                        Image {
-                            anchors.centerIn: parent
+                        FallbackLogo {
+                            logoOpacity: 0.15
                             anchors.verticalCenterOffset: -20
-                            width: Math.min(parent.width * 0.28, 48)
-                            height: width
-                            source: "qrc:/images/iptvxs_tray.png"
-                            fillMode: Image.PreserveAspectFit
-                            opacity: 0.15
                             visible: !chGridLogo.visible
                         }
 
@@ -1200,6 +1191,17 @@ Item {
         }
     }
 
+    function ensureEnabledServerSelection(changedServerId, enabled) {
+        if (enabled) return
+        if (!appViewModel || !appViewModel.serverList) return
+        if (activeServerId !== changedServerId) return
+
+        var fallbackIdx = appViewModel.serverList.firstEnabledServerIndex()
+        if (fallbackIdx >= 0) {
+            selectServer(appViewModel.serverList.serverIdAt(fallbackIdx))
+        }
+    }
+
     function selectCategory(catId) {
         selectedCategoryId = catId
         if (appViewModel) {
@@ -1245,15 +1247,18 @@ Item {
             if (primaryIdx >= 0) {
                 selectServer(appViewModel.serverList.serverIdAt(primaryIdx))
             } else {
-                // Fall back to first enabled server
-                for (var i = 0; i < appViewModel.serverList.count; i++) {
-                    var sid = appViewModel.serverList.serverIdAt(i)
-                    if (sid > 0) {
-                        selectServer(sid)
-                        break
-                    }
+                var firstEnabledIdx = appViewModel.serverList.firstEnabledServerIndex()
+                if (firstEnabledIdx >= 0) {
+                    selectServer(appViewModel.serverList.serverIdAt(firstEnabledIdx))
                 }
             }
+        }
+    }
+
+    Connections {
+        target: appViewModel ? appViewModel.serverList : null
+        function onServerEnabledChanged(serverId, enabled) {
+            ensureEnabledServerSelection(serverId, enabled)
         }
     }
 

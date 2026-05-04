@@ -79,6 +79,7 @@ public:
     Q_INVOKABLE int primaryServerIndex() const;
     Q_INVOKABLE int64_t builtinFreeServerId() const;
     Q_INVOKABLE int firstLiveServerIndex() const;
+    Q_INVOKABLE int firstEnabledServerIndex() const;
     Q_INVOKABLE bool isFreeServer(int index) const;
     Q_INVOKABLE bool freeServerExists() const;
     Q_INVOKABLE bool freeServerEnabled() const;
@@ -90,6 +91,7 @@ signals:
     void syncingChanged();
     void syncStatusChanged();
     void syncFinished(int64_t serverId);
+    void serverEnabledChanged(int64_t serverId, bool enabled);
     void errorOccurred(const QString &message);
 
 private:

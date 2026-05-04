@@ -31,7 +31,8 @@ void SpeedTestRunner::startConnection(const QUrl &url) {
     QNetworkRequest req(url);
     req.setAttribute(QNetworkRequest::RedirectPolicyAttribute,
                      QNetworkRequest::NoLessSafeRedirectPolicy);
-    req.setRawHeader("User-Agent", "iptvXS/1.0 (Speed Test)");
+    req.setRawHeader("User-Agent",
+                     QStringLiteral("iptvXS/%1 (Speed Test)").arg(QStringLiteral(IPTVXS_VERSION)).toUtf8());
     req.setTransferTimeout(30000);
 
     auto *reply = nam_.get(req);

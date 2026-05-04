@@ -2,6 +2,7 @@
 #include "iptvxs/recording/recording_manager.h"
 
 #include <QDateTime>
+#include <QCoreApplication>
 #include <QDir>
 #include <QFileInfo>
 #include <QRegularExpression>
@@ -17,6 +18,22 @@ RecordingManager::RecordingManager(QObject *parent) : QObject(parent) {
 
 RecordingManager::~RecordingManager() {
     stop();
+}
+
+QString RecordingManager::findFfmpeg() const {
+    const auto appDir = QCoreApplication::applicationDirPath();
+    const QStringList candidates = {
+        appDir + QStringLiteral("/ffmpeg"),
+        appDir + QStringLiteral("/ffmpeg.exe"),
+        QStringLiteral("/app/bin/ffmpeg"),
+        QStringLiteral("ffmpeg")
+    };
+    for (const auto &candidate : candidates) {
+        if (candidate == QStringLiteral("ffmpeg") || QFileInfo::exists(candidate)) {
+            return candidate;
+        }
+    }
+    return QStringLiteral("ffmpeg");
 }
 
 void RecordingManager::setRepositories(RecordingRepository *recordingRepo,
@@ -110,7 +127,7 @@ bool RecordingManager::startRecording(int64_t recordingId) {
         emit recordingStarted(recordingId);
     });
 
-    process->start(QStringLiteral("ffmpeg"), args);
+    process->start(findFfmpeg(), args);
     return true;
 }
 

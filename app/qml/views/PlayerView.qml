@@ -2197,15 +2197,12 @@ Item {
         }
 
         // --- Logo placeholder (stopped + loading) ---
-        Image {
+        FallbackLogo {
             id: logoPlaceholder
-            anchors.centerIn: parent
             property bool isLoading: appViewModel ? (appViewModel.player.position <= 0 && (!appViewModel.player.stopped || appViewModel.player.reconnecting)) : false
             visible: (appViewModel ? appViewModel.player.stopped : true) || isLoading
-            width: 128; height: 128
-            source: "qrc:/images/iptvxs_tray.png"
-            fillMode: Image.PreserveAspectFit
-            opacity: 0.15
+            logoSize: 128
+            logoOpacity: 0.15
 
             SequentialAnimation on opacity {
                 id: pulseAnim

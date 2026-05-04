@@ -36,6 +36,7 @@ QVector<Favorite> FavoriteRepository::findAll() const {
                c.type, c.added_at, c.first_seen_at
         FROM favorites f
         JOIN channels c ON c.id = f.channel_id
+        JOIN servers s ON s.id = c.server_id AND s.enabled = 1
         ORDER BY f.position ASC
     )");
 
@@ -165,7 +166,11 @@ bool FavoriteRepository::reorder(int64_t channelId, int newPosition) {
 
 int FavoriteRepository::count() const {
     QSqlQuery q(db_);
-    if (!q.exec("SELECT COUNT(*) FROM favorites")) {
+    if (!q.exec(
+            "SELECT COUNT(*) "
+            "FROM favorites f "
+            "JOIN channels c ON c.id = f.channel_id "
+            "JOIN servers s ON s.id = c.server_id AND s.enabled = 1")) {
         return 0;
     }
     if (q.next()) {

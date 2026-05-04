@@ -978,15 +978,20 @@ Item {
                                             cache: true
                                         }
 
-                                        Image {
-                                            anchors.centerIn: parent
-                                            width: Math.min(parent.width * 0.28, 48)
-                                            height: width
-                                            source: "qrc:/images/iptvxs_tray.png"
-                                            fillMode: Image.PreserveAspectFit
-                                            opacity: 0.2
-                                            visible: posterImg.status === Image.Error || posterImg.status === Image.Null
-                                        }
+                        Rectangle {
+                            visible: posterImg.status === Image.Error || posterImg.status === Image.Null
+                            anchors.top: parent.top
+                            anchors.left: parent.left
+                            anchors.right: parent.right
+                            height: parent.height - 50
+                            color: "transparent"
+
+                            FallbackLogo {
+                                logoOpacity: 0.2
+                                logoSize: 56
+                                logoYOffset: -20
+                            }
+                        }
 
                                         // Fallback: initial letter only when no URL at all
                                         Text {
@@ -1234,14 +1239,19 @@ Item {
                             cache: true
                         }
 
-                        Image {
-                            anchors.centerIn: parent
-                            width: Math.min(parent.width * 0.28, 48)
-                            height: width
-                            source: "qrc:/images/iptvxs_tray.png"
-                            fillMode: Image.PreserveAspectFit
-                            opacity: 0.2
+                        Rectangle {
                             visible: catGridPoster.status === Image.Error || catGridPoster.status === Image.Null
+                            anchors.top: parent.top
+                            anchors.left: parent.left
+                            anchors.right: parent.right
+                            height: parent.height - 50
+                            color: "transparent"
+
+                            FallbackLogo {
+                                logoOpacity: 0.2
+                                logoSize: 56
+                                logoYOffset: -20
+                            }
                         }
 
                         Rectangle {
@@ -1910,6 +1920,17 @@ Item {
         reloadVod()
     }
 
+    function ensureEnabledServerSelection(changedServerId, enabled) {
+        if (enabled) return
+        if (!appViewModel || !appViewModel.serverList) return
+        if (activeServerId !== changedServerId) return
+
+        var fallbackIdx = appViewModel.serverList.firstEnabledServerIndex()
+        if (fallbackIdx >= 0) {
+            selectServer(appViewModel.serverList.serverIdAt(fallbackIdx))
+        }
+    }
+
     function selectCategory(catId) {
         selectedCategoryId = catId
         appViewModel.channelList.categoryId = catId
@@ -1972,13 +1993,28 @@ Item {
         }
     }
 
+    Connections {
+        target: appViewModel ? appViewModel.serverList : null
+        function onServerEnabledChanged(serverId, enabled) {
+            ensureEnabledServerSelection(serverId, enabled)
+        }
+    }
+
     Component.onCompleted: {
         if (appViewModel) {
             appViewModel.channelList.searchQuery = ""
             appViewModel.channelList.categoryId = 0
         }
         if (appViewModel && appViewModel.serverList.count > 0) {
-            selectServer(appViewModel.serverList.serverIdAt(0))
+            var primaryIdx = appViewModel.serverList.primaryServerIndex()
+            if (primaryIdx >= 0) {
+                selectServer(appViewModel.serverList.serverIdAt(primaryIdx))
+            } else {
+                var firstEnabledIdx = appViewModel.serverList.firstEnabledServerIndex()
+                if (firstEnabledIdx >= 0) {
+                    selectServer(appViewModel.serverList.serverIdAt(firstEnabledIdx))
+                }
+            }
         }
         requestFocusRestore()
 

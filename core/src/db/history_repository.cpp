@@ -93,7 +93,8 @@ std::optional<HistoryEntry> HistoryRepository::findById(int64_t id) const {
         "h.position_secs, h.total_duration_secs "
         "FROM history h "
         "LEFT JOIN channels c ON c.id = h.channel_id AND h.channel_id > 0 "
-        "WHERE h.id = ? "
+        "LEFT JOIN servers s ON s.id = c.server_id "
+        "WHERE h.id = ? AND (h.channel_id = 0 OR COALESCE(s.enabled, 1) = 1) "
         "LIMIT 1");
     query.addBindValue(QVariant::fromValue(id));
 
@@ -127,6 +128,8 @@ QVector<HistoryEntry> HistoryRepository::findRecent(int limit, int offset) const
         "h.position_secs, h.total_duration_secs "
         "FROM history h "
         "LEFT JOIN channels c ON c.id = h.channel_id AND h.channel_id > 0 "
+        "LEFT JOIN servers s ON s.id = c.server_id "
+        "WHERE h.channel_id = 0 OR COALESCE(s.enabled, 1) = 1 "
         "ORDER BY h.watched_at DESC "
         "LIMIT ? OFFSET ?");
     query.addBindValue(limit);
@@ -154,7 +157,12 @@ QVector<HistoryEntry> HistoryRepository::findRecent(int limit, int offset) const
 
 int HistoryRepository::count() const {
     QSqlQuery query(db_);
-    query.exec("SELECT COUNT(*) FROM history");
+    query.exec(
+        "SELECT COUNT(*) "
+        "FROM history h "
+        "LEFT JOIN channels c ON c.id = h.channel_id AND h.channel_id > 0 "
+        "LEFT JOIN servers s ON s.id = c.server_id "
+        "WHERE h.channel_id = 0 OR COALESCE(s.enabled, 1) = 1");
     return query.next() ? query.value(0).toInt() : 0;
 }
 

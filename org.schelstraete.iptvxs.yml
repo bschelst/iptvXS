@@ -1,0 +1,111 @@
+app-id: org.schelstraete.iptvxs
+runtime: org.kde.Platform
+runtime-version: '6.10'
+sdk: org.kde.Sdk
+command: iptvXS
+
+finish-args:
+  - --share=ipc
+  - --share=network
+  - --socket=fallback-x11
+  - --socket=wayland
+  - --socket=pulseaudio
+  - --device=dri
+  - --filesystem=xdg-videos
+  - --filesystem=xdg-download
+  - --talk-name=org.freedesktop.Notifications
+  - --talk-name=org.freedesktop.secrets
+  - --talk-name=org.kde.StatusNotifierWatcher
+  - --talk-name=org.freedesktop.ScreenSaver
+
+build-options:
+  append-pkg-config-path: /app/lib/pkgconfig:/app/lib64/pkgconfig
+  env:
+    MAKEFLAGS: "-j3"
+    CMAKE_BUILD_PARALLEL_LEVEL: "3"
+
+modules:
+  - name: ffmpeg
+    buildsystem: autotools
+    config-opts:
+      - --disable-doc
+      - --enable-openssl
+      - --enable-shared
+      - --disable-static
+    sources:
+      - type: archive
+        url: https://ffmpeg.org/releases/ffmpeg-8.1.1.tar.xz
+        sha256: b6863adde98898f42602017462871b5f6333e65aec803fdd7a6308639c52edf3
+
+  - name: libass
+    buildsystem: autotools
+    config-opts:
+      - --disable-static
+    sources:
+      - type: archive
+        url: https://github.com/libass/libass/archive/refs/tags/0.17.3.tar.gz
+        sha256: 26fbfb7a7bd3e6d5c713f8a65a12b36084d1dde6efaed8a9996489054c4aeca0
+
+  - name: markupsafe
+    buildsystem: simple
+    build-commands:
+      - pip3 install --prefix=/app --no-deps *.whl
+    sources:
+      - type: file
+        url: https://files.pythonhosted.org/packages/a9/21/9b05698b46f218fc0e118e1f8168395c65c8a2c750ae2bab54fc4bd4e0e8/markupsafe-3.0.3-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl
+        sha256: ccfcd093f13f0f0b7fdd0f198b90053bf7b2f02a3927a30e63f3ccc9df56b676
+
+  - name: jinja2
+    buildsystem: simple
+    build-commands:
+      - pip3 install --prefix=/app --no-deps *.whl
+    sources:
+      - type: file
+        url: https://files.pythonhosted.org/packages/62/a1/3d680cbfd5f4b8f15abc1d571870c5fc3e594bb582bc3b64ea099db13e56/jinja2-3.1.6-py3-none-any.whl
+        sha256: 85ece4451f492d0c13c5dd7c13a64681a86afae63a5f347908daf103ce6d2f67
+
+  - name: libplacebo
+    buildsystem: meson
+    build-options:
+      libdir: /app/lib
+    config-opts:
+      - -Ddemos=false
+      - -Dtests=false
+      - -Ddefault_library=shared
+      - -Dopengl=disabled
+      - -Dvulkan=disabled
+      - -Dglslang=disabled
+      - -Dd3d11=disabled
+    sources:
+      - type: archive
+        url: https://github.com/haasn/libplacebo/archive/refs/tags/v7.349.0.tar.gz
+        sha256: 627e32439a0b3d2b90368ead7e919f470ee7446c87cc0f7841bbe319b23aa8b1
+
+  - name: mpv
+    buildsystem: meson
+    build-options:
+      libdir: /app/lib
+    config-opts:
+      - -Dlibmpv=true
+      - -Dcplayer=false
+      - -Dtests=false
+    sources:
+      - type: archive
+        url: https://github.com/mpv-player/mpv/archive/refs/tags/v0.39.0.tar.gz
+        sha256: 2ca92437affb62c2b559b4419ea4785c70d023590500e8a52e95ea3ab4554683
+
+  - name: iptvxs
+    buildsystem: cmake-ninja
+    config-opts:
+      - -DIPTVXS_BUILD_TESTS=OFF
+    sources:
+      - type: git
+        url: https://github.com/bschelst/iptvXS.git
+        tag: v0.3.14
+        commit: e3e0c75dd5a339c7f20414a93bd5250c8db0fcc4
+
+  - name: imageformat-symlinks
+    buildsystem: simple
+    build-commands:
+      - mkdir -p /app/lib/plugins/imageformats
+      - ln -sf /usr/lib/plugins/imageformats/* /app/lib/plugins/imageformats/

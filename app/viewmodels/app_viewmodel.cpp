@@ -124,6 +124,23 @@ struct ValidationProbeState {
     bool finished{false};
     bool resolved{false};
 };
+
+bool execDeleteByServer(QSqlDatabase db, const QString &sql, int64_t serverId,
+                        int *affectedRows, QString *errorOut = nullptr) {
+    QSqlQuery query(db);
+    query.prepare(sql);
+    query.addBindValue(QVariant::fromValue(serverId));
+    if (!query.exec()) {
+        if (errorOut) {
+            *errorOut = query.lastError().text();
+        }
+        return false;
+    }
+    if (affectedRows) {
+        *affectedRows = query.numRowsAffected();
+    }
+    return true;
+}
 }
 
 AppViewModel::AppViewModel(QObject *parent)
@@ -184,6 +201,23 @@ bool AppViewModel::initialize(const QString &dbPath) {
 
     serverListVm_->setRepositories(serverRepo_.get(), categoryRepo_.get(),
                                    channelRepo_.get(), epgSourceRepo_.get());
+    purgeDisabledServersOnStartup();
+    purgeOrphanProgrammes();
+    if (historyVm_) {
+        historyVm_->refresh();
+    }
+    if (serverListVm_) {
+        serverListVm_->refresh();
+    }
+    connect(serverListVm_, &ServerListViewModel::serverEnabledChanged, this,
+            [this](int64_t serverId, bool enabled) {
+                if (!enabled) {
+                    purgeDisabledServerData(serverId);
+                }
+                QTimer::singleShot(0, this, [this, serverId, enabled]() {
+                    refreshAfterServerStateChange(serverId, enabled);
+                });
+            });
     QTimer::singleShot(0, this, [this]() { bootstrapDefaultFreeServerSync(); });
     epgSourceListVm_->setRepository(epgSourceRepo_.get());
     epgSourceListVm_->setEpgViewModel(epgVm_);
@@ -555,6 +589,205 @@ bool AppViewModel::initialize(const QString &dbPath) {
 }
 
 void AppViewModel::setLogViewModel(LogViewModel *logVm) { logVm_ = logVm; }
+
+void AppViewModel::purgeDisabledServerData(int64_t serverId) {
+    if (!database_ || serverId <= 0) {
+        return;
+    }
+
+    const auto server = serverRepo_ ? serverRepo_->findById(serverId) : std::nullopt;
+    auto db = database_->connection();
+    if (!db.transaction()) {
+        qWarning() << "Failed to start disabled-server cleanup transaction";
+        return;
+    }
+
+    int programmesDeleted = 0;
+    int favoritesDeleted = 0;
+    int historyDeleted = 0;
+    int categoriesDeleted = 0;
+    int channelsDeleted = 0;
+    int seriesCacheDeleted = 0;
+
+    auto fail = [&](const QString &message) {
+        db.rollback();
+        qWarning().noquote() << message;
+        return;
+    };
+
+    QString error;
+    if (!execDeleteByServer(
+            db,
+            QStringLiteral(
+                "DELETE FROM programmes WHERE epg_channel_id IN ("
+                "SELECT DISTINCT epg_channel_id FROM channels "
+                "WHERE server_id = ? AND epg_channel_id != '')"),
+            serverId, &programmesDeleted, &error)) {
+        fail(QStringLiteral("Failed to remove programmes for disabled server %1: %2")
+                 .arg(serverId)
+                 .arg(error));
+        return;
+    }
+
+    if (!execDeleteByServer(
+            db,
+            QStringLiteral(
+                "DELETE FROM favorites WHERE channel_id IN ("
+                "SELECT id FROM channels WHERE server_id = ?)"),
+            serverId, &favoritesDeleted, &error)) {
+        fail(QStringLiteral("Failed to remove favorites for disabled server %1: %2")
+                 .arg(serverId)
+                 .arg(error));
+        return;
+    }
+
+    if (!execDeleteByServer(
+            db,
+            QStringLiteral(
+                "DELETE FROM history WHERE channel_id != 0 AND channel_id IN ("
+                "SELECT id FROM channels WHERE server_id = ?)"),
+            serverId, &historyDeleted, &error)) {
+        fail(QStringLiteral("Failed to remove history for disabled server %1: %2")
+                 .arg(serverId)
+                 .arg(error));
+        return;
+    }
+
+    if (server && !server->url.isEmpty()) {
+        QSqlQuery orphanHistory(db);
+        orphanHistory.prepare(
+            "DELETE FROM history "
+            "WHERE channel_id = 0 "
+            "AND stream_url LIKE ?");
+        orphanHistory.addBindValue(server->url + QStringLiteral("%"));
+        if (!orphanHistory.exec()) {
+            fail(QStringLiteral("Failed to remove orphan history for disabled server %1: %2")
+                     .arg(serverId)
+                     .arg(orphanHistory.lastError().text()));
+            return;
+        }
+        historyDeleted += orphanHistory.numRowsAffected();
+    }
+
+    if (!execDeleteByServer(db,
+                            QStringLiteral("DELETE FROM categories WHERE server_id = ?"),
+                            serverId, &categoriesDeleted, &error)) {
+        fail(QStringLiteral("Failed to remove categories for disabled server %1: %2")
+                 .arg(serverId)
+                 .arg(error));
+        return;
+    }
+
+    if (!execDeleteByServer(db,
+                            QStringLiteral("DELETE FROM channels WHERE server_id = ?"),
+                            serverId, &channelsDeleted, &error)) {
+        fail(QStringLiteral("Failed to remove channels for disabled server %1: %2")
+                 .arg(serverId)
+                 .arg(error));
+        return;
+    }
+
+    if (!execDeleteByServer(db,
+                            QStringLiteral("DELETE FROM series_info_cache WHERE server_id = ?"),
+                            serverId, &seriesCacheDeleted, &error)) {
+        fail(QStringLiteral("Failed to remove series cache for disabled server %1: %2")
+                 .arg(serverId)
+                 .arg(error));
+        return;
+    }
+
+    if (!db.commit()) {
+        db.rollback();
+        qWarning() << "Failed to commit disabled-server cleanup transaction";
+        return;
+    }
+
+    qInfo().noquote() << QStringLiteral(
+                             "Disabled-server cleanup for %1: programmes=%2 favorites=%3 "
+                             "history=%4 categories=%5 channels=%6 series_cache=%7")
+                             .arg(serverId)
+                             .arg(programmesDeleted)
+                             .arg(favoritesDeleted)
+                             .arg(historyDeleted)
+                             .arg(categoriesDeleted)
+                             .arg(channelsDeleted)
+                             .arg(seriesCacheDeleted);
+}
+
+void AppViewModel::purgeDisabledServersOnStartup() {
+    if (!serverRepo_ || !database_) {
+        return;
+    }
+
+    const auto servers = serverRepo_->findAll();
+    int disabledCount = 0;
+    for (const auto &srv : servers) {
+        if (srv.enabled) continue;
+        ++disabledCount;
+        purgeDisabledServerData(srv.id);
+    }
+
+    if (disabledCount > 0) {
+        qInfo().noquote() << QStringLiteral(
+                                 "Startup disabled-server cleanup completed for %1 disabled server(s)")
+                                 .arg(disabledCount);
+    }
+}
+
+void AppViewModel::purgeOrphanProgrammes() {
+    if (!database_) {
+        return;
+    }
+
+    auto db = database_->connection();
+    QSqlQuery q(db);
+    if (!q.exec(
+            "DELETE FROM programmes "
+            "WHERE NOT EXISTS ("
+            "    SELECT 1 FROM channels c "
+            "    WHERE c.epg_channel_id != '' "
+            "      AND LOWER(c.epg_channel_id) = LOWER(programmes.epg_channel_id)"
+            ")")) {
+        qWarning().noquote() << QStringLiteral("Failed to purge orphan programmes: %1")
+                                    .arg(q.lastError().text());
+        return;
+    }
+
+    qInfo().noquote() << QStringLiteral("Purged %1 orphan EPG programme rows")
+                             .arg(q.numRowsAffected());
+}
+
+void AppViewModel::refreshAfterServerStateChange(int64_t serverId, bool enabled) {
+    Q_UNUSED(serverId)
+    Q_UNUSED(enabled)
+
+    if (!databaseReady_) {
+        return;
+    }
+
+    if (channelListVm_) {
+        channelListVm_->invalidateFavCache();
+        channelListVm_->refresh();
+    }
+    if (categoryListVm_) {
+        categoryListVm_->refresh();
+    }
+    if (favoriteListVm_) {
+        favoriteListVm_->refresh();
+    }
+    if (historyVm_) {
+        historyVm_->refresh();
+    }
+    if (recordingListVm_) {
+        recordingListVm_->refresh();
+    }
+    if (groupListVm_) {
+        groupListVm_->refresh();
+    }
+    if (epgVm_) {
+        epgVm_->refresh();
+    }
+}
 
 QString AppViewModel::appName() const { return QStringLiteral("iptvXS"); }
 
@@ -2245,8 +2478,14 @@ bool AppViewModel::hasWatchedUrl(const QString &url) const {
 
 QString AppViewModel::buildSeriesEpisodeUrl(const QString &episodeId, const QString &ext) const {
     if (seriesServerUrl_.isEmpty()) return {};
-    return QStringLiteral("%1/series/%2/%3/%4.%5")
-               .arg(seriesServerUrl_, seriesUsername_, seriesPassword_, episodeId, ext);
+    QUrl url(seriesServerUrl_);
+    if (seriesUsername_.isEmpty() && seriesPassword_.isEmpty()) {
+        url.setPath(QStringLiteral("/series/%1.%2").arg(episodeId, ext));
+    } else {
+        url.setPath(QStringLiteral("/series/%1/%2/%3.%4")
+                        .arg(seriesUsername_, seriesPassword_, episodeId, ext));
+    }
+    return url.toString();
 }
 
 QString AppViewModel::currentProgrammeTitle(const QString &epgChannelId) const {
