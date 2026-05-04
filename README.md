@@ -10,7 +10,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/status-in%20development-orange" alt="Status" />
-  <img src="https://img.shields.io/github/v/tag/bschelst/iptvXS?label=version" alt="Version" />
+  <img src="https://img.shields.io/github/v/tag/bschelst/iptvXS?label=version" alt="Version" /> <br>
   <img src="https://img.shields.io/github/actions/workflow/status/bschelst/iptvXS/build-windows.yml?label=windows" alt="Windows Build" />
   <img src="https://img.shields.io/github/actions/workflow/status/bschelst/iptvXS/build-flatpak.yml?label=flatpak" alt="Flatpak Build" />
   <img src="https://img.shields.io/github/actions/workflow/status/bschelst/iptvXS/build-appimage.yml?label=appimage" alt="AppImage Build" />
@@ -18,10 +18,6 @@
 
 <p align="center">
   <b>This project is under active development. Expect bugs, incomplete features, and rough edges. I'm still fully testing, and there are a lot of outstanding actions — use at your own risk.</b>
-</p>
-<p>
-I created this app because I was a bit disappointed in the IPTV clients on Linux, SteamOS, and Android TV. Despite there being some good clients available, there are always some kind of issues with them, or you need to pay for basic functionality. On the other hand, managing a large number of channels was also problematic. Hence my attempt to create something better. Of course, at the end it's worse, but I tried :)
-  This has been made with a lot of open source software, e.g: QT, mpv, ffmpeg, etc. All credits to all those projects.
 </p>
 
 <p align="center">
@@ -36,7 +32,10 @@ I created this app because I was a bit disappointed in the IPTV clients on Linux
   <img src="https://img.shields.io/badge/Qt-6.5+-41cd52?logo=qt&logoColor=white" alt="Qt 6.5+" />
   <img src="https://img.shields.io/badge/C++-20-00599C?logo=c%2B%2B&logoColor=white" alt="C++20" />
 </p>
-
+<p>
+I created this app because I was a bit disappointed in the IPTV clients on Linux, SteamOS, and Android TV. Despite there being some good clients available, there are always some kind of issues with them, or you need to pay for basic functionality. On the other hand, managing a large number of channels was also problematic. Hence my attempt to create something better. Of course, at the end it's worse, but I tried :)
+  This has been made with a lot of open source software, e.g: QT, mpv, ffmpeg, etc. All credits to all those projects.
+</p>
 <p align="center">
   <strong>Author:</strong> Schelstraete Bart &nbsp;|&nbsp;
   <a href="https://iptvxs.schelstraete.org">www.schelstraete.org</a>
