@@ -79,9 +79,9 @@ modules:
       - -Dglslang=disabled
       - -Dd3d11=disabled
     sources:
-      - type: archive
-        url: https://github.com/haasn/libplacebo/archive/refs/tags/v7.349.0.tar.gz
-        sha256: 627e32439a0b3d2b90368ead7e919f470ee7446c87cc0f7841bbe319b23aa8b1
+      - type: git
+        url: https://github.com/haasn/libplacebo.git
+        tag: v7.360.1
 
   - name: mpv
     buildsystem: meson
