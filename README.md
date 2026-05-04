@@ -17,7 +17,7 @@
 </p>
 
 <p align="center">
-  <b>This project is under active development. Expect bugs, incomplete features, and rough edges. I'm still fully testing, and there are a lot of outstanding actions — use at your own risk.</b>
+  <b>This project is under active development. Expect bugs, incomplete features, and rough edges. I'm still fully testing, and there are a lot of outstanding actions — use at your own risk. Expect a lot of releases, and releases which break things [but hopefully also resolves other things]</b>
 </p>
 
 <p align="center">
