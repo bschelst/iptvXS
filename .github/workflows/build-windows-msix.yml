@@ -67,7 +67,11 @@ jobs:
       - name: Generate MSVC import library
         run: |
           cd mpv-dev
-          if (Test-Path "libmpv-2.dll") {
+          $dll = Get-ChildItem -Path . -Recurse -File -Filter "libmpv-2.dll" | Select-Object -First 1
+          if ($dll) {
+            if ($dll.DirectoryName -ne (Get-Location).Path) {
+              Copy-Item $dll.FullName .\libmpv-2.dll -Force
+            }
             $exports = dumpbin /exports libmpv-2.dll | Select-String "^\s+\d+\s+[0-9A-F]+\s+[0-9A-F]+\s+(\S+)" | ForEach-Object { $_.Matches.Groups[1].Value }
             "LIBRARY libmpv-2.dll" | Out-File -Encoding ASCII mpv.def
             "EXPORTS" | Out-File -Encoding ASCII -Append mpv.def

@@ -65,7 +65,11 @@ jobs:
           cd mpv-dev
           # The dev package has libmpv.dll.a (GCC) but we need mpv.lib (MSVC)
           # Generate .def from the DLL exports, then create .lib
-          if (Test-Path "libmpv-2.dll") {
+          $dll = Get-ChildItem -Path . -Recurse -File -Filter "libmpv-2.dll" | Select-Object -First 1
+          if ($dll) {
+            if ($dll.DirectoryName -ne (Get-Location).Path) {
+              Copy-Item $dll.FullName .\libmpv-2.dll -Force
+            }
             # Use dumpbin to extract exports and create a .def file
             $exports = dumpbin /exports libmpv-2.dll | Select-String "^\s+\d+\s+[0-9A-F]+\s+[0-9A-F]+\s+(\S+)" | ForEach-Object { $_.Matches.Groups[1].Value }
             "LIBRARY libmpv-2.dll" | Out-File -Encoding ASCII mpv.def
