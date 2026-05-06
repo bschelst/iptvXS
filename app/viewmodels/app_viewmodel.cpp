@@ -4,7 +4,7 @@
 
 #include <mpv/client.h>
 
-#ifdef Q_OS_WIN
+#if defined(Q_OS_WIN) && IPTVXS_ENABLE_UPDATES
 #include <winsparkle.h>
 #endif
 
@@ -162,20 +162,26 @@ AppViewModel::AppViewModel(QObject *parent)
 AppViewModel::~AppViewModel() = default;
 
 bool AppViewModel::initialize(const QString &dbPath) {
+    qInfo("[INIT] opening database...");
     database_ = std::make_unique<iptvxs::Database>(this);
 
     connect(database_.get(), &iptvxs::Database::errorOccurred, this,
             &AppViewModel::errorOccurred);
 
     if (!database_->open(dbPath)) {
+        qCritical("[INIT] database open FAILED");
         return false;
     }
+    qInfo("[INIT] database open ok");
 
     auto db = database_->connection();
 
+    qInfo("[INIT] creating repos...");
     settingsRepo_ = std::make_unique<iptvxs::SettingsRepository>(db, this);
     serverRepo_ = std::make_unique<iptvxs::ServerRepository>(db, this);
+    qInfo("[INIT] ensureDefaultServers...");
     ensureDefaultServers();
+    qInfo("[INIT] epgSourceRepo...");
     epgSourceRepo_ = std::make_unique<iptvxs::EpgSourceRepository>(db, this);
     connect(epgSourceRepo_.get(), &iptvxs::EpgSourceRepository::errorOccurred,
             this, &AppViewModel::errorOccurred);
@@ -191,18 +197,23 @@ bool AppViewModel::initialize(const QString &dbPath) {
             this, &AppViewModel::errorOccurred);
     groupListVm_->setRepository(groupRepo_.get());
     groupListVm_->setChannelRepository(channelRepo_.get());
+    qInfo("[INIT] logoCache...");
     logoCache_ = std::make_unique<iptvxs::LogoCache>(this);
     logoCache_->setCacheDir(localAppDataPath() + QStringLiteral("/logos"));
     auto maxMb = settingsRepo_->getInt(QStringLiteral("logo_cache_max_mb"), 500);
+    qInfo("[INIT] logoCache pruneExpired...");
     logoCache_->pruneExpired(30, static_cast<qint64>(maxMb) * 1024 * 1024);
+    qInfo("[INIT] recordingMgr + http + speedTest...");
     recordingMgr_ = std::make_unique<iptvxs::RecordingManager>(this);
     httpClient_ = std::make_unique<iptvxs::HttpClient>(this);
     speedTestRunner_ = std::make_unique<iptvxs::SpeedTestRunner>(this);
 
+    qInfo("[INIT] setRepositories...");
     serverListVm_->setRepositories(serverRepo_.get(), categoryRepo_.get(),
                                    channelRepo_.get(), epgSourceRepo_.get());
+    qInfo("[INIT] purgeDisabledServers...");
     purgeDisabledServersOnStartup();
-    purgeOrphanProgrammes();
+    QTimer::singleShot(30000, this, [this]() { purgeOrphanProgrammes(); });
     if (historyVm_) {
         historyVm_->refresh();
     }
@@ -741,12 +752,14 @@ void AppViewModel::purgeOrphanProgrammes() {
 
     auto db = database_->connection();
     QSqlQuery q(db);
+    q.exec("CREATE INDEX IF NOT EXISTS idx_channels_epg_id_nocase "
+           "ON channels(epg_channel_id COLLATE NOCASE) WHERE epg_channel_id != ''");
+
     if (!q.exec(
             "DELETE FROM programmes "
-            "WHERE NOT EXISTS ("
-            "    SELECT 1 FROM channels c "
-            "    WHERE c.epg_channel_id != '' "
-            "      AND LOWER(c.epg_channel_id) = LOWER(programmes.epg_channel_id)"
+            "WHERE epg_channel_id NOT IN ("
+            "    SELECT epg_channel_id COLLATE NOCASE FROM channels "
+            "    WHERE epg_channel_id != ''"
             ")")) {
         qWarning().noquote() << QStringLiteral("Failed to purge orphan programmes: %1")
                                     .arg(q.lastError().text());
@@ -2524,12 +2537,22 @@ bool AppViewModel::fileExists(const QString &path) const {
 QString AppViewModel::latestVersion() const { return latestVersion_; }
 
 bool AppViewModel::updateAvailable() const {
+    if (!updatesEnabled()) return false;
     if (latestVersion_.isEmpty() || latestVersion_ == QStringLiteral("unknown")) return false;
     auto strip = [](QString v) { return v.startsWith("v") ? v.mid(1) : v; };
     return strip(latestVersion_) != strip(appVersion());
 }
 
+bool AppViewModel::updatesEnabled() const {
+#if defined(Q_OS_WIN)
+    return IPTVXS_ENABLE_UPDATES;
+#else
+    return false;
+#endif
+}
+
 void AppViewModel::checkForUpdates() {
+#if defined(Q_OS_WIN) && IPTVXS_ENABLE_UPDATES
     if (!httpClient_) return;
     QUrl url(QStringLiteral("https://iptvxs.schelstraete.org/api/v1/version"));
     auto *reply = httpClient_->get(url);
@@ -2564,10 +2587,13 @@ void AppViewModel::checkForUpdates() {
             qInfo("Latest version: %s (current: %s)", qPrintable(tag), qPrintable(appVersion()));
         }
     });
+#else
+    latestVersion_.clear();
+#endif
 }
 
 void AppViewModel::checkForUpdatesWithUI() {
-#ifdef Q_OS_WIN
+#if defined(Q_OS_WIN) && IPTVXS_ENABLE_UPDATES
     qInfo("Manual update check requested");
     win_sparkle_check_update_with_ui();
 #else

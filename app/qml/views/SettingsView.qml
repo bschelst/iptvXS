@@ -2706,7 +2706,7 @@ Item {
                             }
 
                             Rectangle {
-                                visible: appViewModel && appViewModel.updateAvailable
+                                visible: appViewModel && appViewModel.updatesEnabled && appViewModel.updateAvailable
                                 width: updateLabel.implicitWidth + 12
                                 height: 20
                                 radius: 10
@@ -2851,12 +2851,16 @@ Item {
                                             text: "Latest"
                                             font.pixelSize: Theme.fontSizeXs
                                             color: Theme.textMuted
+                                            visible: appViewModel && appViewModel.updatesEnabled
                                         }
 
                                         Text {
-                                            text: appViewModel && appViewModel.latestVersion ? appViewModel.latestVersion : "checking..."
+                                            text: appViewModel && appViewModel.updatesEnabled
+                                                ? (appViewModel.latestVersion ? appViewModel.latestVersion : "checking...")
+                                                : "Store-managed"
                                             font.pixelSize: Theme.fontSizeSm
                                             font.bold: true
+                                            visible: appViewModel && appViewModel.updatesEnabled
                                             color: appViewModel && appViewModel.updateAvailable ? Theme.accent : Theme.textPrimary
                                         }
                                     }
@@ -2900,6 +2904,7 @@ Item {
 
                             Rectangle {
                                 id: checkUpdatesBtn
+                                visible: appViewModel && appViewModel.updatesEnabled
                                 width: checkLabel.implicitWidth + Theme.spacingLg
                                 height: 32
                                 radius: Theme.borderRadius

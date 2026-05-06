@@ -105,7 +105,10 @@ if(NOT WIN32)
     pkg_check_modules(SDL2 REQUIRED sdl2)
 endif()
 
+option(IPTVXS_ENABLE_UPDATES "Enable WinSparkle and update checks on Windows" ON)
+
 target_compile_definitions(iptvXS PRIVATE IPTVXS_VERSION="${PROJECT_VERSION}")
+target_compile_definitions(iptvXS PRIVATE IPTVXS_ENABLE_UPDATES=$<BOOL:${IPTVXS_ENABLE_UPDATES}>)
 
 target_include_directories(iptvXS
     PRIVATE
@@ -114,7 +117,7 @@ target_include_directories(iptvXS
 
 if(WIN32)
     set(WINSPARKLE_DIR "" CACHE PATH "Path to WinSparkle directory")
-    if(WINSPARKLE_DIR)
+    if(WINSPARKLE_DIR AND IPTVXS_ENABLE_UPDATES)
         target_include_directories(iptvXS PRIVATE "${WINSPARKLE_DIR}/include")
         target_link_libraries(iptvXS PRIVATE "${WINSPARKLE_DIR}/x64/Release/WinSparkle.lib")
     endif()

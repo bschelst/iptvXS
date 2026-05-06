@@ -100,6 +100,7 @@ class AppViewModel : public QObject {
     Q_PROPERTY(int logoCacheMaxMb READ logoCacheMaxMb WRITE setLogoCacheMaxMb NOTIFY logoCacheMaxMbChanged)
     Q_PROPERTY(QString latestVersion READ latestVersion NOTIFY latestVersionChanged)
     Q_PROPERTY(bool updateAvailable READ updateAvailable NOTIFY latestVersionChanged)
+    Q_PROPERTY(bool updatesEnabled READ updatesEnabled CONSTANT)
     Q_PROPERTY(iptvxs::ChromecastManager *chromecast READ chromecast CONSTANT)
     Q_PROPERTY(bool chromecastEnabled READ chromecastEnabled WRITE setChromecastEnabled NOTIFY chromecastEnabledChanged)
     Q_PROPERTY(bool hasZapContext READ hasZapContext NOTIFY zapContextChanged)
@@ -198,6 +199,7 @@ public:
 
     QString latestVersion() const;
     bool updateAvailable() const;
+    bool updatesEnabled() const;
     Q_INVOKABLE void checkForUpdates();
     Q_INVOKABLE void checkForUpdatesWithUI();
     Q_INVOKABLE void openGitHub();

@@ -22,7 +22,7 @@ Item {
             if (rows[i] && rows[i].visible && rows[i].cardListView && rows[i].cardListView.count > 0) {
                 currentRowIndex = allRows.indexOf(rows[i])
                 rows[i].cardListView.currentIndex = 0
-                rows[i].activeCardItem = rows[i].cardListView.currentItem
+
                 rows[i].cardListView.forceActiveFocus()
                 return
             }
@@ -31,7 +31,7 @@ Item {
             if (allRows[j] && allRows[j].visible) {
                 currentRowIndex = j
                 if (allRows[j].cardListView && allRows[j].cardListView.currentIndex >= 0) {
-                    allRows[j].activeCardItem = allRows[j].cardListView.currentItem
+
                 }
                 allRows[j].cardListView.forceActiveFocus()
                 return

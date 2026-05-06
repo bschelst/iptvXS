@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.15
+
+Release for the large-library startup fix and MSIX packaging cleanup.
+
+### Fixed
+- Reduced startup time when opening large libraries by deferring expensive cleanup work until after launch.
+- MSIX packaging now excludes external update checks so Store validation passes.
+
 ## 0.2.1
 
 Draft release for Steam Deck and Flatpak improvements.

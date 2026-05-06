@@ -86,16 +86,6 @@ jobs:
           Write-Host "Files after lib generation:"
           dir *.lib, *.dll, *.def
 
-      - name: Download WinSparkle
-        run: |
-          $url = "https://github.com/vslavik/winsparkle/releases/download/v0.9.2/WinSparkle-0.9.2.zip"
-          Invoke-WebRequest -Uri $url -OutFile winsparkle.zip -MaximumRetryCount 3
-          Expand-Archive -Path winsparkle.zip -DestinationPath winsparkle-extract
-          $dir = Get-ChildItem -Path winsparkle-extract -Directory | Select-Object -First 1
-          Move-Item $dir.FullName winsparkle
-          Write-Host "WinSparkle files:"
-          dir winsparkle -Recurse -Include *.dll,*.lib,*.h | Select-Object FullName
-
       - name: Setup MSYS2
         uses: msys2/setup-msys2@v2
         with:
@@ -134,9 +124,9 @@ jobs:
           cmake -B build -G "Ninja" `
             -DCMAKE_BUILD_TYPE=Release `
             -DIPTVXS_BUILD_TESTS=OFF `
+            -DIPTVXS_ENABLE_UPDATES=OFF `
             -DMPV_INCLUDE_DIRS="$env:WORKSPACE/mpv-dev/include" `
-            -DMPV_LIBRARIES="$env:WORKSPACE/mpv-dev/mpv.lib" `
-            -DWINSPARKLE_DIR="$env:WORKSPACE/winsparkle"
+            -DMPV_LIBRARIES="$env:WORKSPACE/mpv-dev/mpv.lib"
 
       - name: Build
         run: cmake --build build --config Release
@@ -171,7 +161,6 @@ jobs:
           cd $staging
           windeployqt --qmldir ../app/qml iptvXS.exe
           Copy-Item ../mpv-dev/libmpv-2.dll .
-          Copy-Item ../winsparkle/x64/Release/WinSparkle.dll .
           $searchRoots = @(
             "$env:ProgramFiles\OpenSSL-Win64\bin",
             "$env:ProgramFiles\Git\mingw64\bin",

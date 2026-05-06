@@ -23,10 +23,12 @@
 #include <QTextStream>
 #include <QThread>
 
-#ifndef Q_OS_WIN
+#if !defined(Q_OS_WIN)
 #include "controller_input_bridge.h"
 #else
+#if IPTVXS_ENABLE_UPDATES
 #include <winsparkle.h>
+#endif
 #endif
 #include "viewmodels/app_viewmodel.h"
 #include "viewmodels/log_viewmodel.h"
@@ -229,14 +231,19 @@ int main(int argc, char *argv[]) {
 
     const QString dataPath = localAppDataPath();
     QDir().mkpath(dataPath);
+    const bool runningUnderGamescope = qEnvironmentVariableIsSet("GAMESCOPE_WAYLAND_DISPLAY")
+                                      || qEnvironmentVariableIsSet("SteamDeck");
     QLockFile instanceLock(dataPath + QStringLiteral("/iptvXS.lock"));
-    if (!instanceLock.tryLock(100)) {
+    if (!runningUnderGamescope && !instanceLock.tryLock(100)) {
         if (notifyExistingInstanceWithRetry()) {
             qInfo("Existing iptvXS instance activated from tray");
         } else {
             qWarning("Another iptvXS instance is already running, but activation failed");
         }
         return 0;
+    }
+    if (runningUnderGamescope) {
+        instanceLock.tryLock(0);
     }
 
     QQuickStyle::setStyle("Basic");
@@ -268,6 +275,7 @@ int main(int argc, char *argv[]) {
     }
 
     QString dbPath = databasePath(dataPath);
+    qInfo("[BOOT] dbPath=%s", qPrintable(dbPath));
 
     QLocalServer instanceServer;
     QQmlApplicationEngine *enginePtr = nullptr;
@@ -278,19 +286,25 @@ int main(int argc, char *argv[]) {
             showMainWindow(*enginePtr);
         }
     };
+    qInfo("[BOOT] starting single-instance server...");
     if (!startSingleInstanceServer(instanceServer, requestActivate)) {
-        qWarning("Failed to establish activation server: %s",
+        qWarning("[BOOT] Failed to establish activation server: %s",
                  qPrintable(instanceServer.errorString()));
     }
+    qInfo("[BOOT] single-instance server ok");
 
+    qInfo("[BOOT] creating AppViewModel...");
     auto viewModel = new AppViewModel(&app);
+    qInfo("[BOOT] setting log vm...");
     viewModel->setLogViewModel(logVm);
     QObject::connect(viewModel, &AppViewModel::errorOccurred, &app,
                      [](const QString &message) { qWarning("%s", qPrintable(message)); });
+    qInfo("[BOOT] calling initialize(%s)...", qPrintable(dbPath));
     if (!viewModel->initialize(dbPath)) {
         qCritical("Failed to initialize database at %s", qPrintable(dbPath));
         return 1;
     }
+    qInfo("[BOOT] initialize complete");
 
     const bool isGamescope = qEnvironmentVariableIsSet("GAMESCOPE_WAYLAND_DISPLAY")
                              || qEnvironmentVariableIsSet("SteamDeck");
@@ -401,6 +415,7 @@ int main(int argc, char *argv[]) {
 #ifndef Q_OS_WIN
     auto controllerBridge = std::make_unique<ControllerInputBridge>(mainWindow, &app);
 #else
+#if IPTVXS_ENABLE_UPDATES
     win_sparkle_set_appcast_url("https://iptvxs.schelstraete.org/api/v1/appcast.xml");
     win_sparkle_set_app_details(L"iptvXS", L"iptvXS",
                                 app.applicationVersion().toStdWString().c_str());
@@ -408,13 +423,16 @@ int main(int argc, char *argv[]) {
     win_sparkle_set_update_check_interval(86400);
     win_sparkle_init();
     qInfo("WinSparkle auto-update initialized");
+#else
+    qInfo("Windows build without WinSparkle updates");
+#endif
 #endif
 
     qInfo("Application started successfully");
 
     auto result = QApplication::exec();
 
-#ifdef Q_OS_WIN
+#if defined(Q_OS_WIN) && IPTVXS_ENABLE_UPDATES
     win_sparkle_cleanup();
 #endif
     qInfo("Application shutting down");
