@@ -16,6 +16,17 @@ Item {
     property int homeRevealStage: -1
     readonly property var allRows: [continueWatchingRow, favoritesRow, recentlyAddedRow, quickAccessRow]
 
+    // True while the user is keyboard-driving any card row. Card delegates
+    // use this to suppress stale mouse hover, otherwise the cursor's
+    // last-hovered card stays lit when focus moves to a different row.
+    readonly property bool anyRowFocused: {
+        for (var i = 0; i < allRows.length; i++) {
+            var r = allRows[i]
+            if (r && r.cardListView && r.cardListView.activeFocus) return true
+        }
+        return false
+    }
+
     function startRowRevealSequence() {
         homeRevealStage = 0
         homeRevealTimer.restart()
@@ -1001,6 +1012,9 @@ Item {
                     if (lv && lv.activeFocus) {
                         return lv.currentIndex === index ? Theme.accent : "transparent"
                     }
+                    // Another row (or sidebar) owns keyboard focus —
+                    // suppress hover so we don't double-highlight.
+                    if (homeView.anyRowFocused) return "transparent"
                     if (posterHoverHandler.hovered) return Theme.accent
                     return "transparent"
                 }
@@ -1055,6 +1069,7 @@ Item {
                     if (lv && lv.activeFocus) {
                         return lv.currentIndex === index ? 2 : 1
                     }
+                    if (homeView.anyRowFocused) return 1
                     if (qaHoverHandler.hovered) return 2
                     return 1
                 }
@@ -1063,6 +1078,7 @@ Item {
                     if (lv && lv.activeFocus) {
                         return lv.currentIndex === index ? Theme.accent : Theme.surfaceBorder
                     }
+                    if (homeView.anyRowFocused) return Theme.surfaceBorder
                     if (qaHoverHandler.hovered) return Theme.accent
                     return Theme.surfaceBorder
                 }
