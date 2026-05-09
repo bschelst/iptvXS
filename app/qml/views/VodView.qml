@@ -204,11 +204,31 @@ Item {
                     }
 
                     Keys.onUpPressed: selectServerAt(currentIndex - 1)
-                    Keys.onDownPressed: selectServerAt(currentIndex + 1)
+                    Keys.onDownPressed: {
+                        if (currentIndex < count - 1) {
+                            selectServerAt(currentIndex + 1)
+                        } else if (vodCatFilterInput) {
+                            vodCatFilterInput.forceActiveFocus()
+                        }
+                    }
                     Keys.onReturnPressed: selectServerAt(currentIndex)
                     Keys.onEnterPressed: Keys.onReturnPressed(event)
+                    Keys.onLeftPressed: {
+                        if (Window.window && Window.window.focusSidebar) {
+                            Window.window.focusSidebar()
+                        }
+                    }
                     Keys.onRightPressed: {
-                        if (vodCatFilterInput) vodCatFilterInput.forceActiveFocus()
+                        // Right from server picker → into the content area.
+                        if (vodGrid && vodGrid.visible) {
+                            if (vodGrid.currentIndex < 0) vodGrid.currentIndex = 0
+                            vodGrid.forceActiveFocus()
+                        } else if (categoryGrid && categoryGrid.visible) {
+                            if (categoryGrid.currentIndex < 0) categoryGrid.currentIndex = 0
+                            categoryGrid.forceActiveFocus()
+                        } else if (vodCatFilterInput) {
+                            vodCatFilterInput.forceActiveFocus()
+                        }
                     }
 
                     delegate: Rectangle {

@@ -144,11 +144,29 @@ Item {
                     }
 
                     Keys.onUpPressed: selectServerAt(currentIndex - 1)
-                    Keys.onDownPressed: selectServerAt(currentIndex + 1)
+                    Keys.onDownPressed: {
+                        // Past the last server, fall through into the category
+                        // sidebar (filter input → All Channels) so the chain
+                        // continues smoothly downward.
+                        if (currentIndex < count - 1) {
+                            selectServerAt(currentIndex + 1)
+                        } else if (catFilterInput) {
+                            catFilterInput.forceActiveFocus()
+                        }
+                    }
                     Keys.onReturnPressed: selectServerAt(currentIndex)
                     Keys.onEnterPressed: Keys.onReturnPressed(event)
+                    Keys.onLeftPressed: {
+                        if (Window.window && Window.window.focusSidebar) {
+                            Window.window.focusSidebar()
+                        }
+                    }
                     Keys.onRightPressed: {
-                        if (catFilterInput) {
+                        // Right from server picker → into the channel content area.
+                        if (channelGrid && channelGrid.visible) {
+                            if (channelGrid.currentIndex < 0) channelGrid.currentIndex = 0
+                            channelGrid.forceActiveFocus()
+                        } else if (catFilterInput) {
                             catFilterInput.forceActiveFocus()
                         } else {
                             channelsView.focusCategorySidebar()
