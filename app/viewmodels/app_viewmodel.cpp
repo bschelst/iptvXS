@@ -424,6 +424,20 @@ bool AppViewModel::initialize(const QString &dbPath) {
     syncService_->garbageCollectTombstones(
         QDateTime::currentSecsSinceEpoch() - 30LL * 24 * 60 * 60);
 
+    // Refresh affected viewmodels after a sync cycle so newly-merged
+    // servers/favorites/groups/history become visible without a restart.
+    connect(syncService_.get(), &iptvxs::SyncService::syncCompleted, this,
+            [this](bool ok, const QString &) {
+                if (!ok) return;
+                if (serverListVm_) serverListVm_->refresh();
+                if (favoriteListVm_) favoriteListVm_->refresh();
+                if (groupListVm_) groupListVm_->refresh();
+                if (historyVm_) historyVm_->refresh();
+                if (channelListVm_) channelListVm_->refresh();
+                if (categoryListVm_) categoryListVm_->refresh();
+                if (epgSourceListVm_) epgSourceListVm_->refresh();
+            });
+
     // Client ID is now bundled in the binary (PKCE flow). Clean up legacy
     // per-user credential rows from the settings DB.
     settingsRepo_->remove(QStringLiteral("gdrive_client_id"));
@@ -606,10 +620,13 @@ bool AppViewModel::initialize(const QString &dbPath) {
     rescheduleAutoSyncEpg();
     checkForUpdates();
 
-    // Run daily maintenance if >24h since last run
+    // Run weekly maintenance if >7 days since last run. Heavy steps
+    // (ANALYZE + VACUUM) inside runMaintenance() are additionally gated
+    // on DB size (>= 500 MB) so small databases skip them entirely.
     auto lastMaint = static_cast<qint64>(settingsRepo_->getInt(QStringLiteral("last_maintenance"), 0));
     auto now = QDateTime::currentSecsSinceEpoch();
-    if (now - lastMaint > 86400) {
+    constexpr qint64 kMaintIntervalSecs = 7LL * 24 * 60 * 60;
+    if (now - lastMaint > kMaintIntervalSecs) {
         QTimer::singleShot(5000, this, [this]() { runMaintenance(); });
     }
 
@@ -2873,21 +2890,37 @@ QVariantMap AppViewModel::runMaintenance() {
         results["series_cache_cleaned"] = true;
     }
 
-    // 7. ANALYZE then VACUUM
+    // 7. ANALYZE + VACUUM — heavy on Steam Deck eMMC for large DBs.
+    // Skip entirely when the file is small (no significant fragmentation
+    // savings) so the maintenance pass stays fast.
+    constexpr qint64 kHeavyMaintMinBytes = 500LL * 1024 * 1024;
+    qint64 dbSizeBytes = 0;
     {
-        QSqlQuery q(db);
-        q.exec("ANALYZE");
-        results["analyzed"] = true;
-    }
-    // VACUUM cannot run inside a transaction, run separately.
-    {
-        QSqlQuery q(db);
-        if (q.exec("VACUUM")) {
-            results["vacuumed"] = true;
-        } else {
-            results["vacuumed"] = false;
-            qWarning() << "VACUUM failed:" << q.lastError().text();
+        const auto path = databasePath();
+        if (!path.isEmpty()) {
+            dbSizeBytes = QFileInfo(path).size();
         }
+    }
+    if (dbSizeBytes >= kHeavyMaintMinBytes) {
+        {
+            QSqlQuery q(db);
+            q.exec("ANALYZE");
+            results["analyzed"] = true;
+        }
+        // VACUUM cannot run inside a transaction, run separately.
+        {
+            QSqlQuery q(db);
+            if (q.exec("VACUUM")) {
+                results["vacuumed"] = true;
+            } else {
+                results["vacuumed"] = false;
+                qWarning() << "VACUUM failed:" << q.lastError().text();
+            }
+        }
+    } else {
+        results["analyzed"] = false;
+        results["vacuumed"] = false;
+        results["heavy_maint_skipped_reason"] = QStringLiteral("db_size_below_threshold");
     }
 
     // Store last maintenance timestamp

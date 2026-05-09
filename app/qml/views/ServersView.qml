@@ -278,12 +278,23 @@ Item {
                                         : Theme.surface
                                     border.color: {
                                         if (serverInfoCol.actionFocused) return Theme.accent
-                                        if (serverListView.activeFocus && serverListView.currentIndex === index) return Theme.accent
+                                        // When the ListView has keyboard focus, only the
+                                        // current item highlights — hover is suppressed so
+                                        // stale mouse position doesn't paint a second card.
+                                        if (serverListView.activeFocus) {
+                                            return serverListView.currentIndex === index
+                                                ? Theme.accent
+                                                : (model.isPrimary ? Theme.accent : Theme.surfaceBorder)
+                                        }
                                         if (model.isPrimary) return Theme.accent
                                         if (delegateHovered) return Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.25)
                                         return Theme.surfaceBorder
                                     }
-                                    border.width: (serverInfoCol.actionFocused || (serverListView.activeFocus && serverListView.currentIndex === index)) ? 2 : (model.isPrimary ? 2 : 1)
+                                    border.width: {
+                                        if (serverInfoCol.actionFocused) return 2
+                                        if (serverListView.activeFocus && serverListView.currentIndex === index) return 2
+                                        return model.isPrimary ? 2 : 1
+                                    }
                                     opacity: model.enabled ? 1.0 : 0.5
 
                                     property bool delegateHovered: false
