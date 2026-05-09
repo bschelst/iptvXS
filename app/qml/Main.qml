@@ -33,18 +33,10 @@ ApplicationWindow {
                     "currentView=" + (appViewModel ? appViewModel.currentView : "?"))
     }
 
-    Keys.priority: Keys.AfterItem
-    Keys.onPressed: function(event) {
-        // Window-level catch-all: only fires for keys not consumed by any
-        // focused item. If a D-pad press shows up here, it means NOTHING
-        // had activeFocus when the user pressed it.
-        if (event.key === Qt.Key_Up || event.key === Qt.Key_Down
-                || event.key === Qt.Key_Left || event.key === Qt.Key_Right
-                || event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
-            console.log("[DPAD/Window] uncaught key=" + event.key +
-                        " text='" + event.text + "' (no focused element handled it)")
-        }
-    }
+    // Note: ApplicationWindow inherits Window which is NOT an Item, so the
+    // `Keys` attached property cannot be used at this level (Qt logs a warning
+    // and silently drops the handler). Use per-item handlers instead — see
+    // HomeView/Sidebar/cardListView console.log calls.
 
     onClosing: function(close) {
         if (appViewModel && appViewModel.closeToTray && systemTrayAvailable) {

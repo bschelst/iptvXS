@@ -7,6 +7,7 @@ import app.iptvxs
 
 Rectangle {
     id: sidebar
+    objectName: "Sidebar"
 
     property bool collapsed: false
     property string activeItem: "home"
