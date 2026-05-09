@@ -270,12 +270,18 @@ void PlayerViewModel::play(const QString &url, const QString &name,
     }
     manualStop_ = false;
     isLive_ = forceLive;
+    // Detect Xtream Codes catchup/timeshift URLs so the UI can keep the rewind
+    // controls visible while in catchup mode (and remain accessible when the
+    // catchup URL is later replayed from history with isLive=false).
+    const bool wasCatchup = isCatchup_;
+    isCatchup_ = url.contains(QStringLiteral("/streaming/timeshift.php"));
     subtitleTracks_.clear();
     audioTracks_.clear();
     emit channelNameChanged();
     emit channelLogoChanged();
     emit channelIdChanged();
     emit isLiveChanged();
+    if (wasCatchup != isCatchup_) emit isCatchupChanged();
     emit subtitleTracksChanged();
     emit audioTracksChanged();
 
@@ -324,6 +330,10 @@ void PlayerViewModel::stop() {
     if (!epgChannelId_.isEmpty()) {
         epgChannelId_.clear();
         emit epgChannelIdChanged();
+    }
+    if (isCatchup_) {
+        isCatchup_ = false;
+        emit isCatchupChanged();
     }
     emit channelNameChanged();
     emit channelLogoChanged();
@@ -433,6 +443,7 @@ QString PlayerViewModel::formatTime(double seconds) const {
 }
 
 bool PlayerViewModel::isLive() const { return isLive_; }
+bool PlayerViewModel::isCatchup() const { return isCatchup_; }
 
 QVariantList PlayerViewModel::subtitleTracks() const { return subtitleTracks_; }
 

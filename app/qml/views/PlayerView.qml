@@ -542,7 +542,8 @@ Item {
 
                     PlayerButton {
                         id: catchupBtn
-                        visible: appViewModel && appViewModel.player.isLive
+                        visible: appViewModel
+                                 && (appViewModel.player.isLive || appViewModel.player.isCatchup)
                                  && playerView.currentChannelTvArchive > 0
                         text: "↻"
                         iconSize: 16
@@ -2694,6 +2695,8 @@ Item {
 
         property var rewindOptions: {
             // Filter rewind options to those within the channel's archive window.
+            // First entry is "Live (now)" when currently in catchup mode, so the
+            // user has a one-tap escape back to the live edge.
             var allOpts = [
                 { label: "5 minutes",  mins: 5 },
                 { label: "15 minutes", mins: 15 },
@@ -2711,6 +2714,9 @@ Item {
             var maxMins = playerView.currentChannelArchiveDays * 1440
             if (maxMins <= 0) return []
             var result = []
+            if (appViewModel && appViewModel.player.isCatchup) {
+                result.push({ label: "Live (now)", mins: 0, isLive: true })
+            }
             for (var i = 0; i < allOpts.length; i++) {
                 if (allOpts[i].mins <= maxMins) result.push(allOpts[i])
             }
@@ -2780,12 +2786,16 @@ Item {
                         if (!appViewModel || !appViewModel.player.channelId) return
                         var opt = catchupPopup.rewindOptions[idx]
                         if (!opt) return
+                        catchupDialogVisible = false
+                        if (opt.isLive) {
+                            appViewModel.playChannelById(appViewModel.player.channelId)
+                            return
+                        }
                         var nowSecs = Math.floor(Date.now() / 1000)
                         var startSecs = nowSecs - opt.mins * 60
                         // Stream forward for the rewind amount + 2h cushion so the user
                         // can keep watching past the requested point.
                         var durationMins = opt.mins + 120
-                        catchupDialogVisible = false
                         appViewModel.playCatchup(appViewModel.player.channelId, startSecs, durationMins)
                     }
 
@@ -2802,7 +2812,7 @@ Item {
                             anchors.left: parent.left
                             anchors.leftMargin: Theme.spacingMd
                             anchors.verticalCenter: parent.verticalCenter
-                            text: "↻  " + modelData.label
+                            text: (modelData.isLive ? "▶  " : "↻  ") + modelData.label
                             font.pixelSize: Theme.fontSizeSm
                             color: Theme.textPrimary
                         }
