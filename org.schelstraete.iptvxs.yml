@@ -11,6 +11,10 @@ finish-args:
   - --socket=wayland
   - --socket=pulseaudio
   - --device=dri
+  # SDL game-controller bridge (app/controller_input_bridge.cpp) needs to read
+  # /dev/input/event* for D-pad / button events. Without this the flatpak
+  # sandbox sees 0 joysticks on the Steam Deck and the bridge is a no-op.
+  - --device=all
   - --filesystem=xdg-videos
   - --filesystem=xdg-download
   - --talk-name=org.freedesktop.Notifications
