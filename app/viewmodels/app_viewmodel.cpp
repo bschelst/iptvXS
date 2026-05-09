@@ -283,8 +283,20 @@ bool AppViewModel::initialize(const QString &dbPath) {
     autoSyncWatchdog_->setSingleShot(true);
     connect(autoSyncWatchdog_, &QTimer::timeout, this, [this]() {
         if (!autoSyncInProgress_) return;
-        qWarning("Auto channel sync watchdog: sync timed out, resetting");
+        qWarning("Auto channel sync watchdog: sync timed out, treating as complete");
         autoSyncInProgress_ = false;
+        // Mark as complete for this cycle so rescheduleAutoSyncChannels()
+        // schedules the NEXT sync in `interval hours` instead of in 60s.
+        // Previously we left last_channel_sync_ts unchanged, which made
+        // the next attempt fire ~60s later (the floor in
+        // rescheduleAutoSyncChannels) and loop endlessly when one server
+        // stalled — every loop hammered the SQLite write lock with 160k
+        // rows of channel-list updates.
+        if (settingsRepo_) {
+            settingsRepo_->set(
+                QStringLiteral("last_channel_sync_ts"),
+                static_cast<int>(QDateTime::currentSecsSinceEpoch()));
+        }
         rescheduleAutoSyncChannels();
     });
 
@@ -292,8 +304,14 @@ bool AppViewModel::initialize(const QString &dbPath) {
     autoSyncEpgWatchdog_->setSingleShot(true);
     connect(autoSyncEpgWatchdog_, &QTimer::timeout, this, [this]() {
         if (!autoSyncEpgInProgress_) return;
-        qWarning("Auto EPG sync watchdog: sync timed out, resetting");
+        qWarning("Auto EPG sync watchdog: sync timed out, treating as complete");
         autoSyncEpgInProgress_ = false;
+        // Same reasoning as the channel-sync watchdog above.
+        if (settingsRepo_) {
+            settingsRepo_->set(
+                QStringLiteral("last_epg_sync_ts"),
+                static_cast<int>(QDateTime::currentSecsSinceEpoch()));
+        }
         rescheduleAutoSyncEpg();
     });
 
