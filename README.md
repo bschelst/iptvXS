@@ -33,7 +33,7 @@
   <img src="https://img.shields.io/badge/C++-20-00599C?logo=c%2B%2B&logoColor=white" alt="C++20" />
 </p>
 <p>
-I created this app because I was a bit disappointed in the IPTV clients on Linux, SteamOS, and Android TV. Despite there being some good clients available, there are always some kind of issues with them, or you need to pay for basic functionality. On the other hand, managing a large number of channels was also problematic. Hence my attempt to create something better. Of course, at the end it's worse, but I tried :)
+I created this app because I was a bit disappointed in the IPTV clients on Linux, SteamOS, and Android TV. Despite there being some good clients available, there are always some kind of issues with them, or you need to pay for basic functionality. On the other hand, managing a large number of channels was also problematic. Hence my attempt to create something better. Of course, at the end it's worse, but I tried :)  Note: the logo was made with AI, as I'm terrible with creating images. Feel free to propose a better logo.
   This has been made with a lot of open source software, e.g: QT, mpv, ffmpeg, etc. All credits to all those projects.
 </p>
 <p align="center">
