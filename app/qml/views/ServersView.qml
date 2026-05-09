@@ -320,10 +320,18 @@ Item {
                                         if (Window.window && Window.window.focusSidebar) Window.window.focusSidebar()
                                     }
                                     Keys.onUpPressed: {
+                                        // BUG WAS: this used to call
+                                        // serverInfoCol.focusActionAt(0) AFTER bumping
+                                        // currentIndex. focusActionAt resets currentIndex
+                                        // to the closure-captured `index` of THIS delegate
+                                        // (the OLD row), undoing the move and trapping
+                                        // focus on the old row's action buttons.
+                                        // Just move currentIndex and let the new delegate's
+                                        // focus binding (focus: ListView.activeFocus &&
+                                        // ListView.currentIndex === index) pick up.
                                         if (index > 0) {
                                             serverListView.currentIndex = index - 1
                                             serverListView.forceActiveFocus()
-                                            serverInfoCol.focusActionAt(0)
                                         } else if (addServerButton) {
                                             addServerButton.forceActiveFocus()
                                         }
@@ -332,7 +340,6 @@ Item {
                                         if (index < serverListView.count - 1) {
                                             serverListView.currentIndex = index + 1
                                             serverListView.forceActiveFocus()
-                                            serverInfoCol.focusActionAt(0)
                                         } else if (epgSourceListView.count > 0) {
                                             if (epgSourceListView.currentIndex < 0 || epgSourceListView.currentIndex >= epgSourceListView.count) {
                                                 epgSourceListView.currentIndex = 0
@@ -991,10 +998,11 @@ Item {
                                         if (Window.window && Window.window.focusSidebar) Window.window.focusSidebar()
                                     }
                                     Keys.onUpPressed: {
+                                        // Same fix as serverListView delegate above:
+                                        // don't call focusActionAt — it resets currentIndex.
                                         if (index > 0) {
                                             epgSourceListView.currentIndex = index - 1
                                             epgSourceListView.forceActiveFocus()
-                                            epgInfoCol.focusActionAt(0)
                                         } else if (addEpgButton) {
                                             addEpgButton.forceActiveFocus()
                                         }
@@ -1003,7 +1011,6 @@ Item {
                                         if (index < epgSourceListView.count - 1) {
                                             epgSourceListView.currentIndex = index + 1
                                             epgSourceListView.forceActiveFocus()
-                                            epgInfoCol.focusActionAt(0)
                                         }
                                     }
 
