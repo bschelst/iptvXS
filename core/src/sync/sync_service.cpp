@@ -162,9 +162,13 @@ void SyncService::resolveBackupFolderThen(std::function<void(const QString &)> n
                 qWarning("[SYNC] failed to resolve backup folder '%s': %s",
                          qPrintable(backupFolderName_), qPrintable(err));
                 setBackupInProgress(false);
-                const auto msg = QStringLiteral("Folder error: %1").arg(err);
-                if (cb) cb(false, msg, {});
-                emit backupCompleted(false, msg);
+                QString friendly = err;
+                if (err.contains(QStringLiteral("authentication"), Qt::CaseInsensitive)
+                    || err.contains(QStringLiteral("unauthorized"), Qt::CaseInsensitive)) {
+                    friendly = tr("Google Drive sign-in expired — please log out and back in.");
+                }
+                if (cb) cb(false, friendly, {});
+                emit backupCompleted(false, friendly);
                 return;
             }
             next(folderId);
@@ -188,7 +192,14 @@ void SyncService::resolveFolderThen(std::function<void(const QString &)> next) {
         if (!err.isEmpty()) {
             qWarning("[SYNC] failed to resolve folder '%s': %s",
                      qPrintable(folderName_), qPrintable(err));
-            lastStatus_ = QStringLiteral("Folder error: %1").arg(err);
+            // Rewrite Qt's terse network error into something actionable
+            // for the user on the Settings → Sync status line.
+            QString friendly = err;
+            if (err.contains(QStringLiteral("authentication"), Qt::CaseInsensitive)
+                || err.contains(QStringLiteral("unauthorized"), Qt::CaseInsensitive)) {
+                friendly = tr("Google Drive sign-in expired — please log out and back in.");
+            }
+            lastStatus_ = friendly;
             emit lastStatusChanged();
             inProgress_ = false;
             emit inProgressChanged();
