@@ -147,7 +147,13 @@ Item {
                     Keys.onDownPressed: selectServerAt(currentIndex + 1)
                     Keys.onReturnPressed: selectServerAt(currentIndex)
                     Keys.onEnterPressed: Keys.onReturnPressed(event)
-                    Keys.onRightPressed: channelsView.focusCategorySidebar()
+                    Keys.onRightPressed: {
+                        if (catFilterInput) {
+                            catFilterInput.forceActiveFocus()
+                        } else {
+                            channelsView.focusCategorySidebar()
+                        }
+                    }
 
                     delegate: Rectangle {
                         width: serverPicker.width
@@ -774,14 +780,36 @@ Item {
                         model: chCategoryModel
 
                         delegate: Column {
-                            id: chCatDelegate
-                            width: netflixColumn.width
-                            spacing: Theme.spacingSm
-                            visible: chRowModel.count > 0
+                        id: chCatDelegate
+                        width: netflixColumn.width
+                        spacing: Theme.spacingSm
+                        visible: chRowModel.count > 0
 
-                            property int catIdValue: model.catId
-                            property string catNameValue: model.catName
-                            property alias rowView: chRowListView
+                        property int catIdValue: model.catId
+                        property string catNameValue: model.catName
+                        property alias rowView: chRowListView
+
+                        function snapRowList(direction) {
+                            if (!chRowListView || chRowListView.count <= 0) return
+
+                            var step = 208 + chRowListView.spacing
+                            if (step <= 0) return
+
+                            var minX = -chRowListView.leftMargin
+                            var maxX = Math.max(minX, chRowListView.contentWidth - chRowListView.width + chRowListView.rightMargin)
+                            var maxBoundary = minX + Math.floor((maxX - minX) / step) * step
+                            var current = chRowListView.contentX
+                            var target
+
+                            if (direction < 0) {
+                                target = minX + Math.floor((current - minX - 0.001) / step) * step
+                            } else {
+                                target = minX + Math.ceil((current - minX + 0.001) / step) * step
+                            }
+
+                            target = Math.max(minX, Math.min(maxBoundary, target))
+                            chRowListView.contentX = target
+                        }
 
                             ListModel {
                                 id: chRowModel
@@ -831,7 +859,7 @@ Item {
                                         MouseArea {
                                             anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
                                             onEntered: parent.chScrollLeftHov = true; onExited: parent.chScrollLeftHov = false
-                                            onClicked: chRowListView.contentX = Math.max(chRowListView.contentX - 216, -chRowListView.leftMargin)
+                                            onClicked: chCatDelegate.snapRowList(-1)
                                         }
                                     }
 
@@ -849,7 +877,7 @@ Item {
                                         MouseArea {
                                             anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
                                             onEntered: parent.chScrollRightHov = true; onExited: parent.chScrollRightHov = false
-                                            onClicked: chRowListView.contentX = Math.min(chRowListView.contentX + 216, chRowListView.contentWidth - chRowListView.width + chRowListView.rightMargin)
+                                            onClicked: chCatDelegate.snapRowList(1)
                                         }
                                     }
                                 }
@@ -1068,8 +1096,8 @@ Item {
                 Layout.leftMargin: Theme.spacingMd
                 Layout.rightMargin: Theme.spacingSm
                 visible: chSearchInput.text.length > 0 || selectedCategoryId !== 0
-                cellWidth: 210
-                cellHeight: 200
+                cellWidth: 158
+                cellHeight: 232
                 clip: true
                 focus: visible && !chSearchInput.activeFocus
                 keyNavigationEnabled: true

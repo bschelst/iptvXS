@@ -43,20 +43,11 @@ Item {
     }
 
     function focusPrimary() {
-        if (vodGrid.visible) {
-            clampListIndex(vodGrid)
-            vodGrid.forceActiveFocus()
-            return
-        }
-        if (categoryGrid.visible) {
-            clampListIndex(categoryGrid)
-            categoryGrid.forceActiveFocus()
-            return
-        }
-        var row = firstVisibleVodRow()
-        if (row) {
-            if (row.count > 0) row.currentIndex = 0
-            row.forceActiveFocus()
+        if (serverPicker) {
+            if (serverPicker.currentIndex < 0 || serverPicker.currentIndex >= serverPicker.count) {
+                clampListIndex(serverPicker)
+            }
+            serverPicker.forceActiveFocus()
             return
         }
         focusCategorySidebar()
@@ -216,7 +207,9 @@ Item {
                     Keys.onDownPressed: selectServerAt(currentIndex + 1)
                     Keys.onReturnPressed: selectServerAt(currentIndex)
                     Keys.onEnterPressed: Keys.onReturnPressed(event)
-                    Keys.onRightPressed: vodView.focusCategorySidebar()
+                    Keys.onRightPressed: {
+                        if (vodCatFilterInput) vodCatFilterInput.forceActiveFocus()
+                    }
 
                     delegate: Rectangle {
                         width: serverPicker.width
@@ -343,6 +336,15 @@ Item {
                                 else Qt.inputMethod.hide()
                             }
 
+                            Keys.onLeftPressed: {
+                                if (serverPicker) serverPicker.forceActiveFocus()
+                            }
+                            Keys.onRightPressed: {
+                                if (allVodBtn) allVodBtn.forceActiveFocus()
+                            }
+                            Keys.onDownPressed: {
+                                if (allVodBtn) allVodBtn.forceActiveFocus()
+                            }
                             Keys.onPressed: function(event) {
                                 if (event.key === Qt.Key_Back || event.key === Qt.Key_Escape) {
                                     vodView.focusCategorySidebar()
@@ -400,6 +402,9 @@ Item {
                     }
                     Keys.onReturnPressed: selectCategory(0)
                     Keys.onEnterPressed: Keys.onReturnPressed(event)
+                    Keys.onRightPressed: {
+                        if (vodSearch) vodSearch.forceActiveFocus()
+                    }
                     Keys.onPressed: function(event) {
                         if (event.key === Qt.Key_Select || event.key === Qt.Key_Space) {
                             selectCategory(0)
@@ -739,10 +744,12 @@ Item {
                             onTextChanged: vodSearchTimer.restart()
 
                             Keys.onLeftPressed: {
-                                vodView.focusCategorySidebar()
+                                if (allVodBtn) allVodBtn.forceActiveFocus()
                             }
                             Keys.onRightPressed: {
-                                vodView.focusPrimary()
+                                if (Window.window && Window.window.focusSidebar) {
+                                    Window.window.focusSidebar()
+                                }
                             }
                             Keys.onDownPressed: {
                                 vodView.focusPrimary()
@@ -817,14 +824,36 @@ Item {
                         model: vodCategoryModel
 
                         delegate: Column {
-                            id: categoryDelegate
-                            width: netflixColumn.width
-                            spacing: Theme.spacingSm
-                            visible: rowModel.count > 0
+                        id: categoryDelegate
+                        width: netflixColumn.width
+                        spacing: Theme.spacingSm
+                        visible: rowModel.count > 0
 
-                            property int catIdValue: model.catId
-                            property string catNameValue: model.catName
-                            property alias rowView: rowListView
+                        property int catIdValue: model.catId
+                        property string catNameValue: model.catName
+                        property alias rowView: rowListView
+
+                        function snapRowList(direction) {
+                            if (!rowListView || rowListView.count <= 0) return
+
+                            var step = 200 + rowListView.spacing
+                            if (step <= 0) return
+
+                            var minX = -rowListView.leftMargin
+                            var maxX = Math.max(minX, rowListView.contentWidth - rowListView.width + rowListView.rightMargin)
+                            var maxBoundary = minX + Math.floor((maxX - minX) / step) * step
+                            var current = rowListView.contentX
+                            var target
+
+                            if (direction < 0) {
+                                target = minX + Math.floor((current - minX - 0.001) / step) * step
+                            } else {
+                                target = minX + Math.ceil((current - minX + 0.001) / step) * step
+                            }
+
+                            target = Math.max(minX, Math.min(maxBoundary, target))
+                            rowListView.contentX = target
+                        }
 
                             ListModel {
                                 id: rowModel
@@ -874,7 +903,7 @@ Item {
                                         MouseArea {
                                             anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
                                             onEntered: parent.vodScrollLeftHov = true; onExited: parent.vodScrollLeftHov = false
-                                            onClicked: rowListView.contentX = Math.max(rowListView.contentX - 210, -rowListView.leftMargin)
+                                            onClicked: categoryDelegate.snapRowList(-1)
                                         }
                                     }
 
@@ -892,7 +921,7 @@ Item {
                                         MouseArea {
                                             anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
                                             onEntered: parent.vodScrollRightHov = true; onExited: parent.vodScrollRightHov = false
-                                            onClicked: rowListView.contentX = Math.min(rowListView.contentX + 210, rowListView.contentWidth - rowListView.width + rowListView.rightMargin)
+                                            onClicked: categoryDelegate.snapRowList(1)
                                         }
                                     }
                                 }
@@ -1164,8 +1193,8 @@ Item {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 visible: vodSearch.text.length === 0 && selectedCategoryId !== 0
-                cellWidth: 210
-                cellHeight: 180
+                cellWidth: 158
+                cellHeight: 232
                 clip: true
                 focus: visible && !vodSearch.activeFocus
                 keyNavigationEnabled: true

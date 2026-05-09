@@ -563,8 +563,8 @@ Item {
                 Layout.fillHeight: true
                 clip: true
                 model: memberListModel
-                cellWidth: 210
-                cellHeight: 180
+                cellWidth: 158
+                cellHeight: 232
                 leftMargin: Theme.spacingMd
                 rightMargin: Theme.spacingMd
                 topMargin: Theme.spacingSm
