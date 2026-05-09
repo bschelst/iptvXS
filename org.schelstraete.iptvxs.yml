@@ -101,7 +101,7 @@ modules:
     sources:
       - type: git
         url: https://github.com/bschelst/iptvXS.git
-        commit: cefe6df3f3168b7adfa70ea72cd5ede3dd59000e
+        commit: ec282461042c0299edc058f192ff82da5f8f2a10
 
   - name: imageformat-symlinks
     buildsystem: simple
