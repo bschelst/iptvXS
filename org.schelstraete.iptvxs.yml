@@ -114,6 +114,15 @@ modules:
       - type: git
         url: https://github.com/bschelst/iptvXS.git
         commit: 2f1319f77be7abbc746da9bfc8cbcf8c7f9014ab
+      # The gateway API key lives in `.secrets` (gitignored) next to the
+      # manifest. CMakeLists reads `${CMAKE_SOURCE_DIR}/.secrets` at configure
+      # time and bakes IPTVXS_GATEWAY_API_KEY into the binary. Without this
+      # file the build falls through to direct Google OAuth using the
+      # bundled client_id — which Google has deleted, producing the
+      # "deleted_client" error users see at Connect time.
+      - type: file
+        path: .secrets
+        dest-filename: .secrets
 
   - name: imageformat-symlinks
     buildsystem: simple
