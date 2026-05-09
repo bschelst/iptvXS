@@ -23,7 +23,7 @@ Item {
 
     // Direct lookup by index — returns the QML item for the given focus slot.
     // Using a function (not a property) so ids resolve after component completion.
-    readonly property int focusItemCount: 36
+    readonly property int focusItemCount: 40
 
     function focusTargetForIndex(index) {
         switch (index) {
@@ -49,20 +49,24 @@ Item {
         case 19: return gdriveConnectBtn
         case 20: return gdriveFolderInput
         case 21: return gdriveSaveFolderBtn
-        case 22: return recDestFlow
-        case 23: return keepLocalSwitch
-        case 24: return recBrowseBtn
-        case 25: return maxRecSizeFlow
-        case 26: return leadTimeFlow
-        case 27: return overrunFlow
-        case 28: return logoCacheMaxFlow
-        case 29: return clearCacheBtn
-        case 30: return maintenanceBtn
-        case 31: return resetDbBtn
-        case 32: return githubBtn
-        case 33: return checkUpdatesBtn
-        case 34: return freeServerSwitchRow
-        case 35: return freeServerReAddBtn
+        case 22: return syncEnableSwitch
+        case 23: return syncFolderInput
+        case 24: return syncNowBtn
+        case 25: return backupNowBtn
+        case 26: return recDestFlow
+        case 27: return keepLocalSwitch
+        case 28: return recBrowseBtn
+        case 29: return maxRecSizeFlow
+        case 30: return leadTimeFlow
+        case 31: return overrunFlow
+        case 32: return logoCacheMaxFlow
+        case 33: return clearCacheBtn
+        case 34: return maintenanceBtn
+        case 35: return resetDbBtn
+        case 36: return githubBtn
+        case 37: return checkUpdatesBtn
+        case 38: return freeServerSwitchRow
+        case 39: return freeServerReAddBtn
         default: return null
         }
     }
@@ -1974,10 +1978,16 @@ Item {
                             property bool toggleEnabled: appViewModel && appViewModel.gdrive.authenticated
                             opacity: toggleEnabled ? 1.0 : 0.4
                             color: toggleOn ? Theme.accent : Theme.surface
-                            border.color: syncEnableSwitch.activeFocus ? Theme.accent : Theme.surfaceBorder
-                            border.width: syncEnableSwitch.activeFocus ? 2 : 1
-                            activeFocusOnTab: true
-                            focus: false
+                            border.color: (settingsView.activeFocus && settingsView.currentFocusIndex === 22)
+                                ? Theme.textPrimary : Theme.surfaceBorder
+                            border.width: (settingsView.activeFocus && settingsView.currentFocusIndex === 22) ? 3 : 1
+
+                            // Called by SettingsView.activateFocusedItem() via D-pad.
+                            function toggle() {
+                                if (toggleEnabled && appViewModel && appViewModel.sync) {
+                                    appViewModel.sync.enabled = !appViewModel.sync.enabled
+                                }
+                            }
 
                             Rectangle {
                                 width: 22; height: 22; radius: 11
@@ -1990,25 +2000,7 @@ Item {
                             MouseArea {
                                 anchors.fill: parent
                                 cursorShape: parent.toggleEnabled ? Qt.PointingHandCursor : Qt.ArrowCursor
-                                onClicked: {
-                                    if (!parent.toggleEnabled || !appViewModel || !appViewModel.sync) return
-                                    appViewModel.sync.enabled = !appViewModel.sync.enabled
-                                }
-                            }
-
-                            Keys.onReturnPressed: {
-                                if (toggleEnabled && appViewModel && appViewModel.sync) {
-                                    appViewModel.sync.enabled = !appViewModel.sync.enabled
-                                }
-                            }
-                            Keys.onEnterPressed: Keys.onReturnPressed(event)
-                            Keys.onPressed: function(event) {
-                                if (event.key === Qt.Key_Space || event.key === Qt.Key_Select) {
-                                    if (toggleEnabled && appViewModel && appViewModel.sync) {
-                                        appViewModel.sync.enabled = !appViewModel.sync.enabled
-                                    }
-                                    event.accepted = true
-                                }
+                                onClicked: parent.toggle()
                             }
                         }
                     }
@@ -2029,15 +2021,26 @@ Item {
                             spacing: Theme.spacingSm
 
                             Rectangle {
+                                id: syncFolderInput
                                 Layout.fillWidth: true
                                 Layout.preferredHeight: 36
                                 radius: Theme.borderRadiusSmall
                                 color: Theme.surface
-                                border.color: syncFolderInput.activeFocus ? Theme.accent : Theme.surfaceBorder
-                                border.width: syncFolderInput.activeFocus ? 2 : 1
+                                border.color: (settingsView.activeFocus && settingsView.currentFocusIndex === 23)
+                                    ? Theme.textPrimary
+                                    : (syncFolderInputField.activeFocus ? Theme.accent : Theme.surfaceBorder)
+                                border.width: (settingsView.activeFocus && settingsView.currentFocusIndex === 23) ? 3
+                                    : (syncFolderInputField.activeFocus ? 2 : 1)
+
+                                // Activate via D-pad → focus the inner TextInput so the
+                                // user can type. Esc / nav away applies the change via
+                                // onEditingFinished.
+                                function activate() {
+                                    syncFolderInputField.forceActiveFocus()
+                                }
 
                                 TextInput {
-                                    id: syncFolderInput
+                                    id: syncFolderInputField
                                     anchors.fill: parent
                                     anchors.leftMargin: Theme.spacingSm
                                     anchors.rightMargin: Theme.spacingSm
@@ -2050,22 +2053,28 @@ Item {
                                     text: appViewModel && appViewModel.sync ? appViewModel.sync.folderName : "iptvXS-sync"
                                     onEditingFinished: {
                                         if (appViewModel && appViewModel.sync) appViewModel.sync.folderName = text
+                                        settingsView.forceActiveFocus()
                                     }
+                                    Keys.onEscapePressed: settingsView.forceActiveFocus()
                                 }
                             }
 
                             Rectangle {
+                                id: syncNowBtn
                                 Layout.preferredWidth: 110
                                 Layout.preferredHeight: 36
                                 radius: Theme.borderRadiusSmall
-                                color: syncNowBtn.activeFocus ? Theme.accentHover : Theme.accent
-                                border.color: syncNowBtn.activeFocus ? "#ffffff" : "transparent"
-                                border.width: syncNowBtn.activeFocus ? 2 : 0
-                                activeFocusOnTab: true
-                                focus: false
-                                id: syncNowBtn
+                                color: (settingsView.activeFocus && settingsView.currentFocusIndex === 24)
+                                    ? Theme.accentHover : Theme.accent
+                                border.color: (settingsView.activeFocus && settingsView.currentFocusIndex === 24)
+                                    ? Theme.textPrimary : "transparent"
+                                border.width: (settingsView.activeFocus && settingsView.currentFocusIndex === 24) ? 3 : 0
                                 opacity: (appViewModel && appViewModel.sync && appViewModel.sync.enabled
                                           && !appViewModel.sync.inProgress) ? 1.0 : 0.45
+
+                                function activate() {
+                                    if (appViewModel && appViewModel.sync) appViewModel.sync.syncNow()
+                                }
 
                                 Text {
                                     anchors.centerIn: parent
@@ -2078,17 +2087,7 @@ Item {
                                 MouseArea {
                                     anchors.fill: parent
                                     cursorShape: Qt.PointingHandCursor
-                                    onClicked: {
-                                        if (appViewModel && appViewModel.sync) appViewModel.sync.syncNow()
-                                    }
-                                }
-                                Keys.onReturnPressed: { if (appViewModel && appViewModel.sync) appViewModel.sync.syncNow() }
-                                Keys.onEnterPressed: Keys.onReturnPressed(event)
-                                Keys.onPressed: function(event) {
-                                    if (event.key === Qt.Key_Space || event.key === Qt.Key_Select) {
-                                        if (appViewModel && appViewModel.sync) appViewModel.sync.syncNow()
-                                        event.accepted = true
-                                    }
+                                    onClicked: parent.activate()
                                 }
                             }
                         }
@@ -2141,12 +2140,18 @@ Item {
                             Layout.preferredWidth: 130
                             Layout.preferredHeight: 36
                             radius: Theme.borderRadiusSmall
-                            color: backupNowBtn.activeFocus ? Theme.accentHover : Theme.accent
-                            border.color: backupNowBtn.activeFocus ? "#ffffff" : "transparent"
-                            border.width: backupNowBtn.activeFocus ? 2 : 0
-                            activeFocusOnTab: true
-                            focus: false
+                            color: (settingsView.activeFocus && settingsView.currentFocusIndex === 25)
+                                ? Theme.accentHover : Theme.accent
+                            border.color: (settingsView.activeFocus && settingsView.currentFocusIndex === 25)
+                                ? Theme.textPrimary : "transparent"
+                            border.width: (settingsView.activeFocus && settingsView.currentFocusIndex === 25) ? 3 : 0
                             opacity: appViewModel && appViewModel.gdrive.authenticated ? 1.0 : 0.45
+
+                            function activate() {
+                                if (appViewModel && appViewModel.sync && appViewModel.gdrive.authenticated) {
+                                    appViewModel.sync.backupDatabase()
+                                }
+                            }
 
                             Text {
                                 anchors.centerIn: parent
@@ -2158,25 +2163,7 @@ Item {
                             MouseArea {
                                 anchors.fill: parent
                                 cursorShape: Qt.PointingHandCursor
-                                onClicked: {
-                                    if (appViewModel && appViewModel.sync && appViewModel.gdrive.authenticated) {
-                                        appViewModel.sync.backupDatabase()
-                                    }
-                                }
-                            }
-                            Keys.onReturnPressed: {
-                                if (appViewModel && appViewModel.sync && appViewModel.gdrive.authenticated) {
-                                    appViewModel.sync.backupDatabase()
-                                }
-                            }
-                            Keys.onEnterPressed: Keys.onReturnPressed(event)
-                            Keys.onPressed: function(event) {
-                                if (event.key === Qt.Key_Space || event.key === Qt.Key_Select) {
-                                    if (appViewModel && appViewModel.sync && appViewModel.gdrive.authenticated) {
-                                        appViewModel.sync.backupDatabase()
-                                    }
-                                    event.accepted = true
-                                }
+                                onClicked: parent.activate()
                             }
                         }
                     }
