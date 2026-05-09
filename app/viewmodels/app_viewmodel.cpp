@@ -2,6 +2,8 @@
 #include "app_viewmodel.h"
 #include "log_viewmodel.h"
 
+#include "iptvxs/api/xtream_client.h"
+
 #include <mpv/client.h>
 
 #if defined(Q_OS_WIN) && IPTVXS_ENABLE_UPDATES
@@ -1931,6 +1933,8 @@ QVariantMap AppViewModel::channelInfo(int64_t channelId) const {
     result[QStringLiteral("externalId")] = ch->externalId;
     result[QStringLiteral("name")] = ch->name;
     result[QStringLiteral("logoUrl")] = ch->logoUrl;
+    result[QStringLiteral("tvArchive")] = ch->tvArchive;
+    result[QStringLiteral("tvArchiveDuration")] = ch->tvArchiveDuration;
     return result;
 }
 
@@ -1944,6 +1948,34 @@ void AppViewModel::playChannelById(int64_t channelId, int startPositionSecs) {
     }
     playerVm_->play(ch->streamUrl, ch->name, ch->logoUrl, ch->id, ch->epgChannelId,
                     startPositionSecs, true, ch->type == QStringLiteral("live"));
+    setCurrentView(QStringLiteral("player"));
+}
+
+void AppViewModel::playCatchup(int64_t channelId, qint64 startUtcSecs, int durationMins) {
+    if (!channelRepo_ || !serverRepo_ || !playerVm_ || channelId <= 0
+        || startUtcSecs <= 0 || durationMins <= 0) {
+        return;
+    }
+    auto ch = channelRepo_->findById(channelId);
+    if (!ch || ch->type != QStringLiteral("live") || ch->tvArchive == 0) {
+        return;
+    }
+    auto srv = serverRepo_->findById(ch->serverId);
+    if (!srv || srv->type != QStringLiteral("xtream")) {
+        return;
+    }
+    const auto url = iptvxs::XtreamClient::buildCatchupUrl(
+        srv->url, srv->username, srv->password,
+        ch->externalId, startUtcSecs, durationMins);
+    if (url.isEmpty()) {
+        return;
+    }
+    clearActiveSeriesDialog();
+    clearPendingSeriesEpisodes();
+    const auto title = ch->name + QStringLiteral(" — Catchup");
+    // Pass isLive=false: catchup is a finite recorded segment, scrubbable like VOD.
+    playerVm_->play(url, title, ch->logoUrl, ch->id, ch->epgChannelId,
+                    0, true, false);
     setCurrentView(QStringLiteral("player"));
 }
 

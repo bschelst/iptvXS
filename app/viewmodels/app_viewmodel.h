@@ -213,6 +213,7 @@ public:
     Q_INVOKABLE QVariantMap channelInfo(int64_t channelId) const;
     Q_INVOKABLE void playChannelById(int64_t channelId, int startPositionSecs = 0);
     Q_INVOKABLE void playHistoryEntry(int64_t historyId);
+    Q_INVOKABLE void playCatchup(int64_t channelId, qint64 startUtcSecs, int durationMins);
     Q_INVOKABLE void playChannelByName(const QString &name);
     Q_INVOKABLE void playSeriesEpisode(const QString &episodeId, const QString &ext,
                                         const QString &title, const QString &logoUrl,

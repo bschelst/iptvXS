@@ -1,6 +1,7 @@
 // iptvXS Project - Schelstraete Bart - https://iptvxs.schelstraete.org
 #include "iptvxs/api/xtream_client.h"
 
+#include <QDateTime>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -48,6 +49,37 @@ QUrl XtreamClient::buildApiUrl(const QString &action, const QString &categoryId)
     }
     url.setQuery(query);
     return url;
+}
+
+QString XtreamClient::buildCatchupUrl(const QString &serverUrl,
+                                      const QString &username,
+                                      const QString &password,
+                                      const QString &streamId,
+                                      qint64 startUtcSecs,
+                                      int durationMins) {
+    if (serverUrl.isEmpty() || username.isEmpty() || password.isEmpty()
+        || streamId.isEmpty() || startUtcSecs <= 0 || durationMins <= 0) {
+        return {};
+    }
+
+    // Xtream Codes timeshift expects start formatted as "YYYY-MM-DD:HH-MM" in UTC.
+    const auto dt = QDateTime::fromSecsSinceEpoch(startUtcSecs, Qt::UTC);
+    const auto start = dt.toString(QStringLiteral("yyyy-MM-dd:HH-mm"));
+
+    QUrl base(serverUrl);
+    QString host = base.toString(QUrl::RemoveQuery | QUrl::RemovePath
+                                 | QUrl::RemoveFragment | QUrl::StripTrailingSlash);
+
+    // Path-style endpoint is more universally supported by mpv/ffmpeg than the
+    // query-string form, and ffmpeg handles the .ts container natively.
+    return QStringLiteral("%1/streaming/timeshift.php?username=%2&password=%3"
+                          "&stream=%4&start=%5&duration=%6")
+        .arg(host,
+             QString::fromUtf8(QUrl::toPercentEncoding(username)),
+             QString::fromUtf8(QUrl::toPercentEncoding(password)),
+             QString::fromUtf8(QUrl::toPercentEncoding(streamId)),
+             start,
+             QString::number(durationMins));
 }
 
 void XtreamClient::fetchServerInfo() {

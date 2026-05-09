@@ -168,6 +168,10 @@ QVariant EpgViewModel::data(const QModelIndex &index, int role) const {
         return row.channel.epgChannelId;
     case IsFavoriteRole:
         return row.isFavorite;
+    case TvArchiveRole:
+        return row.channel.tvArchive;
+    case TvArchiveDurationRole:
+        return row.channel.tvArchiveDuration;
     case ProgrammesRole: {
         QVariantList progs;
         for (const auto &p : row.programmes) {
@@ -195,6 +199,8 @@ QHash<int, QByteArray> EpgViewModel::roleNames() const {
         {EpgChannelIdRole, "epgChannelId"},
         {ProgrammesRole, "programmes"},
         {IsFavoriteRole, "isFavorite"},
+        {TvArchiveRole, "tvArchive"},
+        {TvArchiveDurationRole, "tvArchiveDuration"},
     };
 }
 
@@ -467,6 +473,8 @@ QVariantMap EpgViewModel::rowData(int row) const {
     m["streamUrl"] = r.channel.streamUrl;
     m["epgChannelId"] = r.channel.epgChannelId;
     m["isFavorite"] = r.isFavorite;
+    m["tvArchive"] = r.channel.tvArchive;
+    m["tvArchiveDuration"] = r.channel.tvArchiveDuration;
     return m;
 }
 

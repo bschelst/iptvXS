@@ -31,6 +31,16 @@ public:
 
     QUrl buildApiUrl(const QString &action, const QString &categoryId = {}) const;
 
+    // Build an Xtream Codes server-side timeshift/catchup URL.
+    // startUtcSecs = unix epoch of the playback start time (must lie within the
+    // channel's archive window). durationMins = how long to play forward from that point.
+    static QString buildCatchupUrl(const QString &serverUrl,
+                                   const QString &username,
+                                   const QString &password,
+                                   const QString &streamId,
+                                   qint64 startUtcSecs,
+                                   int durationMins);
+
     QString serverUrl() const { return serverUrl_; }
     QString username() const { return username_; }
     QString password() const { return password_; }

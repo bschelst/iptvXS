@@ -22,7 +22,9 @@ public:
         TypeRole,
         PositionRole,
         ExternalIdRole,
-        ServerIdRole
+        ServerIdRole,
+        TvArchiveRole,
+        TvArchiveDurationRole
     };
 
     explicit FavoriteListViewModel(QObject *parent = nullptr);

@@ -33,7 +33,8 @@ QVector<Favorite> FavoriteRepository::findAll() const {
         SELECT f.id, f.channel_id, f.position, f.added_at,
                c.id, c.server_id, c.category_id, c.external_id,
                c.name, c.stream_url, c.logo_url, c.epg_channel_id,
-               c.type, c.added_at, c.first_seen_at
+               c.type, c.added_at, c.first_seen_at,
+               c.tv_archive, c.tv_archive_duration
         FROM favorites f
         JOIN channels c ON c.id = f.channel_id
         JOIN servers s ON s.id = c.server_id AND s.enabled = 1
@@ -62,6 +63,8 @@ QVector<Favorite> FavoriteRepository::findAll() const {
         fav.channel.type = q.value(12).toString();
         fav.channel.addedAt = q.value(13).toLongLong();
         fav.channel.firstSeenAt = q.value(14).toLongLong();
+        fav.channel.tvArchive = q.value(15).toInt();
+        fav.channel.tvArchiveDuration = q.value(16).toInt();
 
         results.append(fav);
     }

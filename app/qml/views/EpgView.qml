@@ -118,6 +118,8 @@ Item {
         progDetailPopup.progDescription = prog.description || ""
         progDetailPopup.progStart = prog.startTime
         progDetailPopup.progEnd = prog.endTime
+        progDetailPopup.tvArchive = row.tvArchive || 0
+        progDetailPopup.tvArchiveDuration = row.tvArchiveDuration || 0
         progDetailPopup.visible = true
     }
 
@@ -858,6 +860,10 @@ Item {
                                         && guideRowDelegate.channelRowIndex === currentChannelIndex
                                         && index === currentProgrammeIndex
 
+                                    readonly property bool isPast: appViewModel
+                                        && modelData.endTime <= appViewModel.epg.currentTime
+                                    readonly property bool isCatchupReplayable: isPast && (tvArchive || 0) > 0
+
                                     x: (progStart - appViewModel.epg.timeWindowStart) * pixelsPerSecond
                                     width: Math.max(duration * pixelsPerSecond - 1, 2)
                                     height: rowHeight - 1
@@ -868,6 +874,7 @@ Item {
                                         ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.65)
                                         : (progHovered ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.28) : Qt.rgba(Theme.surfaceBorder.r, Theme.surfaceBorder.g, Theme.surfaceBorder.b, 0.55))
                                     border.width: 1
+                                    opacity: isPast && !isCatchupReplayable ? 0.55 : 1.0
 
                                     property bool progHovered: false
 
@@ -892,7 +899,7 @@ Item {
                                         spacing: isFocused || progHovered ? 2 : 0
 
                                         Text {
-                                            text: modelData.title || ""
+                                            text: (isCatchupReplayable ? "↻  " : "") + (modelData.title || "")
                                             font.pixelSize: Theme.fontSizeSm
                                             font.bold: true
                                             color: Theme.textPrimary
@@ -931,6 +938,8 @@ Item {
                                             progDetailPopup.progDescription = modelData.description || ""
                                             progDetailPopup.progStart = modelData.startTime
                                             progDetailPopup.progEnd = modelData.endTime
+                                            progDetailPopup.tvArchive = tvArchive || 0
+                                            progDetailPopup.tvArchiveDuration = tvArchiveDuration || 0
                                             progDetailPopup.visible = true
                                         }
                                     }
@@ -1082,12 +1091,21 @@ Item {
         property string progDescription: ""
         property real progStart: 0
         property real progEnd: 0
+        property int tvArchive: 0
+        property int tvArchiveDuration: 0
 
         readonly property bool isLive: {
             if (!appViewModel) return false
             var now = appViewModel.epg.currentTime
             return now >= progStart && now < progEnd
         }
+
+        readonly property bool isPast: {
+            if (!appViewModel) return false
+            return progEnd <= appViewModel.epg.currentTime
+        }
+
+        readonly property bool isCatchupReplayable: isPast && tvArchive > 0
 
         readonly property real progress: {
             if (!isLive || progEnd <= progStart) return 0
@@ -1359,7 +1377,11 @@ Item {
                         Text {
                             id: watchBtnLabel
                             anchors.centerIn: parent
-                            text: progDetailPopup.isLive ? "▶  Watch Now" : "▶  Tune In"
+                            text: {
+                                if (progDetailPopup.isCatchupReplayable) return "↻  Watch Catchup"
+                                if (progDetailPopup.isLive) return "▶  Watch Now"
+                                return "▶  Tune In"
+                            }
                             font.pixelSize: Theme.fontSizeSm
                             font.bold: true
                             color: Theme.textOnAccent
@@ -1376,12 +1398,20 @@ Item {
 
                         onClicked: {
                             if (appViewModel) {
-                                appViewModel.player.play(progDetailPopup.streamUrl,
-                                    progDetailPopup.channelName,
-                                    progDetailPopup.channelLogo,
-                                    progDetailPopup.channelId,
-                                    progDetailPopup.epgChannelId)
-                                appViewModel.currentView = "player"
+                                if (progDetailPopup.isCatchupReplayable) {
+                                    var dur = progDetailPopup.progEnd - progDetailPopup.progStart
+                                    var mins = Math.max(1, Math.round(dur / 60))
+                                    appViewModel.playCatchup(progDetailPopup.channelId,
+                                        Math.floor(progDetailPopup.progStart),
+                                        mins)
+                                } else {
+                                    appViewModel.player.play(progDetailPopup.streamUrl,
+                                        progDetailPopup.channelName,
+                                        progDetailPopup.channelLogo,
+                                        progDetailPopup.channelId,
+                                        progDetailPopup.epgChannelId)
+                                    appViewModel.currentView = "player"
+                                }
                             }
                             progDetailPopup.visible = false
                         }

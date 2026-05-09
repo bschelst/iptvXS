@@ -196,6 +196,23 @@ Item {
                     }
 
                     Rectangle {
+                        visible: (model.tvArchive || 0) > 0
+                        Layout.preferredWidth: 26
+                        Layout.preferredHeight: 26
+                        radius: 13
+                        color: "#C0000000"
+
+                        Text {
+                            anchors.centerIn: parent
+                            text: "\u21BB"
+                            font.pixelSize: 14
+                            font.bold: true
+                            font.family: "DejaVu Sans"
+                            color: "#ffffff"
+                        }
+                    }
+
+                    Rectangle {
                         Layout.preferredWidth: 32
                         Layout.preferredHeight: 32
                         radius: 16

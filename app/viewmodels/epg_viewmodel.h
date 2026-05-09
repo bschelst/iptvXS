@@ -41,7 +41,9 @@ public:
         StreamUrlRole,
         EpgChannelIdRole,
         ProgrammesRole,
-        IsFavoriteRole
+        IsFavoriteRole,
+        TvArchiveRole,
+        TvArchiveDurationRole
     };
 
     explicit EpgViewModel(QObject *parent = nullptr);

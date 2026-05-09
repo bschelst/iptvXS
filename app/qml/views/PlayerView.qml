@@ -20,9 +20,23 @@ Item {
     property int seriesDialogSelectedSeason: 0
     property int seriesDialogChannelId: 0
     property bool zapDialogVisible: false
+    property bool catchupDialogVisible: false
+
+    // Server-side timeshift availability for the currently-playing channel.
+    // Re-evaluates only when the active channelId changes.
+    readonly property int currentChannelTvArchive: {
+        if (!appViewModel || !appViewModel.player.channelId) return 0
+        var info = appViewModel.channelInfo(appViewModel.player.channelId)
+        return info && info.tvArchive ? info.tvArchive : 0
+    }
+    readonly property int currentChannelArchiveDays: {
+        if (!appViewModel || !appViewModel.player.channelId) return 0
+        var info = appViewModel.channelInfo(appViewModel.player.channelId)
+        return info && info.tvArchiveDuration ? info.tvArchiveDuration : 0
+    }
 
     function visibleControlButtons() {
-        var buttons = [playPauseBtn, stopBtn, favBtn, recBtn, castBtn, ccBtn, audioBtn, episodeBtn, zapPrevBtn, zapNextBtn, zapBtn, muteBtn, stretchBtn, fullscreenBtn]
+        var buttons = [playPauseBtn, stopBtn, favBtn, recBtn, castBtn, ccBtn, audioBtn, episodeBtn, zapPrevBtn, zapNextBtn, zapBtn, catchupBtn, muteBtn, stretchBtn, fullscreenBtn]
         var visibleButtons = []
         for (var i = 0; i < buttons.length; i++) {
             if (buttons[i] && buttons[i].visible)
@@ -526,9 +540,18 @@ Item {
                         onClicked: showZapDialog()
                     }
 
+                    PlayerButton {
+                        id: catchupBtn
+                        visible: appViewModel && appViewModel.player.isLive
+                                 && playerView.currentChannelTvArchive > 0
+                        text: "↻"
+                        iconSize: 16
+                        onClicked: catchupDialogVisible = !catchupDialogVisible
+                    }
+
                     Rectangle {
                         width: 1; height: 28; color: "#40ffffff"
-                        visible: ccBtn.visible || audioBtn.visible || episodeBtn.visible || zapPrevBtn.visible || zapNextBtn.visible || zapBtn.visible
+                        visible: ccBtn.visible || audioBtn.visible || episodeBtn.visible || zapPrevBtn.visible || zapNextBtn.visible || zapBtn.visible || catchupBtn.visible
                     }
 
                     Rectangle {
@@ -2657,6 +2680,143 @@ Item {
             if (event.key === Qt.Key_Select || event.key === Qt.Key_Space) {
                 playerBtn.clicked()
                 event.accepted = true
+            }
+        }
+    }
+
+    // ----- Catchup / rewind popup ------------------------------------------------
+    Rectangle {
+        id: catchupPopup
+        visible: catchupDialogVisible
+        anchors.fill: parent
+        color: "#C0000000"
+        z: 350
+
+        property var rewindOptions: {
+            // Filter rewind options to those within the channel's archive window.
+            var allOpts = [
+                { label: "5 minutes",  mins: 5 },
+                { label: "15 minutes", mins: 15 },
+                { label: "30 minutes", mins: 30 },
+                { label: "1 hour",     mins: 60 },
+                { label: "2 hours",    mins: 120 },
+                { label: "4 hours",    mins: 240 },
+                { label: "12 hours",   mins: 720 },
+                { label: "1 day",      mins: 1440 },
+                { label: "2 days",     mins: 2880 },
+                { label: "3 days",     mins: 4320 },
+                { label: "5 days",     mins: 7200 },
+                { label: "7 days",     mins: 10080 }
+            ]
+            var maxMins = playerView.currentChannelArchiveDays * 1440
+            if (maxMins <= 0) return []
+            var result = []
+            for (var i = 0; i < allOpts.length; i++) {
+                if (allOpts[i].mins <= maxMins) result.push(allOpts[i])
+            }
+            return result
+        }
+
+        MouseArea {
+            anchors.fill: parent
+            onClicked: catchupDialogVisible = false
+        }
+
+        Rectangle {
+            anchors.centerIn: parent
+            width: Math.min(360, parent.width - 80)
+            height: catchupCol.implicitHeight + Theme.spacingLg * 2
+            radius: Theme.borderRadiusLarge
+            color: Theme.surfaceElevated
+            border.color: Theme.surfaceBorder
+            border.width: 1
+
+            MouseArea { anchors.fill: parent }
+
+            ColumnLayout {
+                id: catchupCol
+                anchors.fill: parent
+                anchors.margins: Theme.spacingLg
+                spacing: Theme.spacingSm
+
+                Text {
+                    text: "Rewind to..."
+                    font.pixelSize: Theme.fontSizeLg
+                    font.bold: true
+                    color: Theme.textPrimary
+                    Layout.fillWidth: true
+                }
+
+                Text {
+                    text: playerView.currentChannelArchiveDays + " day" +
+                        (playerView.currentChannelArchiveDays === 1 ? "" : "s") +
+                        " of catchup available"
+                    font.pixelSize: Theme.fontSizeXs
+                    color: Theme.textMuted
+                    Layout.fillWidth: true
+                }
+
+                Rectangle {
+                    Layout.fillWidth: true
+                    height: 1
+                    color: Theme.surfaceBorder
+                }
+
+                ListView {
+                    id: catchupList
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: Math.min(360, contentHeight)
+                    model: catchupPopup.rewindOptions
+                    spacing: 4
+                    clip: true
+                    focus: catchupDialogVisible
+                    keyNavigationWraps: true
+
+                    Keys.onReturnPressed: if (currentIndex >= 0) activateAt(currentIndex)
+                    Keys.onEnterPressed: if (currentIndex >= 0) activateAt(currentIndex)
+                    Keys.onEscapePressed: catchupDialogVisible = false
+
+                    function activateAt(idx) {
+                        if (!appViewModel || !appViewModel.player.channelId) return
+                        var opt = catchupPopup.rewindOptions[idx]
+                        if (!opt) return
+                        var nowSecs = Math.floor(Date.now() / 1000)
+                        var startSecs = nowSecs - opt.mins * 60
+                        // Stream forward for the rewind amount + 2h cushion so the user
+                        // can keep watching past the requested point.
+                        var durationMins = opt.mins + 120
+                        catchupDialogVisible = false
+                        appViewModel.playCatchup(appViewModel.player.channelId, startSecs, durationMins)
+                    }
+
+                    delegate: Rectangle {
+                        width: catchupList.width
+                        height: 36
+                        radius: Theme.borderRadiusSmall
+                        color: catchupList.activeFocus && catchupList.currentIndex === index
+                            ? Theme.surfaceHover
+                            : (rewindHovered ? Theme.surfaceHover : "transparent")
+                        property bool rewindHovered: false
+
+                        Text {
+                            anchors.left: parent.left
+                            anchors.leftMargin: Theme.spacingMd
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: "↻  " + modelData.label
+                            font.pixelSize: Theme.fontSizeSm
+                            color: Theme.textPrimary
+                        }
+
+                        MouseArea {
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onEntered: parent.rewindHovered = true
+                            onExited: parent.rewindHovered = false
+                            onClicked: catchupList.activateAt(index)
+                        }
+                    }
+                }
             }
         }
     }
