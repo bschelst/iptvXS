@@ -972,10 +972,19 @@ Item {
                                                 visible: status === Image.Ready
                                             }
 
-                                            FallbackLogo {
-                                                logoOpacity: 0.2
-                                                visible: chNetLogoImg.status !== Image.Ready
-                                            }
+                                            // Centered, square fallback that fits the logo
+                                                // area while preserving aspect ratio.
+                                                Image {
+                                                    visible: chNetLogoImg.status !== Image.Ready
+                                                    anchors.centerIn: parent
+                                                    width: Math.min(parent.width, parent.height) - 24
+                                                    height: width
+                                                    source: "qrc:/images/iptvxs_tray.png"
+                                                    fillMode: Image.PreserveAspectFit
+                                                    asynchronous: false
+                                                    cache: true
+                                                    opacity: 0.2
+                                                }
                                         }
 
                                         // Channel name below logo
@@ -1194,10 +1203,20 @@ Item {
                             visible: status === Image.Ready
                         }
 
-                        FallbackLogo {
-                            logoOpacity: 0.15
-                            anchors.verticalCenterOffset: -20
+                        // Centered, square fallback that fits the logo area
+                        // while preserving aspect ratio. Anchored to the
+                        // chGridLogo area, not the full card.
+                        Image {
                             visible: !chGridLogo.visible
+                            anchors.horizontalCenter: chGridLogo.horizontalCenter
+                            y: chGridLogo.y + (chGridLogo.height - height) / 2
+                            width: Math.min(chGridLogo.width, chGridLogo.height) - 24
+                            height: width
+                            source: "qrc:/images/iptvxs_tray.png"
+                            fillMode: Image.PreserveAspectFit
+                            asynchronous: false
+                            cache: true
+                            opacity: 0.15
                         }
 
                         // Catchup / timeshift indicator (server-side archive)

@@ -685,10 +685,19 @@ Item {
                             visible: status === Image.Ready
                         }
 
-                        FallbackLogo {
+                        // Centered, square fallback that fits the logo area
+                        // while preserving aspect ratio.
+                        Image {
                             visible: !mGridLogo.visible
-                            logoOpacity: 0.15
-                            anchors.verticalCenterOffset: -20
+                            anchors.horizontalCenter: mGridLogo.horizontalCenter
+                            y: mGridLogo.y + (mGridLogo.height - height) / 2
+                            width: Math.min(mGridLogo.width, mGridLogo.height) - 24
+                            height: width
+                            source: "qrc:/images/iptvxs_tray.png"
+                            fillMode: Image.PreserveAspectFit
+                            asynchronous: false
+                            cache: true
+                            opacity: 0.15
                         }
 
                         // Channel-type icon (top-left), same monochrome style as HomeView

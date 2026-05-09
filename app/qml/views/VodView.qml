@@ -1025,10 +1025,17 @@ Item {
                             height: parent.height - 50
                             color: "transparent"
 
-                            FallbackLogo {
-                                logoOpacity: 0.2
-                                logoSize: 56
-                                logoYOffset: -20
+                            // Centered, square fallback that fits the area
+                            // while preserving aspect ratio.
+                            Image {
+                                anchors.centerIn: parent
+                                width: Math.min(parent.width, parent.height) - 24
+                                height: width
+                                source: "qrc:/images/iptvxs_tray.png"
+                                fillMode: Image.PreserveAspectFit
+                                asynchronous: false
+                                cache: true
+                                opacity: 0.2
                             }
                         }
 
@@ -1287,10 +1294,17 @@ Item {
                             height: parent.height - 50
                             color: "transparent"
 
-                            FallbackLogo {
-                                logoOpacity: 0.2
-                                logoSize: 56
-                                logoYOffset: -20
+                            // Centered, square fallback that fits the area
+                            // while preserving aspect ratio.
+                            Image {
+                                anchors.centerIn: parent
+                                width: Math.min(parent.width, parent.height) - 24
+                                height: width
+                                source: "qrc:/images/iptvxs_tray.png"
+                                fillMode: Image.PreserveAspectFit
+                                asynchronous: false
+                                cache: true
+                                opacity: 0.2
                             }
                         }
 
