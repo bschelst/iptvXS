@@ -1006,17 +1006,22 @@ Item {
                 anchors.fill: posterCard
                 radius: posterCard.radius
                 color: "transparent"
-                border.width: 2
+                border.width: {
+                    var lv = posterDelegate.ListView.view
+                    if (lv && lv.activeFocus && lv.currentIndex === index) return 2
+                    if (!homeView.anyRowFocused && posterHoverHandler.hovered) return 2
+                    return 1
+                }
                 border.color: {
                     var lv = posterDelegate.ListView.view
                     if (lv && lv.activeFocus) {
-                        return lv.currentIndex === index ? Theme.accent : "transparent"
+                        return lv.currentIndex === index ? Theme.accent : Theme.surfaceBorder
                     }
                     // Another row (or sidebar) owns keyboard focus —
                     // suppress hover so we don't double-highlight.
-                    if (homeView.anyRowFocused) return "transparent"
+                    if (homeView.anyRowFocused) return Theme.surfaceBorder
                     if (posterHoverHandler.hovered) return Theme.accent
-                    return "transparent"
+                    return Theme.surfaceBorder
                 }
                 z: 100
             }

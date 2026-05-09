@@ -813,15 +813,15 @@ Item {
                             border.color: {
                                 if (memberListView.activeFocus) {
                                     return memberListView.currentIndex === index
-                                        ? Theme.accent : "transparent"
+                                        ? Theme.accent : Theme.surfaceBorder
                                 }
-                                return mGridCard.memHov ? Theme.accent : "transparent"
+                                return mGridCard.memHov ? Theme.accent : Theme.surfaceBorder
                             }
                             border.width: {
                                 if (memberListView.activeFocus) {
-                                    return memberListView.currentIndex === index ? 2 : 0
+                                    return memberListView.currentIndex === index ? 2 : 1
                                 }
-                                return mGridCard.memHov ? 2 : 0
+                                return mGridCard.memHov ? 2 : 1
                             }
                             z: 100
                         }

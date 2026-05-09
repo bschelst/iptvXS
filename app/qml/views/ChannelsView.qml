@@ -943,10 +943,10 @@ Item {
                                         anchors.margins: 6
                                         radius: 10
                                         color: Theme.surfaceElevated
-                                        border.width: chRowListView.activeFocus && chRowListView.currentIndex === index ? 2 : 0
+                                        border.width: chRowListView.activeFocus && chRowListView.currentIndex === index ? 2 : 1
                                         border.color: chRowListView.activeFocus && chRowListView.currentIndex === index
                                             ? Theme.accent
-                                            : "transparent"
+                                            : Theme.surfaceBorder
                                         clip: true
                                         property bool chNetHov: false
 
@@ -1271,8 +1271,8 @@ Item {
                             radius: chNetCard.radius
                             color: "transparent"
                             border.color: (chNetCard.chHovered || (channelGrid.activeFocus && channelGrid.currentIndex === index))
-                                ? Theme.accent : "transparent"
-                            border.width: 2
+                                ? Theme.accent : Theme.surfaceBorder
+                            border.width: (chNetCard.chHovered || (channelGrid.activeFocus && channelGrid.currentIndex === index)) ? 2 : 1
                             z: 100
                         }
                     }

@@ -999,10 +999,10 @@ Item {
                                         anchors.fill: parent
                                         radius: 10
                                         color: Theme.surfaceElevated
-                                        border.width: rowListView.activeFocus && rowListView.currentIndex === index ? 2 : 0
+                                        border.width: rowListView.activeFocus && rowListView.currentIndex === index ? 2 : 1
                                         border.color: rowListView.activeFocus && rowListView.currentIndex === index
                                             ? Theme.accent
-                                            : "transparent"
+                                            : Theme.surfaceBorder
                                         clip: true
                                         property bool posterHov: false
 
@@ -1345,8 +1345,8 @@ Item {
                             radius: catGridCard.radius
                             color: "transparent"
                             border.color: (catGridCard.catGridHov || (categoryGrid.activeFocus && categoryGrid.currentIndex === index))
-                                ? Theme.accent : "transparent"
-                            border.width: (catGridCard.catGridHov || (categoryGrid.activeFocus && categoryGrid.currentIndex === index)) ? 2 : 0
+                                ? Theme.accent : Theme.surfaceBorder
+                            border.width: (catGridCard.catGridHov || (categoryGrid.activeFocus && categoryGrid.currentIndex === index)) ? 2 : 1
                             z: 100
                         }
 
