@@ -972,19 +972,21 @@ Item {
                                                 visible: status === Image.Ready
                                             }
 
-                                            // Centered, square fallback that fits the logo
-                                                // area while preserving aspect ratio.
-                                                Image {
-                                                    visible: chNetLogoImg.status !== Image.Ready
-                                                    anchors.centerIn: parent
-                                                    width: Math.min(parent.width, parent.height) - 24
-                                                    height: width
-                                                    source: "qrc:/images/iptvxs_tray.png"
-                                                    fillMode: Image.PreserveAspectFit
-                                                    asynchronous: false
-                                                    cache: true
-                                                    opacity: 0.2
-                                                }
+                                        }
+
+                                        // Fallback logo — centered in the WHOLE card
+                                        // (not just the logo area), so it sits in the
+                                        // middle of the visible card vertically.
+                                        Image {
+                                            visible: chNetLogoImg.status !== Image.Ready
+                                            anchors.centerIn: chNetCard
+                                            width: Math.min(chNetCard.width, chNetCard.height) - 48
+                                            height: width
+                                            source: "qrc:/images/iptvxs_tray.png"
+                                            fillMode: Image.PreserveAspectFit
+                                            asynchronous: false
+                                            cache: true
+                                            opacity: 0.2
                                         }
 
                                         // Channel name below logo
@@ -1203,14 +1205,12 @@ Item {
                             visible: status === Image.Ready
                         }
 
-                        // Centered, square fallback that fits the logo area
-                        // while preserving aspect ratio. Anchored to the
-                        // chGridLogo area, not the full card.
+                        // Fallback logo — centered in the WHOLE card so it
+                        // sits in the middle of the visible card vertically.
                         Image {
                             visible: !chGridLogo.visible
-                            anchors.horizontalCenter: chGridLogo.horizontalCenter
-                            y: chGridLogo.y + (chGridLogo.height - height) / 2
-                            width: Math.min(chGridLogo.width, chGridLogo.height) - 24
+                            anchors.centerIn: chNetCard
+                            width: Math.min(chNetCard.width, chNetCard.height) - 48
                             height: width
                             source: "qrc:/images/iptvxs_tray.png"
                             fillMode: Image.PreserveAspectFit

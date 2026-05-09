@@ -1017,26 +1017,18 @@ Item {
                                             cache: true
                                         }
 
-                        Rectangle {
+                        // Fallback logo — centered in the WHOLE poster card so
+                        // it sits in the middle of the visible card vertically.
+                        Image {
                             visible: posterImg.status === Image.Error || posterImg.status === Image.Null
-                            anchors.top: parent.top
-                            anchors.left: parent.left
-                            anchors.right: parent.right
-                            height: parent.height - 50
-                            color: "transparent"
-
-                            // Centered, square fallback that fits the area
-                            // while preserving aspect ratio.
-                            Image {
-                                anchors.centerIn: parent
-                                width: Math.min(parent.width, parent.height) - 24
-                                height: width
-                                source: "qrc:/images/iptvxs_tray.png"
-                                fillMode: Image.PreserveAspectFit
-                                asynchronous: false
-                                cache: true
-                                opacity: 0.2
-                            }
+                            anchors.centerIn: posterCard
+                            width: Math.min(posterCard.width, posterCard.height) - 48
+                            height: width
+                            source: "qrc:/images/iptvxs_tray.png"
+                            fillMode: Image.PreserveAspectFit
+                            asynchronous: false
+                            cache: true
+                            opacity: 0.2
                         }
 
                                         // Fallback: initial letter only when no URL at all
@@ -1287,25 +1279,21 @@ Item {
                         }
 
                         Rectangle {
-                            visible: catGridPoster.status === Image.Error || catGridPoster.status === Image.Null
-                            anchors.top: parent.top
-                            anchors.left: parent.left
-                            anchors.right: parent.right
-                            height: parent.height - 50
-                            color: "transparent"
+                            visible: false
+                        }
 
-                            // Centered, square fallback that fits the area
-                            // while preserving aspect ratio.
-                            Image {
-                                anchors.centerIn: parent
-                                width: Math.min(parent.width, parent.height) - 24
-                                height: width
-                                source: "qrc:/images/iptvxs_tray.png"
-                                fillMode: Image.PreserveAspectFit
-                                asynchronous: false
-                                cache: true
-                                opacity: 0.2
-                            }
+                        // Fallback logo — centered in the WHOLE card so it
+                        // sits in the middle of the visible card vertically.
+                        Image {
+                            visible: catGridPoster.status === Image.Error || catGridPoster.status === Image.Null
+                            anchors.centerIn: catGridCard
+                            width: Math.min(catGridCard.width, catGridCard.height) - 48
+                            height: width
+                            source: "qrc:/images/iptvxs_tray.png"
+                            fillMode: Image.PreserveAspectFit
+                            asynchronous: false
+                            cache: true
+                            opacity: 0.2
                         }
 
                         Rectangle {

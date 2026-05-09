@@ -685,13 +685,12 @@ Item {
                             visible: status === Image.Ready
                         }
 
-                        // Centered, square fallback that fits the logo area
-                        // while preserving aspect ratio.
+                        // Fallback logo — centered in the WHOLE card so it
+                        // sits in the middle of the visible card vertically.
                         Image {
                             visible: !mGridLogo.visible
-                            anchors.horizontalCenter: mGridLogo.horizontalCenter
-                            y: mGridLogo.y + (mGridLogo.height - height) / 2
-                            width: Math.min(mGridLogo.width, mGridLogo.height) - 24
+                            anchors.centerIn: mGridCard
+                            width: Math.min(mGridCard.width, mGridCard.height) - 48
                             height: width
                             source: "qrc:/images/iptvxs_tray.png"
                             fillMode: Image.PreserveAspectFit
