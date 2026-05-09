@@ -41,6 +41,7 @@ add_library(iptvxs-core STATIC
     src/cast/chromecast_manager.cpp
     src/cast/hls_proxy.cpp
     src/security/credential_vault.cpp
+    src/sync/snapshot.cpp
     include/iptvxs/db/database.h
     include/iptvxs/db/settings_repository.h
     include/iptvxs/db/server_repository.h
@@ -70,6 +71,7 @@ add_library(iptvxs-core STATIC
     include/iptvxs/cast/chromecast_manager.h
     include/iptvxs/cast/hls_proxy.h
     include/iptvxs/security/credential_vault.h
+    include/iptvxs/sync/snapshot.h
 )
 
 target_include_directories(iptvxs-core
