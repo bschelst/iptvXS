@@ -78,7 +78,13 @@ Item {
             }
         }
         if (delta > 0) {
+            var beforeCount = chCategoryRepeater.count
             loadMoreChannelRows()
+            if (chCategoryRepeater.count > beforeCount) {
+                focusAdjacentChannelRow(rowIndex, currentItemIndex, delta)
+            } else {
+                focusCategorySidebar()
+            }
         } else if (delta < 0) {
             if (selectedCategoryId !== 0 && chSearchInput.text.length === 0) {
                 focusCategorySidebar()
@@ -1164,6 +1170,16 @@ Item {
                         channelsView.focusCategorySidebar()
                     else
                         moveCurrentIndexLeft()
+                }
+                Keys.onDownPressed: {
+                    if (count <= 0) return
+                    var lastRow = Math.floor((count - 1) / cols)
+                    var currentRow = Math.floor(currentIndex / cols)
+                    if (currentRow >= lastRow) {
+                        channelsView.focusCategorySidebar()
+                    } else {
+                        currentIndex = Math.min(currentIndex + cols, count - 1)
+                    }
                 }
                 Keys.onPressed: function(event) {
                     if (event.key === Qt.Key_Space || event.key === Qt.Key_Select) {
