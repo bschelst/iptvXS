@@ -16,27 +16,9 @@ ApplicationWindow {
     title: "iptvXS"
     color: Theme.background
 
-    // D-pad/focus diagnostics. Logs every focus change so we can correlate
-    // with key-press logs in HomeView/Sidebar/PlayerView and pinpoint where
-    // the controller's arrow events get swallowed.
-    onActiveFocusItemChanged: {
-        var item = activeFocusItem
-        var label = "null"
-        if (item) {
-            label = item.objectName || ""
-            if (!label) {
-                var s = item.toString()
-                label = s.split("(")[0] || "unnamed"
-            }
-        }
-        console.log("[FOCUS] activeFocusItem →", label,
-                    "currentView=" + (appViewModel ? appViewModel.currentView : "?"))
-    }
-
     // Note: ApplicationWindow inherits Window which is NOT an Item, so the
-    // `Keys` attached property cannot be used at this level (Qt logs a warning
-    // and silently drops the handler). Use per-item handlers instead — see
-    // HomeView/Sidebar/cardListView console.log calls.
+    // `Keys` attached property cannot be used at this level. Use per-item
+    // Keys handlers (HomeView, Sidebar, cardListView, etc.) instead.
 
     onClosing: function(close) {
         if (appViewModel && appViewModel.closeToTray && systemTrayAvailable) {

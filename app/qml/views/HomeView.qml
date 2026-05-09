@@ -7,7 +7,6 @@ import app.iptvxs
 
 Item {
     id: homeView
-    objectName: "HomeView"
 
     // --- Row-level focus tracking ---
     property int currentRowIndex: 0
@@ -141,20 +140,11 @@ Item {
     }
 
     function focusAdjacentRow(fromRow, cardIndex, direction) {
-        console.log("[DPAD/Home] focusAdjacentRow fromRow=" + fromRow +
-                    " cardIndex=" + cardIndex + " direction=" + direction +
-                    " allRows.length=" + allRows.length)
         var rows = allRows
         var target = fromRow + direction
         while (target >= 0 && target < rows.length) {
             var row = rows[target]
-            var ok = (row && row.visible && row.enabled && row.cardListView && row.cardListView.count > 0)
-            console.log("[DPAD/Home]   probe target=" + target +
-                        " visible=" + (row ? row.visible : "?") +
-                        " enabled=" + (row ? row.enabled : "?") +
-                        " count=" + (row && row.cardListView ? row.cardListView.count : "?") +
-                        " → " + (ok ? "FOCUS" : "skip"))
-            if (ok) {
+            if (row && row.visible && row.enabled && row.cardListView && row.cardListView.count > 0) {
                 currentRowIndex = target
                 snapRowToFirstCard(row)
                 row.cardListView.forceActiveFocus()
@@ -163,9 +153,7 @@ Item {
             }
             target += direction
         }
-        console.log("[DPAD/Home] focusAdjacentRow exhausted in direction=" + direction)
         if (direction < 0 && Window.window && Window.window.focusSidebar) {
-            console.log("[DPAD/Home]   → Window.focusSidebar()")
             Window.window.focusSidebar()
         }
     }
@@ -188,12 +176,10 @@ Item {
 
     focus: true
 
-    Keys.onUpPressed: { console.log("[DPAD/Home] Up rowIndex=" + currentRowIndex); focusAdjacentRow(currentRowIndex, 0, -1) }
-    Keys.onDownPressed: { console.log("[DPAD/Home] Down rowIndex=" + currentRowIndex); focusAdjacentRow(currentRowIndex, 0, 1) }
-    Keys.onLeftPressed: console.log("[DPAD/Home] Left (no handler) rowIndex=" + currentRowIndex)
-    Keys.onRightPressed: console.log("[DPAD/Home] Right (no handler) rowIndex=" + currentRowIndex)
-    Keys.onReturnPressed: { console.log("[DPAD/Home] Return rowIndex=" + currentRowIndex); focusCurrentRow() }
-    Keys.onEnterPressed: { console.log("[DPAD/Home] Enter rowIndex=" + currentRowIndex); focusCurrentRow() }
+    Keys.onUpPressed: focusAdjacentRow(currentRowIndex, 0, -1)
+    Keys.onDownPressed: focusAdjacentRow(currentRowIndex, 0, 1)
+    Keys.onReturnPressed: focusCurrentRow()
+    Keys.onEnterPressed: focusCurrentRow()
 
     // --- Recently-added filter lifecycle ---
     property bool recentlyAddedReady: false
@@ -770,24 +756,17 @@ Item {
                 }
             }
 
-            objectName: "HomeCardListView_row" + cardRow.rowIndex
-
-            Keys.onReturnPressed: { console.log("[DPAD/HomeRow] Return row=" + cardRow.rowIndex + " idx=" + currentIndex); activateCurrentCard() }
-            Keys.onEnterPressed: { console.log("[DPAD/HomeRow] Enter row=" + cardRow.rowIndex + " idx=" + currentIndex); activateCurrentCard() }
+            Keys.onReturnPressed: activateCurrentCard()
+            Keys.onEnterPressed: activateCurrentCard()
             Keys.onLeftPressed: {
-                console.log("[DPAD/HomeRow] Left row=" + cardRow.rowIndex + " idx=" + currentIndex + " count=" + count)
                 if (currentIndex > 0) currentIndex--
-                else if (Window.window && Window.window.focusSidebar) {
-                    console.log("[DPAD/HomeRow]   → focusSidebar()")
-                    Window.window.focusSidebar()
-                }
+                else if (Window.window && Window.window.focusSidebar) Window.window.focusSidebar()
             }
             Keys.onRightPressed: {
-                console.log("[DPAD/HomeRow] Right row=" + cardRow.rowIndex + " idx=" + currentIndex + " count=" + count)
                 if (currentIndex < count - 1) currentIndex++
             }
-            Keys.onUpPressed: { console.log("[DPAD/HomeRow] Up row=" + cardRow.rowIndex + " idx=" + currentIndex); homeView.focusAdjacentRow(cardRow.rowIndex, currentIndex, -1) }
-            Keys.onDownPressed: { console.log("[DPAD/HomeRow] Down row=" + cardRow.rowIndex + " idx=" + currentIndex); homeView.focusAdjacentRow(cardRow.rowIndex, currentIndex, 1) }
+            Keys.onUpPressed: homeView.focusAdjacentRow(cardRow.rowIndex, currentIndex, -1)
+            Keys.onDownPressed: homeView.focusAdjacentRow(cardRow.rowIndex, currentIndex, 1)
             Keys.onPressed: function(event) {
                 if (event.key === Qt.Key_Space || event.key === Qt.Key_Select) {
                     activateCurrentCard()
