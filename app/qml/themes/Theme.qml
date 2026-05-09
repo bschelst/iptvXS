@@ -166,7 +166,10 @@ QtObject {
             success: "#a3be8c",
             warning: "#ebcb8b",
             error: "#bf616a",
-            live: "#d08770"
+            live: "#d08770",
+            // Pale blue accent has poor contrast against the default
+            // white textOnAccent — switch to black for readability.
+            textOnAccent: "#000000"
         },
         "light": {
             background: "#f5f5f7",
