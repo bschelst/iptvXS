@@ -283,6 +283,13 @@ Item {
                             Keys.onDownPressed: {
                                 if (allChannelsBtn) allChannelsBtn.forceActiveFocus()
                             }
+                            Keys.onUpPressed: {
+                                // Up from filter input → server picker (top of sidebar).
+                                if (serverPicker.count > 0) {
+                                    if (serverPicker.currentIndex < 0) serverPicker.currentIndex = 0
+                                    serverPicker.forceActiveFocus()
+                                }
+                            }
                             Keys.onRightPressed: {
                                 if (newFilterBtn) newFilterBtn.forceActiveFocus()
                             }
@@ -342,6 +349,12 @@ Item {
                             if (categoryList.currentIndex < 0) categoryList.currentIndex = 0
                             categoryList.forceActiveFocus()
                         }
+                    }
+                    Keys.onUpPressed: {
+                        // Up from "All Channels" → filter categories input.
+                        // catFilterInput's own Up handler then jumps to the
+                        // server picker, completing the chain to the top.
+                        if (catFilterInput) catFilterInput.forceActiveFocus()
                     }
                     Keys.onReturnPressed: selectCategory(0)
                     Keys.onEnterPressed: Keys.onReturnPressed(event)

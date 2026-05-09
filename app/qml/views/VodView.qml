@@ -345,6 +345,13 @@ Item {
                             Keys.onDownPressed: {
                                 if (allVodBtn) allVodBtn.forceActiveFocus()
                             }
+                            Keys.onUpPressed: {
+                                // Up from filter input → server picker (top of sidebar).
+                                if (serverPicker && serverPicker.count > 0) {
+                                    if (serverPicker.currentIndex < 0) serverPicker.currentIndex = 0
+                                    serverPicker.forceActiveFocus()
+                                }
+                            }
                             Keys.onPressed: function(event) {
                                 if (event.key === Qt.Key_Back || event.key === Qt.Key_Escape) {
                                     vodView.focusCategorySidebar()
@@ -399,6 +406,10 @@ Item {
                             if (vodCategoryList.currentIndex < 0) vodCategoryList.currentIndex = 0
                             vodCategoryList.forceActiveFocus()
                         }
+                    }
+                    Keys.onUpPressed: {
+                        // Up from "All Movies/Series" → filter categories input.
+                        if (vodCatFilterInput) vodCatFilterInput.forceActiveFocus()
                     }
                     Keys.onReturnPressed: selectCategory(0)
                     Keys.onEnterPressed: Keys.onReturnPressed(event)
