@@ -58,7 +58,12 @@ bool MpvPlayer::initialize() {
     mpvSetOptionString(mpv_, "video-aspect-mode", "container");
     mpvSetOptionString(mpv_, "sub-auto", "no");
     mpvSetOptionString(mpv_, "cache", "yes");
-    mpvSetOptionString(mpv_, "demuxer-max-bytes", "50MiB");
+    // 50 MiB caps at ~13s for high-bitrate HDR (~30 Mbps), well below the
+    // 60s readahead target — the cache is constantly empty and any small
+    // network hiccup produces a micro-freeze. 256 MiB gives ~70s headroom
+    // even on the heaviest streams; mpv only uses what it needs.
+    mpvSetOptionString(mpv_, "demuxer-max-bytes", "256MiB");
+    mpvSetOptionString(mpv_, "demuxer-max-back-bytes", "64MiB");
     mpvSetOptionString(mpv_, "demuxer-readahead-secs", "60");
     mpvSetOptionString(mpv_, "stream-lavf-o-append", "reconnect=1");
     mpvSetOptionString(mpv_, "stream-lavf-o-append", "reconnect_streamed=1");
