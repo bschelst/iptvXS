@@ -214,7 +214,22 @@ Item {
         MouseArea {
             anchors.fill: parent
             hoverEnabled: true
-            onPositionChanged: showControls()
+
+            // Filter out sub-pixel pointer jitter so the auto-hide timer can
+            // actually fire. On the Steam Deck the touchpad reports tiny
+            // positional updates even when the user isn't intentionally
+            // moving — without this threshold the HUD never hides.
+            property real lastShownX: -1000
+            property real lastShownY: -1000
+            onPositionChanged: function(mouse) {
+                var dx = mouse.x - lastShownX
+                var dy = mouse.y - lastShownY
+                if (dx * dx + dy * dy >= 16) {  // 4-pixel deadzone
+                    lastShownX = mouse.x
+                    lastShownY = mouse.y
+                    showControls()
+                }
+            }
             onClicked: {
                 if (appViewModel) appViewModel.player.togglePause()
                 showControls()
