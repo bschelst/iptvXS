@@ -13,6 +13,10 @@ Fixing issues in flatpak & testing Sync.
 - "Backup now" no longer freezes the UI — compression and temp-file IO moved to a Qt worker thread.
 - Sync error message rewrites Qt's terse "Host requires authentication" into "Google Drive sign-in expired — please log out and back in."
 - D-pad on the last channel of Live TV / Movies / Series now wraps back to the category sidebar instead of being a no-op.
+- Tone mapping performance fix — disabled mpv's per-frame `hdr-compute-peak` GPU readback that caused periodic micro-freezes during playback on the Steam Deck iGPU. Tone-mapping algorithm choice is unchanged; mpv now uses static peak metadata from the stream.
+- mpv demuxer cache bumped from 50 MiB to 128 MiB to absorb network jitter on high-bitrate streams.
+- Player HUD auto-hide now actually fires after 3 seconds of idle (was blocked by sub-pixel pointer jitter and a focused-control guard).
+- Auto channel sync no longer loops every ~3 minutes when one server stalls — the watchdog now stamps the cycle as complete on timeout, so the next sync is one full interval (24h) away instead of 60 seconds.
 
 ### Added
 - Configurable backup folder name in Settings (`iptvXS/backup` default).
