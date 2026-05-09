@@ -42,6 +42,8 @@ add_library(iptvxs-core STATIC
     src/cast/hls_proxy.cpp
     src/security/credential_vault.cpp
     src/sync/snapshot.cpp
+    src/sync/sync_service.cpp
+    src/gdrive/gdrive_sync_io.cpp
     include/iptvxs/db/database.h
     include/iptvxs/db/settings_repository.h
     include/iptvxs/db/server_repository.h
@@ -72,6 +74,8 @@ add_library(iptvxs-core STATIC
     include/iptvxs/cast/hls_proxy.h
     include/iptvxs/security/credential_vault.h
     include/iptvxs/sync/snapshot.h
+    include/iptvxs/sync/sync_service.h
+    include/iptvxs/gdrive/gdrive_sync_io.h
 )
 
 target_include_directories(iptvxs-core

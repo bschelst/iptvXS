@@ -410,6 +410,20 @@ bool AppViewModel::initialize(const QString &dbPath) {
     gdriveAuth_ = std::make_unique<iptvxs::GDriveAuth>(settingsRepo_.get(), this);
     gdriveUploader_ = std::make_unique<iptvxs::GDriveUploader>(gdriveAuth_.get(), this);
 
+    // SyncService — uses the same GDrive auth + the credential vault. Holds
+    // its own QTimer for hourly tick. UI exposed via SyncViewModel.
+    syncService_ = std::make_unique<iptvxs::SyncService>(
+        database_->connection(), gdriveAuth_.get(),
+        serverRepo_ ? const_cast<iptvxs::CredentialVault *>(serverRepo_->credentialVault()) : nullptr,
+        this);
+    syncVm_ = new SyncViewModel(this);
+    syncVm_->setService(syncService_.get(), dbPath);
+    QQmlEngine::setObjectOwnership(syncVm_, QQmlEngine::CppOwnership);
+
+    // GC tombstones older than 30 days at startup.
+    syncService_->garbageCollectTombstones(
+        QDateTime::currentSecsSinceEpoch() - 30LL * 24 * 60 * 60);
+
     // Client ID is now bundled in the binary (PKCE flow). Clean up legacy
     // per-user credential rows from the settings DB.
     settingsRepo_->remove(QStringLiteral("gdrive_client_id"));
@@ -883,6 +897,10 @@ HistoryViewModel *AppViewModel::history() const { return historyVm_; }
 
 LogViewModel *AppViewModel::log() const {
     return logVm_;
+}
+
+SyncViewModel *AppViewModel::sync() const {
+    return syncVm_;
 }
 
 GroupListViewModel *AppViewModel::groupList() const {

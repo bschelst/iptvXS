@@ -31,6 +31,10 @@ public:
     bool setPrimary(int64_t id);
     int count() const;
 
+    // Vault used to encrypt server credentials. Other subsystems (e.g. the
+    // sync service) reuse it so the same key encrypts both at-rest and in-flight.
+    CredentialVault *credentialVault() const { return credentialVaultPtr_; }
+
 signals:
     void errorOccurred(const QString &message);
 

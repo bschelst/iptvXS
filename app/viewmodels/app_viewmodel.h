@@ -26,6 +26,7 @@
 #include "iptvxs/api/xtream_client.h"
 #include "iptvxs/gdrive/gdrive_auth.h"
 #include "iptvxs/gdrive/gdrive_uploader.h"
+#include "iptvxs/sync/sync_service.h"
 #include "iptvxs/net/speed_test_runner.h"
 #include "iptvxs/db/category_settings_repository.h"
 #include "iptvxs/db/channel_group_repository.h"
@@ -46,6 +47,7 @@
 #include "speed_test_viewmodel.h"
 #include "history_viewmodel.h"
 #include "log_viewmodel.h"
+#include "sync_viewmodel.h"
 
 class AppViewModel : public QObject {
     Q_OBJECT
@@ -70,6 +72,7 @@ class AppViewModel : public QObject {
     Q_PROPERTY(SpeedTestViewModel *speedTest READ speedTest CONSTANT)
     Q_PROPERTY(HistoryViewModel *history READ history CONSTANT)
     Q_PROPERTY(LogViewModel *log READ log CONSTANT)
+    Q_PROPERTY(SyncViewModel *sync READ sync CONSTANT)
     Q_PROPERTY(int autoSyncInterval READ autoSyncInterval WRITE setAutoSyncInterval NOTIFY autoSyncIntervalChanged)
     Q_PROPERTY(int autoSyncEpgInterval READ autoSyncEpgInterval WRITE setAutoSyncEpgInterval NOTIFY autoSyncEpgIntervalChanged)
     Q_PROPERTY(QString databasePath READ databasePath CONSTANT)
@@ -137,6 +140,7 @@ public:
     SpeedTestViewModel *speedTest() const;
     HistoryViewModel *history() const;
     LogViewModel *log() const;
+    SyncViewModel *sync() const;
     GroupListViewModel *groupList() const;
     iptvxs::LogoCache *logoCache() const;
     iptvxs::ChromecastManager *chromecast() const;
@@ -322,6 +326,7 @@ private:
     std::unique_ptr<iptvxs::RecordingManager> recordingMgr_;
     std::unique_ptr<iptvxs::GDriveAuth> gdriveAuth_;
     std::unique_ptr<iptvxs::GDriveUploader> gdriveUploader_;
+    std::unique_ptr<iptvxs::SyncService> syncService_;
     QMetaObject::Connection gdrivePlaybackCleanupConnection_;
     std::unique_ptr<iptvxs::HttpClient> httpClient_;
     std::unique_ptr<iptvxs::SpeedTestRunner> speedTestRunner_;
@@ -338,6 +343,7 @@ private:
     SpeedTestViewModel *speedTestVm_;
     HistoryViewModel *historyVm_;
     GroupListViewModel *groupListVm_;
+    SyncViewModel *syncVm_{nullptr};
     LogViewModel *logVm_{nullptr};
 
     bool databaseReady_{false};

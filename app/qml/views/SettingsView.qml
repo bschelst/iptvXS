@@ -1931,6 +1931,263 @@ Item {
                         font.pixelSize: Theme.fontSizeXs
                         color: Theme.textMuted
                     }
+
+                    // ===== Cross-device sync =====
+                    Rectangle {
+                        Layout.fillWidth: true
+                        Layout.topMargin: Theme.spacingMd
+                        Layout.preferredHeight: 1
+                        color: Theme.surfaceBorder
+                    }
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        Layout.topMargin: Theme.spacingMd
+                        spacing: Theme.spacingMd
+
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            spacing: 2
+                            Text {
+                                text: "Sync favorites, history, groups, servers"
+                                font.pixelSize: Theme.fontSizeSm
+                                font.bold: true
+                                color: Theme.textPrimary
+                            }
+                            Text {
+                                text: appViewModel && appViewModel.gdrive.authenticated
+                                    ? "When enabled, the database is merged with other devices via Google Drive every hour."
+                                    : "Login to Google Drive above to enable sync."
+                                font.pixelSize: Theme.fontSizeXs
+                                color: Theme.textMuted
+                                Layout.fillWidth: true
+                                wrapMode: Text.WordWrap
+                            }
+                        }
+
+                        Rectangle {
+                            id: syncEnableSwitch
+                            Layout.preferredWidth: 56
+                            Layout.preferredHeight: 28
+                            radius: 14
+                            property bool toggleOn: appViewModel && appViewModel.sync ? appViewModel.sync.enabled : false
+                            property bool toggleEnabled: appViewModel && appViewModel.gdrive.authenticated
+                            opacity: toggleEnabled ? 1.0 : 0.4
+                            color: toggleOn ? Theme.accent : Theme.surface
+                            border.color: syncEnableSwitch.activeFocus ? Theme.accent : Theme.surfaceBorder
+                            border.width: syncEnableSwitch.activeFocus ? 2 : 1
+                            activeFocusOnTab: true
+                            focus: false
+
+                            Rectangle {
+                                width: 22; height: 22; radius: 11
+                                color: "#ffffff"
+                                anchors.verticalCenter: parent.verticalCenter
+                                x: parent.toggleOn ? parent.width - width - 3 : 3
+                                Behavior on x { NumberAnimation { duration: Theme.animFast } }
+                            }
+
+                            MouseArea {
+                                anchors.fill: parent
+                                cursorShape: parent.toggleEnabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+                                onClicked: {
+                                    if (!parent.toggleEnabled || !appViewModel || !appViewModel.sync) return
+                                    appViewModel.sync.enabled = !appViewModel.sync.enabled
+                                }
+                            }
+
+                            Keys.onReturnPressed: {
+                                if (toggleEnabled && appViewModel && appViewModel.sync) {
+                                    appViewModel.sync.enabled = !appViewModel.sync.enabled
+                                }
+                            }
+                            Keys.onEnterPressed: Keys.onReturnPressed(event)
+                            Keys.onPressed: function(event) {
+                                if (event.key === Qt.Key_Space || event.key === Qt.Key_Select) {
+                                    if (toggleEnabled && appViewModel && appViewModel.sync) {
+                                        appViewModel.sync.enabled = !appViewModel.sync.enabled
+                                    }
+                                    event.accepted = true
+                                }
+                            }
+                        }
+                    }
+
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        Layout.topMargin: Theme.spacingSm
+                        spacing: Theme.spacingXs
+                        visible: appViewModel && appViewModel.gdrive.authenticated
+
+                        Text {
+                            text: "Sync folder name on Google Drive"
+                            font.pixelSize: Theme.fontSizeSm
+                            color: Theme.textPrimary
+                        }
+                        RowLayout {
+                            Layout.fillWidth: true
+                            spacing: Theme.spacingSm
+
+                            Rectangle {
+                                Layout.fillWidth: true
+                                Layout.preferredHeight: 36
+                                radius: Theme.borderRadiusSmall
+                                color: Theme.surface
+                                border.color: syncFolderInput.activeFocus ? Theme.accent : Theme.surfaceBorder
+                                border.width: syncFolderInput.activeFocus ? 2 : 1
+
+                                TextInput {
+                                    id: syncFolderInput
+                                    anchors.fill: parent
+                                    anchors.leftMargin: Theme.spacingSm
+                                    anchors.rightMargin: Theme.spacingSm
+                                    verticalAlignment: TextInput.AlignVCenter
+                                    color: Theme.textPrimary
+                                    font.pixelSize: Theme.fontSizeSm
+                                    activeFocusOnTab: true
+                                    clip: true
+                                    selectByMouse: true
+                                    text: appViewModel && appViewModel.sync ? appViewModel.sync.folderName : "iptvXS-sync"
+                                    onEditingFinished: {
+                                        if (appViewModel && appViewModel.sync) appViewModel.sync.folderName = text
+                                    }
+                                }
+                            }
+
+                            Rectangle {
+                                Layout.preferredWidth: 110
+                                Layout.preferredHeight: 36
+                                radius: Theme.borderRadiusSmall
+                                color: syncNowBtn.activeFocus ? Theme.accentHover : Theme.accent
+                                border.color: syncNowBtn.activeFocus ? "#ffffff" : "transparent"
+                                border.width: syncNowBtn.activeFocus ? 2 : 0
+                                activeFocusOnTab: true
+                                focus: false
+                                id: syncNowBtn
+                                opacity: (appViewModel && appViewModel.sync && appViewModel.sync.enabled
+                                          && !appViewModel.sync.inProgress) ? 1.0 : 0.45
+
+                                Text {
+                                    anchors.centerIn: parent
+                                    text: appViewModel && appViewModel.sync && appViewModel.sync.inProgress
+                                        ? "Syncing..." : "Sync now"
+                                    color: Theme.textOnAccent
+                                    font.pixelSize: Theme.fontSizeSm
+                                    font.bold: true
+                                }
+                                MouseArea {
+                                    anchors.fill: parent
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: {
+                                        if (appViewModel && appViewModel.sync) appViewModel.sync.syncNow()
+                                    }
+                                }
+                                Keys.onReturnPressed: { if (appViewModel && appViewModel.sync) appViewModel.sync.syncNow() }
+                                Keys.onEnterPressed: Keys.onReturnPressed(event)
+                                Keys.onPressed: function(event) {
+                                    if (event.key === Qt.Key_Space || event.key === Qt.Key_Select) {
+                                        if (appViewModel && appViewModel.sync) appViewModel.sync.syncNow()
+                                        event.accepted = true
+                                    }
+                                }
+                            }
+                        }
+
+                        Text {
+                            Layout.fillWidth: true
+                            text: appViewModel && appViewModel.sync
+                                ? "Last sync: " + appViewModel.sync.lastSyncedDisplay
+                                  + (appViewModel.sync.lastStatus ? " — " + appViewModel.sync.lastStatus : "")
+                                : ""
+                            font.pixelSize: Theme.fontSizeXs
+                            color: Theme.textMuted
+                            wrapMode: Text.WordWrap
+                        }
+                    }
+
+                    // ===== Database backup (manual only) =====
+                    Rectangle {
+                        Layout.fillWidth: true
+                        Layout.topMargin: Theme.spacingMd
+                        Layout.preferredHeight: 1
+                        color: Theme.surfaceBorder
+                    }
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        Layout.topMargin: Theme.spacingMd
+                        spacing: Theme.spacingMd
+
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            spacing: 2
+                            Text {
+                                text: "Database backup"
+                                font.pixelSize: Theme.fontSizeSm
+                                font.bold: true
+                                color: Theme.textPrimary
+                            }
+                            Text {
+                                text: appViewModel && appViewModel.sync
+                                    ? "Last backup: " + appViewModel.sync.lastBackupDisplay
+                                    : "Last backup: Never"
+                                font.pixelSize: Theme.fontSizeXs
+                                color: Theme.textMuted
+                            }
+                        }
+
+                        Rectangle {
+                            id: backupNowBtn
+                            Layout.preferredWidth: 130
+                            Layout.preferredHeight: 36
+                            radius: Theme.borderRadiusSmall
+                            color: backupNowBtn.activeFocus ? Theme.accentHover : Theme.accent
+                            border.color: backupNowBtn.activeFocus ? "#ffffff" : "transparent"
+                            border.width: backupNowBtn.activeFocus ? 2 : 0
+                            activeFocusOnTab: true
+                            focus: false
+                            opacity: appViewModel && appViewModel.gdrive.authenticated ? 1.0 : 0.45
+
+                            Text {
+                                anchors.centerIn: parent
+                                text: "Backup now"
+                                color: Theme.textOnAccent
+                                font.pixelSize: Theme.fontSizeSm
+                                font.bold: true
+                            }
+                            MouseArea {
+                                anchors.fill: parent
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: {
+                                    if (appViewModel && appViewModel.sync && appViewModel.gdrive.authenticated) {
+                                        appViewModel.sync.backupDatabase()
+                                    }
+                                }
+                            }
+                            Keys.onReturnPressed: {
+                                if (appViewModel && appViewModel.sync && appViewModel.gdrive.authenticated) {
+                                    appViewModel.sync.backupDatabase()
+                                }
+                            }
+                            Keys.onEnterPressed: Keys.onReturnPressed(event)
+                            Keys.onPressed: function(event) {
+                                if (event.key === Qt.Key_Space || event.key === Qt.Key_Select) {
+                                    if (appViewModel && appViewModel.sync && appViewModel.gdrive.authenticated) {
+                                        appViewModel.sync.backupDatabase()
+                                    }
+                                    event.accepted = true
+                                }
+                            }
+                        }
+                    }
+
+                    Text {
+                        Layout.fillWidth: true
+                        text: "Backs up the entire SQLite database to your Google Drive folder. Useful before major changes or as a safety net."
+                        font.pixelSize: Theme.fontSizeXs
+                        color: Theme.textMuted
+                        wrapMode: Text.WordWrap
+                    }
                 }
             }
 

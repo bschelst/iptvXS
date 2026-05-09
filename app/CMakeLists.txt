@@ -84,6 +84,8 @@ qt_add_qml_module(iptvXS
         viewmodels/history_viewmodel.cpp
         viewmodels/log_viewmodel.h
         viewmodels/log_viewmodel.cpp
+        viewmodels/sync_viewmodel.h
+        viewmodels/sync_viewmodel.cpp
         viewmodels/player_viewmodel.h
         viewmodels/player_viewmodel.cpp
         viewmodels/mpv_video_item.h
