@@ -887,7 +887,7 @@ Item {
                             ListView {
                                 id: chRowListView
                                 width: parent.width
-                                height: 190
+                                height: 240
                                 orientation: ListView.Horizontal
                                 spacing: Theme.spacingSm
                                 clip: true
@@ -928,8 +928,8 @@ Item {
                                 }
 
                                 delegate: Item {
-                                    width: 208
-                                    height: 182
+                                    width: 158
+                                    height: 232
                                     focus: chRowListView.activeFocus && chRowListView.currentIndex === index
                                     activeFocusOnTab: true
 
@@ -950,13 +950,15 @@ Item {
                                         clip: true
                                         property bool chNetHov: false
 
-                                        // Logo area (centered, not cropped)
+                                        // Logo area (centered, not cropped). Height tracks
+                                        // card height so a portrait card auto-leaves room
+                                        // for the name strip below.
                                         Rectangle {
                                             id: chNetLogoArea
                                             anchors.top: parent.top
                                             anchors.left: parent.left
                                             anchors.right: parent.right
-                                            height: 110
+                                            height: parent.height - 52
                                             color: "transparent"
 
                                             Image {

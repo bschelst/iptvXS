@@ -931,7 +931,7 @@ Item {
                             ListView {
                                 id: rowListView
                                 width: parent.width
-                                height: 170
+                                height: 232
                                 orientation: ListView.Horizontal
                                 spacing: Theme.spacingSm
                                 clip: true
@@ -968,8 +968,8 @@ Item {
                                 }
 
                                 delegate: Item {
-                                    width: 200
-                                    height: 170
+                                    width: 158
+                                    height: 232
                                     focus: rowListView.activeFocus && rowListView.currentIndex === index
                                     activeFocusOnTab: true
                                     function activate() {
