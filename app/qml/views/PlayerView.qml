@@ -7,6 +7,15 @@ import app.iptvxs
 Item {
     id: playerView
 
+    // Called by Main.qml when this view becomes active. Without this,
+    // no element grabs focus on entry → existing Keys.onDownPressed
+    // handler at the bottom of the file never fires, so D-pad Down
+    // does nothing until the user clicks first.
+    function focusPrimary() {
+        playerView.forceActiveFocus()
+        showControls()
+    }
+
     property string channelUrl: ""
     property string channelName: ""
     property string channelLogo: ""
@@ -59,6 +68,39 @@ Item {
         var idx = Math.max(0, Math.min(buttons.length - 1, index))
         buttons[idx].forceActiveFocus()
         showControls()
+    }
+
+    function focusSeekSlider() {
+        showControls()
+        Qt.callLater(function() {
+            if (seekSlider && seekSlider.visible) {
+                seekSlider.forceActiveFocus()
+            } else {
+                focusControlButton(0)
+            }
+        })
+    }
+
+    function focusControlsEntry() {
+        showControls()
+        Qt.callLater(function() {
+            if (seekSlider && seekSlider.visible) {
+                seekSlider.forceActiveFocus()
+            } else {
+                focusControlButton(0)
+            }
+        })
+    }
+
+    function focusTopBackButton() {
+        showControls()
+        Qt.callLater(function() {
+            if (topBackBtn && topBackBtn.visible) {
+                topBackBtn.forceActiveFocus()
+            } else {
+                focusControlsEntry()
+            }
+        })
     }
 
     function clampListIndex(listView) {
@@ -130,6 +172,17 @@ Item {
         return height + "p"
     }
 
+    function formatAudioPreset(preset) {
+        if (!preset || preset === "none") return ""
+        if (preset === "extra_bass") return "Extra Bass"
+        if (preset === "flat") return "Flat"
+        if (preset === "dance") return "Dance"
+        if (preset === "rock") return "Rock"
+        if (preset === "voice") return "Voice"
+        if (preset === "cinema") return "Cinema"
+        return preset.charAt(0).toUpperCase() + preset.slice(1)
+    }
+
     function showSeriesDialog(seriesName, seasons) {
         seriesDialogTitle = seriesName
         seriesDialogSeasons = seasons || []
@@ -199,6 +252,7 @@ Item {
                 Slider {
                     id: seekSlider
                     Layout.fillWidth: true
+                    activeFocusOnTab: true
                     visible: {
                         if (!appViewModel) return false
                         if (appViewModel.player.duration > 0) return true
@@ -264,6 +318,27 @@ Item {
                         color: seekSlider.pressed ? Theme.accentHover : Theme.accent
                         visible: seekSlider.hovered || seekSlider.pressed || seekSlider.activeFocus
                     }
+
+                    Keys.onLeftPressed: {
+                        if (appViewModel) {
+                            appViewModel.player.seek(Math.max(0, appViewModel.player.position - 10))
+                            showControls()
+                        }
+                    }
+                    Keys.onRightPressed: {
+                        if (appViewModel) {
+                            appViewModel.player.seek(appViewModel.player.position + 10)
+                            showControls()
+                        }
+                    }
+                    Keys.onDownPressed: {
+                        focusControlButton(0)
+                    }
+                    Keys.onUpPressed: {
+                        playerView.forceActiveFocus()
+                        showControls()
+                    }
+                    onActiveFocusChanged: if (activeFocus) showControls()
                 }
 
                 RowLayout {
@@ -396,6 +471,7 @@ Item {
                         activeFocusOnTab: true
                         border.width: activeFocus ? 2 : 0
                         border.color: Theme.accent
+                        onActiveFocusChanged: if (activeFocus) showControls()
                         Keys.onReturnPressed: castBtnArea.clicked(null)
                         Keys.onEnterPressed: castBtnArea.clicked(null)
 
@@ -569,6 +645,7 @@ Item {
                         activeFocusOnTab: true
                         border.width: activeFocus ? 2 : 0
                         border.color: Theme.accent
+                        onActiveFocusChanged: if (activeFocus) showControls()
                         Keys.onReturnPressed: muteBtnArea.clicked(null)
                         Keys.onEnterPressed: muteBtnArea.clicked(null)
 
@@ -760,8 +837,11 @@ Item {
                 anchors.margins: Theme.spacingMd
 
                 PlayerButton {
+                    id: topBackBtn
                     text: "\u2190"
                     onClicked: goBack()
+                    onActiveFocusChanged: if (activeFocus) showControls()
+                    Keys.onDownPressed: focusControlsEntry()
                 }
 
                 Text {
@@ -901,7 +981,46 @@ Item {
                 }
 
                 Rectangle {
-                    visible: appViewModel && (appViewModel.player.cacheSpeed > 0 || appViewModel.player.videoBitrate > 0)
+                    visible: appViewModel && appViewModel.audioPreset && appViewModel.audioPreset !== "none"
+                    Layout.preferredHeight: 22
+                    Layout.preferredWidth: audioPresetRow.implicitWidth + Theme.spacingSm * 2
+                    radius: 11
+                    color: Qt.rgba(255, 255, 255, 0.10)
+                    border.width: 1
+                    border.color: Qt.rgba(255, 255, 255, 0.18)
+
+                    Row {
+                        id: audioPresetRow
+                        anchors.centerIn: parent
+                        spacing: Theme.spacingXs
+
+                        Text {
+                            text: "Audio"
+                            font.pixelSize: 10
+                            font.bold: true
+                            color: "#ffffff"
+                        }
+
+                        Rectangle {
+                            width: 1
+                            height: 10
+                            radius: 0.5
+                            color: Qt.rgba(255, 255, 255, 0.30)
+                            anchors.verticalCenter: parent.verticalCenter
+                        }
+
+                        Text {
+                            text: appViewModel ? playerView.formatAudioPreset(appViewModel.audioPreset) : ""
+                            font.pixelSize: 10
+                            font.bold: true
+                            color: "#ffffff"
+                        }
+                    }
+                }
+
+                Rectangle {
+                    visible: appViewModel && ((appViewModel.player.cacheSpeed > 0 || appViewModel.player.videoBitrate > 0)
+                             || (appViewModel.audioPreset && appViewModel.audioPreset !== "none"))
                     Layout.preferredWidth: 1
                     Layout.preferredHeight: 12
                     radius: 0.5
@@ -1060,6 +1179,10 @@ Item {
                             radius: 14
                             color: seriesCloseHov ? Theme.surfaceHover : "transparent"
                             property bool seriesCloseHov: false
+                            activeFocusOnTab: true
+                            border.width: activeFocus ? 2 : 0
+                            border.color: Theme.surfaceBorder
+                            onActiveFocusChanged: { parent.seriesCloseHov = activeFocus; seriesDialog.pokeAutoHide() }
 
                             Text {
                                 anchors.centerIn: parent
@@ -1076,6 +1199,15 @@ Item {
                                 onEntered: { parent.seriesCloseHov = true; seriesDialog.pokeAutoHide() }
                                 onExited: { parent.seriesCloseHov = false; seriesDialog.pokeAutoHide() }
                                 onClicked: seriesDialog.closeDialog()
+                            }
+
+                            Keys.onReturnPressed: seriesDialog.closeDialog()
+                            Keys.onEnterPressed: Keys.onReturnPressed(event)
+                            Keys.onPressed: function(event) {
+                                if (event.key === Qt.Key_Select || event.key === Qt.Key_Space) {
+                                    Keys.onReturnPressed(event)
+                                    event.accepted = true
+                                }
                             }
                         }
                     }
@@ -1331,6 +1463,10 @@ Item {
                             radius: 14
                             color: zapCloseHov ? Theme.surfaceHover : "transparent"
                             property bool zapCloseHov: false
+                            activeFocusOnTab: true
+                            border.width: activeFocus ? 2 : 0
+                            border.color: Theme.surfaceBorder
+                            onActiveFocusChanged: parent.zapCloseHov = activeFocus
 
                             Text {
                                 anchors.centerIn: parent
@@ -1347,6 +1483,15 @@ Item {
                                 onEntered: parent.zapCloseHov = true
                                 onExited: parent.zapCloseHov = false
                                 onClicked: zapDialog.closeDialog()
+                            }
+
+                            Keys.onReturnPressed: zapDialog.closeDialog()
+                            Keys.onEnterPressed: Keys.onReturnPressed(event)
+                            Keys.onPressed: function(event) {
+                                if (event.key === Qt.Key_Select || event.key === Qt.Key_Space) {
+                                    Keys.onReturnPressed(event)
+                                    event.accepted = true
+                                }
                             }
                         }
                     }
@@ -1509,8 +1654,14 @@ Item {
             onVisibleChanged: {
                 if (visible) {
                     if (appViewModel) appViewModel.player.refreshSubtitleTracks()
-                    subTrackList.forceActiveFocus()
                     playerView.clampListIndex(subTrackList)
+                    Qt.callLater(function() {
+                        if (subTrackList.count > 0 && subTrackList.visible) {
+                            subTrackList.forceActiveFocus()
+                        } else if (subVisSwitch) {
+                            subVisSwitch.forceActiveFocus()
+                        }
+                    })
                     pokeAutoHide()
                 }
             }
@@ -1551,6 +1702,15 @@ Item {
                         onToggled: {
                             if (appViewModel) appViewModel.player.setSubtitleVisibility(checked)
                         }
+                        Keys.onDownPressed: {
+                            if (subTrackList.count > 0) {
+                                subTrackList.forceActiveFocus()
+                            } else {
+                                subDelayMinusBtn.forceActiveFocus()
+                            }
+                            subTrackPopup.pokeAutoHide()
+                        }
+                        Keys.onUpPressed: subTrackPopup.closeDialog()
                     }
                 }
 
@@ -1577,6 +1737,8 @@ Item {
                         keyNavigationEnabled: true
                         highlightFollowsCurrentItem: true
                         onCountChanged: playerView.clampListIndex(subTrackList)
+                        Keys.onUpPressed: subVisSwitch.forceActiveFocus()
+                        Keys.onDownPressed: subDelayMinusBtn.forceActiveFocus()
                         Keys.onReturnPressed: if (currentIndex >= 0 && currentItem) { appViewModel.player.selectSubtitleTrack(model[currentIndex].id); subTrackPopup.closeDialog() }
                         Keys.onEnterPressed: Keys.onReturnPressed(event)
                         Keys.onEscapePressed: subTrackPopup.closeDialog()
@@ -1692,13 +1854,23 @@ Item {
                     spacing: Theme.spacingSm
 
                     PlayerButton {
+                        id: subDelayMinusBtn
                         text: "-"
                         btnSize: 28
                         iconSize: 16
+                        onActiveFocusChanged: if (activeFocus) subTrackPopup.pokeAutoHide()
                         onClicked: {
                             subDelaySlider.value -= 0.5
                             if (appViewModel) appViewModel.player.setSubtitleDelay(subDelaySlider.value)
                         }
+                        Keys.onUpPressed: {
+                            if (subTrackList.count > 0) {
+                                subTrackList.forceActiveFocus()
+                            } else {
+                                subVisSwitch.forceActiveFocus()
+                            }
+                        }
+                        Keys.onRightPressed: subDelaySlider.forceActiveFocus()
                     }
 
                     Slider {
@@ -1708,6 +1880,10 @@ Item {
                         to: 10
                         value: 0
                         stepSize: 0.1
+                        activeFocusOnTab: true
+                        focus: false
+                        focusPolicy: Qt.StrongFocus
+                        onActiveFocusChanged: if (activeFocus) subTrackPopup.pokeAutoHide()
 
                         onMoved: {
                             if (appViewModel) appViewModel.player.setSubtitleDelay(value)
@@ -1736,27 +1912,58 @@ Item {
                             width: 12; height: 12; radius: 6
                             color: "#ffffff"
                         }
+
+                        Keys.onLeftPressed: {
+                            value = Math.max(from, value - stepSize)
+                            if (appViewModel) appViewModel.player.setSubtitleDelay(value)
+                        }
+                        Keys.onRightPressed: {
+                            value = Math.min(to, value + stepSize)
+                            if (appViewModel) appViewModel.player.setSubtitleDelay(value)
+                        }
+                        Keys.onUpPressed: {
+                            if (subTrackList.count > 0) {
+                                subTrackList.forceActiveFocus()
+                            } else {
+                                subVisSwitch.forceActiveFocus()
+                            }
+                        }
+                        Keys.onDownPressed: subDelayPlusBtn.forceActiveFocus()
                     }
 
                     PlayerButton {
+                        id: subDelayPlusBtn
                         text: "+"
                         btnSize: 28
                         iconSize: 16
+                        onActiveFocusChanged: if (activeFocus) subTrackPopup.pokeAutoHide()
                         onClicked: {
                             subDelaySlider.value += 0.5
                             if (appViewModel) appViewModel.player.setSubtitleDelay(subDelaySlider.value)
                         }
+                        Keys.onUpPressed: {
+                            if (subTrackList.count > 0) {
+                                subTrackList.forceActiveFocus()
+                            } else {
+                                subVisSwitch.forceActiveFocus()
+                            }
+                        }
+                        Keys.onLeftPressed: subDelaySlider.forceActiveFocus()
+                        Keys.onRightPressed: subDelayResetBtn.forceActiveFocus()
                     }
                 }
 
                 PlayerButton {
+                    id: subDelayResetBtn
                     text: "Reset"
                     btnSize: 28
                     iconSize: 11
+                    onActiveFocusChanged: if (activeFocus) subTrackPopup.pokeAutoHide()
                     onClicked: {
                         subDelaySlider.value = 0
                         if (appViewModel) appViewModel.player.setSubtitleDelay(0)
                     }
+                    Keys.onUpPressed: subDelayPlusBtn.forceActiveFocus()
                 }
             }
         }
@@ -2179,6 +2386,13 @@ Item {
                     radius: 6
                     color: (castStopBtnHov || activeFocus) ? Theme.error : "#20ffffff"
                     property bool castStopBtnHov: false
+                    activeFocusOnTab: true
+                    border.width: activeFocus ? 2 : 0
+                    border.color: Theme.error
+                    onActiveFocusChanged: {
+                        parent.castStopBtnHov = activeFocus
+                        castStopPopup.pokeAutoHide()
+                    }
 
                     Text {
                         anchors.centerIn: parent
@@ -2201,8 +2415,6 @@ Item {
                             }
                         }
                     }
-
-                    onActiveFocusChanged: { parent.castStopBtnHov = activeFocus; castStopPopup.pokeAutoHide() }
 
                     Keys.onReturnPressed: {
                         if (appViewModel) {
@@ -2242,8 +2454,10 @@ Item {
             id: logoPlaceholder
             property bool isLoading: appViewModel ? (appViewModel.player.position <= 0 && (!appViewModel.player.stopped || appViewModel.player.reconnecting)) : false
             visible: (appViewModel ? appViewModel.player.stopped : true) || isLoading
-            logoSize: 128
-            logoOpacity: 0.15
+            logoSize: 96
+            logoOpacity: 0.26
+            logoAreaHeight: 160
+            liveTvGeometry: true
 
             SequentialAnimation on opacity {
                 id: pulseAnim
@@ -2345,6 +2559,10 @@ Item {
                     color: cancelAutoNextHov ? "#40ffffff" : "#20ffffff"
                     Layout.alignment: Qt.AlignHCenter
                     property bool cancelAutoNextHov: false
+                    activeFocusOnTab: true
+                    border.width: activeFocus ? 2 : 0
+                    border.color: Theme.accent
+                    onActiveFocusChanged: if (activeFocus) showControls()
 
                     Text {
                         id: cancelAutoNextText
@@ -2363,6 +2581,17 @@ Item {
                         onExited: parent.cancelAutoNextHov = false
                         onClicked: {
                             if (appViewModel) appViewModel.player.cancelAutoNext()
+                        }
+                    }
+
+                    Keys.onReturnPressed: {
+                        if (appViewModel) appViewModel.player.cancelAutoNext()
+                    }
+                    Keys.onEnterPressed: Keys.onReturnPressed(event)
+                    Keys.onPressed: function(event) {
+                        if (event.key === Qt.Key_Select || event.key === Qt.Key_Space) {
+                            Keys.onReturnPressed(event)
+                            event.accepted = true
                         }
                     }
                 }
@@ -2410,9 +2639,15 @@ Item {
 
     Timer {
         id: controlsTimer
-        interval: 3000
-        running: appViewModel ? (!appViewModel.player.stopped) : false
-        onTriggered: controlsVisible = false
+                interval: 3000
+                running: appViewModel ? (!appViewModel.player.stopped) : false
+                onTriggered: {
+                    if (playerView.focusedControlIndex() >= 0 || (seekSlider && seekSlider.activeFocus)) {
+                        controlsTimer.restart()
+                        return
+                    }
+                    controlsVisible = false
+                }
     }
 
     function showControls() {
@@ -2596,19 +2831,16 @@ Item {
     }
     Keys.onUpPressed: {
         if (focusedControlIndex() >= 0) {
-            playerView.forceActiveFocus()
-            showControls()
+            focusTopBackButton()
         } else if (appViewModel) {
-            appViewModel.player.volumeUp()
-            showControls()
+            focusControlsEntry()
         }
     }
     Keys.onDownPressed: {
-        if (focusedControlIndex() < 0 && controlsVisible) {
-            focusControlButton(0)
-        } else if (appViewModel && focusedControlIndex() < 0) {
-            appViewModel.player.volumeDown()
-            showControls()
+        if (focusedControlIndex() < 0) {
+            focusControlsEntry()
+        } else if (seekSlider && seekSlider.visible && !seekSlider.activeFocus) {
+            focusSeekSlider()
         }
     }
     Keys.onPressed: function(event) {
@@ -2645,6 +2877,7 @@ Item {
         activeFocusOnTab: true
         border.width: activeFocus ? 2 : 0
         border.color: Theme.accent
+        onActiveFocusChanged: if (activeFocus) showControls()
 
         // Hover overlay layered ON TOP of btnColor so the recording-state color
         // (e.g. Theme.error) remains visible while the mouse is over the button.
