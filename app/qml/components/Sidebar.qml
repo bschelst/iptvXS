@@ -127,10 +127,10 @@ Rectangle {
         }
     }
 
-    Keys.onUpPressed: navigate(-1)
-    Keys.onDownPressed: navigate(1)
-    Keys.onReturnPressed: itemClicked(activeItem)
-    Keys.onEnterPressed: itemClicked(activeItem)
+    Keys.onUpPressed: { console.log("[DPAD/Sidebar] Up activeItem=" + activeItem); navigate(-1) }
+    Keys.onDownPressed: { console.log("[DPAD/Sidebar] Down activeItem=" + activeItem); navigate(1) }
+    Keys.onReturnPressed: { console.log("[DPAD/Sidebar] Return activeItem=" + activeItem); itemClicked(activeItem) }
+    Keys.onEnterPressed: { console.log("[DPAD/Sidebar] Enter activeItem=" + activeItem); itemClicked(activeItem) }
     Keys.onPressed: function(event) {
         if (event.key === Qt.Key_Select || event.key === Qt.Key_Space) {
             itemClicked(activeItem)

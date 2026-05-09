@@ -176,10 +176,12 @@ Item {
 
     focus: true
 
-    Keys.onUpPressed: focusAdjacentRow(currentRowIndex, 0, -1)
-    Keys.onDownPressed: focusAdjacentRow(currentRowIndex, 0, 1)
-    Keys.onReturnPressed: focusCurrentRow()
-    Keys.onEnterPressed: focusCurrentRow()
+    Keys.onUpPressed: { console.log("[DPAD/Home] Up rowIndex=" + currentRowIndex); focusAdjacentRow(currentRowIndex, 0, -1) }
+    Keys.onDownPressed: { console.log("[DPAD/Home] Down rowIndex=" + currentRowIndex); focusAdjacentRow(currentRowIndex, 0, 1) }
+    Keys.onLeftPressed: console.log("[DPAD/Home] Left (no handler) rowIndex=" + currentRowIndex)
+    Keys.onRightPressed: console.log("[DPAD/Home] Right (no handler) rowIndex=" + currentRowIndex)
+    Keys.onReturnPressed: { console.log("[DPAD/Home] Return rowIndex=" + currentRowIndex); focusCurrentRow() }
+    Keys.onEnterPressed: { console.log("[DPAD/Home] Enter rowIndex=" + currentRowIndex); focusCurrentRow() }
 
     // --- Recently-added filter lifecycle ---
     property bool recentlyAddedReady: false

@@ -16,6 +16,36 @@ ApplicationWindow {
     title: "iptvXS"
     color: Theme.background
 
+    // D-pad/focus diagnostics. Logs every focus change so we can correlate
+    // with key-press logs in HomeView/Sidebar/PlayerView and pinpoint where
+    // the controller's arrow events get swallowed.
+    onActiveFocusItemChanged: {
+        var item = activeFocusItem
+        var label = "null"
+        if (item) {
+            label = item.objectName || ""
+            if (!label) {
+                var s = item.toString()
+                label = s.split("(")[0] || "unnamed"
+            }
+        }
+        console.log("[FOCUS] activeFocusItem →", label,
+                    "currentView=" + (appViewModel ? appViewModel.currentView : "?"))
+    }
+
+    Keys.priority: Keys.AfterItem
+    Keys.onPressed: function(event) {
+        // Window-level catch-all: only fires for keys not consumed by any
+        // focused item. If a D-pad press shows up here, it means NOTHING
+        // had activeFocus when the user pressed it.
+        if (event.key === Qt.Key_Up || event.key === Qt.Key_Down
+                || event.key === Qt.Key_Left || event.key === Qt.Key_Right
+                || event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
+            console.log("[DPAD/Window] uncaught key=" + event.key +
+                        " text='" + event.text + "' (no focused element handled it)")
+        }
+    }
+
     onClosing: function(close) {
         if (appViewModel && appViewModel.closeToTray && systemTrayAvailable) {
             close.accepted = false
