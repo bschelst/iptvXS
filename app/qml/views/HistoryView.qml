@@ -59,6 +59,15 @@ Item {
         if (index < 0 || !historyList || index >= historyList.count) return false
         deleteFocusIndex = index
         historyList.currentIndex = index
+        historyList.positionViewAtIndex(index, ListView.Contain)
+
+        var item = historyList.itemAtIndex(index)
+        if (item && item.removeBtn) {
+            item.removeBtn.forceActiveFocus()
+            deleteFocusIndex = -1
+            return true
+        }
+
         deleteFocusTimer.restart()
         return true
     }

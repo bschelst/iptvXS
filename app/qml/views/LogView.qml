@@ -9,6 +9,17 @@ Item {
     id: logView
 
     function focusPrimary() {
+        if (filterRepeater.count > 0) {
+            var first = filterRepeater.itemAt(0)
+            if (first) {
+                first.forceActiveFocus()
+                return
+            }
+        }
+        if (clearButton) {
+            clearButton.forceActiveFocus()
+            return
+        }
         logList.forceActiveFocus()
     }
 
@@ -66,9 +77,10 @@ Item {
                             }
                             border.color: {
                                 var current = appViewModel ? appViewModel.log.filterLevel : ""
+                                if (filterButton.activeFocus) return Theme.textOnAccent
                                 return current === modelData.value ? Theme.accent : "transparent"
                             }
-                            border.width: 1
+                            border.width: filterButton.activeFocus || filterHov ? 2 : 1
                             focus: false
                             activeFocusOnTab: true
 
@@ -138,8 +150,8 @@ Item {
                     Layout.preferredHeight: 28
                     radius: 14
                     color: clearHov || clearButton.activeFocus ? Theme.error : Theme.surfaceElevated
-                    border.color: Theme.surfaceBorder
-                    border.width: 1
+                    border.color: clearButton.activeFocus ? Theme.textOnAccent : Theme.surfaceBorder
+                    border.width: clearButton.activeFocus || clearHov ? 2 : 1
                     focus: false
                     activeFocusOnTab: true
                     property bool clearHov: false

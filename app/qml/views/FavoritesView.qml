@@ -75,13 +75,18 @@ Item {
                 policy: ScrollBar.AsNeeded
             }
 
-            Keys.onUpPressed: { if (currentIndex > 0) currentIndex-- }
-            Keys.onDownPressed: { if (currentIndex < count - 1) currentIndex++ }
-            Keys.onLeftPressed: {
-                if (Window.window && Window.window.focusSidebar) Window.window.focusSidebar()
-            }
-            Keys.onReturnPressed: activateCurrentItem()
-            Keys.onEnterPressed: activateCurrentItem()
+                Keys.onUpPressed: { if (currentIndex > 0) currentIndex-- }
+                Keys.onDownPressed: { if (currentIndex < count - 1) currentIndex++ }
+                Keys.onLeftPressed: {
+                    if (Window.window && Window.window.focusSidebar) Window.window.focusSidebar()
+                }
+                Keys.onRightPressed: {
+                    if (currentItem && currentItem.favRemoveBtn) {
+                        currentItem.favRemoveBtn.forceActiveFocus()
+                    }
+                }
+                Keys.onReturnPressed: activateCurrentItem()
+                Keys.onEnterPressed: activateCurrentItem()
             Keys.onPressed: function(event) {
                 if (event.key === Qt.Key_Back || event.key === Qt.Key_Escape) {
                     if (Window.window && Window.window.focusSidebar) Window.window.focusSidebar()
@@ -108,6 +113,8 @@ Item {
                 x: Theme.spacingMd
                 radius: Theme.borderRadius
                 color: favHovered ? Theme.surfaceHover : Theme.surfaceElevated
+                focus: favoritesList.activeFocus && favoritesList.currentIndex === index
+                activeFocusOnTab: true
                 border.color: {
                     if (favoritesList.activeFocus && favoritesList.currentIndex === index) return Theme.accent
                     if (favHovered) return Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.25)
@@ -213,10 +220,15 @@ Item {
                     }
 
                     Rectangle {
+                        id: favRemoveBtn
                         Layout.preferredWidth: 32
                         Layout.preferredHeight: 32
                         radius: 16
-                        color: removeHovered ? Qt.rgba(Theme.error.r, Theme.error.g, Theme.error.b, 0.19) : "transparent"
+                        color: removeHovered || activeFocus ? Qt.rgba(Theme.error.r, Theme.error.g, Theme.error.b, 0.19) : "transparent"
+                        border.width: activeFocus ? 2 : 0
+                        border.color: Theme.error
+                        focus: false
+                        activeFocusOnTab: true
 
                         property bool removeHovered: false
 
@@ -239,6 +251,28 @@ Item {
                                 if (appViewModel) {
                                     appViewModel.favoriteList.toggleFavorite(model.channelId)
                                 }
+                            }
+                        }
+
+                        Keys.onLeftPressed: {
+                            if (favoritesList) favoritesList.forceActiveFocus()
+                        }
+                        Keys.onReturnPressed: {
+                            if (appViewModel) {
+                                appViewModel.favoriteList.toggleFavorite(model.channelId)
+                            }
+                        }
+                        Keys.onEnterPressed: Keys.onReturnPressed(event)
+                        Keys.onPressed: function(event) {
+                            if (event.key === Qt.Key_Select || event.key === Qt.Key_Space
+                                    || event.key === Qt.Key_Delete || event.key === Qt.Key_X) {
+                                if (appViewModel) {
+                                    appViewModel.favoriteList.toggleFavorite(model.channelId)
+                                }
+                                event.accepted = true
+                            } else if (event.key === Qt.Key_Left) {
+                                if (favoritesList) favoritesList.forceActiveFocus()
+                                event.accepted = true
                             }
                         }
                     }

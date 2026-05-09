@@ -22,18 +22,7 @@ Item {
     }
 
     function focusPrimary() {
-        if (recordingSectionRepeater && recordingSectionRepeater.count > 0) {
-            for (var i = 0; i < recordingSectionRepeater.count; i++) {
-                var section = recordingSectionRepeater.itemAt(i)
-                if (section && section.rowItems && section.rowItems.length > 0) {
-                    section.focusCardAt(0)
-                    return
-                }
-            }
-        }
-        if (newRecButton) {
-            newRecButton.forceActiveFocus()
-        }
+        focusHeaderStrip()
     }
 
     function requestFocusRestore() {
@@ -256,7 +245,7 @@ Item {
                             manualRecordDialog.open()
                             event.accepted = true
                         } else if (event.key === Qt.Key_Down) {
-                            recordingsView.focusPrimary()
+                            recordingsView.focusFilterStrip()
                             event.accepted = true
                         } else if (event.key === Qt.Key_Left) {
                             if (Window.window && Window.window.focusSidebar) {
@@ -416,6 +405,27 @@ Item {
                         property int currentCardIndex: -1
                         property alias rowFlickable: rowListView
 
+                        function snapRowContent(direction) {
+                            if (!rowListView || rowRepeater.count <= 0) return
+
+                            var step = 220 + rowContent.spacing
+                            if (step <= 0) return
+
+                            var minX = 0
+                            var maxX = Math.max(minX, rowListView.contentWidth - rowListView.width)
+                            var current = rowListView.contentX
+                            var target
+
+                            if (direction < 0) {
+                                target = Math.floor((current - minX - 0.001) / step) * step
+                            } else {
+                                target = Math.ceil((current - minX + 0.001) / step) * step
+                            }
+
+                            target = Math.max(minX, Math.min(maxX, target))
+                            rowListView.contentX = target
+                        }
+
                                         function focusCardAt(i) {
                                             if (!rowRepeater || rowItems.length <= 0) return
                                             currentCardIndex = Math.max(0, Math.min(i, rowItems.length - 1))
@@ -471,7 +481,7 @@ Item {
                                             cursorShape: Qt.PointingHandCursor
                                             onEntered: parent.recScrollLeftHov = true
                                             onExited: parent.recScrollLeftHov = false
-                                            onClicked: rowListView.contentX = Math.max(rowListView.contentX - 260, 0)
+                                            onClicked: recordingSection.snapRowContent(-1)
                                         }
 
                                         Keys.onRightPressed: {
@@ -483,11 +493,11 @@ Item {
                                                 recordingSection.focusCardAt(recordingSection.currentCardIndex)
                                             }
                                         }
-                                        Keys.onReturnPressed: rowListView.contentX = Math.max(rowListView.contentX - 260, 0)
+                                        Keys.onReturnPressed: recordingSection.snapRowContent(-1)
                                         Keys.onEnterPressed: Keys.onReturnPressed(event)
                                         Keys.onPressed: function(event) {
                                             if (event.key === Qt.Key_Select || event.key === Qt.Key_Space) {
-                                                rowListView.contentX = Math.max(rowListView.contentX - 260, 0)
+                                                recordingSection.snapRowContent(-1)
                                                 event.accepted = true
                                             }
                                         }
@@ -517,9 +527,7 @@ Item {
                                             cursorShape: Qt.PointingHandCursor
                                             onEntered: parent.recScrollRightHov = true
                                             onExited: parent.recScrollRightHov = false
-                                            onClicked: rowListView.contentX = Math.min(
-                                                rowListView.contentX + 260,
-                                                Math.max(0, rowListView.contentWidth - rowListView.width))
+                                            onClicked: recordingSection.snapRowContent(1)
                                         }
 
                                         Keys.onLeftPressed: {
@@ -531,15 +539,11 @@ Item {
                                                 recordingSection.focusCardAt(recordingSection.currentCardIndex)
                                             }
                                         }
-                                        Keys.onReturnPressed: rowListView.contentX = Math.min(
-                                            rowListView.contentX + 260,
-                                            Math.max(0, rowListView.contentWidth - rowListView.width))
+                                        Keys.onReturnPressed: recordingSection.snapRowContent(1)
                                         Keys.onEnterPressed: Keys.onReturnPressed(event)
                                         Keys.onPressed: function(event) {
                                             if (event.key === Qt.Key_Select || event.key === Qt.Key_Space) {
-                                                rowListView.contentX = Math.min(
-                                                    rowListView.contentX + 260,
-                                                    Math.max(0, rowListView.contentWidth - rowListView.width))
+                                                recordingSection.snapRowContent(1)
                                                 event.accepted = true
                                             }
                                         }
@@ -718,10 +722,10 @@ Item {
                                                     } else if (openBtn.visible) {
                                                         openBtn.forceActiveFocus()
                                                     }
-                                                } else if (focusFirstAction()) {
-                                                    actionFocusMode = true
                                                 } else if (cardIndex < rowItems.length - 1) {
                                                     focusNextCard()
+                                                } else if (focusFirstAction()) {
+                                                    actionFocusMode = true
                                                 }
                                                 event.accepted = true
                                             } else if (event.key === Qt.Key_Up) {
@@ -782,11 +786,11 @@ Item {
                                         Rectangle {
                                             anchors.fill: parent
                                             radius: Theme.borderRadiusLarge
-                                            color: recordingCard.activeFocus || recordingSection.currentCardIndex === cardIndex
+                                            color: recordingCard.activeFocus
                                                 ? Theme.surfaceHover : Theme.surfaceElevated
                                             border.width: 1
                                             border.color: {
-                                                if (recordingSection.currentCardIndex === cardIndex || recordingCard.activeFocus) return Theme.accent
+                                                if (recordingCard.activeFocus) return Theme.accent
                                                 if (modelData.pinned) return Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.50)
                                                 if (modelData.status === "recording") return Qt.rgba(Theme.error.r, Theme.error.g, Theme.error.b, 0.38)
                                                 return Theme.surfaceBorder
@@ -936,7 +940,6 @@ Item {
                                                         || recordingCard.actionFocusMode
                                                         || recordingActionsPopup.visible
                                                         || recordingCard.cardHovered
-                                                        || recordingSection.currentCardIndex === cardIndex
                                                     Layout.fillWidth: true
                                                     Layout.preferredHeight: actionStripVisible ? 36 : 0
                                                     visible: actionStripVisible
@@ -1674,6 +1677,7 @@ Item {
                 spacing: Theme.spacingSm
 
                 Repeater {
+                    id: startModeRepeater
                     model: [
                         { label: "Now", value: true },
                         { label: "Schedule", value: false }
@@ -1683,12 +1687,19 @@ Item {
                     width: modeLabel.implicitWidth + Theme.spacingMd * 2
                     height: 32
                     radius: Theme.borderRadiusSmall
+                    focus: false
+                    activeFocusOnTab: true
                     color: manualRecordDialog.startNow === modelData.value
                         ? Theme.accent
                         : startModeHov ? Theme.surfaceHover : Theme.surface
-                    border.width: 1
-                    border.color: manualRecordDialog.startNow === modelData.value ? Theme.accent : Theme.surfaceBorder
+                    border.width: activeFocus || manualRecordDialog.startNow === modelData.value ? 2 : 1
+                    border.color: activeFocus || manualRecordDialog.startNow === modelData.value
+                        ? Theme.accent
+                        : Theme.surfaceBorder
                     property bool startModeHov: false
+                    scale: activeFocus ? 1.03 : 1.0
+
+                    onActiveFocusChanged: parent.startModeHov = activeFocus
 
                     Text {
                         id: modeLabel
@@ -1706,6 +1717,42 @@ Item {
                         onEntered: parent.startModeHov = true
                         onExited: parent.startModeHov = false
                         onClicked: manualRecordDialog.startNow = modelData.value
+                    }
+
+                    Keys.onLeftPressed: {
+                        if (index > 0) {
+                            var prev = startModeRepeater.itemAt(index - 1)
+                            if (prev) prev.forceActiveFocus()
+                        }
+                    }
+                    Keys.onRightPressed: {
+                        if (index < startModeRepeater.count - 1) {
+                            var next = startModeRepeater.itemAt(index + 1)
+                            if (next) next.forceActiveFocus()
+                        }
+                    }
+                    Keys.onUpPressed: {
+                        if (channelCombo) channelCombo.forceActiveFocus()
+                    }
+                    Keys.onDownPressed: {
+                        if (manualRecordDialog.startNow) {
+                            if (durationRepeater && durationRepeater.count > 0) {
+                                var firstDuration = durationRepeater.itemAt(0)
+                                if (firstDuration) firstDuration.forceActiveFocus()
+                            }
+                        } else if (dayCombo) {
+                            dayCombo.forceActiveFocus()
+                        }
+                    }
+                    Keys.onReturnPressed: {
+                        manualRecordDialog.startNow = modelData.value
+                    }
+                    Keys.onEnterPressed: Keys.onReturnPressed(event)
+                    Keys.onPressed: function(event) {
+                        if (event.key === Qt.Key_Select || event.key === Qt.Key_Space) {
+                            manualRecordDialog.startNow = modelData.value
+                            event.accepted = true
+                        }
                     }
                 }
             }
@@ -1733,6 +1780,15 @@ Item {
                     onCurrentIndexChanged: manualRecordDialog.startDay = currentIndex
                     background: Rectangle { radius: Theme.borderRadiusSmall; color: Theme.surface; border.color: Theme.surfaceBorder; border.width: 1 }
                     contentItem: Text { leftPadding: Theme.spacingSm; text: dayCombo.currentText; font.pixelSize: Theme.fontSizeSm; color: Theme.textPrimary; verticalAlignment: Text.AlignVCenter }
+                    Keys.onUpPressed: {
+                        if (startModeRepeater && startModeRepeater.count > 0) {
+                            var startModeItem = startModeRepeater.itemAt(0)
+                            if (startModeItem) startModeItem.forceActiveFocus()
+                        }
+                    }
+                    Keys.onDownPressed: {
+                        if (hourSpin) hourSpin.forceActiveFocus()
+                    }
                 }
 
                 SpinBox {
@@ -1748,6 +1804,15 @@ Item {
                     up.indicator: Rectangle { x: parent.width - width; width: 24; height: parent.height; radius: Theme.borderRadiusSmall; color: hourSpin.up.pressed ? Theme.accent : Theme.surfaceHover; Text { anchors.centerIn: parent; text: "+"; font.pixelSize: 16; font.bold: true; color: Theme.textPrimary } }
                     down.indicator: Rectangle { x: 0; width: 24; height: parent.height; radius: Theme.borderRadiusSmall; color: hourSpin.down.pressed ? Theme.accent : Theme.surfaceHover; Text { anchors.centerIn: parent; text: "−"; font.pixelSize: 16; font.bold: true; color: Theme.textPrimary } }
                     textFromValue: function(value) { return value.toString().padStart(2, '0') }
+                    Keys.onLeftPressed: if (dayCombo) dayCombo.forceActiveFocus()
+                    Keys.onRightPressed: if (minuteSpin) minuteSpin.forceActiveFocus()
+                    Keys.onUpPressed: {
+                        if (startModeRepeater && startModeRepeater.count > 0) {
+                            var startModeItem = startModeRepeater.itemAt(0)
+                            if (startModeItem) startModeItem.forceActiveFocus()
+                        }
+                    }
+                    Keys.onDownPressed: if (minuteSpin) minuteSpin.forceActiveFocus()
                 }
 
                 Text { text: ":"; font.pixelSize: 20; font.bold: true; color: Theme.textPrimary }
@@ -1765,6 +1830,20 @@ Item {
                     up.indicator: Rectangle { x: parent.width - width; width: 24; height: parent.height; radius: Theme.borderRadiusSmall; color: minuteSpin.up.pressed ? Theme.accent : Theme.surfaceHover; Text { anchors.centerIn: parent; text: "+"; font.pixelSize: 16; font.bold: true; color: Theme.textPrimary } }
                     down.indicator: Rectangle { x: 0; width: 24; height: parent.height; radius: Theme.borderRadiusSmall; color: minuteSpin.down.pressed ? Theme.accent : Theme.surfaceHover; Text { anchors.centerIn: parent; text: "−"; font.pixelSize: 16; font.bold: true; color: Theme.textPrimary } }
                     textFromValue: function(value) { return value.toString().padStart(2, '0') }
+                    Keys.onLeftPressed: if (hourSpin) hourSpin.forceActiveFocus()
+                    Keys.onRightPressed: {
+                        if (durationRepeater && durationRepeater.count > 0) {
+                            var firstDuration = durationRepeater.itemAt(0)
+                            if (firstDuration) firstDuration.forceActiveFocus()
+                        }
+                    }
+                    Keys.onUpPressed: if (hourSpin) hourSpin.forceActiveFocus()
+                    Keys.onDownPressed: {
+                        if (durationRepeater && durationRepeater.count > 0) {
+                            var firstDuration = durationRepeater.itemAt(0)
+                            if (firstDuration) firstDuration.forceActiveFocus()
+                        }
+                    }
                 }
             }
 
@@ -1775,6 +1854,7 @@ Item {
                 spacing: Theme.spacingSm
 
                 Repeater {
+                    id: durationRepeater
                     model: [
                         { value: 30, label: "30 min" },
                         { value: 60, label: "1 hour" },
@@ -1787,12 +1867,17 @@ Item {
                         width: durationLabel.implicitWidth + Theme.spacingMd * 2
                         height: 32
                         radius: Theme.borderRadiusSmall
+                        focus: false
+                        activeFocusOnTab: true
                         color: manualRecordDialog.durationMinutes === modelData.value
                             ? Theme.accent
                             : durationHov ? Theme.surfaceHover : Theme.surface
-                        border.width: 1
-                        border.color: manualRecordDialog.durationMinutes === modelData.value ? Theme.accent : Theme.surfaceBorder
+                        border.width: activeFocus || manualRecordDialog.durationMinutes === modelData.value ? 2 : 1
+                        border.color: activeFocus || manualRecordDialog.durationMinutes === modelData.value ? Theme.accent : Theme.surfaceBorder
                         property bool durationHov: false
+                        scale: activeFocus ? 1.03 : 1.0
+
+                        onActiveFocusChanged: parent.durationHov = activeFocus
 
                         Text {
                             id: durationLabel
@@ -1811,6 +1896,39 @@ Item {
                             onExited: parent.durationHov = false
                             onClicked: manualRecordDialog.durationMinutes = modelData.value
                         }
+
+                        Keys.onLeftPressed: {
+                            if (index > 0) {
+                                var prev = durationRepeater.itemAt(index - 1)
+                                if (prev) prev.forceActiveFocus()
+                            } else if (minuteSpin) {
+                                minuteSpin.forceActiveFocus()
+                            }
+                        }
+                        Keys.onRightPressed: {
+                            if (index < durationRepeater.count - 1) {
+                                var next = durationRepeater.itemAt(index + 1)
+                                if (next) next.forceActiveFocus()
+                            } else if (cancelRecordButton) {
+                                cancelRecordButton.forceActiveFocus()
+                            }
+                        }
+                        Keys.onUpPressed: {
+                            if (minuteSpin) {
+                                minuteSpin.forceActiveFocus()
+                            }
+                        }
+                        Keys.onDownPressed: {
+                            if (cancelRecordButton) cancelRecordButton.forceActiveFocus()
+                        }
+                        Keys.onReturnPressed: manualRecordDialog.durationMinutes = modelData.value
+                        Keys.onEnterPressed: Keys.onReturnPressed(event)
+                        Keys.onPressed: function(event) {
+                            if (event.key === Qt.Key_Select || event.key === Qt.Key_Space) {
+                                manualRecordDialog.durationMinutes = modelData.value
+                                event.accepted = true
+                            }
+                        }
                     }
                 }
             }
@@ -1822,13 +1940,17 @@ Item {
                 Item { Layout.fillWidth: true }
 
                 Rectangle {
+                    id: cancelRecordButton
                     width: cancelRecordLabel.implicitWidth + Theme.spacingLg * 2
                     height: 36
                     radius: Theme.borderRadius
                     color: cancelRecordHov ? Theme.surfaceHover : Theme.surface
-                    border.color: Theme.surfaceBorder
-                    border.width: 1
                     property bool cancelRecordHov: false
+                    focus: false
+                    activeFocusOnTab: true
+                    border.width: activeFocus ? 2 : 1
+                    border.color: activeFocus ? Theme.accent : Theme.surfaceBorder
+                    onActiveFocusChanged: parent.cancelRecordHov = activeFocus
 
                     Text {
                         id: cancelRecordLabel
@@ -1846,6 +1968,29 @@ Item {
                         onExited: parent.cancelRecordHov = false
                         onClicked: manualRecordDialog.close()
                     }
+
+                    Keys.onLeftPressed: {
+                        if (durationRepeater && durationRepeater.count > 0) {
+                            var lastDuration = durationRepeater.itemAt(durationRepeater.count - 1)
+                            if (lastDuration) lastDuration.forceActiveFocus()
+                        }
+                    }
+                    Keys.onRightPressed: if (startRecordButton) startRecordButton.forceActiveFocus()
+                    Keys.onUpPressed: {
+                        if (durationRepeater && durationRepeater.count > 0) {
+                            var lastDuration = durationRepeater.itemAt(durationRepeater.count - 1)
+                            if (lastDuration) lastDuration.forceActiveFocus()
+                        }
+                    }
+                    Keys.onDownPressed: if (startRecordButton) startRecordButton.forceActiveFocus()
+                    Keys.onReturnPressed: manualRecordDialog.close()
+                    Keys.onEnterPressed: Keys.onReturnPressed(event)
+                    Keys.onPressed: function(event) {
+                        if (event.key === Qt.Key_Select || event.key === Qt.Key_Space) {
+                            manualRecordDialog.close()
+                            event.accepted = true
+                        }
+                    }
                 }
 
                 Rectangle {
@@ -1857,6 +2002,11 @@ Item {
                     opacity: enabled ? 1.0 : 0.4
                     property bool startRecordHov: false
                     property bool enabled: manualRecordDialog.selectedChannelId > 0
+                    focus: false
+                    activeFocusOnTab: true
+                    border.width: activeFocus ? 2 : 1
+                    border.color: activeFocus ? Theme.textOnAccent : Theme.surfaceBorder
+                    onActiveFocusChanged: parent.startRecordHov = activeFocus
 
                     Text {
                         id: startRecordLabel
@@ -1895,6 +2045,40 @@ Item {
                                 appViewModel.recordingList.refresh()
                                 manualRecordDialog.close()
                             }
+                        }
+                    }
+
+                    Keys.onLeftPressed: if (cancelRecordButton) cancelRecordButton.forceActiveFocus()
+                    Keys.onReturnPressed: {
+                        if (parent.enabled) {
+                            if (manualRecordDialog.selectedChannelId > 0 && appViewModel) {
+                                var startEpoch
+                                if (manualRecordDialog.startNow) {
+                                    startEpoch = Math.floor(Date.now() / 1000)
+                                } else {
+                                    var now = new Date()
+                                    var d = new Date(now.getTime() + manualRecordDialog.startDay * 86400000)
+                                    d.setHours(manualRecordDialog.startHour, manualRecordDialog.startMinute, 0, 0)
+                                    startEpoch = Math.floor(d.getTime() / 1000)
+                                }
+                                var endEpoch = startEpoch + manualRecordDialog.durationMinutes * 60
+                                if (manualRecordDialog.startNow) {
+                                    appViewModel.recordingList.startNow(
+                                        manualRecordDialog.selectedChannelId,
+                                        manualRecordDialog.durationMinutes * 60, "original")
+                                } else {
+                                    appViewModel.recordingList.scheduleRecording(manualRecordDialog.selectedChannelId, startEpoch, endEpoch, "original")
+                                }
+                                appViewModel.recordingList.refresh()
+                                manualRecordDialog.close()
+                            }
+                        }
+                    }
+                    Keys.onEnterPressed: Keys.onReturnPressed(event)
+                    Keys.onPressed: function(event) {
+                        if (event.key === Qt.Key_Select || event.key === Qt.Key_Space) {
+                            Keys.onReturnPressed(event)
+                            event.accepted = true
                         }
                     }
                 }

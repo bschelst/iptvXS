@@ -255,8 +255,10 @@ void PlayerViewModel::play(const QString &url, const QString &name,
     emit nextEpisodeNameChanged();
     if (stretched_) {
         stretched_ = false;
+        player_->setProperty(QStringLiteral("video-aspect-mode"),
+                             QVariant(QStringLiteral("container")));
         player_->setProperty(QStringLiteral("video-aspect-override"),
-                             QVariant(QStringLiteral("-1")));
+                             QVariant(QStringLiteral("no")));
         emit stretchedChanged();
     }
 
@@ -515,8 +517,10 @@ void PlayerViewModel::toggleStretch() {
         player_->setProperty(QStringLiteral("video-aspect-override"),
                              QVariant(QStringLiteral("16:9")));
     } else {
+        player_->setProperty(QStringLiteral("video-aspect-mode"),
+                             QVariant(QStringLiteral("container")));
         player_->setProperty(QStringLiteral("video-aspect-override"),
-                             QVariant(QStringLiteral("-1")));
+                             QVariant(QStringLiteral("no")));
     }
     emit stretchedChanged();
 }

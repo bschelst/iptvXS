@@ -402,9 +402,22 @@ void GDriveAuth::loadTokens() {
     if (!settings_) {
         return;
     }
+    const bool accessWasPlaintext =
+        settings_->contains(QStringLiteral("gdrive_access_token"))
+        && !settings_->isEncryptedStoredValue(QStringLiteral("gdrive_access_token"));
+    const bool refreshWasPlaintext =
+        settings_->contains(QStringLiteral("gdrive_refresh_token"))
+        && !settings_->isEncryptedStoredValue(QStringLiteral("gdrive_refresh_token"));
+
     accessToken_ = settings_->getString(QStringLiteral("gdrive_access_token"));
     refreshToken_ = settings_->getString(QStringLiteral("gdrive_refresh_token"));
     tokenExpiresAt_ = settings_->getInt(QStringLiteral("gdrive_token_expires_at"));
+    if (accessWasPlaintext || refreshWasPlaintext) {
+        qInfo("Migrating Google Drive tokens to encrypted storage");
+    }
+    if (!accessToken_.isEmpty() || !refreshToken_.isEmpty() || tokenExpiresAt_ > 0) {
+        saveTokens();
+    }
 }
 
 bool GDriveAuth::isTokenExpired() const {

@@ -23,7 +23,7 @@ Item {
 
     // Direct lookup by index — returns the QML item for the given focus slot.
     // Using a function (not a property) so ids resolve after component completion.
-    readonly property int focusItemCount: 35
+    readonly property int focusItemCount: 36
 
     function focusTargetForIndex(index) {
         switch (index) {
@@ -37,37 +37,54 @@ Item {
         case  7: return deinterlaceSwitch
         case  8: return toneMappingSwitch
         case  9: return toneMappingAlgoRow
-        case 10: return subtitlesSwitch
-        case 11: return subLangFlow
-        case 12: return secSubLangFlow
-        case 13: return subSizeRow
-        case 14: return subColorFlow
-        case 15: return subBgFlow
-        case 16: return syncIntervalFlow
-        case 17: return epgSyncFlow
-        case 18: return gdriveConnectBtn
-        case 19: return gdriveFolderInput
-        case 20: return gdriveSaveFolderBtn
-        case 21: return recDestFlow
-        case 22: return keepLocalSwitch
-        case 23: return recBrowseBtn
-        case 24: return maxRecSizeFlow
-        case 25: return leadTimeFlow
-        case 26: return overrunFlow
-        case 27: return logoCacheMaxFlow
-        case 28: return clearCacheBtn
-        case 29: return maintenanceBtn
-        case 30: return resetDbBtn
-        case 31: return githubBtn
-        case 32: return checkUpdatesBtn
-        case 33: return freeServerSwitchRow
-        case 34: return freeServerReAddBtn
+        case 10: return audioPresetFlow
+        case 11: return subtitlesSwitch
+        case 12: return subLangFlow
+        case 13: return secSubLangFlow
+        case 14: return subSizeRow
+        case 15: return subColorFlow
+        case 16: return subBgFlow
+        case 17: return syncIntervalFlow
+        case 18: return epgSyncFlow
+        case 19: return gdriveConnectBtn
+        case 20: return gdriveFolderInput
+        case 21: return gdriveSaveFolderBtn
+        case 22: return recDestFlow
+        case 23: return keepLocalSwitch
+        case 24: return recBrowseBtn
+        case 25: return maxRecSizeFlow
+        case 26: return leadTimeFlow
+        case 27: return overrunFlow
+        case 28: return logoCacheMaxFlow
+        case 29: return clearCacheBtn
+        case 30: return maintenanceBtn
+        case 31: return resetDbBtn
+        case 32: return githubBtn
+        case 33: return checkUpdatesBtn
+        case 34: return freeServerSwitchRow
+        case 35: return freeServerReAddBtn
         default: return null
         }
     }
 
     function focusTarget() {
         return focusTargetForIndex(currentFocusIndex)
+    }
+
+    function focusBorderColor(slotIndex, flowItem, subIndex, selected) {
+        if (settingsView.activeFocus && settingsView.currentFocusIndex === slotIndex
+                && flowItem && flowItem.subFocusIndex === subIndex) {
+            return Theme.textPrimary
+        }
+        return selected ? Theme.accent : Theme.surfaceBorder
+    }
+
+    function focusBorderWidth(slotIndex, flowItem, subIndex, selected) {
+        if (settingsView.activeFocus && settingsView.currentFocusIndex === slotIndex
+                && flowItem && flowItem.subFocusIndex === subIndex) {
+            return 3
+        }
+        return selected ? 2 : 1
     }
 
     function isFocusableTarget(target) {
@@ -149,7 +166,12 @@ Item {
         }
     }
 
-    onCurrentFocusIndexChanged: focusOverlayTimer.restart()
+    onCurrentFocusIndexChanged: {
+        focusOverlayTimer.restart()
+        if (currentFocusIndex === 10 && audioPresetFlow && audioPresetFlow.syncToCurrent) {
+            audioPresetFlow.syncToCurrent()
+        }
+    }
     onActiveFocusChanged: focusOverlayTimer.restart()
     Connections {
         target: settingsScroll.contentItem
@@ -488,9 +510,8 @@ Item {
                                         color: appViewModel && appViewModel.bufferSeconds === modelData.value
                                             ? Theme.accent : bufHovered
                                                 ? Theme.surfaceHover : Theme.surface
-                                        border.width: 1
-                                        border.color: (settingsView.currentFocusIndex === 3 && settingsView.activeFocus && bufferFlow.subFocusIndex === index)
-                                            ? Theme.accent : Theme.surfaceBorder
+                                        border.width: settingsView.focusBorderWidth(3, bufferFlow, index, appViewModel && appViewModel.bufferSeconds === modelData.value)
+                                        border.color: settingsView.focusBorderColor(3, bufferFlow, index, appViewModel && appViewModel.bufferSeconds === modelData.value)
 
                                         property bool bufHovered: false
 
@@ -622,9 +643,8 @@ Item {
                                     color: appViewModel && appViewModel.gridColumns === modelData.value
                                         ? Theme.accent : colHovered
                                             ? Theme.surfaceHover : Theme.surface
-                                    border.width: 1
-                                    border.color: (settingsView.currentFocusIndex === 2 && settingsView.activeFocus && gridColFlow.subFocusIndex === index)
-                                        ? Theme.accent : Theme.surfaceBorder
+                                    border.width: settingsView.focusBorderWidth(2, gridColFlow, index, appViewModel && appViewModel.gridColumns === modelData.value)
+                                    border.color: settingsView.focusBorderColor(2, gridColFlow, index, appViewModel && appViewModel.gridColumns === modelData.value)
 
                                     property bool colHovered: false
 
@@ -725,9 +745,8 @@ Item {
                                         color: appViewModel && appViewModel.hwdecMode === modelData.value
                                             ? Theme.accent : hwdecHov
                                                 ? Theme.surfaceHover : Theme.surface
-                                        border.width: 1
-                                        border.color: (settingsView.currentFocusIndex === 5 && settingsView.activeFocus && hwdecFlow.subFocusIndex === index)
-                                            ? Theme.accent : Theme.surfaceBorder
+                                        border.width: settingsView.focusBorderWidth(5, hwdecFlow, index, appViewModel && appViewModel.hwdecMode === modelData.value)
+                                        border.color: settingsView.focusBorderColor(5, hwdecFlow, index, appViewModel && appViewModel.hwdecMode === modelData.value)
 
                                         property bool hwdecHov: false
 
@@ -967,10 +986,8 @@ Item {
                                         height: 28
                                         radius: 14
                                         color: parent.currentAlgo === modelData.value ? Theme.accent : "transparent"
-                                        border.color: (settingsView.currentFocusIndex === 9 && settingsView.activeFocus && toneMappingAlgoRow.subFocusIndex === index)
-                                            ? Theme.accent
-                                            : parent.currentAlgo === modelData.value ? Theme.accent : Theme.surfaceBorder
-                                        border.width: 1
+                                        border.color: settingsView.focusBorderColor(9, toneMappingAlgoRow, index, parent.currentAlgo === modelData.value)
+                                        border.width: settingsView.focusBorderWidth(9, toneMappingAlgoRow, index, parent.currentAlgo === modelData.value)
 
                                         Text {
                                             id: algoLabel
@@ -986,6 +1003,124 @@ Item {
                                             cursorShape: Qt.PointingHandCursor
                                             onClicked: {
                                                 if (appViewModel) appViewModel.toneMappingAlgorithm = modelData.value
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            Rectangle {
+                Layout.fillWidth: true
+                Layout.preferredHeight: audioCol.implicitHeight + Theme.spacingLg * 2
+                radius: Theme.borderRadiusLarge
+                color: Theme.surfaceElevated
+                border.color: Theme.surfaceBorder
+                border.width: 1
+
+                ColumnLayout {
+                    id: audioCol
+                    anchors.fill: parent
+                    anchors.margins: Theme.spacingLg
+                    spacing: Theme.spacingMd
+
+                    Text {
+                        text: "Audio"
+                        font.pixelSize: Theme.fontSizeMd
+                        font.bold: true
+                        color: Theme.textPrimary
+                    }
+
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        spacing: Theme.spacingXs
+
+                        Text {
+                            text: "Playback equalizer preset"
+                            font.pixelSize: Theme.fontSizeSm
+                            color: Theme.textPrimary
+                        }
+
+                        Text {
+                            text: "Applied automatically when starting videos, recordings, and live playback"
+                            font.pixelSize: Theme.fontSizeXs
+                            color: Theme.textMuted
+                        }
+
+                        Item {
+                            id: audioPresetFlow
+                            Layout.fillWidth: true
+                            implicitHeight: audioPresetInner.implicitHeight
+                            property int subFocusIndex: 0
+                            property int subCount: 7
+                            property var subValues: ["none", "extra_bass", "flat", "dance", "rock", "voice", "cinema"]
+                            function syncToCurrent() {
+                                var currentPreset = appViewModel ? appViewModel.audioPreset : "none"
+                                for (var i = 0; i < subValues.length; ++i) {
+                                    if (subValues[i] === currentPreset) {
+                                        subFocusIndex = i
+                                        return
+                                    }
+                                }
+                                subFocusIndex = 0
+                            }
+                            function activateSubIndex(idx) {
+                                if (appViewModel && idx >= 0 && idx < subValues.length)
+                                    appViewModel.audioPreset = subValues[idx]
+                            }
+                            onVisibleChanged: {
+                                if (visible) syncToCurrent()
+                            }
+
+                            Flow {
+                                id: audioPresetInner
+                                width: parent.width
+                                spacing: Theme.spacingSm
+
+                                Repeater {
+                                    model: [
+                                        { value: "none", label: "None" },
+                                        { value: "extra_bass", label: "Extra Bass" },
+                                        { value: "flat", label: "Flat" },
+                                        { value: "dance", label: "Dance" },
+                                        { value: "rock", label: "Rock" },
+                                        { value: "voice", label: "Voice" },
+                                        { value: "cinema", label: "Cinema" }
+                                    ]
+
+                                    Rectangle {
+                                        width: audioPresetLabel.implicitWidth + Theme.spacingMd * 2
+                                        height: 30
+                                        radius: Theme.borderRadiusSmall
+                                        color: appViewModel && appViewModel.audioPreset === modelData.value
+                                            ? Theme.accent : audioPresetHovered ? Theme.surfaceHover : Theme.surface
+                                        border.width: settingsView.focusBorderWidth(10, audioPresetFlow, index, appViewModel && appViewModel.audioPreset === modelData.value)
+                                        border.color: settingsView.focusBorderColor(10, audioPresetFlow, index, appViewModel && appViewModel.audioPreset === modelData.value)
+
+                                        property bool audioPresetHovered: false
+
+                                        Text {
+                                            id: audioPresetLabel
+                                            anchors.centerIn: parent
+                                            text: modelData.label
+                                            font.pixelSize: Theme.fontSizeXs
+                                            color: appViewModel && appViewModel.audioPreset === modelData.value
+                                                ? Theme.textOnAccent : Theme.textSecondary
+                                            font.bold: appViewModel && appViewModel.audioPreset === modelData.value
+                                        }
+
+                                        MouseArea {
+                                            anchors.fill: parent
+                                            hoverEnabled: true
+                                            cursorShape: Qt.PointingHandCursor
+                                            onEntered: parent.audioPresetHovered = true
+                                            onExited: parent.audioPresetHovered = false
+                                            onClicked: {
+                                                if (appViewModel)
+                                                    appViewModel.audioPreset = modelData.value
                                             }
                                         }
                                     }
@@ -2914,17 +3049,17 @@ Item {
                                             text: "Latest"
                                             font.pixelSize: Theme.fontSizeXs
                                             color: Theme.textMuted
-                                            visible: appViewModel && appViewModel.updatesEnabled
                                         }
 
                                         Text {
-                                            text: appViewModel && appViewModel.updatesEnabled
-                                                ? (appViewModel.latestVersion ? appViewModel.latestVersion : "checking...")
-                                                : "Store-managed"
+                                            text: appViewModel && appViewModel.latestVersion && appViewModel.latestVersion.length > 0
+                                                ? appViewModel.latestVersion
+                                                : (appViewModel && appViewModel.updatesEnabled ? "checking..." : "Store-managed")
                                             font.pixelSize: Theme.fontSizeSm
                                             font.bold: true
-                                            visible: appViewModel && appViewModel.updatesEnabled
-                                            color: appViewModel && appViewModel.updateAvailable ? Theme.accent : Theme.textPrimary
+                                            color: appViewModel && appViewModel.updateAvailable
+                                                ? Theme.accent
+                                                : Theme.textPrimary
                                         }
                                     }
                                 }

@@ -47,8 +47,10 @@ Item {
         color: "transparent"
 
         Image {
-            anchors.fill: parent
             visible: root.liveTvGeometry
+            anchors.centerIn: parent
+            width: root.effectiveLogoWidth
+            height: root.effectiveLogoHeight
             source: root.logoSource
             fillMode: Image.PreserveAspectFit
             opacity: root.logoOpacity

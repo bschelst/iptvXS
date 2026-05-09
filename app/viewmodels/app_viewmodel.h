@@ -90,6 +90,7 @@ class AppViewModel : public QObject {
     Q_PROPERTY(int gridColumns READ gridColumns WRITE setGridColumns NOTIFY gridColumnsChanged)
     Q_PROPERTY(bool closeToTray READ closeToTray WRITE setCloseToTray NOTIFY closeToTrayChanged)
     Q_PROPERTY(QString videoEnhancement READ videoEnhancement WRITE setVideoEnhancement NOTIFY videoEnhancementChanged)
+    Q_PROPERTY(QString audioPreset READ audioPreset WRITE setAudioPreset NOTIFY audioPresetChanged)
     Q_PROPERTY(QString hwdecMode READ hwdecMode WRITE setHwdecMode NOTIFY hwdecModeChanged)
     Q_PROPERTY(bool deinterlace READ deinterlace WRITE setDeinterlace NOTIFY deinterlaceChanged)
     Q_PROPERTY(bool toneMapping READ toneMapping WRITE setToneMapping NOTIFY toneMappingChanged)
@@ -186,6 +187,8 @@ public:
     void setCloseToTray(bool enabled);
     QString videoEnhancement() const;
     void setVideoEnhancement(const QString &preset);
+    QString audioPreset() const;
+    void setAudioPreset(const QString &preset);
     QString hwdecMode() const;
     void setHwdecMode(const QString &mode);
     bool deinterlace() const;
@@ -277,6 +280,7 @@ signals:
     void gridColumnsChanged();
     void closeToTrayChanged();
     void videoEnhancementChanged();
+    void audioPresetChanged();
     void hwdecModeChanged();
     void deinterlaceChanged();
     void toneMappingChanged();
@@ -301,6 +305,7 @@ private:
     void purgeDisabledServersOnStartup();
     void purgeOrphanProgrammes();
     void bootstrapDefaultFreeServerSync();
+    void applyAudioPresetToPlayer();
     void applyToneMappingToPlayer();
     void purgeDisabledServerData(int64_t serverId);
     void refreshAfterServerStateChange(int64_t serverId, bool enabled);

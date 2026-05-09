@@ -15,6 +15,14 @@ void ChannelListViewModel::setRepository(iptvxs::ChannelRepository *repo) {
 void ChannelListViewModel::setFavoriteRepository(iptvxs::FavoriteRepository *favRepo) {
     favRepo_ = favRepo;
     favIds_.clear();
+    favCacheLoaded_ = false;
+    if (favRepo_) {
+        connect(favRepo_, &iptvxs::FavoriteRepository::favoritesChanged, this,
+                [this]() {
+                    favIds_.clear();
+                    favCacheLoaded_ = false;
+                });
+    }
 }
 
 int ChannelListViewModel::rowCount(const QModelIndex &parent) const {
@@ -231,12 +239,15 @@ QVariantList ChannelListViewModel::channelsForServerAndType(int64_t serverId,
     auto channels = repo_->findByServerAndType(serverId, type, 0, 0);
     if (channels.isEmpty()) return result;
 
-    QSet<int64_t> favoriteIds;
-    if (favRepo_) {
+    QSet<int64_t> favoriteIds = favIds_;
+    if (!favCacheLoaded_ && favRepo_) {
         const auto favorites = favRepo_->findAll();
+        favoriteIds.clear();
         for (const auto &favorite : favorites) {
             favoriteIds.insert(favorite.channelId);
         }
+        favIds_ = favoriteIds;
+        favCacheLoaded_ = true;
     }
 
     std::stable_partition(channels.begin(), channels.end(),
@@ -259,6 +270,17 @@ QVariantList ChannelListViewModel::channelsForServerAndType(int64_t serverId,
     }
 
     return result;
+}
+
+void ChannelListViewModel::refreshFavoriteCache() {
+    favIds_.clear();
+    favCacheLoaded_ = false;
+    if (!favRepo_) return;
+    const auto favorites = favRepo_->findAll();
+    for (const auto &favorite : favorites) {
+        favIds_.insert(favorite.channelId);
+    }
+    favCacheLoaded_ = true;
 }
 
 void ChannelListViewModel::loadChannels(bool append) {
@@ -290,9 +312,8 @@ void ChannelListViewModel::loadChannels(bool append) {
     }
 
     if (favRepo_ && !append && !result.isEmpty()) {
-        if (favIds_.isEmpty()) {
-            auto favs = favRepo_->findAll();
-            for (const auto &f : favs) favIds_.insert(f.channelId);
+        if (!favCacheLoaded_) {
+            refreshFavoriteCache();
         }
         if (!favIds_.isEmpty()) {
             std::stable_partition(result.begin(), result.end(),

@@ -89,6 +89,7 @@ private:
     void handleDownloadedEpgData(const QByteArray &data);
     void startHttp10Download(const QString &epgUrl);
     static bool decodeChunkedBody(const QByteArray &chunked, QByteArray *decoded);
+    void reloadFavoriteIds();
     void loadGrid();
     void startCurlFallbackDownload(const QString &epgUrl);
     void setSyncing(bool syncing);
@@ -101,6 +102,8 @@ private:
     iptvxs::XmltvParser parser_;
 
     QVector<EpgChannelRow> rows_;
+    QSet<int64_t> favoriteIds_;
+    bool favoriteIdsLoaded_{false};
     int64_t serverId_{0};
     int64_t timeWindowStart_{0};
     int64_t timeWindowEnd_{0};

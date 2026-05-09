@@ -161,6 +161,18 @@ ApplicationWindow {
         focusCurrentViewPrimary()
     }
 
+    function loadViewForCurrentName(view) {
+        var src = viewForName(view)
+        if (viewLoader.source === src && viewLoader.item) {
+            return
+        }
+        if (view === "vod_movies" || view === "vod_series") {
+            viewLoader.setSource(src, { "initialType": view === "vod_series" ? "series" : "vod" })
+        } else {
+            viewLoader.setSource(src)
+        }
+    }
+
     property bool focusRestorePending: false
     property int focusRestoreAttempts: 0
 
@@ -213,12 +225,7 @@ ApplicationWindow {
         function onCurrentViewChanged() {
             var view = appViewModel.currentView
             sidebar.activeItem = view
-            var src = viewForName(view)
-            if (view === "vod_movies" || view === "vod_series") {
-                viewLoader.setSource(src, { "initialType": view === "vod_series" ? "series" : "vod" })
-            } else {
-                viewLoader.setSource(src)
-            }
+            loadViewForCurrentName(view)
             if (sidebar.activeFocus) {
                 focusRestorePending = false
                 focusContentTimer.stop()
@@ -278,7 +285,6 @@ ApplicationWindow {
             if (event.key === Qt.Key_Escape || event.key === Qt.Key_Back
                     || event.key === Qt.Key_B || event.key === Qt.Key_Delete) {
                 if (appViewModel) appViewModel.player.stop()
-                if (appViewModel) appViewModel.currentView = "home"
                 event.accepted = true
             } else if (event.key === Qt.Key_Select) {
                 if (appViewModel) appViewModel.currentView = "player"
@@ -398,7 +404,6 @@ ApplicationWindow {
                 onClicked: {
                     if (appViewModel) {
                         appViewModel.player.stop()
-                        appViewModel.currentView = "home"
                     }
                 }
             }
@@ -406,7 +411,6 @@ ApplicationWindow {
             Keys.onReturnPressed: {
                 if (appViewModel) {
                     appViewModel.player.stop()
-                    appViewModel.currentView = "home"
                 }
             }
             Keys.onEnterPressed: Keys.onReturnPressed(event)
@@ -420,7 +424,6 @@ ApplicationWindow {
                 } else if (event.key === Qt.Key_Escape || event.key === Qt.Key_Back
                         || event.key === Qt.Key_B || event.key === Qt.Key_Delete) {
                     if (appViewModel) appViewModel.player.stop()
-                    if (appViewModel) appViewModel.currentView = "home"
                     event.accepted = true
                 }
             }
@@ -488,6 +491,9 @@ ApplicationWindow {
                 appViewModel.currentView = "home"
             } else if (window.visibility === Window.FullScreen) {
                 window.showNormal()
+            } else if (pipMode && appViewModel) {
+                appViewModel.player.stop()
+                return
             }
         }
     }

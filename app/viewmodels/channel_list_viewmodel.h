@@ -95,10 +95,12 @@ signals:
 private:
     void loadChannels(bool append = false);
     void updateTotalCount();
+    void refreshFavoriteCache();
 
     iptvxs::ChannelRepository *repo_{nullptr};
     iptvxs::FavoriteRepository *favRepo_{nullptr};
-    QSet<int64_t> favIds_;
+    mutable QSet<int64_t> favIds_;
+    mutable bool favCacheLoaded_{false};
     QVector<iptvxs::Channel> channels_;
     int64_t serverId_{0};
     int64_t categoryId_{0};

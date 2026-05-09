@@ -5,6 +5,9 @@
 #include <QDateTime>
 #include <QFile>
 #include <QFileInfo>
+#include <QHash>
+#include <QSet>
+#include <QTimer>
 
 RecordingListViewModel::RecordingListViewModel(QObject *parent)
     : QAbstractListModel(parent) {}
@@ -17,8 +20,8 @@ void RecordingListViewModel::setRepositories(iptvxs::RecordingRepository *record
     progRepo_ = progRepo;
     if (recordingRepo_) {
         connect(recordingRepo_, &iptvxs::RecordingRepository::recordingsChanged, this,
-                &RecordingListViewModel::loadRecordings);
-        loadRecordings();
+                &RecordingListViewModel::scheduleLoadRecordings);
+        scheduleLoadRecordings();
     }
 }
 
@@ -26,11 +29,11 @@ void RecordingListViewModel::setRecordingManager(iptvxs::RecordingManager *manag
     manager_ = manager;
     if (manager_) {
         connect(manager_, &iptvxs::RecordingManager::recordingStarted, this,
-                [this]() { emit activeCountChanged(); loadRecordings(); });
+                [this]() { emit activeCountChanged(); scheduleLoadRecordings(); });
         connect(manager_, &iptvxs::RecordingManager::recordingStopped, this,
-                [this]() { emit activeCountChanged(); loadRecordings(); });
+                [this]() { emit activeCountChanged(); scheduleLoadRecordings(); });
         connect(manager_, &iptvxs::RecordingManager::recordingFailed, this,
-                [this]() { emit activeCountChanged(); loadRecordings(); });
+                [this]() { emit activeCountChanged(); scheduleLoadRecordings(); });
     }
 }
 
@@ -141,12 +144,23 @@ void RecordingListViewModel::setFilterStatus(const QString &status) {
     if (filterStatus_ != status) {
         filterStatus_ = status;
         emit filterStatusChanged();
-        loadRecordings();
+        scheduleLoadRecordings();
     }
 }
 
 void RecordingListViewModel::refresh() {
-    loadRecordings();
+    scheduleLoadRecordings();
+}
+
+void RecordingListViewModel::scheduleLoadRecordings() {
+    if (loadPending_) {
+        return;
+    }
+    loadPending_ = true;
+    QTimer::singleShot(0, this, [this]() {
+        loadPending_ = false;
+        loadRecordings();
+    });
 }
 
 void RecordingListViewModel::scheduleRecording(int64_t channelId, int64_t startTime,
@@ -251,7 +265,7 @@ void RecordingListViewModel::deleteLocalFile(int64_t recordingId) {
     updated.filePath.clear();
     updated.fileSizeBytes = 0;
     recordingRepo_->update(updated);
-    loadRecordings();
+    scheduleLoadRecordings();
 }
 
 qint64 RecordingListViewModel::totalRecordingBytes() const {
@@ -310,7 +324,7 @@ int64_t RecordingListViewModel::startStreamRecording(int64_t channelId,
             recordingRepo_->updateThumbnailUrl(id, ch->logoUrl);
         }
     }
-    loadRecordings();
+    scheduleLoadRecordings();
     emit activeCountChanged();
     return id;
 }
@@ -331,7 +345,7 @@ void RecordingListViewModel::completeStreamRecording(int64_t recordingId, int64_
     if (fi.exists()) updated.fileSizeBytes = fi.size();
 
     recordingRepo_->update(updated);
-    loadRecordings();
+    scheduleLoadRecordings();
     emit activeCountChanged();
     if (recordingId > 0) emit recordingCreated(recordingId);
 }
@@ -352,14 +366,14 @@ void RecordingListViewModel::addCompletedRecording(int64_t channelId, int64_t st
     if (fi.exists()) rec.fileSizeBytes = fi.size();
 
     auto newId = recordingRepo_->create(rec);
-    loadRecordings();
+    scheduleLoadRecordings();
     if (newId > 0) emit recordingCreated(newId);
 }
 
 void RecordingListViewModel::clearError(int64_t recordingId) {
     if (recordingRepo_) {
         recordingRepo_->updateStatus(recordingId, QStringLiteral("failed"), QString());
-        loadRecordings();
+        scheduleLoadRecordings();
     }
 }
 
@@ -434,28 +448,58 @@ void RecordingListViewModel::loadRecordings() {
                     ? recordingRepo_->findAll()
                     : recordingRepo_->findByStatus(filterStatus_);
 
+    QHash<int64_t, iptvxs::Channel> channelCache;
+    QHash<int64_t, QString> programmeCache;
+    QSet<int64_t> channelIds;
+    QSet<int64_t> programmeIds;
+    for (const auto &rec : recs) {
+        if (rec.channelId > 0) {
+            channelIds.insert(rec.channelId);
+        }
+        if (rec.programmeId > 0) {
+            programmeIds.insert(rec.programmeId);
+        }
+    }
+
+    if (channelRepo_) {
+        for (const auto channelId : channelIds) {
+            auto ch = channelRepo_->findById(channelId);
+            if (ch) {
+                channelCache.insert(channelId, *ch);
+            }
+        }
+    }
+
+    if (progRepo_) {
+        for (const auto programmeId : programmeIds) {
+            auto prog = progRepo_->findById(programmeId);
+            if (prog) {
+                programmeCache.insert(programmeId, prog->title);
+            }
+        }
+    }
+
     QString previousSection;
     for (const auto &rec : recs) {
         RecordingEntry entry;
         entry.recording = rec;
-        entry.channelName = channelNameForId(rec.channelId);
-        if (channelRepo_) {
-            auto ch = channelRepo_->findById(rec.channelId);
-            if (ch) entry.channelLogo = ch->logoUrl;
+        if (channelCache.contains(rec.channelId)) {
+            const auto &ch = channelCache.value(rec.channelId);
+            entry.channelName = ch.name;
+            entry.channelLogo = ch.logoUrl;
+        } else {
+            entry.channelName = channelNameForId(rec.channelId);
         }
         if (progRepo_) {
-            if (rec.programmeId > 0) {
-                auto prog = progRepo_->findById(rec.programmeId);
-                if (prog) {
-                    entry.programmeTitle = prog->title;
-                }
+            if (rec.programmeId > 0 && programmeCache.contains(rec.programmeId)) {
+                entry.programmeTitle = programmeCache.value(rec.programmeId);
             }
             if (entry.programmeTitle.isEmpty() && channelRepo_) {
-                auto ch = channelRepo_->findById(rec.channelId);
-                if (ch && !ch->epgChannelId.isEmpty()) {
+                const auto chIt = channelCache.constFind(rec.channelId);
+                if (chIt != channelCache.cend() && !chIt->epgChannelId.isEmpty()) {
                     auto fromTime = rec.startTime > 0 ? rec.startTime - 1800 : 0;
                     auto toTime = rec.endTime > 0 ? rec.endTime + 1800 : rec.startTime + 7200;
-                    auto progs = progRepo_->findByChannel(ch->epgChannelId, fromTime, toTime);
+                    auto progs = progRepo_->findByChannel(chIt->epgChannelId, fromTime, toTime);
                     if (!progs.isEmpty()) {
                         entry.programmeTitle = progs.first().title;
                     }
@@ -479,7 +523,7 @@ void RecordingListViewModel::togglePin(int64_t recordingId) {
     auto rec = recordingRepo_->findById(recordingId);
     if (!rec) return;
     recordingRepo_->setPinned(recordingId, !rec->pinned);
-    loadRecordings();
+    scheduleLoadRecordings();
 }
 
 QVariantList RecordingListViewModel::recordingSections() const {

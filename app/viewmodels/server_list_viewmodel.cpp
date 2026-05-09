@@ -129,17 +129,11 @@ QVariant ServerListViewModel::data(const QModelIndex &index, int role) const {
         return dt.toString(QStringLiteral("yyyy-MM-dd HH:mm"));
     }
     case ChannelCountRole:
-        return channelRepo_
-            ? channelRepo_->countByServerAndType(server.id, QStringLiteral("live"))
-            : 0;
+        return index.row() < serverStats_.size() ? serverStats_.at(index.row()).liveCount : 0;
     case VodCountRole:
-        return channelRepo_
-            ? channelRepo_->countByServerAndType(server.id, QStringLiteral("vod"))
-            : 0;
+        return index.row() < serverStats_.size() ? serverStats_.at(index.row()).vodCount : 0;
     case SeriesCountRole:
-        return channelRepo_
-            ? channelRepo_->countByServerAndType(server.id, QStringLiteral("series"))
-            : 0;
+        return index.row() < serverStats_.size() ? serverStats_.at(index.row()).seriesCount : 0;
     case EpgUrlRole:
         return server.epgUrl;
     case EpgSourceIdRole:
@@ -216,6 +210,7 @@ void ServerListViewModel::addServer(const QString &name, const QString &type,
     server.id = id;
     beginInsertRows({}, servers_.size(), servers_.size());
     servers_.append(server);
+    serverStats_.append(ServerStats{});
     endInsertRows();
     emit countChanged();
 }
@@ -264,6 +259,9 @@ void ServerListViewModel::removeServer(int index) {
 
     beginRemoveRows({}, index, index);
     servers_.removeAt(index);
+    if (index < serverStats_.size()) {
+        serverStats_.removeAt(index);
+    }
     endRemoveRows();
     emit countChanged();
 }
@@ -458,8 +456,40 @@ void ServerListViewModel::loadServers() {
 
     beginResetModel();
     servers_ = serverRepo_->findAll();
+    serverStats_.resize(servers_.size());
     endResetModel();
+    refreshServerStats();
     emit countChanged();
+}
+
+void ServerListViewModel::refreshServerStats() {
+    if (!channelRepo_ || servers_.isEmpty()) {
+        if (!servers_.isEmpty()) {
+            for (auto &stats : serverStats_) {
+                stats = {};
+            }
+            if (!serverStats_.isEmpty()) {
+                emit dataChanged(index(0), index(servers_.size() - 1),
+                                 {ChannelCountRole, VodCountRole, SeriesCountRole});
+            }
+        }
+        return;
+    }
+
+    if (serverStats_.size() != servers_.size()) {
+        serverStats_.resize(servers_.size());
+    }
+
+    for (int i = 0; i < servers_.size(); ++i) {
+        const auto &server = servers_.at(i);
+        auto &stats = serverStats_[i];
+        stats.liveCount = channelRepo_->countByServerAndType(server.id, QStringLiteral("live"));
+        stats.vodCount = channelRepo_->countByServerAndType(server.id, QStringLiteral("vod"));
+        stats.seriesCount = channelRepo_->countByServerAndType(server.id, QStringLiteral("series"));
+    }
+
+    emit dataChanged(index(0), index(servers_.size() - 1),
+                     {ChannelCountRole, VodCountRole, SeriesCountRole});
 }
 
 void ServerListViewModel::syncXtreamServer(const iptvxs::Server &server) {

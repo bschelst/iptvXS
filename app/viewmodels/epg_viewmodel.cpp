@@ -135,6 +135,14 @@ void EpgViewModel::setRepositories(iptvxs::ProgrammeRepository *progRepo,
     progRepo_ = progRepo;
     channelRepo_ = channelRepo;
     favoriteRepo_ = favoriteRepo;
+    if (favoriteRepo_) {
+        connect(favoriteRepo_, &iptvxs::FavoriteRepository::favoritesChanged, this,
+                [this]() {
+                    reloadFavoriteIds();
+                    loadGrid();
+                });
+    }
+    reloadFavoriteIds();
 }
 
 void EpgViewModel::setHttpClient(iptvxs::HttpClient *http) {
@@ -242,6 +250,20 @@ void EpgViewModel::setSearchQuery(const QString &query) {
 
 void EpgViewModel::refresh() {
     loadGrid();
+}
+
+void EpgViewModel::reloadFavoriteIds() {
+    favoriteIds_.clear();
+    favoriteIdsLoaded_ = false;
+    if (!favoriteRepo_) {
+        return;
+    }
+
+    const auto favorites = favoriteRepo_->findAll();
+    for (const auto &fav : favorites) {
+        favoriteIds_.insert(fav.channelId);
+    }
+    favoriteIdsLoaded_ = true;
 }
 
 void EpgViewModel::handleDownloadedEpgData(const QByteArray &data) {
@@ -500,17 +522,14 @@ void EpgViewModel::loadGrid() {
     auto channels = channelRepo_->findByServerAndType(
         serverId_, QStringLiteral("live"), 0, 0);
 
-    QSet<int64_t> favoriteIds;
-    if (favoriteRepo_) {
-        for (const auto &fav : favoriteRepo_->findAll()) {
-            favoriteIds.insert(fav.channelId);
-        }
+    if (!favoriteIdsLoaded_ && favoriteRepo_) {
+        reloadFavoriteIds();
     }
 
     std::sort(channels.begin(), channels.end(),
-              [&favoriteIds](const iptvxs::Channel &a, const iptvxs::Channel &b) {
-                  const bool favA = favoriteIds.contains(a.id);
-                  const bool favB = favoriteIds.contains(b.id);
+              [this](const iptvxs::Channel &a, const iptvxs::Channel &b) {
+                  const bool favA = favoriteIds_.contains(a.id);
+                  const bool favB = favoriteIds_.contains(b.id);
                   if (favA != favB) {
                       return favA;
                   }
@@ -547,7 +566,7 @@ void EpgViewModel::loadGrid() {
         EpgChannelRow row;
         row.channel = ch;
         row.programmes = std::move(it.value());
-        row.isFavorite = favoriteIds.contains(ch.id);
+        row.isFavorite = favoriteIds_.contains(ch.id);
         newRows.append(std::move(row));
         ++matched;
 

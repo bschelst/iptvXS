@@ -535,6 +535,7 @@ bool AppViewModel::initialize(const QString &dbPath) {
     if (vePreset != QStringLiteral("off")) {
         setVideoEnhancement(vePreset);
     }
+    applyAudioPresetToPlayer();
 
     subtitlesClient_ = std::make_unique<iptvxs::OpenSubtitlesClient>(
         httpClient_.get(), this);
@@ -759,9 +760,10 @@ void AppViewModel::purgeOrphanProgrammes() {
 
     if (!q.exec(
             "DELETE FROM programmes "
-            "WHERE epg_channel_id NOT IN ("
-            "    SELECT epg_channel_id COLLATE NOCASE FROM channels "
-            "    WHERE epg_channel_id != ''"
+            "WHERE NOT EXISTS ("
+            "    SELECT 1 FROM channels "
+            "    WHERE channels.epg_channel_id != '' "
+            "      AND channels.epg_channel_id COLLATE NOCASE = programmes.epg_channel_id"
             ")")) {
         qWarning().noquote() << QStringLiteral("Failed to purge orphan programmes: %1")
                                     .arg(q.lastError().text());
@@ -1286,6 +1288,24 @@ void AppViewModel::setVideoEnhancement(const QString &preset) {
     emit videoEnhancementChanged();
 }
 
+QString AppViewModel::audioPreset() const {
+    return settingsRepo_ ? settingsRepo_->getString(QStringLiteral("audio_preset"), QStringLiteral("none")) : QStringLiteral("none");
+}
+
+void AppViewModel::setAudioPreset(const QString &preset) {
+    if (!settingsRepo_) return;
+    const QString normalized =
+        (preset == QStringLiteral("extra_bass") ||
+         preset == QStringLiteral("flat") ||
+         preset == QStringLiteral("dance") ||
+         preset == QStringLiteral("rock"))
+            ? preset
+            : QStringLiteral("none");
+    settingsRepo_->set(QStringLiteral("audio_preset"), normalized);
+    applyAudioPresetToPlayer();
+    emit audioPresetChanged();
+}
+
 QString AppViewModel::hwdecMode() const {
     return settingsRepo_ ? settingsRepo_->getString(QStringLiteral("hwdec_mode"), QStringLiteral("auto-safe")) : QStringLiteral("auto-safe");
 }
@@ -1533,6 +1553,34 @@ void AppViewModel::applyToneMappingToPlayer() {
           toneMapping() ? "enabled" : "disabled",
           algo.isEmpty() ? "auto/default" : qPrintable(algo),
           qPrintable(hdrPeak));
+}
+
+void AppViewModel::applyAudioPresetToPlayer() {
+    if (!playerVm_ || !playerVm_->mpvPlayer()->handle()) return;
+
+    const auto preset = audioPreset();
+    QString filter;
+
+    if (preset == QStringLiteral("extra_bass")) {
+        filter = QStringLiteral("lavfi=[bass=g=9:f=110:w=0.4]");
+    } else if (preset == QStringLiteral("flat")) {
+        filter.clear();
+    } else if (preset == QStringLiteral("dance")) {
+        filter = QStringLiteral("lavfi=[bass=g=6:f=120:w=0.5,treble=g=3:f=3200:w=0.4]");
+    } else if (preset == QStringLiteral("rock")) {
+        filter = QStringLiteral("lavfi=[bass=g=5:f=100:w=0.4,treble=g=4:f=4200:w=0.4]");
+    } else if (preset == QStringLiteral("voice")) {
+        filter = QStringLiteral("lavfi=[equalizer=f=180:t=q:w=1.0:g=-3,equalizer=f=1200:t=q:w=1.0:g=5,equalizer=f=5200:t=q:w=1.0:g=-1]");
+    } else if (preset == QStringLiteral("cinema")) {
+        filter = QStringLiteral("lavfi=[bass=g=4:f=90:w=0.5,equalizer=f=900:t=q:w=1.0:g=2,treble=g=2:f=5000:w=0.5]");
+    } else {
+        filter.clear();
+    }
+
+    playerVm_->mpvPlayer()->command(QStringList{QStringLiteral("af"), QStringLiteral("set"), filter});
+    qInfo("Audio preset applied: %s af=%s",
+          qPrintable(preset),
+          filter.isEmpty() ? "none" : qPrintable(filter));
 }
 
 void AppViewModel::bootstrapDefaultFreeServerSync() {
@@ -2584,8 +2632,11 @@ bool AppViewModel::updatesEnabled() const {
 }
 
 void AppViewModel::checkForUpdates() {
-#if defined(Q_OS_WIN) && IPTVXS_ENABLE_UPDATES
     if (!httpClient_) return;
+    if (latestVersion_.isEmpty()) {
+        latestVersion_ = QStringLiteral("checking...");
+        emit latestVersionChanged();
+    }
     QUrl url(QStringLiteral("https://iptvxs.schelstraete.org/api/v1/version"));
     auto *reply = httpClient_->get(url);
     QTimer::singleShot(5000, reply, [reply]() {
@@ -2619,9 +2670,6 @@ void AppViewModel::checkForUpdates() {
             qInfo("Latest version: %s (current: %s)", qPrintable(tag), qPrintable(appVersion()));
         }
     });
-#else
-    latestVersion_.clear();
-#endif
 }
 
 void AppViewModel::checkForUpdatesWithUI() {

@@ -60,6 +60,7 @@ Item {
     }
 
     Component.onCompleted: {
+        Qt.callLater(focusPrimary)
         if (channelList && channelList.rowCount() === 0
                 && appViewModel && appViewModel.serverList.count > 0) {
             var firstEnabledIdx = appViewModel.serverList.firstEnabledServerIndex()
@@ -91,9 +92,14 @@ Item {
     }
 
     ScrollView {
+        focus: true
         anchors.fill: parent
         anchors.margins: Theme.spacingLg
         contentWidth: availableWidth
+
+        Keys.onDownPressed: {
+            root.focusInternetTestButton()
+        }
 
         ColumnLayout {
             width: parent.width
@@ -236,6 +242,8 @@ Item {
                                 implicitHeight: 40
                                 radius: Theme.borderRadius
                                 color: parent.hovered ? Theme.accentHover : Theme.accent
+                                border.width: parent.activeFocus ? 2 : 1
+                                border.color: parent.activeFocus ? Theme.textOnAccent : Theme.accent
                                 Behavior on color { ColorAnimation { duration: Theme.animFast } }
                             }
                             onClicked: {
@@ -274,6 +282,8 @@ Item {
                                 radius: Theme.borderRadius
                                 color: parent.hovered
                                     ? Qt.darker(Theme.error, 1.2) : Theme.error
+                                border.width: parent.activeFocus ? 2 : 1
+                                border.color: parent.activeFocus ? Theme.textOnAccent : Theme.error
 
                                 Behavior on color {
                                     ColorAnimation { duration: Theme.animFast }
@@ -503,7 +513,7 @@ Item {
                                                 ? Theme.surfaceHover : Theme.surface
                                         border.width: 1
                                         border.color: (durationFlow.activeFocus && durationFlow.subFocusIndex === index)
-                                            ? Theme.accent : Theme.surfaceBorder
+                                            ? Theme.textOnAccent : Theme.surfaceBorder
                                         focus: false
                                         activeFocusOnTab: true
 

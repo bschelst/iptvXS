@@ -124,10 +124,12 @@ Item {
     }
 
     function focusHeaderControls() {
-        if (epgPrevBtn) {
-            epgPrevBtn.forceActiveFocus()
-        } else if (epgSearch) {
+        if (epgSearch) {
             epgSearch.forceActiveFocus()
+        } else if (serverPicker) {
+            serverPicker.forceActiveFocus()
+        } else if (epgPrevBtn) {
+            epgPrevBtn.forceActiveFocus()
         }
     }
 
@@ -208,10 +210,19 @@ Item {
                             onTextChanged: epgSearchTimer.restart()
 
                             Keys.onRightPressed: {
-                                epgView.focusPrimary()
+                                if (serverPicker) {
+                                    serverPicker.forceActiveFocus()
+                                } else {
+                                    epgView.focusPrimary()
+                                }
                             }
                             Keys.onDownPressed: {
                                 epgView.focusPrimary()
+                            }
+                            Keys.onLeftPressed: {
+                                if (Window.window && Window.window.focusSidebar) {
+                                    Window.window.focusSidebar()
+                                }
                             }
                             Keys.onPressed: function(event) {
                                 if (event.key === Qt.Key_Back || event.key === Qt.Key_Escape) {
@@ -240,6 +251,7 @@ Item {
                     model: appViewModel ? appViewModel.serverList : null
                     textRole: "name"
                     valueRole: "serverId"
+                    activeFocusOnTab: true
 
                     background: Rectangle {
                         radius: Theme.borderRadiusSmall
@@ -298,6 +310,26 @@ Item {
                     }
                     onActivated: {
                         defaultServerApplied = true
+                    }
+
+                    Keys.onLeftPressed: {
+                        if (epgSearch) epgSearch.forceActiveFocus()
+                    }
+                    Keys.onRightPressed: {
+                        if (epgPrevBtn) epgPrevBtn.forceActiveFocus()
+                    }
+                    Keys.onDownPressed: {
+                        if (popup) popup.open()
+                    }
+                    Keys.onReturnPressed: {
+                        if (popup) popup.open()
+                    }
+                    Keys.onEnterPressed: Keys.onReturnPressed(event)
+                    Keys.onPressed: function(event) {
+                        if (event.key === Qt.Key_Select || event.key === Qt.Key_Space) {
+                            if (popup) popup.open()
+                            event.accepted = true
+                        }
                     }
                 }
 

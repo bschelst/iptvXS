@@ -1,13 +1,24 @@
 // iptvXS Project - Schelstraete Bart - https://iptvxs.schelstraete.org
 #include "iptvxs/db/settings_repository.h"
 
+#include <QDebug>
 #include <QSqlError>
 #include <QSqlQuery>
 
 namespace iptvxs {
 
 SettingsRepository::SettingsRepository(QSqlDatabase db, QObject *parent)
-    : QObject(parent), db_(std::move(db)) {}
+    : SettingsRepository(std::move(db), nullptr, parent) {}
+
+SettingsRepository::SettingsRepository(QSqlDatabase db, CredentialVault *credentialVault, QObject *parent)
+    : QObject(parent), db_(std::move(db)) {
+    if (credentialVault) {
+        credentialVaultPtr_ = credentialVault;
+    } else {
+        ownedCredentialVault_ = std::make_unique<CredentialVault>();
+        credentialVaultPtr_ = ownedCredentialVault_.get();
+    }
+}
 
 std::optional<QString> SettingsRepository::get(const QString &key) const {
     QSqlQuery query(db_);
@@ -19,9 +30,32 @@ std::optional<QString> SettingsRepository::get(const QString &key) const {
     return std::nullopt;
 }
 
+bool SettingsRepository::isEncryptedSettingKey(const QString &key) const {
+    return key == QStringLiteral("gdrive_access_token")
+        || key == QStringLiteral("gdrive_refresh_token");
+}
+
+QString SettingsRepository::maybeDecryptValue(const QString &key, const QString &value) const {
+    if (!credentialVaultPtr_ || value.isEmpty() || !isEncryptedSettingKey(key)) {
+        return value;
+    }
+    const auto decrypted = credentialVaultPtr_->decrypt(value, key);
+    return decrypted.isEmpty() ? value : decrypted;
+}
+
+QString SettingsRepository::maybeEncryptValue(const QString &key, const QString &value) const {
+    if (!credentialVaultPtr_ || value.isEmpty() || !isEncryptedSettingKey(key)) {
+        return value;
+    }
+    const auto encrypted = credentialVaultPtr_->encrypt(value, key);
+    return encrypted.isEmpty() ? value : encrypted;
+}
+
 QString SettingsRepository::getString(const QString &key,
                                        const QString &defaultValue) const {
-    return get(key).value_or(defaultValue);
+    auto value = get(key);
+    if (!value) return defaultValue;
+    return maybeDecryptValue(key, *value);
 }
 
 int SettingsRepository::getInt(const QString &key, int defaultValue) const {
@@ -52,9 +86,10 @@ void SettingsRepository::set(const QString &key, const QString &value) {
         "INSERT INTO settings (key, value) VALUES (?, ?) "
         "ON CONFLICT(key) DO UPDATE SET value = excluded.value");
     query.addBindValue(key);
-    query.addBindValue(value);
+    const auto storedValue = maybeEncryptValue(key, value);
+    query.addBindValue(storedValue);
     if (query.exec()) {
-        emit settingChanged(key, value);
+        emit settingChanged(key, storedValue);
     }
 }
 
@@ -79,6 +114,14 @@ void SettingsRepository::remove(const QString &key) {
 
 bool SettingsRepository::contains(const QString &key) const {
     return get(key).has_value();
+}
+
+bool SettingsRepository::isEncryptedStoredValue(const QString &key) const {
+    if (!credentialVaultPtr_ || !isEncryptedSettingKey(key)) {
+        return false;
+    }
+    auto value = get(key);
+    return value.has_value() && credentialVaultPtr_->isEncryptedValue(*value);
 }
 
 } // namespace iptvxs

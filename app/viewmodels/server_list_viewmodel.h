@@ -95,7 +95,14 @@ signals:
     void errorOccurred(const QString &message);
 
 private:
+    struct ServerStats {
+        int liveCount{0};
+        int vodCount{0};
+        int seriesCount{0};
+    };
+
     void loadServers();
+    void refreshServerStats();
     void syncXtreamServer(const iptvxs::Server &server);
     void syncM3uServer(const iptvxs::Server &server);
     void setSyncing(bool value);
@@ -113,6 +120,7 @@ private:
     iptvxs::EpgSourceRepository *epgSourceRepo_{nullptr};
 
     QVector<iptvxs::Server> servers_;
+    QVector<ServerStats> serverStats_;
     bool syncing_{false};
     QString syncStatus_;
 };

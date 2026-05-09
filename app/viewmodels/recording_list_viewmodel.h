@@ -102,6 +102,7 @@ private:
         bool showDateHeader{false};
     };
 
+    void scheduleLoadRecordings();
     void loadRecordings();
     QString channelNameForId(int64_t channelId) const;
 
@@ -112,4 +113,5 @@ private:
     QVector<RecordingEntry> recordings_;
     QString filterStatus_;
     int modelRevision_{0};
+    bool loadPending_{false};
 };
