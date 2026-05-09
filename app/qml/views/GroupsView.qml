@@ -557,32 +557,59 @@ Item {
                 }
             }
 
-            ListView {
+            GridView {
                 id: memberListView
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 clip: true
                 model: memberListModel
-                spacing: 6
+                cellWidth: 210
+                cellHeight: 180
+                leftMargin: Theme.spacingMd
+                rightMargin: Theme.spacingMd
+                topMargin: Theme.spacingSm
                 keyNavigationEnabled: true
                 highlightFollowsCurrentItem: true
+                property int cols: Math.max(1, Math.floor((width - leftMargin - rightMargin) / cellWidth))
                 onCountChanged: groupsView.clampListIndex(memberListView)
 
-                ScrollBar.vertical: ScrollBar { active: true; policy: ScrollBar.AsNeeded }
+                ScrollBar.vertical: ScrollBar {
+                    active: true
+                    policy: ScrollBar.AsNeeded
+                    contentItem: Rectangle {
+                        implicitWidth: 6; radius: 3
+                        color: Theme.accent
+                        opacity: parent.active ? 0.8 : 0.0
+                        Behavior on opacity { NumberAnimation { duration: Theme.animNormal } }
+                    }
+                    background: Rectangle { implicitWidth: 6; color: "transparent" }
+                }
 
                 Keys.onUpPressed: {
-                    if (currentIndex > 0) {
-                        currentIndex--
+                    if (currentIndex >= cols) {
+                        currentIndex -= cols
                     } else if (addChannelsBtn && addChannelsBtn.visible) {
                         addChannelsBtn.forceActiveFocus()
                     } else {
                         groupsView.focusGroupList()
                     }
                 }
-                Keys.onDownPressed: { if (currentIndex < count - 1) currentIndex++ }
-                Keys.onLeftPressed: groupsView.focusGroupList()
+                Keys.onDownPressed: {
+                    if (currentIndex + cols < count) {
+                        currentIndex += cols
+                    }
+                }
+                Keys.onLeftPressed: {
+                    if (currentIndex > 0 && (currentIndex % cols) !== 0) {
+                        currentIndex--
+                    } else {
+                        groupsView.focusGroupList()
+                    }
+                }
                 Keys.onRightPressed: {
-                    if (addChannelsBtn && addChannelsBtn.visible) {
+                    if (currentIndex < count - 1 && ((currentIndex + 1) % cols) !== 0) {
+                        currentIndex++
+                    } else if (addChannelsBtn && addChannelsBtn.visible) {
                         addChannelsBtn.forceActiveFocus()
                     }
                 }
@@ -600,7 +627,7 @@ Item {
                 }
                 Keys.onEnterPressed: Keys.onReturnPressed(event)
                 Keys.onPressed: function(event) {
-                    if (event.key === Qt.Key_Select) {
+                    if (event.key === Qt.Key_Select || event.key === Qt.Key_Space) {
                         Keys.onReturnPressed(event)
                         event.accepted = true
                     } else if ((event.key === Qt.Key_Delete || event.key === Qt.Key_Backspace)
@@ -617,147 +644,178 @@ Item {
                     }
                 }
 
-                delegate: Rectangle {
-                    width: memberListView.width - 24
-                    height: 64
-                    x: 12
-                    radius: 8
-                    color: memHov ? Theme.surfaceHover : Theme.surfaceElevated
-                    border.color: (memberListView.activeFocus && memberListView.currentIndex === index)
-                        ? Theme.accent
-                        : memHov ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.25) : "transparent"
-                    border.width: (memberListView.activeFocus && memberListView.currentIndex === index) ? 2 : 1
-                    property bool memHov: false
+                delegate: Item {
+                    width: memberListView.cellWidth
+                    height: memberListView.cellHeight
+                    focus: memberListView.activeFocus && memberListView.currentIndex === index
+                    activeFocusOnTab: true
+
+                    function activate() {
+                        if (!appViewModel) return
+                        if (model.mtype === "live") {
+                            appViewModel.setZapContext(appViewModel.groupList.membersAsList(), model.mchannelId, selectedGroupName || "Groups")
+                        } else {
+                            appViewModel.clearZapContext()
+                        }
+                        appViewModel.player.play(model.mstreamUrl, model.mname, model.mlogoUrl, model.mchannelId, "", 0, true, true)
+                        appViewModel.currentView = "player"
+                    }
 
                     Rectangle {
-                        id: mLogo
-                        anchors.left: parent.left
-                        anchors.leftMargin: 12
-                        anchors.verticalCenter: parent.verticalCenter
-                        width: 44; height: 44; radius: 6
-                        color: Theme.surface
+                        id: mGridCard
+                        anchors.fill: parent
+                        anchors.margins: 4
+                        radius: 10
+                        color: Theme.surfaceElevated
                         clip: true
+                        property bool memHov: false
 
                         Image {
+                            id: mGridLogo
                             anchors.fill: parent
-                            anchors.margins: 4
                             source: model.mlogoUrl || ""
-                            fillMode: Image.PreserveAspectFit
+                            fillMode: Image.PreserveAspectCrop
                             asynchronous: true
                             visible: status === Image.Ready
-                            onStatusChanged: {
-                                if (status === Image.Error) {
-                                    source = ""
+                            cache: true
+                        }
+
+                        FallbackLogo {
+                            visible: !mGridLogo.visible
+                            logoOpacity: 0.2
+                            logoSize: 56
+                            logoYOffset: -20
+                        }
+
+                        // Channel-type icon (top-left), same monochrome style as HomeView
+                        Rectangle {
+                            visible: model.mtype && model.mtype.length > 0
+                            anchors.top: parent.top
+                            anchors.left: parent.left
+                            anchors.margins: 8
+                            width: 26
+                            height: 26
+                            radius: 13
+                            color: "#C0000000"
+                            z: 200
+
+                            Text {
+                                anchors.centerIn: parent
+                                text: model.mtype === "live" ? "\u25AD"
+                                    : model.mtype === "series" ? "\u25EB"
+                                    : (model.mtype === "vod" || model.mtype === "movie") ? "\u25B6"
+                                    : ""
+                                font.pixelSize: 14
+                                font.bold: true
+                                font.family: "DejaVu Sans"
+                                color: "#ffffff"
+                            }
+                        }
+
+                        // Bottom gradient + name
+                        Rectangle {
+                            anchors.bottom: parent.bottom
+                            width: parent.width
+                            height: 50
+                            gradient: Gradient {
+                                GradientStop { position: 0.0; color: "transparent" }
+                                GradientStop { position: 0.4; color: "#CC000000" }
+                            }
+
+                            Text {
+                                anchors.left: parent.left
+                                anchors.right: parent.right
+                                anchors.bottom: parent.bottom
+                                anchors.margins: 8
+                                text: model.mname
+                                font.pixelSize: Theme.fontSizeXs
+                                font.bold: true
+                                color: "#ffffff"
+                                elide: Text.ElideRight
+                                wrapMode: Text.Wrap
+                                maximumLineCount: 2
+                            }
+                        }
+
+                        // Delete button (top-right) for static groups only
+                        Rectangle {
+                            id: mDelBtn
+                            visible: selectedGroupMode !== "dynamic"
+                                && (mGridCard.memHov || (memberListView.activeFocus && memberListView.currentIndex === index))
+                            anchors.top: parent.top
+                            anchors.right: parent.right
+                            anchors.margins: 8
+                            width: 26
+                            height: 26
+                            radius: 13
+                            color: mDelHov ? Theme.error : "#C0000000"
+                            z: 200
+                            property bool mDelHov: false
+
+                            Text {
+                                anchors.centerIn: parent
+                                text: "\u2715"
+                                font.pixelSize: 12
+                                font.bold: true
+                                font.family: "DejaVu Sans"
+                                color: "#ffffff"
+                            }
+                            MouseArea {
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onEntered: parent.mDelHov = true
+                                onExited: parent.mDelHov = false
+                                onClicked: {
+                                    if (appViewModel) {
+                                        appViewModel.groupList.removeChannel(selectedGroupId, model.mchannelId)
+                                        groupsView.reloadMembers()
+                                        groupsView.reloadGroups()
+                                    }
                                 }
                             }
                         }
-                        Text {
-                            anchors.centerIn: parent
-                            text: "\uD83D\uDCFA"
-                            font.pixelSize: 16
-                            visible: !model.mlogoUrl
-                        }
-                    }
 
-                    Column {
-                        anchors.left: mLogo.right
-                        anchors.leftMargin: 12
-                        anchors.right: selectedGroupMode === "dynamic" ? parent.right : mDelBtn.left
-                        anchors.rightMargin: 8
-                        anchors.verticalCenter: parent.verticalCenter
-                        spacing: 3
-
-                        Text {
-                            text: model.mname
-                            font.pixelSize: 14
-                            color: Theme.textPrimary
-                            elide: Text.ElideRight
-                            width: parent.width
-                        }
-                        Text {
-                            text: model.mtype ? model.mtype.toUpperCase() : ""
-                            font.pixelSize: 11
-                            color: Theme.textMuted
-                        }
-                    }
-
-                    Rectangle {
-                        id: mDelBtn
-                        visible: selectedGroupMode !== "dynamic"
-                        anchors.right: parent.right
-                        anchors.rightMargin: 12
-                        anchors.verticalCenter: parent.verticalCenter
-                        width: 32; height: 32; radius: 16
-                        color: mDelHov ? Qt.rgba(Theme.error.r, Theme.error.g, Theme.error.b, 0.19) : "transparent"
-                        property bool mDelHov: false
-                        focus: false
-                        activeFocusOnTab: true
-
-                        Text {
-                            anchors.centerIn: parent
-                            text: "\u2715"
-                            font.pixelSize: 14; font.bold: true
-                            color: parent.mDelHov ? "#ffffff" : Theme.textMuted
-                        }
                         MouseArea {
                             anchors.fill: parent
                             hoverEnabled: true
                             cursorShape: Qt.PointingHandCursor
-                            onEntered: parent.mDelHov = true
-                            onExited: parent.mDelHov = false
+                            onEntered: mGridCard.memHov = true
+                            onExited: mGridCard.memHov = false
                             onClicked: {
-                                if (appViewModel) {
-                                    appViewModel.groupList.removeChannel(selectedGroupId, model.mchannelId)
-                                    groupsView.reloadMembers()
-                                    groupsView.reloadGroups()
+                                // Don't trigger play if clicking the delete button area
+                                var btnRight = parent.width
+                                var btnLeft = btnRight - 42
+                                var btnTop = 0
+                                var btnBottom = 42
+                                if (mDelBtn.visible
+                                        && mouseX >= btnLeft && mouseX <= btnRight
+                                        && mouseY >= btnTop && mouseY <= btnBottom) {
+                                    return
                                 }
+                                activate()
                             }
                         }
 
-                        Keys.onLeftPressed: {
-                            if (memberListView) memberListView.forceActiveFocus()
-                        }
-                        Keys.onReturnPressed: {
-                            if (appViewModel) {
-                                appViewModel.groupList.removeChannel(selectedGroupId, model.mchannelId)
-                                groupsView.reloadMembers()
-                                groupsView.reloadGroups()
-                            }
-                        }
-                        Keys.onEnterPressed: Keys.onReturnPressed(event)
-                        Keys.onPressed: function(event) {
-                            if (event.key === Qt.Key_Select || event.key === Qt.Key_Space
-                                    || event.key === Qt.Key_Delete || event.key === Qt.Key_Backspace) {
-                                if (appViewModel) {
-                                    appViewModel.groupList.removeChannel(selectedGroupId, model.mchannelId)
-                                    groupsView.reloadMembers()
-                                    groupsView.reloadGroups()
-                                }
-                                event.accepted = true
-                            }
+                        // Focus/hover border
+                        Rectangle {
+                            anchors.fill: parent
+                            radius: mGridCard.radius
+                            color: "transparent"
+                            border.color: (mGridCard.memHov || (memberListView.activeFocus && memberListView.currentIndex === index))
+                                ? Theme.accent : "transparent"
+                            border.width: (mGridCard.memHov || (memberListView.activeFocus && memberListView.currentIndex === index)) ? 2 : 0
+                            z: 100
                         }
                     }
 
-                    MouseArea {
-                        anchors.left: mLogo.left
-                        anchors.right: selectedGroupMode === "dynamic" ? parent.right : mDelBtn.left
-                        anchors.top: parent.top
-                        anchors.bottom: parent.bottom
-                        hoverEnabled: true
-                        cursorShape: Qt.PointingHandCursor
-                        onEntered: parent.memHov = true
-                        onExited: parent.memHov = false
-                    onClicked: {
-                        if (appViewModel) {
-                            if (model.mtype === "live") {
-                                appViewModel.setZapContext(appViewModel.groupList.membersAsList(), model.mchannelId, selectedGroupName || "Groups")
-                            } else {
-                                appViewModel.clearZapContext()
-                            }
-                            appViewModel.player.play(model.mstreamUrl, model.mname, model.mlogoUrl, model.mchannelId, "", 0, true, true)
-                            appViewModel.currentView = "player"
+                    Keys.onReturnPressed: activate()
+                    Keys.onEnterPressed: Keys.onReturnPressed(event)
+                    Keys.onPressed: function(event) {
+                        if (event.key === Qt.Key_Select || event.key === Qt.Key_Space) {
+                            activate()
+                            event.accepted = true
                         }
-                    }
                     }
                 }
 
