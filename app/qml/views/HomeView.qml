@@ -985,16 +985,23 @@ Item {
                 target: posterDelegate
             }
 
-            // Focus/hover border
+            // Focus/hover border.
+            // When the ListView has keyboard focus, only the current item
+            // highlights — hover is ignored. Otherwise hover takes over.
+            // Without this guard, a stale hover on a card that the user
+            // previously moused over keeps it lit while D-pad moves on,
+            // so multiple cards appear "highlighted" simultaneously.
             Rectangle {
                 anchors.fill: posterCard
                 radius: posterCard.radius
                 color: "transparent"
                 border.width: 2
                 border.color: {
-                    if (posterHoverHandler.hovered) return Theme.accent
                     var lv = posterDelegate.ListView.view
-                    if (lv && lv.activeFocus && lv.currentIndex === index) return Theme.accent
+                    if (lv && lv.activeFocus) {
+                        return lv.currentIndex === index ? Theme.accent : "transparent"
+                    }
+                    if (posterHoverHandler.hovered) return Theme.accent
                     return "transparent"
                 }
                 z: 100
@@ -1045,15 +1052,18 @@ Item {
                 color: qaCard.cardHovered ? Theme.surfaceHover : Theme.surfaceElevated
                 border.width: {
                     var lv = qaDelegate.ListView.view
+                    if (lv && lv.activeFocus) {
+                        return lv.currentIndex === index ? 2 : 1
+                    }
                     if (qaHoverHandler.hovered) return 2
-                    return (lv && lv.activeFocus && lv.currentIndex === index) ? 2 : 1
+                    return 1
                 }
                 border.color: {
-                    if (qaHoverHandler.hovered) {
-                        return Theme.accent
-                    }
                     var lv = qaDelegate.ListView.view
-                    if (lv && lv.activeFocus && lv.currentIndex === index) return Theme.accent
+                    if (lv && lv.activeFocus) {
+                        return lv.currentIndex === index ? Theme.accent : Theme.surfaceBorder
+                    }
+                    if (qaHoverHandler.hovered) return Theme.accent
                     return Theme.surfaceBorder
                 }
 
