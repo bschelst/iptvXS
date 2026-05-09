@@ -17,6 +17,7 @@ Fixing issues in flatpak & testing Sync.
 - mpv demuxer cache bumped from 50 MiB to 128 MiB to absorb network jitter on high-bitrate streams.
 - Player HUD auto-hide now actually fires after 3 seconds of idle (was blocked by sub-pixel pointer jitter and a focused-control guard).
 - Auto channel sync no longer loops every ~3 minutes when one server stalls — the watchdog now stamps the cycle as complete on timeout, so the next sync is one full interval (24h) away instead of 60 seconds.
+- Sidebar reappears after exiting a full-screen video by any path (Escape, controller B, view switch, etc.) — the `videoFullscreen` flag is now reset centrally in the view-change observer instead of relying on every exit path to clean up.
 
 ### Added
 - Configurable backup folder name in Settings (`iptvXS/backup` default).
