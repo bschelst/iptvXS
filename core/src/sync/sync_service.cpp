@@ -1,11 +1,14 @@
 // iptvXS Project - Schelstraete Bart - https://iptvxs.schelstraete.org
 #include "iptvxs/sync/sync_service.h"
 
+#include <QByteArray>
 #include <QDateTime>
+#include <QDir>
 #include <QFile>
 #include <QFileInfo>
 #include <QSqlError>
 #include <QSqlQuery>
+#include <QStandardPaths>
 #include <QUuid>
 
 #include "iptvxs/sync/snapshot.h"
@@ -15,8 +18,10 @@ namespace iptvxs {
 namespace {
 constexpr const char *kKeyDeviceUuid = "device_uuid";
 constexpr const char *kKeyLastSyncedAt = "last_synced_at";
+constexpr const char *kKeyLastBackupAt = "last_backup_at";
 constexpr const char *kKeyEnabled = "sync_enabled";
 constexpr const char *kKeyFolderName = "sync_folder_name";
+constexpr const char *kKeyBackupFolderName = "backup_folder_name";
 constexpr const char *kKeySyncFileId = "sync_file_id";
 
 const QStringList kTombstoneTables = {
@@ -24,20 +29,74 @@ const QStringList kTombstoneTables = {
     QStringLiteral("channel_groups"), QStringLiteral("group_members"),
     QStringLiteral("servers")
 };
+
+// Migrate legacy flat folder names to nested paths under iptvXS/.
+QString migrateLegacyFolderName(const QString &stored, const QString &nestedDefault) {
+    static const QHash<QString, QString> kLegacy = {
+        {QStringLiteral("iptvXS-sync"),    QStringLiteral("iptvXS/sync")},
+        {QStringLiteral("iptvxs-sync"),    QStringLiteral("iptvXS/sync")},
+        {QStringLiteral("iptvXS-backup"),  QStringLiteral("iptvXS/backup")},
+        {QStringLiteral("iptvxs-backup"),  QStringLiteral("iptvXS/backup")},
+    };
+    if (stored.isEmpty()) return nestedDefault;
+    const auto it = kLegacy.find(stored);
+    if (it != kLegacy.end()) return it.value();
+    return stored;
+}
 } // namespace
 
 SyncService::SyncService(QSqlDatabase db, GDriveAuth *auth, CredentialVault *vault,
-                         QObject *parent)
-    : QObject(parent), db_(std::move(db)), auth_(auth), vault_(vault), io_(auth, this) {
+                         GDriveUploader *uploader, QObject *parent)
+    : QObject(parent), db_(std::move(db)), auth_(auth), vault_(vault),
+      uploader_(uploader), io_(auth, this) {
+    if (uploader_) {
+        // Route resumable-upload completion/failure back to whichever pending
+        // BackupCallback corresponds to that synthetic recordingId.
+        connect(uploader_, &GDriveUploader::uploadCompleted, this,
+                [this](int64_t recordingId, const QString &fileId) {
+                    if (!pendingBackups_.contains(recordingId)) return;
+                    auto cb = pendingBackups_.take(recordingId);
+                    qInfo("[SYNC] backup complete via resumable upload: id=%lld file=%s",
+                          static_cast<long long>(recordingId), qPrintable(fileId));
+                    const auto now = QDateTime::currentSecsSinceEpoch();
+                    writeSyncState(QLatin1String(kKeyLastBackupAt),
+                                   QString::number(now));
+                    writeSyncState(QStringLiteral("last_backup_file_id"), fileId);
+                    lastBackupAt_ = now;
+                    emit lastBackupAtChanged();
+                    if (pendingBackupTempFiles_.contains(recordingId)) {
+                        QFile::remove(pendingBackupTempFiles_.take(recordingId));
+                    }
+                    setBackupInProgress(false);
+                    const auto msg = QStringLiteral("Backup uploaded");
+                    if (cb) cb(true, msg, fileId);
+                    emit backupCompleted(true, msg);
+                });
+        connect(uploader_, &GDriveUploader::uploadFailed, this,
+                [this](int64_t recordingId, const QString &error) {
+                    if (!pendingBackups_.contains(recordingId)) return;
+                    auto cb = pendingBackups_.take(recordingId);
+                    qWarning("[SYNC] backup upload failed: %s", qPrintable(error));
+                    if (pendingBackupTempFiles_.contains(recordingId)) {
+                        QFile::remove(pendingBackupTempFiles_.take(recordingId));
+                    }
+                    setBackupInProgress(false);
+                    if (cb) cb(false, error, {});
+                    emit backupCompleted(false, error);
+                });
+    }
     deviceUuid_ = readSyncState(QLatin1String(kKeyDeviceUuid));
     if (deviceUuid_.isEmpty()) {
         deviceUuid_ = QUuid::createUuid().toString(QUuid::WithoutBraces);
         writeSyncState(QLatin1String(kKeyDeviceUuid), deviceUuid_);
     }
     enabled_ = readSyncState(QLatin1String(kKeyEnabled)) == QLatin1String("1");
-    const auto storedFolder = readSyncState(QLatin1String(kKeyFolderName));
-    if (!storedFolder.isEmpty()) folderName_ = storedFolder;
+    folderName_ = migrateLegacyFolderName(readSyncState(QLatin1String(kKeyFolderName)),
+                                          folderName_);
+    backupFolderName_ = migrateLegacyFolderName(
+        readSyncState(QLatin1String(kKeyBackupFolderName)), backupFolderName_);
     lastSyncedAt_ = readSyncState(QLatin1String(kKeyLastSyncedAt)).toLongLong();
+    lastBackupAt_ = readSyncState(QLatin1String(kKeyLastBackupAt)).toLongLong();
 
     hourlyTimer_.setInterval(kHourlyMs);
     hourlyTimer_.setSingleShot(false);
@@ -47,10 +106,19 @@ SyncService::SyncService(QSqlDatabase db, GDriveAuth *auth, CredentialVault *vau
 
 bool SyncService::enabled() const { return enabled_; }
 QString SyncService::folderName() const { return folderName_; }
+QString SyncService::backupFolderName() const { return backupFolderName_; }
 qint64 SyncService::lastSyncedAt() const { return lastSyncedAt_; }
+qint64 SyncService::lastBackupAt() const { return lastBackupAt_; }
 QString SyncService::lastStatus() const { return lastStatus_; }
 bool SyncService::inProgress() const { return inProgress_; }
+bool SyncService::backupInProgress() const { return backupInProgress_; }
 QString SyncService::deviceUuid() const { return deviceUuid_; }
+
+void SyncService::setBackupInProgress(bool on) {
+    if (backupInProgress_ == on) return;
+    backupInProgress_ = on;
+    emit backupInProgressChanged();
+}
 
 void SyncService::setEnabled(bool on) {
     if (enabled_ == on) return;
@@ -75,6 +143,32 @@ void SyncService::setFolderName(const QString &name) {
     writeSyncState(QLatin1String(kKeySyncFileId), {});
     emit folderNameChanged();
     qInfo("[SYNC] folder name changed to '%s'", qPrintable(folderName_));
+}
+
+void SyncService::setBackupFolderName(const QString &name) {
+    const auto trimmed = name.trimmed();
+    if (trimmed.isEmpty() || trimmed == backupFolderName_) return;
+    backupFolderName_ = trimmed;
+    writeSyncState(QLatin1String(kKeyBackupFolderName), backupFolderName_);
+    emit backupFolderNameChanged();
+    qInfo("[SYNC] backup folder name changed to '%s'", qPrintable(backupFolderName_));
+}
+
+void SyncService::resolveBackupFolderThen(std::function<void(const QString &)> next,
+                                          BackupCallback cb) {
+    io_.ensureFolder(backupFolderName_,
+        [this, next, cb](const QString &folderId, const QString &err) {
+            if (!err.isEmpty()) {
+                qWarning("[SYNC] failed to resolve backup folder '%s': %s",
+                         qPrintable(backupFolderName_), qPrintable(err));
+                setBackupInProgress(false);
+                const auto msg = QStringLiteral("Folder error: %1").arg(err);
+                if (cb) cb(false, msg, {});
+                emit backupCompleted(false, msg);
+                return;
+            }
+            next(folderId);
+        });
 }
 
 void SyncService::syncNow() {
@@ -188,42 +282,84 @@ void SyncService::runCycle(bool manual) {
 }
 
 void SyncService::backupDatabase(const QString &dbPath, BackupCallback cb) {
+    auto fail = [this, cb](const QString &msg) {
+        setBackupInProgress(false);
+        if (cb) cb(false, msg, {});
+        emit backupCompleted(false, msg);
+    };
+
+    if (backupInProgress_) {
+        fail(QStringLiteral("Backup already in progress"));
+        return;
+    }
     if (!auth_ || !auth_->isAuthenticated()) {
-        if (cb) cb(false, QStringLiteral("Not authenticated with Google Drive"), {});
+        fail(QStringLiteral("Not authenticated with Google Drive"));
         return;
     }
-    QFile f(dbPath);
-    if (!f.open(QIODevice::ReadOnly)) {
-        if (cb) cb(false, QStringLiteral("Cannot read DB file: %1").arg(dbPath), {});
+    if (!uploader_) {
+        fail(QStringLiteral("Resumable uploader unavailable"));
         return;
     }
-    const auto bytes = f.readAll();
-    f.close();
-    qInfo("[SYNC] starting database backup (%lld bytes)",
-          static_cast<long long>(bytes.size()));
+    QFileInfo fi(dbPath);
+    if (!fi.exists()) {
+        fail(QStringLiteral("DB file not found: %1").arg(dbPath));
+        return;
+    }
 
+    setBackupInProgress(true);
+    qInfo("[SYNC] starting database backup (raw=%lld bytes) — compressing",
+          static_cast<long long>(fi.size()));
+
+    QFile src(dbPath);
+    if (!src.open(QIODevice::ReadOnly)) {
+        fail(QStringLiteral("Cannot read DB: %1").arg(src.errorString()));
+        return;
+    }
+    const auto raw = src.readAll();
+    src.close();
+    // qCompress = zlib deflate with a 4-byte length prefix (Qt-specific).
+    // .qcz extension keeps users from assuming the file is a real .gz.
+    const auto compressed = qCompress(raw, 9);
+    if (compressed.isEmpty()) {
+        fail(QStringLiteral("Compression failed"));
+        return;
+    }
+
+    const auto cacheRoot =
+        QStandardPaths::writableLocation(QStandardPaths::CacheLocation);
+    QDir().mkpath(cacheRoot);
     const auto stamp = QDateTime::currentDateTimeUtc().toString("yyyyMMdd-HHmmss");
-    const auto fileName = QStringLiteral("iptvXS-backup-%1.db").arg(stamp);
+    const auto fileName = QStringLiteral("iptvXS-backup-%1.db.qcz").arg(stamp);
+    const auto tempPath = cacheRoot + QLatin1Char('/') + fileName;
 
-    resolveFolderThen([this, bytes, fileName, cb](const QString &folderId) {
-        io_.uploadBytes(bytes, fileName,
-                        QByteArrayLiteral("application/x-sqlite3"),
-                        folderId, {},
-                        [this, cb, fileName](const QString &fileId, const QString &err) {
-                            if (!err.isEmpty()) {
-                                qWarning("[SYNC] backup upload failed: %s",
-                                         qPrintable(err));
-                                if (cb) cb(false, err, {});
-                                return;
-                            }
-                            qInfo("[SYNC] database backup '%s' uploaded - fileId=%s",
-                                  qPrintable(fileName), qPrintable(fileId));
-                            writeSyncState(QStringLiteral("last_backup_at"),
-                                           QString::number(QDateTime::currentSecsSinceEpoch()));
-                            writeSyncState(QStringLiteral("last_backup_file_id"), fileId);
-                            if (cb) cb(true, fileName, fileId);
-                        });
-    });
+    QFile out(tempPath);
+    if (!out.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+        fail(QStringLiteral("Cannot write temp file: %1").arg(out.errorString()));
+        return;
+    }
+    if (out.write(compressed) != compressed.size()) {
+        out.close();
+        QFile::remove(tempPath);
+        fail(QStringLiteral("Short write to temp file"));
+        return;
+    }
+    out.close();
+
+    const double ratio = raw.isEmpty() ? 0.0
+                         : 100.0 * (1.0 - static_cast<double>(compressed.size()) /
+                                              static_cast<double>(raw.size()));
+    qInfo("[SYNC] compressed backup: %lld → %lld bytes (%.1f%% saved)",
+          static_cast<long long>(raw.size()),
+          static_cast<long long>(compressed.size()), ratio);
+
+    resolveBackupFolderThen([this, tempPath, fileName, cb](const QString &folderId) {
+        const auto rid = backupRecordingIdSeq_--;
+        pendingBackups_.insert(rid, cb);
+        pendingBackupTempFiles_.insert(rid, tempPath);
+        // Route through GDriveUploader (resumable, chunked) — Drive's
+        // multipart endpoint caps at 5 MB which is way under our DB size.
+        uploader_->uploadFile(rid, tempPath, fileName, folderId);
+    }, cb);
 }
 
 void SyncService::garbageCollectTombstones(qint64 cutoffSecs) {

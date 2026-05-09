@@ -44,12 +44,17 @@ public:
                      const QByteArray &mimeType, const QString &folderId,
                      const QString &existingFileId, UploadCallback cb);
 
-    // Look up a folder by name (root of My Drive). Creates it if missing.
-    void ensureFolder(const QString &folderName, FolderCallback cb);
+    // Look up a folder by name or path (e.g. "iptvXS/sync"). For nested paths,
+    // each segment is resolved (or created) under the previous segment's id;
+    // the leaf segment's id is returned via cb. Top-level segment lives at My
+    // Drive root.
+    void ensureFolder(const QString &folderPath, FolderCallback cb);
 
 private:
     void withToken(std::function<void(const QString &token)> action,
                    std::function<void(const QString &)> onError);
+    void ensureFolderInParent(const QString &folderName, const QString &parentId,
+                              FolderCallback cb);
 
     GDriveAuth *auth_;
     QNetworkAccessManager nam_;

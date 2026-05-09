@@ -461,6 +461,35 @@ std::vector<Database::Migration> Database::migrations() const {
              }
              return true;
          }},
+        {19, "Sync metadata: extend epg_sources with updated_at + tombstones",
+         [](QSqlDatabase &db) -> bool {
+             QSqlQuery q(db);
+             auto columnExists = [&](const QString &table, const QString &column) -> bool {
+                 QSqlQuery probe(db);
+                 if (!probe.exec(QStringLiteral("PRAGMA table_info(%1)").arg(table))) {
+                     return false;
+                 }
+                 while (probe.next()) {
+                     if (probe.value(1).toString() == column) return true;
+                 }
+                 return false;
+             };
+             if (!columnExists(QStringLiteral("epg_sources"), QStringLiteral("updated_at"))) {
+                 if (!q.exec("ALTER TABLE epg_sources "
+                             "ADD COLUMN updated_at INTEGER NOT NULL DEFAULT 0")) {
+                     return false;
+                 }
+                 if (!q.exec("UPDATE epg_sources SET updated_at = strftime('%s', 'now')")) {
+                     return false;
+                 }
+             }
+             if (!columnExists(QStringLiteral("epg_sources"), QStringLiteral("deleted_at"))) {
+                 if (!q.exec("ALTER TABLE epg_sources ADD COLUMN deleted_at INTEGER")) {
+                     return false;
+                 }
+             }
+             return true;
+         }},
     };
 }
 

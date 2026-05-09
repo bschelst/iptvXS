@@ -158,7 +158,7 @@ QString GDriveViewModel::folderName() const {
         auto stored = settingsRepo_->getString(QStringLiteral("gdrive_folder_name"));
         if (!stored.isEmpty()) return stored;
     }
-    return QStringLiteral("iptvXS-recordings");
+    return QStringLiteral("iptvXS/recordings");
 }
 
 void GDriveViewModel::setFolderName(const QString &name) {

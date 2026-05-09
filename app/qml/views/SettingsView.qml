@@ -23,7 +23,7 @@ Item {
 
     // Direct lookup by index — returns the QML item for the given focus slot.
     // Using a function (not a property) so ids resolve after component completion.
-    readonly property int focusItemCount: 40
+    readonly property int focusItemCount: 41
 
     function focusTargetForIndex(index) {
         switch (index) {
@@ -52,21 +52,22 @@ Item {
         case 22: return syncEnableSwitch
         case 23: return syncFolderInput
         case 24: return syncNowBtn
-        case 25: return backupNowBtn
-        case 26: return recDestFlow
-        case 27: return keepLocalSwitch
-        case 28: return recBrowseBtn
-        case 29: return maxRecSizeFlow
-        case 30: return leadTimeFlow
-        case 31: return overrunFlow
-        case 32: return logoCacheMaxFlow
-        case 33: return clearCacheBtn
-        case 34: return maintenanceBtn
-        case 35: return resetDbBtn
-        case 36: return githubBtn
-        case 37: return checkUpdatesBtn
-        case 38: return freeServerSwitchRow
-        case 39: return freeServerReAddBtn
+        case 25: return backupFolderInput
+        case 26: return backupNowBtn
+        case 27: return recDestFlow
+        case 28: return keepLocalSwitch
+        case 29: return recBrowseBtn
+        case 30: return maxRecSizeFlow
+        case 31: return leadTimeFlow
+        case 32: return overrunFlow
+        case 33: return logoCacheMaxFlow
+        case 34: return clearCacheBtn
+        case 35: return maintenanceBtn
+        case 36: return resetDbBtn
+        case 37: return githubBtn
+        case 38: return checkUpdatesBtn
+        case 39: return freeServerSwitchRow
+        case 40: return freeServerReAddBtn
         default: return null
         }
     }
@@ -1858,7 +1859,7 @@ Item {
                                     color: Theme.textPrimary
                                     clip: true
                                     selectByMouse: true
-                                    text: appViewModel ? appViewModel.gdrive.folderName : "iptvxs-recordings"
+                                    text: appViewModel ? appViewModel.gdrive.folderName : "iptvXS/recordings"
 
                                     Keys.onDownPressed: {
                                         if (gdriveSaveFolderBtn) gdriveSaveFolderBtn.forceActiveFocus()
@@ -1874,7 +1875,7 @@ Item {
 
                                     Text {
                                         anchors.verticalCenter: parent.verticalCenter
-                                        text: "e.g. iptvxs-recordings"
+                                        text: "e.g. iptvXS/recordings"
                                         font.pixelSize: Theme.fontSizeSm
                                         color: Theme.textMuted
                                         visible: !gdriveFolderInput.text && !gdriveFolderInput.activeFocus
@@ -2050,7 +2051,7 @@ Item {
                                     activeFocusOnTab: true
                                     clip: true
                                     selectByMouse: true
-                                    text: appViewModel && appViewModel.sync ? appViewModel.sync.folderName : "iptvXS-sync"
+                                    text: appViewModel && appViewModel.sync ? appViewModel.sync.folderName : "iptvXS/sync"
                                     onEditingFinished: {
                                         if (appViewModel && appViewModel.sync) appViewModel.sync.folderName = text
                                         settingsView.forceActiveFocus()
@@ -2112,6 +2113,63 @@ Item {
                         color: Theme.surfaceBorder
                     }
 
+                    // Backup folder name on Google Drive (configurable, defaults to iptvXS/backup).
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        Layout.topMargin: Theme.spacingSm
+                        spacing: Theme.spacingXs
+                        visible: appViewModel && appViewModel.gdrive.authenticated
+
+                        Text {
+                            text: "Backup folder name on Google Drive"
+                            font.pixelSize: Theme.fontSizeSm
+                            color: Theme.textPrimary
+                        }
+                        Rectangle {
+                            id: backupFolderInput
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: 36
+                            radius: Theme.borderRadiusSmall
+                            color: Theme.surface
+                            border.color: (settingsView.activeFocus && settingsView.currentFocusIndex === 25)
+                                ? Theme.textPrimary
+                                : (backupFolderInputField.activeFocus ? Theme.accent : Theme.surfaceBorder)
+                            border.width: (settingsView.activeFocus && settingsView.currentFocusIndex === 25) ? 3
+                                : (backupFolderInputField.activeFocus ? 2 : 1)
+
+                            function activate() {
+                                backupFolderInputField.forceActiveFocus()
+                            }
+
+                            TextInput {
+                                id: backupFolderInputField
+                                anchors.fill: parent
+                                anchors.leftMargin: Theme.spacingSm
+                                anchors.rightMargin: Theme.spacingSm
+                                verticalAlignment: TextInput.AlignVCenter
+                                color: Theme.textPrimary
+                                font.pixelSize: Theme.fontSizeSm
+                                activeFocusOnTab: true
+                                clip: true
+                                selectByMouse: true
+                                text: appViewModel && appViewModel.sync
+                                    ? appViewModel.sync.backupFolderName : "iptvXS/backup"
+                                onEditingFinished: {
+                                    if (appViewModel && appViewModel.sync) appViewModel.sync.backupFolderName = text
+                                    settingsView.forceActiveFocus()
+                                }
+                                Keys.onEscapePressed: settingsView.forceActiveFocus()
+                            }
+                        }
+                        Text {
+                            Layout.fillWidth: true
+                            text: "Use '/' to nest under iptvXS, e.g. iptvXS/backup. Folders are created on Google Drive if missing."
+                            font.pixelSize: Theme.fontSizeXs
+                            color: Theme.textMuted
+                            wrapMode: Text.WordWrap
+                        }
+                    }
+
                     RowLayout {
                         Layout.fillWidth: true
                         Layout.topMargin: Theme.spacingMd
@@ -2127,11 +2185,16 @@ Item {
                                 color: Theme.textPrimary
                             }
                             Text {
-                                text: appViewModel && appViewModel.sync
-                                    ? "Last backup: " + appViewModel.sync.lastBackupDisplay
-                                    : "Last backup: Never"
+                                text: {
+                                    if (!appViewModel || !appViewModel.sync) return "Last backup: Never"
+                                    if (appViewModel.sync.backupInProgress) return "Uploading backup…"
+                                    var last = "Last backup: " + appViewModel.sync.lastBackupDisplay
+                                    if (appViewModel.sync.backupStatus) last += " — " + appViewModel.sync.backupStatus
+                                    return last
+                                }
                                 font.pixelSize: Theme.fontSizeXs
                                 color: Theme.textMuted
+                                wrapMode: Text.WordWrap
                             }
                         }
 
@@ -2140,22 +2203,26 @@ Item {
                             Layout.preferredWidth: 130
                             Layout.preferredHeight: 36
                             radius: Theme.borderRadiusSmall
-                            color: (settingsView.activeFocus && settingsView.currentFocusIndex === 25)
+                            color: (settingsView.activeFocus && settingsView.currentFocusIndex === 26)
                                 ? Theme.accentHover : Theme.accent
-                            border.color: (settingsView.activeFocus && settingsView.currentFocusIndex === 25)
+                            border.color: (settingsView.activeFocus && settingsView.currentFocusIndex === 26)
                                 ? Theme.textPrimary : "transparent"
-                            border.width: (settingsView.activeFocus && settingsView.currentFocusIndex === 25) ? 3 : 0
-                            opacity: appViewModel && appViewModel.gdrive.authenticated ? 1.0 : 0.45
+                            border.width: (settingsView.activeFocus && settingsView.currentFocusIndex === 26) ? 3 : 0
+                            opacity: appViewModel && appViewModel.gdrive.authenticated
+                                     && !(appViewModel.sync && appViewModel.sync.backupInProgress)
+                                     ? 1.0 : 0.45
 
                             function activate() {
-                                if (appViewModel && appViewModel.sync && appViewModel.gdrive.authenticated) {
+                                if (appViewModel && appViewModel.sync && appViewModel.gdrive.authenticated
+                                        && !appViewModel.sync.backupInProgress) {
                                     appViewModel.sync.backupDatabase()
                                 }
                             }
 
                             Text {
                                 anchors.centerIn: parent
-                                text: "Backup now"
+                                text: appViewModel && appViewModel.sync && appViewModel.sync.backupInProgress
+                                    ? "Uploading…" : "Backup now"
                                 color: Theme.textOnAccent
                                 font.pixelSize: Theme.fontSizeSm
                                 font.bold: true
@@ -2170,10 +2237,21 @@ Item {
 
                     Text {
                         Layout.fillWidth: true
-                        text: "Backs up the entire SQLite database to your Google Drive folder. Useful before major changes or as a safety net."
+                        text: "Compresses the SQLite database and uploads it to your Google Drive backup folder. Useful before major changes or as a safety net."
                         font.pixelSize: Theme.fontSizeXs
                         color: Theme.textMuted
                         wrapMode: Text.WordWrap
+                    }
+
+                    // Listens for the SyncService completion signal so the UI
+                    // can surface success/failure even when the user navigated
+                    // away from the section.
+                    Connections {
+                        target: appViewModel && appViewModel.sync ? appViewModel.sync : null
+                        function onBackupCompleted(ok, message) {
+                            // Status text + lastBackupDisplay update automatically via
+                            // bindings; this gives us a place for future toasts/banners.
+                        }
                     }
                 }
             }

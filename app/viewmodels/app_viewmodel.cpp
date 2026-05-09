@@ -415,6 +415,7 @@ bool AppViewModel::initialize(const QString &dbPath) {
     syncService_ = std::make_unique<iptvxs::SyncService>(
         database_->connection(), gdriveAuth_.get(),
         serverRepo_ ? const_cast<iptvxs::CredentialVault *>(serverRepo_->credentialVault()) : nullptr,
+        gdriveUploader_.get(),
         this);
     syncVm_ = new SyncViewModel(this);
     syncVm_->setService(syncService_.get(), dbPath);
@@ -443,11 +444,15 @@ bool AppViewModel::initialize(const QString &dbPath) {
     settingsRepo_->remove(QStringLiteral("gdrive_client_id"));
     settingsRepo_->remove(QStringLiteral("gdrive_client_secret"));
 
-    // Migrate old default folder name to branded version.
+    // Migrate legacy flat recordings folder names to nested path under
+    // iptvXS/. Clear the cached folder id so resolveFolder re-runs against
+    // the new path. (Sync + backup folder migrations live in
+    // SyncService::ctor — they share the sync_state table.)
     auto oldFolder = settingsRepo_->getString(QStringLiteral("gdrive_folder_name"));
-    if (oldFolder == QStringLiteral("iptvxs-recordings")) {
+    if (oldFolder == QStringLiteral("iptvxs-recordings")
+        || oldFolder == QStringLiteral("iptvXS-recordings")) {
         settingsRepo_->set(QStringLiteral("gdrive_folder_name"),
-                           QStringLiteral("iptvXS-recordings"));
+                           QStringLiteral("iptvXS/recordings"));
         settingsRepo_->remove(QStringLiteral("gdrive_folder_id"));
     }
 

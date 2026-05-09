@@ -93,17 +93,52 @@ bool GDriveUploader::isUploading(int64_t recordingId) const {
     return activeUploads_.contains(recordingId);
 }
 
-void GDriveUploader::ensureFolder(const QString &folderName) {
+void GDriveUploader::ensureFolder(const QString &folderPath) {
+    auto segments = folderPath.split('/', Qt::SkipEmptyParts);
+    if (segments.isEmpty()) {
+        emit folderResolveFailed(folderPath, QStringLiteral("ensureFolder: empty path"));
+        return;
+    }
+    // Resolve segment-by-segment, threading the previous segment's id as
+    // parent. Held on the heap (shared_ptr) so the closure outlives async
+    // network replies.
+    auto step =
+        std::make_shared<std::function<void(int, const QString &)>>();
+    *step = [this, folderPath, segments, step](int idx, const QString &parentId) {
+        ensureFolderInParent(segments[idx], parentId,
+            [this, folderPath, segments, idx, step](const QString &id,
+                                                    const QString &err) {
+                if (!err.isEmpty()) {
+                    emit folderResolveFailed(folderPath, err);
+                    return;
+                }
+                if (idx + 1 >= segments.size()) {
+                    qInfo("GDrive folder path '%s' resolved to leaf id=%s",
+                          qPrintable(folderPath), qPrintable(id));
+                    emit folderResolved(folderPath, id);
+                    return;
+                }
+                (*step)(idx + 1, id);
+            });
+    };
+    (*step)(0, QStringLiteral("root"));
+}
+
+void GDriveUploader::ensureFolderInParent(const QString &folderName,
+                                          const QString &parentId,
+                                          FolderResultCallback cb) {
     withFreshToken(
-        [this, folderName]() {
+        [this, folderName, parentId, cb]() {
             QUrl listUrl(QStringLiteral("https://www.googleapis.com/drive/v3/files"));
             QUrlQuery q;
-            QString escaped = folderName;
-            escaped.replace(QLatin1Char('\''), QStringLiteral("\\'"));
+            QString escapedName = folderName;
+            escapedName.replace(QLatin1Char('\''), QStringLiteral("\\'"));
+            QString escapedParent = parentId;
+            escapedParent.replace(QLatin1Char('\''), QStringLiteral("\\'"));
             q.addQueryItem(QStringLiteral("q"),
                            QStringLiteral("mimeType='application/vnd.google-apps.folder' and "
-                                          "trashed=false and name='%1'")
-                               .arg(escaped));
+                                          "trashed=false and name='%1' and '%2' in parents")
+                               .arg(escapedName, escapedParent));
             q.addQueryItem(QStringLiteral("fields"), QStringLiteral("files(id,name)"));
             q.addQueryItem(QStringLiteral("pageSize"), QStringLiteral("1"));
             listUrl.setQuery(q);
@@ -114,24 +149,25 @@ void GDriveUploader::ensureFolder(const QString &folderName) {
             auto *listReply = nam_.get(listReq);
 
             connect(listReply, &QNetworkReply::finished, this,
-                    [this, listReply, folderName]() {
+                    [this, listReply, folderName, parentId, cb]() {
                         listReply->deleteLater();
                         if (listReply->error() != QNetworkReply::NoError) {
                             qWarning("GDrive ensureFolder list failed: %s",
                                      qPrintable(listReply->errorString()));
-                            emit folderResolveFailed(folderName, listReply->errorString());
+                            cb({}, listReply->errorString());
                             return;
                         }
                         auto body = listReply->readAll();
-                        qInfo("GDrive ensureFolder search response: %s", body.constData());
                         auto obj = QJsonDocument::fromJson(body).object();
                         auto arr = obj.value(QStringLiteral("files")).toArray();
                         if (!arr.isEmpty()) {
                             const auto id =
                                 arr.first().toObject().value(QStringLiteral("id")).toString();
-                            qInfo("GDrive folder '%s' found: %s", qPrintable(folderName),
+                            qInfo("GDrive folder '%s' found under '%s': %s",
+                                  qPrintable(folderName),
+                                  qPrintable(parentId),
                                   qPrintable(id));
-                            emit folderResolved(folderName, id);
+                            cb(id, {});
                             return;
                         }
 
@@ -139,6 +175,9 @@ void GDriveUploader::ensureFolder(const QString &folderName) {
                         bodyObj[QStringLiteral("name")] = folderName;
                         bodyObj[QStringLiteral("mimeType")] =
                             QStringLiteral("application/vnd.google-apps.folder");
+                        QJsonArray parents;
+                        parents.append(parentId);
+                        bodyObj[QStringLiteral("parents")] = parents;
 
                         QNetworkRequest createReq(QUrl(QStringLiteral(
                             "https://www.googleapis.com/drive/v3/files?fields=id,name")));
@@ -152,14 +191,13 @@ void GDriveUploader::ensureFolder(const QString &folderName) {
                             createReq,
                             QJsonDocument(bodyObj).toJson(QJsonDocument::Compact));
                         connect(createReply, &QNetworkReply::finished, this,
-                                [this, createReply, folderName]() {
+                                [createReply, folderName, parentId, cb]() {
                                     createReply->deleteLater();
                                     if (createReply->error() != QNetworkReply::NoError) {
                                         qWarning("GDrive create folder failed: %s — %s",
                                                  qPrintable(createReply->errorString()),
                                                  createReply->readAll().constData());
-                                        emit folderResolveFailed(folderName,
-                                                                 createReply->errorString());
+                                        cb({}, createReply->errorString());
                                         return;
                                     }
                                     auto o =
@@ -167,20 +205,20 @@ void GDriveUploader::ensureFolder(const QString &folderName) {
                                     const auto id =
                                         o.value(QStringLiteral("id")).toString();
                                     if (id.isEmpty()) {
-                                        emit folderResolveFailed(
-                                            folderName,
-                                            QStringLiteral(
-                                                "Create folder response missing id"));
+                                        cb({}, QStringLiteral(
+                                                   "Create folder response missing id"));
                                         return;
                                     }
-                                    qInfo("GDrive folder '%s' created: %s",
-                                          qPrintable(folderName), qPrintable(id));
-                                    emit folderResolved(folderName, id);
+                                    qInfo("GDrive folder '%s' created under '%s': %s",
+                                          qPrintable(folderName),
+                                          qPrintable(parentId),
+                                          qPrintable(id));
+                                    cb(id, {});
                                 });
                     });
         },
-        [this, folderName](const QString &error) {
-            emit folderResolveFailed(folderName, error);
+        [cb](const QString &error) {
+            cb({}, error);
         });
 }
 

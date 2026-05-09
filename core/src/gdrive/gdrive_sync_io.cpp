@@ -184,19 +184,46 @@ void GDriveSyncIO::uploadBytes(const QByteArray &data, const QString &fileName,
         [cb](const QString &err) { cb({}, err); });
 }
 
-void GDriveSyncIO::ensureFolder(const QString &folderName, FolderCallback cb) {
+void GDriveSyncIO::ensureFolder(const QString &folderPath, FolderCallback cb) {
+    auto segments = folderPath.split('/', Qt::SkipEmptyParts);
+    if (segments.isEmpty()) {
+        cb({}, QStringLiteral("ensureFolder: empty path"));
+        return;
+    }
+    // Recursively resolve each segment under the previous one's id. Top
+    // segment lives under "root". The recursion runs across async network
+    // callbacks, so we hold the step closure on the heap (shared_ptr) and
+    // capture it by value in every continuation to keep it alive.
+    auto step =
+        std::make_shared<std::function<void(int, const QString &)>>();
+    *step = [this, segments, cb, step](int idx, const QString &parentId) {
+        ensureFolderInParent(segments[idx], parentId,
+            [segments, idx, cb, step](const QString &id, const QString &err) {
+                if (!err.isEmpty()) { cb({}, err); return; }
+                if (idx + 1 >= segments.size()) { cb(id, {}); return; }
+                (*step)(idx + 1, id);
+            });
+    };
+    (*step)(0, QStringLiteral("root"));
+}
+
+void GDriveSyncIO::ensureFolderInParent(const QString &folderName,
+                                        const QString &parentId,
+                                        FolderCallback cb) {
     if (folderName.isEmpty()) {
         cb({}, QStringLiteral("ensureFolder: empty name"));
         return;
     }
     withToken(
-        [this, folderName, cb](const QString &token) {
+        [this, folderName, parentId, cb](const QString &token) {
             QUrl url(QString::fromLatin1(kListUrl));
             QUrlQuery q;
             const auto safeName = QString(folderName).replace('\'', "\\'");
+            const auto safeParent = QString(parentId).replace('\'', "\\'");
             q.addQueryItem("q",
                 QStringLiteral("name = '%1' and mimeType = 'application/vnd.google-apps.folder' "
-                               "and 'root' in parents and trashed = false").arg(safeName));
+                               "and '%2' in parents and trashed = false")
+                    .arg(safeName, safeParent));
             q.addQueryItem("fields", "files(id,name)");
             q.addQueryItem("pageSize", "1");
             url.setQuery(q);
@@ -204,7 +231,7 @@ void GDriveSyncIO::ensureFolder(const QString &folderName, FolderCallback cb) {
             req.setRawHeader("Authorization", ("Bearer " + token).toUtf8());
             auto *reply = nam_.get(req);
             connect(reply, &QNetworkReply::finished, this,
-                    [this, reply, folderName, token, cb]() {
+                    [this, reply, folderName, parentId, token, cb]() {
                         reply->deleteLater();
                         if (reply->error() != QNetworkReply::NoError) {
                             cb({}, reply->errorString());
@@ -216,13 +243,16 @@ void GDriveSyncIO::ensureFolder(const QString &folderName, FolderCallback cb) {
                             cb(files.first().toObject().value("id").toString(), {});
                             return;
                         }
-                        // Create folder.
+                        // Create folder under parent.
                         QNetworkRequest creq(QUrl(QStringLiteral("https://www.googleapis.com/drive/v3/files")));
                         creq.setRawHeader("Authorization", ("Bearer " + token).toUtf8());
                         creq.setRawHeader("Content-Type", "application/json");
                         QJsonObject body;
                         body["name"] = folderName;
                         body["mimeType"] = "application/vnd.google-apps.folder";
+                        QJsonArray parents;
+                        parents.append(parentId);
+                        body["parents"] = parents;
                         auto *createReply = nam_.post(creq, QJsonDocument(body).toJson());
                         connect(createReply, &QNetworkReply::finished, this,
                                 [createReply, cb]() {

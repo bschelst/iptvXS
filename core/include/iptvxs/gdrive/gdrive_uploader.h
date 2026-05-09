@@ -28,9 +28,12 @@ public:
     void resumeUpload(int64_t recordingId, const QString &filePath,
                       const QString &uploadUrl);
 
-    // Look up a folder by name under My Drive root; create it if missing.
-    // Emits folderResolved(folderId) on success or uploadFailed(-1, error).
-    void ensureFolder(const QString &folderName);
+    // Look up a folder by name or path (e.g. "iptvXS/recordings") under My
+    // Drive root; create each missing segment. Top segment lives at root, each
+    // following segment lives under the previous segment's id.
+    // Emits folderResolved(path, leafId) on success or
+    // folderResolveFailed(path, error).
+    void ensureFolder(const QString &folderPath);
 
 signals:
     void uploadStarted(int64_t recordingId);
@@ -42,11 +45,15 @@ signals:
     void folderResolveFailed(const QString &folderName, const QString &error);
 
 private:
+    using FolderResultCallback = std::function<void(const QString &id,
+                                                    const QString &error)>;
     void initiateResumableUpload(int64_t recordingId, const QString &filePath,
                                  const QString &fileName, const QString &folderId);
     void uploadChunk(int64_t recordingId, const QString &uploadUrl,
                      const QString &filePath, int64_t offset,
                      const QByteArray &contentType, int64_t declaredSize = 0);
+    void ensureFolderInParent(const QString &folderName, const QString &parentId,
+                              FolderResultCallback cb);
 
     void withFreshToken(std::function<void()> action,
                         std::function<void(const QString &)> onError = {});
