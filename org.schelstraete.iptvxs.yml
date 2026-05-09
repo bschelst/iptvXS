@@ -21,6 +21,14 @@ finish-args:
   - --talk-name=org.freedesktop.secrets
   - --talk-name=org.kde.StatusNotifierWatcher
   - --talk-name=org.freedesktop.ScreenSaver
+  # Browser-open for Google Drive OAuth.
+  # In Game Mode (gamescope), AppViewModel runs `flatpak-spawn --host steam
+  # steam://openurl/<url>` — that needs org.freedesktop.Flatpak.
+  # In Desktop Mode, QDesktopServices::openUrl() goes through the OpenURI
+  # portal at org.freedesktop.portal.Desktop. Same permission also unblocks
+  # the FileChooser portal warning we were seeing at startup.
+  - --talk-name=org.freedesktop.Flatpak
+  - --talk-name=org.freedesktop.portal.Desktop
 
 build-options:
   append-pkg-config-path: /app/lib/pkgconfig:/app/lib64/pkgconfig
