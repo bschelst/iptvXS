@@ -47,6 +47,15 @@ Item {
         showControls()
     }
 
+    function clampListIndex(listView) {
+        if (!listView) return
+        if (listView.count <= 0) {
+            listView.currentIndex = -1
+        } else if (listView.currentIndex < 0 || listView.currentIndex >= listView.count) {
+            listView.currentIndex = 0
+        }
+    }
+
     function langCodesFor(iso1) {
         var map = {
             "en": ["eng"], "nl": ["dut","nld"], "fr": ["fre","fra"],
@@ -1118,6 +1127,7 @@ Item {
                         model: seriesDialogSeasons.length > 0
                             ? seriesDialogSeasons[seriesDialogSelectedSeason].episodes
                             : []
+                        onCountChanged: playerView.clampListIndex(seriesEpisodeList)
 
                         Keys.onReturnPressed: playEpisode(currentIndex)
                         Keys.onEnterPressed: playEpisode(currentIndex)
@@ -1231,6 +1241,7 @@ Item {
                 if (visible && zapList) {
                     var idx = appViewModel ? appViewModel.zapContextIndex : -1
                     zapList.currentIndex = idx >= 0 ? idx : 0
+                    playerView.clampListIndex(zapList)
                     zapList.forceActiveFocus()
                     zapList.positionViewAtIndex(zapList.currentIndex, ListView.Contain)
                 }
@@ -1327,6 +1338,7 @@ Item {
                         highlightFollowsCurrentItem: true
                         currentIndex: appViewModel ? appViewModel.zapContextIndex : -1
                         model: appViewModel ? appViewModel.zapContext : []
+                        onCountChanged: playerView.clampListIndex(zapList)
 
                         ScrollBar.vertical: ScrollBar {
                             active: true
@@ -1436,7 +1448,11 @@ Item {
                         }
 
                         onCurrentIndexChanged: {
-                            if (currentIndex < 0 && count > 0) currentIndex = 0
+                            if (count <= 0) {
+                                currentIndex = -1
+                            } else if (currentIndex < 0 || currentIndex >= count) {
+                                currentIndex = 0
+                            }
                         }
                     }
                 }
@@ -1470,7 +1486,7 @@ Item {
                 if (visible) {
                     if (appViewModel) appViewModel.player.refreshSubtitleTracks()
                     subTrackList.forceActiveFocus()
-                    if (subTrackList.currentIndex < 0) subTrackList.currentIndex = 0
+                    playerView.clampListIndex(subTrackList)
                     pokeAutoHide()
                 }
             }
@@ -1536,6 +1552,7 @@ Item {
                         clip: true
                         keyNavigationEnabled: true
                         highlightFollowsCurrentItem: true
+                        onCountChanged: playerView.clampListIndex(subTrackList)
                         Keys.onReturnPressed: if (currentIndex >= 0 && currentItem) { appViewModel.player.selectSubtitleTrack(model[currentIndex].id); subTrackPopup.closeDialog() }
                         Keys.onEnterPressed: Keys.onReturnPressed(event)
                         Keys.onEscapePressed: subTrackPopup.closeDialog()

@@ -12,31 +12,38 @@ Item {
     property int currentRowIndex: 0
     property bool focusRestorePending: false
     property int focusRestoreAttempts: 0
+    property bool continueWatchingReady: false
     readonly property var allRows: [continueWatchingRow, favoritesRow, recentlyAddedRow, quickAccessRow]
+
+    function snapRowToFirstCard(row) {
+        if (!row || !row.cardListView) return
+        if (row.cardListView.count > 0) {
+            row.cardListView.currentIndex = 0
+            row.cardListView.positionViewAtIndex(0, ListView.Beginning)
+        }
+    }
+
+    function focusFirstAvailableRow() {
+        for (var i = 0; i < allRows.length; i++) {
+            var row = allRows[i]
+            if (row && row.visible && row.cardListView && row.cardListView.count > 0) {
+                currentRowIndex = i
+                snapRowToFirstCard(row)
+                row.cardListView.forceActiveFocus()
+                return true
+            }
+        }
+        return false
+    }
 
     function focusPrimary() {
         currentRowIndex = 0
         homeView.forceActiveFocus()
-        var rows = allRows
-        for (var i = 0; i < rows.length; i++) {
-            if (rows[i] && rows[i].visible && rows[i].cardListView && rows[i].cardListView.count > 0) {
-                currentRowIndex = allRows.indexOf(rows[i])
-                rows[i].cardListView.currentIndex = 0
-
-                rows[i].cardListView.forceActiveFocus()
-                return
-            }
+        if (!continueWatchingReady) {
+            requestFocusRestore()
+            return
         }
-        for (var j = 0; j < allRows.length; j++) {
-            if (allRows[j] && allRows[j].visible) {
-                currentRowIndex = j
-                if (allRows[j].cardListView && allRows[j].cardListView.currentIndex >= 0) {
-
-                }
-                allRows[j].cardListView.forceActiveFocus()
-                return
-            }
-        }
+        focusFirstAvailableRow()
     }
 
     function requestFocusRestore() {
@@ -52,7 +59,7 @@ Item {
             return
         }
 
-        if (continueWatchingModel.count === 0) {
+        if (!continueWatchingReady) {
             if (++focusRestoreAttempts < 40) {
                 focusRestoreTimer.restart()
             } else {
@@ -61,22 +68,9 @@ Item {
             return
         }
 
-        if (continueWatchingRow && continueWatchingRow.visible && continueWatchingRow.cardListView && continueWatchingRow.cardListView.count > 0) {
-            currentRowIndex = allRows.indexOf(continueWatchingRow)
-            continueWatchingRow.cardListView.currentIndex = 0
-            continueWatchingRow.cardListView.forceActiveFocus()
+        if (focusFirstAvailableRow()) {
             focusRestorePending = false
             return
-        }
-
-        for (var i = 0; i < allRows.length; i++) {
-            if (allRows[i] && allRows[i].visible && allRows[i].cardListView && allRows[i].cardListView.count > 0) {
-                currentRowIndex = i
-                allRows[i].cardListView.currentIndex = 0
-                allRows[i].cardListView.forceActiveFocus()
-                focusRestorePending = false
-                return
-            }
         }
 
         if (++focusRestoreAttempts < 20) {
@@ -111,14 +105,16 @@ Item {
         if (currentRowIndex >= 0 && currentRowIndex < rows.length) {
             var r = rows[currentRowIndex]
             if (r && r.visible) {
+                snapRowToFirstCard(r)
                 r.cardListView.forceActiveFocus()
                 return
             }
         }
         // Fall back to first visible row
         for (var i = 0; i < rows.length; i++) {
-            if (rows[i].visible) {
+            if (rows[i].visible && rows[i].cardListView && rows[i].cardListView.count > 0) {
                 currentRowIndex = i
+                snapRowToFirstCard(rows[i])
                 rows[i].cardListView.forceActiveFocus()
                 return
             }
@@ -130,9 +126,9 @@ Item {
         var target = fromRow + direction
         while (target >= 0 && target < rows.length) {
             var row = rows[target]
-            if (row && row.visible) {
+            if (row && row.visible && row.cardListView && row.cardListView.count > 0) {
                 currentRowIndex = target
-                row.cardListView.currentIndex = Math.min(cardIndex, row.cardListView.count - 1)
+                snapRowToFirstCard(row)
                 row.cardListView.forceActiveFocus()
                 ensureRowVisible(target)
                 return
@@ -453,7 +449,10 @@ Item {
 
     function populateContinueWatching() {
         continueWatchingModel.clear()
-        if (!appViewModel || !appViewModel.history) return
+        if (!appViewModel || !appViewModel.history) {
+            continueWatchingReady = true
+            return
+        }
         var hist = appViewModel.history
         var added = 0
         var seen = {}
@@ -493,8 +492,14 @@ Item {
             })
             added++
         }
+        continueWatchingReady = true
         if (continueWatchingRow && continueWatchingRow.cardListView) {
-            continueWatchingRow.cardListView.currentIndex = continueWatchingModel.count > 0 ? 0 : -1
+            if (continueWatchingModel.count > 0) {
+                continueWatchingRow.cardListView.currentIndex = 0
+                continueWatchingRow.cardListView.positionViewAtIndex(0, ListView.Beginning)
+            } else {
+                continueWatchingRow.cardListView.currentIndex = -1
+            }
         }
         if (focusRestorePending) requestFocusRestore()
     }
@@ -663,13 +668,15 @@ Item {
             model: cardRow.listModel
 
             onCountChanged: {
-                if (count > 0 && currentIndex < 0) {
+                if (count <= 0) {
+                    currentIndex = -1
+                } else if (currentIndex < 0 || currentIndex >= count) {
                     currentIndex = 0
                 }
             }
 
             onActiveFocusChanged: {
-                if (activeFocus && currentIndex < 0 && count > 0) {
+                if (activeFocus && count > 0 && (currentIndex < 0 || currentIndex >= count)) {
                     currentIndex = 0
                 }
             }
@@ -693,40 +700,40 @@ Item {
             }
 
             function activateCurrentCard() {
-        if (currentIndex < 0 || !appViewModel) return
-        if (cardRow.isQuickAccess) {
-            var qa = quickAccessModel.get(currentIndex)
-            if (qa) appViewModel.currentView = qa.target
-            return
-        }
-        if (cardRow.isHistory) {
-            var hItem = continueWatchingModel.get(currentIndex)
-            if (!hItem) return
-            if ((hItem.channelType || "") === "live") {
-                var liveItems = []
-                for (var i = 0; i < continueWatchingModel.count; i++) {
-                    var li = continueWatchingModel.get(i)
-                    if (!li || (li.channelType || "") !== "live") continue
-                    liveItems.push({
-                        channelId: li.channelId,
-                        name: li.channelName,
-                        streamUrl: li.streamUrl,
-                        logoUrl: li.channelLogo,
-                        type: li.channelType,
-                        epgChannelId: ""
-                    })
+                if (currentIndex < 0 || !appViewModel) return
+                if (cardRow.isQuickAccess) {
+                    var qa = quickAccessModel.get(currentIndex)
+                    if (qa) appViewModel.currentView = qa.target
+                    return
                 }
-                if (liveItems.length > 0) {
-                    appViewModel.setZapContext(liveItems, hItem.channelId, "Continue Watching")
-                } else {
-                    appViewModel.clearZapContext()
+                if (cardRow.isHistory) {
+                    var hItem = continueWatchingModel.get(currentIndex)
+                    if (!hItem) return
+                    if ((hItem.channelType || "") === "live") {
+                        var liveItems = []
+                        for (var i = 0; i < continueWatchingModel.count; i++) {
+                            var li = continueWatchingModel.get(i)
+                            if (!li || (li.channelType || "") !== "live") continue
+                            liveItems.push({
+                                channelId: li.channelId,
+                                name: li.channelName,
+                                streamUrl: li.streamUrl,
+                                logoUrl: li.channelLogo,
+                                type: li.channelType,
+                                epgChannelId: ""
+                            })
+                        }
+                        if (liveItems.length > 0) {
+                            appViewModel.setZapContext(liveItems, hItem.channelId, "Continue Watching")
+                        } else {
+                            appViewModel.clearZapContext()
+                        }
+                    } else {
+                        appViewModel.clearZapContext()
+                    }
+                    appViewModel.playHistoryEntry(hItem.historyId)
+                    return
                 }
-            } else {
-                appViewModel.clearZapContext()
-            }
-            appViewModel.playHistoryEntry(hItem.historyId)
-            return
-        }
                 var item = currentItem
                 if (item && item.itemChannelId) {
                     homeView.openOrPlayChannel(item.itemChannelId)

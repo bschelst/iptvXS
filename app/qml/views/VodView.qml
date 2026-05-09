@@ -33,14 +33,23 @@ Item {
         return null
     }
 
+    function clampListIndex(listView) {
+        if (!listView) return
+        if (listView.count <= 0) {
+            listView.currentIndex = -1
+        } else if (listView.currentIndex < 0 || listView.currentIndex >= listView.count) {
+            listView.currentIndex = 0
+        }
+    }
+
     function focusPrimary() {
         if (vodGrid.visible) {
-            if (vodGrid.count > 0) vodGrid.currentIndex = 0
+            clampListIndex(vodGrid)
             vodGrid.forceActiveFocus()
             return
         }
         if (categoryGrid.visible) {
-            if (categoryGrid.count > 0) categoryGrid.currentIndex = 0
+            clampListIndex(categoryGrid)
             categoryGrid.forceActiveFocus()
             return
         }
@@ -118,7 +127,7 @@ Item {
         for (var i = rowIndex + delta; i >= 0 && i < categoryRepeater.count; i += delta) {
             var item = categoryRepeater.itemAt(i)
             if (item && item.visible && item.rowView && item.rowView.count > 0) {
-                item.rowView.currentIndex = Math.min(currentItemIndex, item.rowView.count - 1)
+                item.rowView.currentIndex = Math.max(0, Math.min(currentItemIndex, item.rowView.count - 1))
                 item.rowView.forceActiveFocus()
                 var flickable = netflixFlickable
                 if (flickable && item.y !== undefined) {
@@ -405,6 +414,7 @@ Item {
                     Layout.fillHeight: true
                     clip: true
                     model: appViewModel ? appViewModel.categoryList : null
+                    onCountChanged: vodView.clampListIndex(vodCategoryList)
 
                     function selectCategoryAt(index) {
                         if (!appViewModel || !appViewModel.categoryList || appViewModel.categoryList.count <= 0) return
@@ -1169,6 +1179,7 @@ Item {
                 rightMargin: Theme.spacingMd
                 topMargin: Theme.spacingSm
                 property int cols: Math.max(1, Math.floor((width - leftMargin - rightMargin) / cellWidth))
+                onCountChanged: vodView.clampListIndex(categoryGrid)
 
                 Keys.onReturnPressed: playCurrentItem()
                 Keys.onEnterPressed: playCurrentItem()
@@ -1340,6 +1351,7 @@ Item {
                 }
                 highlightFollowsCurrentItem: true
                 model: appViewModel ? appViewModel.channelList : null
+                onCountChanged: vodView.clampListIndex(vodGrid)
 
                 Keys.onReturnPressed: playCurrentItem()
                 Keys.onEnterPressed: playCurrentItem()

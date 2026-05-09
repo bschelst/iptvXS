@@ -11,10 +11,14 @@ Item {
 
     function focusPrimary() {
         root.forceActiveFocus()
+        focusInternetTestButton()
     }
 
     Keys.onLeftPressed: {
         if (Window.window && Window.window.focusSidebar) Window.window.focusSidebar()
+    }
+    Keys.onDownPressed: {
+        focusInternetTestButton()
     }
     Keys.onReturnPressed: {
         if (speedTest && !speedTest.running) {
@@ -35,9 +39,25 @@ Item {
     property var channelList: appViewModel ? appViewModel.channelList : null
     property var sparklineData: []
     property int samplesPerSecond: 4
+    property int durationFocusIndex: 0
     property int sparklineSampleCount: speedTest
         ? Math.max(2, Math.ceil((speedTest.duration * samplesPerSecond) + 1))
         : 61
+
+    function focusInternetTestButton() {
+        if (speedTest && speedTest.running && stopBtn && stopBtn.visible) {
+            stopBtn.forceActiveFocus()
+        } else if (internetTestBtn) {
+            internetTestBtn.forceActiveFocus()
+        }
+    }
+
+    function focusDurationPreset(index) {
+        if (durationRepeater.count <= 0) return
+        durationFocusIndex = Math.max(0, Math.min(durationRepeater.count - 1, index))
+        var item = durationRepeater.itemAt(durationFocusIndex)
+        if (item) item.forceActiveFocus()
+    }
 
     Component.onCompleted: {
         if (channelList && channelList.rowCount() === 0
@@ -199,8 +219,10 @@ Item {
                         Item { Layout.fillWidth: true }
 
                         Button {
+                            id: internetTestBtn
                             text: "Internet Test"
                             enabled: speedTest !== null && !speedTest.running
+                            activeFocusOnTab: true
                             contentItem: Text {
                                 text: parent.text
                                 font.pixelSize: Theme.fontSizeSm
@@ -222,12 +244,22 @@ Item {
                                 sparklineCanvas.requestPaint()
                                 speedTest.startInternetTest()
                             }
+
+                            Keys.onRightPressed: {
+                                if (stopBtn && stopBtn.visible) stopBtn.forceActiveFocus()
+                                else root.focusDurationPreset(0)
+                            }
+                            Keys.onDownPressed: {
+                                root.focusDurationPreset(0)
+                            }
                         }
 
                         Button {
+                            id: stopBtn
                             text: "Stop"
                             visible: speedTest ? speedTest.running : false
                             enabled: speedTest !== null && speedTest.running
+                            activeFocusOnTab: true
                             contentItem: Text {
                                 text: parent.text
                                 font.pixelSize: Theme.fontSizeSm
@@ -249,6 +281,13 @@ Item {
                             }
                             onClicked: {
                                 if (speedTest) speedTest.stopTest()
+                            }
+
+                            Keys.onLeftPressed: {
+                                if (internetTestBtn) internetTestBtn.forceActiveFocus()
+                            }
+                            Keys.onDownPressed: {
+                                root.focusDurationPreset(0)
                             }
                         }
                     }
@@ -436,37 +475,73 @@ Item {
                             color: Theme.textSecondary
                         }
 
-                        Repeater {
-                            model: [10, 30, 60, 120]
+                        Item {
+                            id: durationFlow
+                            Layout.fillWidth: true
+                            implicitHeight: durationRow.implicitHeight
+                            property int subFocusIndex: 0
+                            property int subCount: durationRepeater.count
+                            function activateSubIndex(idx) {
+                                if (!speedTest || idx < 0 || idx >= durationRepeater.count) return
+                                speedTest.duration = durationRepeater.itemAt(idx).durationValue
+                            }
 
-                            delegate: Rectangle {
-                                width: 48
-                                height: 32
-                                radius: Theme.borderRadiusSmall
-                                color: speedTest && speedTest.duration === modelData
-                                    ? Theme.accent : hovered
-                                        ? Theme.surfaceHover : Theme.surface
-                                border.width: 1
-                                border.color: Theme.surfaceBorder
+                            RowLayout {
+                                id: durationRow
+                                spacing: Theme.spacingSm
 
-                                property bool hovered: false
+                                Repeater {
+                                    id: durationRepeater
+                                    model: [10, 30, 60, 120]
 
-                                Text {
-                                    anchors.centerIn: parent
-                                    text: modelData + "s"
-                                    font.pixelSize: Theme.fontSizeXs
-                                    color: speedTest && speedTest.duration === modelData
-                                        ? Theme.textOnAccent : Theme.textSecondary
-                                }
+                                    delegate: Rectangle {
+                                        width: 48
+                                        height: 32
+                                        radius: Theme.borderRadiusSmall
+                                        color: speedTest && speedTest.duration === modelData
+                                            ? Theme.accent : hovered
+                                                ? Theme.surfaceHover : Theme.surface
+                                        border.width: 1
+                                        border.color: (durationFlow.activeFocus && durationFlow.subFocusIndex === index)
+                                            ? Theme.accent : Theme.surfaceBorder
+                                        focus: false
+                                        activeFocusOnTab: true
 
-                                MouseArea {
-                                    anchors.fill: parent
-                                    hoverEnabled: true
-                                    cursorShape: Qt.PointingHandCursor
-                                    onEntered: parent.hovered = true
-                                    onExited: parent.hovered = false
-                                    onClicked: {
-                                        if (speedTest) speedTest.duration = modelData
+                                        property bool hovered: false
+                                        readonly property int durationValue: modelData
+
+                                        Text {
+                                            anchors.centerIn: parent
+                                            text: modelData + "s"
+                                            font.pixelSize: Theme.fontSizeXs
+                                            color: speedTest && speedTest.duration === modelData
+                                                ? Theme.textOnAccent : Theme.textSecondary
+                                        }
+
+                                        MouseArea {
+                                            anchors.fill: parent
+                                            hoverEnabled: true
+                                            cursorShape: Qt.PointingHandCursor
+                                            onEntered: parent.hovered = true
+                                            onExited: parent.hovered = false
+                                            onClicked: {
+                                                if (speedTest) speedTest.duration = modelData
+                                            }
+                                        }
+
+                                        Keys.onLeftPressed: root.focusDurationPreset(index - 1)
+                                        Keys.onRightPressed: root.focusDurationPreset(index + 1)
+                                        Keys.onUpPressed: root.focusInternetTestButton()
+                                        Keys.onReturnPressed: {
+                                            if (speedTest) speedTest.duration = modelData
+                                        }
+                                        Keys.onEnterPressed: Keys.onReturnPressed(event)
+                                        Keys.onPressed: function(event) {
+                                            if (event.key === Qt.Key_Select || event.key === Qt.Key_Space) {
+                                                if (speedTest) speedTest.duration = modelData
+                                                event.accepted = true
+                                            }
+                                        }
                                     }
                                 }
                             }

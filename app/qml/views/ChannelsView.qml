@@ -20,9 +20,18 @@ Item {
         return null
     }
 
+    function clampListIndex(listView) {
+        if (!listView) return
+        if (listView.count <= 0) {
+            listView.currentIndex = -1
+        } else if (listView.currentIndex < 0 || listView.currentIndex >= listView.count) {
+            listView.currentIndex = 0
+        }
+    }
+
     function focusPrimary() {
         if (channelGrid.visible) {
-            if (channelGrid.count > 0) channelGrid.currentIndex = 0
+            clampListIndex(channelGrid)
             channelGrid.forceActiveFocus()
             return
         }
@@ -56,7 +65,7 @@ Item {
         for (var i = rowIndex + delta; i >= 0 && i < chCategoryRepeater.count; i += delta) {
             var item = chCategoryRepeater.itemAt(i)
             if (item && item.visible && item.rowView && item.rowView.count > 0) {
-                item.rowView.currentIndex = Math.min(currentItemIndex, item.rowView.count - 1)
+                item.rowView.currentIndex = Math.max(0, Math.min(currentItemIndex, item.rowView.count - 1))
                 item.rowView.forceActiveFocus()
                 if (netflixFlickable && item.y !== undefined) {
                     var targetY = item.y - netflixFlickable.height / 3
@@ -265,6 +274,21 @@ Item {
                                 else Qt.inputMethod.hide()
                             }
 
+                            Keys.onDownPressed: {
+                                if (allChannelsBtn) allChannelsBtn.forceActiveFocus()
+                            }
+                            Keys.onRightPressed: {
+                                if (newFilterBtn) newFilterBtn.forceActiveFocus()
+                            }
+                            Keys.onLeftPressed: {
+                                if (serverPicker.count > 0) {
+                                    if (serverPicker.currentIndex < 0) serverPicker.currentIndex = 0
+                                    serverPicker.forceActiveFocus()
+                                } else if (Window.window && Window.window.focusSidebar) {
+                                    Window.window.focusSidebar()
+                                }
+                            }
+
                             Text {
                                 anchors.verticalCenter: parent.verticalCenter
                                 text: "Filter categories..."
@@ -329,6 +353,7 @@ Item {
                     Layout.fillHeight: true
                     clip: true
                     model: appViewModel ? appViewModel.categoryList : null
+                    onCountChanged: channelsView.clampListIndex(categoryList)
 
                     function selectCategoryAt(index) {
                         if (!appViewModel || !appViewModel.categoryList || appViewModel.categoryList.count <= 0) return
@@ -624,6 +649,7 @@ Item {
                 }
 
                     Rectangle {
+                        id: newFilterBtn
                         Layout.preferredWidth: newFilterRow.implicitWidth + 24
                         Layout.preferredHeight: 32
                         radius: 16
@@ -636,6 +662,8 @@ Item {
                             var active = appViewModel && appViewModel.channelList.recentlyAddedFilter
                             return active ? Theme.accent : Theme.surfaceBorder
                         }
+                        focus: false
+                        activeFocusOnTab: true
                         property bool newFilterHov: false
 
                         Row {
@@ -665,6 +693,32 @@ Item {
                                     appViewModel.channelList.recentlyAddedFilter =
                                         !appViewModel.channelList.recentlyAddedFilter
                                 }
+                            }
+                        }
+
+                        Keys.onLeftPressed: {
+                            if (catFilterInput) catFilterInput.forceActiveFocus()
+                        }
+                        Keys.onRightPressed: {
+                            if (allChannelsBtn) allChannelsBtn.forceActiveFocus()
+                        }
+                        Keys.onDownPressed: {
+                            channelsView.focusPrimary()
+                        }
+                        Keys.onReturnPressed: {
+                            if (appViewModel) {
+                                appViewModel.channelList.recentlyAddedFilter =
+                                    !appViewModel.channelList.recentlyAddedFilter
+                            }
+                        }
+                        Keys.onEnterPressed: Keys.onReturnPressed(event)
+                        Keys.onPressed: function(event) {
+                            if (event.key === Qt.Key_Select || event.key === Qt.Key_Space) {
+                                if (appViewModel) {
+                                    appViewModel.channelList.recentlyAddedFilter =
+                                        !appViewModel.channelList.recentlyAddedFilter
+                                }
+                                event.accepted = true
                             }
                         }
                     }
@@ -999,6 +1053,7 @@ Item {
                 keyNavigationEnabled: true
                 property int cols: Math.max(1, Math.floor(width / cellWidth))
                 model: appViewModel ? appViewModel.channelList : null
+                onCountChanged: channelsView.clampListIndex(channelGrid)
 
                 Keys.onReturnPressed: function(event) { playCurrentItem(); event.accepted = true }
                 Keys.onEnterPressed: function(event) { playCurrentItem(); event.accepted = true }
@@ -1593,6 +1648,7 @@ Item {
                     keyNavigationEnabled: true
                     currentIndex: -1
                     highlightFollowsCurrentItem: true
+                    onCountChanged: channelsView.clampListIndex(groupOptionsList)
 
                     Keys.onUpPressed: {
                         if (currentIndex > 0) {

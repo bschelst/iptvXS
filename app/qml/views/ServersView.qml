@@ -10,10 +10,14 @@ Item {
 
     function focusPrimary() {
         if (serverListView.count > 0) {
-            if (serverListView.currentIndex < 0) serverListView.currentIndex = 0
+            if (serverListView.currentIndex < 0 || serverListView.currentIndex >= serverListView.count) {
+                serverListView.currentIndex = 0
+            }
             serverListView.forceActiveFocus()
         } else if (epgSourceListView.count > 0) {
-            if (epgSourceListView.currentIndex < 0) epgSourceListView.currentIndex = 0
+            if (epgSourceListView.currentIndex < 0 || epgSourceListView.currentIndex >= epgSourceListView.count) {
+                epgSourceListView.currentIndex = 0
+            }
             epgSourceListView.forceActiveFocus()
         } else if (addServerButton) {
             addServerButton.forceActiveFocus()
@@ -118,10 +122,14 @@ Item {
 
                         Keys.onDownPressed: {
                             if (serverListView.count > 0) {
-                                if (serverListView.currentIndex < 0) serverListView.currentIndex = 0
+                                if (serverListView.currentIndex < 0 || serverListView.currentIndex >= serverListView.count) {
+                                    serverListView.currentIndex = 0
+                                }
                                 serverListView.forceActiveFocus()
                             } else if (epgSourceListView.count > 0) {
-                                if (epgSourceListView.currentIndex < 0) epgSourceListView.currentIndex = 0
+                                if (epgSourceListView.currentIndex < 0 || epgSourceListView.currentIndex >= epgSourceListView.count) {
+                                    epgSourceListView.currentIndex = 0
+                                }
                                 epgSourceListView.forceActiveFocus()
                             } else if (addEpgButton) {
                                 addEpgButton.forceActiveFocus()
@@ -199,6 +207,14 @@ Item {
                                 currentIndex: -1
                                 model: appViewModel ? appViewModel.serverList : null
 
+                                onCountChanged: {
+                                    if (count <= 0) {
+                                        currentIndex = -1
+                                    } else if (currentIndex < 0 || currentIndex >= count) {
+                                        currentIndex = 0
+                                    }
+                                }
+
                                 Keys.onUpPressed: {
                                     if (currentIndex > 0) {
                                         currentIndex--
@@ -210,7 +226,9 @@ Item {
                                     if (currentIndex < count - 1) {
                                         currentIndex++
                                     } else if (epgSourceListView.count > 0) {
-                                        if (epgSourceListView.currentIndex < 0) epgSourceListView.currentIndex = 0
+                                        if (epgSourceListView.currentIndex < 0 || epgSourceListView.currentIndex >= epgSourceListView.count) {
+                                            epgSourceListView.currentIndex = 0
+                                        }
                                         epgSourceListView.forceActiveFocus()
                                     } else if (addEpgButton) {
                                         addEpgButton.forceActiveFocus()
@@ -305,7 +323,9 @@ Item {
                                             serverListView.forceActiveFocus()
                                             serverInfoCol.focusActionAt(0)
                                         } else if (epgSourceListView.count > 0) {
-                                            if (epgSourceListView.currentIndex < 0) epgSourceListView.currentIndex = 0
+                                            if (epgSourceListView.currentIndex < 0 || epgSourceListView.currentIndex >= epgSourceListView.count) {
+                                                epgSourceListView.currentIndex = 0
+                                            }
                                             epgSourceListView.forceActiveFocus()
                                         } else if (addEpgButton) {
                                             addEpgButton.forceActiveFocus()
@@ -496,7 +516,9 @@ Item {
                                                     serverListView.forceActiveFocus()
                                                     primaryBtn.forceActiveFocus()
                                                 } else if (epgSourceListView.count > 0) {
-                                                    if (epgSourceListView.currentIndex < 0) epgSourceListView.currentIndex = 0
+                                                    if (epgSourceListView.currentIndex < 0 || epgSourceListView.currentIndex >= epgSourceListView.count) {
+                                                        epgSourceListView.currentIndex = 0
+                                                    }
                                                     epgSourceListView.forceActiveFocus()
                                                 } else if (addEpgButton) {
                                                     addEpgButton.forceActiveFocus()
@@ -549,7 +571,9 @@ Item {
                                                     serverListView.forceActiveFocus()
                                                     enabledBtn.forceActiveFocus()
                                                 } else if (epgSourceListView.count > 0) {
-                                                    if (epgSourceListView.currentIndex < 0) epgSourceListView.currentIndex = 0
+                                                    if (epgSourceListView.currentIndex < 0 || epgSourceListView.currentIndex >= epgSourceListView.count) {
+                                                        epgSourceListView.currentIndex = 0
+                                                    }
                                                     epgSourceListView.forceActiveFocus()
                                                 } else if (addEpgButton) {
                                                     addEpgButton.forceActiveFocus()
@@ -606,7 +630,9 @@ Item {
                                                     serverListView.forceActiveFocus()
                                                     editBtn.forceActiveFocus()
                                                 } else if (epgSourceListView.count > 0) {
-                                                    if (epgSourceListView.currentIndex < 0) epgSourceListView.currentIndex = 0
+                                                    if (epgSourceListView.currentIndex < 0 || epgSourceListView.currentIndex >= epgSourceListView.count) {
+                                                        epgSourceListView.currentIndex = 0
+                                                    }
                                                     epgSourceListView.forceActiveFocus()
                                                 } else if (addEpgButton) {
                                                     addEpgButton.forceActiveFocus()
@@ -661,7 +687,9 @@ Item {
                                                     serverListView.forceActiveFocus()
                                                     syncBtn.forceActiveFocus()
                                                 } else if (epgSourceListView.count > 0) {
-                                                    if (epgSourceListView.currentIndex < 0) epgSourceListView.currentIndex = 0
+                                                    if (epgSourceListView.currentIndex < 0 || epgSourceListView.currentIndex >= epgSourceListView.count) {
+                                                        epgSourceListView.currentIndex = 0
+                                                    }
                                                     epgSourceListView.forceActiveFocus()
                                                 } else if (addEpgButton) {
                                                     addEpgButton.forceActiveFocus()
@@ -712,7 +740,9 @@ Item {
                                                     serverListView.forceActiveFocus()
                                                     delBtn.forceActiveFocus()
                                                 } else if (epgSourceListView.count > 0) {
-                                                    if (epgSourceListView.currentIndex < 0) epgSourceListView.currentIndex = 0
+                                                    if (epgSourceListView.currentIndex < 0 || epgSourceListView.currentIndex >= epgSourceListView.count) {
+                                                        epgSourceListView.currentIndex = 0
+                                                    }
                                                     epgSourceListView.forceActiveFocus()
                                                 } else if (addEpgButton) {
                                                     addEpgButton.forceActiveFocus()
@@ -812,7 +842,7 @@ Item {
 
                                 Keys.onUpPressed: {
                                     if (serverListView.count > 0) {
-                                        if (serverListView.currentIndex < 0) {
+                                        if (serverListView.currentIndex < 0 || serverListView.currentIndex >= serverListView.count) {
                                             serverListView.currentIndex = Math.max(0, serverListView.count - 1)
                                         }
                                         serverListView.forceActiveFocus()
@@ -822,7 +852,9 @@ Item {
                                 }
                                 Keys.onDownPressed: {
                                     if (epgSourceListView.count > 0) {
-                                        if (epgSourceListView.currentIndex < 0) epgSourceListView.currentIndex = 0
+                                        if (epgSourceListView.currentIndex < 0 || epgSourceListView.currentIndex >= epgSourceListView.count) {
+                                            epgSourceListView.currentIndex = 0
+                                        }
                                         epgSourceListView.forceActiveFocus()
                                     }
                                 }
@@ -856,6 +888,14 @@ Item {
                                 highlightFollowsCurrentItem: true
                                 currentIndex: -1
                                 model: appViewModel ? appViewModel.epgSourceList : null
+
+                                onCountChanged: {
+                                    if (count <= 0) {
+                                        currentIndex = -1
+                                    } else if (currentIndex < 0 || currentIndex >= count) {
+                                        currentIndex = 0
+                                    }
+                                }
 
                                 Keys.onDownPressed: {
                                     if (currentIndex < count - 1) currentIndex++

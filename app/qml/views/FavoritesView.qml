@@ -10,7 +10,9 @@ Item {
 
     function focusPrimary() {
         if (favoritesList.count > 0) {
-            if (favoritesList.currentIndex < 0) favoritesList.currentIndex = 0
+            if (favoritesList.currentIndex < 0 || favoritesList.currentIndex >= favoritesList.count) {
+                favoritesList.currentIndex = 0
+            }
             favoritesList.forceActiveFocus()
         }
     }
@@ -59,6 +61,14 @@ Item {
             keyNavigationEnabled: true
             highlightFollowsCurrentItem: true
             currentIndex: -1
+
+            onCountChanged: {
+                if (count <= 0) {
+                    currentIndex = -1
+                } else if (currentIndex < 0 || currentIndex >= count) {
+                    currentIndex = 0
+                }
+            }
 
             ScrollBar.vertical: ScrollBar {
                 active: true
@@ -279,11 +289,20 @@ Item {
         property int selectedSeason: 0
         property int seriesChannelId: 0
 
-        function closeDialog() {
+        function focusSeasonTab(index) {
+            if (!seasonsRepeater || seasonsRepeater.count <= 0) return
+            index = Math.max(0, Math.min(seasonsRepeater.count - 1, index))
+            var item = seasonsRepeater.itemAt(index)
+            if (item && item.forceActiveFocus) item.forceActiveFocus()
+        }
+
+            function closeDialog() {
             visible = false
             Qt.callLater(function() {
                 if (favoritesList && favoritesList.count > 0) {
-                    if (favoritesList.currentIndex < 0) favoritesList.currentIndex = 0
+                    if (favoritesList.currentIndex < 0 || favoritesList.currentIndex >= favoritesList.count) {
+                        favoritesList.currentIndex = 0
+                    }
                     favoritesList.forceActiveFocus()
                 } else if (favoritesView && favoritesView.focusPrimary) {
                     favoritesView.focusPrimary()
@@ -295,6 +314,14 @@ Item {
             if (visible) {
                 favEpList.currentIndex = 0
                 favEpList.forceActiveFocus()
+            }
+        }
+
+        onSelectedSeasonChanged: {
+            if (favEpList.count > 0) {
+                favEpList.currentIndex = 0
+            } else {
+                favEpList.currentIndex = -1
             }
         }
 
@@ -335,13 +362,30 @@ Item {
                 Row {
                     Layout.fillWidth: true; spacing: 4
                     Repeater {
+                        id: seasonsRepeater
                         model: favEpDialog.seasonsData
                         Rectangle {
                             width: favSeasonLbl.implicitWidth + 20; height: 28; radius: 14
                             color: favEpDialog.selectedSeason === index ? Theme.accent : "transparent"
                             border.color: favEpDialog.selectedSeason === index ? Theme.accent : Theme.surfaceBorder; border.width: 1
+                            focus: false
+                            activeFocusOnTab: true
                             Text { id: favSeasonLbl; anchors.centerIn: parent; text: modelData.name || ("Season " + (index + 1)); font.pixelSize: Theme.fontSizeXs; font.bold: favEpDialog.selectedSeason === index; color: favEpDialog.selectedSeason === index ? Theme.textOnAccent : Theme.textSecondary }
-                            MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: favEpDialog.selectedSeason = index }
+                            MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: { favEpDialog.selectedSeason = index; favEpDialog.focusSeasonTab(index) } }
+
+                            Keys.onLeftPressed: favEpDialog.focusSeasonTab(index - 1)
+                            Keys.onRightPressed: favEpDialog.focusSeasonTab(index + 1)
+                            Keys.onDownPressed: {
+                                if (favEpList.count > 0) favEpList.forceActiveFocus()
+                            }
+                            Keys.onReturnPressed: favEpDialog.selectedSeason = index
+                            Keys.onEnterPressed: Keys.onReturnPressed(event)
+                            Keys.onPressed: function(event) {
+                                if (event.key === Qt.Key_Select || event.key === Qt.Key_Space) {
+                                    favEpDialog.selectedSeason = index
+                                    event.accepted = true
+                                }
+                            }
                         }
                     }
                 }
@@ -350,6 +394,13 @@ Item {
                     id: favEpList
                     Layout.fillWidth: true; Layout.fillHeight: true; clip: true; spacing: 4
                     model: favEpDialog.seasonsData.length > 0 ? favEpDialog.seasonsData[favEpDialog.selectedSeason].episodes : []
+                    onCountChanged: {
+                        if (count <= 0) {
+                            currentIndex = -1
+                        } else if (currentIndex < 0 || currentIndex >= count) {
+                            currentIndex = 0
+                        }
+                    }
                     ScrollBar.vertical: ScrollBar { active: true; policy: ScrollBar.AsNeeded }
                     keyNavigationEnabled: true
                     highlightFollowsCurrentItem: true
@@ -358,6 +409,11 @@ Item {
                     Keys.onReturnPressed: playFavEpisode(currentIndex)
                     Keys.onEnterPressed: playFavEpisode(currentIndex)
                     Keys.onEscapePressed: favEpDialog.closeDialog()
+                    Keys.onUpPressed: {
+                        if (favEpDialog.seasonsData.length > 0) {
+                            favEpDialog.focusSeasonTab(favEpDialog.selectedSeason)
+                        }
+                    }
                     Keys.onPressed: function(event) {
                         if (event.key === Qt.Key_Select || event.key === Qt.Key_Space) {
                             playFavEpisode(currentIndex)
@@ -366,10 +422,16 @@ Item {
                             favEpDialog.closeDialog()
                             event.accepted = true
                         } else if (event.key === Qt.Key_Left) {
-                            if (favEpDialog.selectedSeason > 0) favEpDialog.selectedSeason--
+                            if (favEpDialog.selectedSeason > 0) {
+                                favEpDialog.selectedSeason--
+                                favEpDialog.focusSeasonTab(favEpDialog.selectedSeason)
+                            }
                             event.accepted = true
                         } else if (event.key === Qt.Key_Right) {
-                            if (favEpDialog.selectedSeason < favEpDialog.seasonsData.length - 1) favEpDialog.selectedSeason++
+                            if (favEpDialog.selectedSeason < favEpDialog.seasonsData.length - 1) {
+                                favEpDialog.selectedSeason++
+                                favEpDialog.focusSeasonTab(favEpDialog.selectedSeason)
+                            }
                             event.accepted = true
                         }
                     }

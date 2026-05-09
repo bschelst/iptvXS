@@ -12,9 +12,18 @@ Item {
     property string selectedGroupName: ""
     property string selectedGroupMode: "static"
 
+    function clampListIndex(listView) {
+        if (!listView) return
+        if (listView.count <= 0) {
+            listView.currentIndex = -1
+        } else if (listView.currentIndex < 0 || listView.currentIndex >= listView.count) {
+            listView.currentIndex = 0
+        }
+    }
+
     function focusMemberList() {
         if (memberListView.count > 0) {
-            if (memberListView.currentIndex < 0) memberListView.currentIndex = 0
+            clampListIndex(memberListView)
             memberListView.forceActiveFocus()
         } else if (addChannelsBtn && addChannelsBtn.visible) {
             addChannelsBtn.forceActiveFocus()
@@ -25,7 +34,7 @@ Item {
 
     function focusPrimary() {
         if (groupListView.count > 0) {
-            if (groupListView.currentIndex < 0) groupListView.currentIndex = 0
+            clampListIndex(groupListView)
             groupListView.forceActiveFocus()
         } else if (addGroupBtn) {
             addGroupBtn.forceActiveFocus()
@@ -38,7 +47,7 @@ Item {
 
     function focusGroupList() {
         if (groupListView.count > 0) {
-            if (groupListView.currentIndex < 0) groupListView.currentIndex = 0
+            clampListIndex(groupListView)
             groupListView.forceActiveFocus()
         } else if (addGroupBtn) {
             addGroupBtn.forceActiveFocus()
@@ -170,6 +179,7 @@ Item {
                     model: groupListModel
                     keyNavigationEnabled: true
                     highlightFollowsCurrentItem: false
+                    onCountChanged: groupsView.clampListIndex(groupListView)
 
                     Keys.onUpPressed: {
                         if (currentIndex > 0) currentIndex--
@@ -525,6 +535,16 @@ Item {
                         }
 
                         Keys.onLeftPressed: groupsView.focusGroupList()
+                        Keys.onDownPressed: {
+                            if (memberListView.count > 0) {
+                                if (memberListView.currentIndex < 0 || memberListView.currentIndex >= memberListView.count) {
+                                    memberListView.currentIndex = 0
+                                }
+                                memberListView.forceActiveFocus()
+                            } else {
+                                groupsView.focusMemberList()
+                            }
+                        }
                         Keys.onReturnPressed: channelSearchDialog.open()
                         Keys.onEnterPressed: Keys.onReturnPressed(event)
                         Keys.onPressed: function(event) {
@@ -546,10 +566,19 @@ Item {
                 spacing: 6
                 keyNavigationEnabled: true
                 highlightFollowsCurrentItem: false
+                onCountChanged: groupsView.clampListIndex(memberListView)
 
                 ScrollBar.vertical: ScrollBar { active: true; policy: ScrollBar.AsNeeded }
 
-                Keys.onUpPressed: { if (currentIndex > 0) currentIndex-- }
+                Keys.onUpPressed: {
+                    if (currentIndex > 0) {
+                        currentIndex--
+                    } else if (addChannelsBtn && addChannelsBtn.visible) {
+                        addChannelsBtn.forceActiveFocus()
+                    } else {
+                        groupsView.focusGroupList()
+                    }
+                }
                 Keys.onDownPressed: { if (currentIndex < count - 1) currentIndex++ }
                 Keys.onLeftPressed: groupsView.focusGroupList()
                 Keys.onRightPressed: {
@@ -2122,6 +2151,7 @@ Item {
                     model: chSearchResults
                     spacing: 4
                     keyNavigationEnabled: true
+                    onCountChanged: groupsView.clampListIndex(chSearchList)
 
                     ScrollBar.vertical: ScrollBar { active: true; policy: ScrollBar.AsNeeded }
 

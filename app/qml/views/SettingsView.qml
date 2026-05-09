@@ -14,15 +14,19 @@ Item {
     property int currentFocusIndex: 0
 
     function focusPrimary() {
+        currentFocusIndex = 0
+        if (focusTarget()) {
+            scrollToFocused()
+        }
         settingsView.forceActiveFocus()
     }
 
     // Direct lookup by index — returns the QML item for the given focus slot.
     // Using a function (not a property) so ids resolve after component completion.
-    readonly property int focusItemCount: 32
+    readonly property int focusItemCount: 35
 
-    function focusTarget() {
-        switch (currentFocusIndex) {
+    function focusTargetForIndex(index) {
+        switch (index) {
         case  0: return themeFlow
         case  1: return startMinSwitch
         case  2: return gridColFlow
@@ -32,30 +36,54 @@ Item {
         case  6: return videoEnhFlow
         case  7: return deinterlaceSwitch
         case  8: return toneMappingSwitch
-        case  9: return subtitlesSwitch
-        case 10: return subLangFlow
-        case 11: return secSubLangFlow
-        case 12: return subSizeRow
-        case 13: return subColorFlow
-        case 14: return subBgFlow
-        case 15: return syncIntervalFlow
-        case 16: return epgSyncFlow
-        case 17: return gdriveConnectBtn
-        case 18: return gdriveSaveFolderBtn
-        case 19: return recDestFlow
-        case 20: return keepLocalSwitch
-        case 21: return recBrowseBtn
-        case 22: return maxRecSizeFlow
-        case 23: return leadTimeFlow
-        case 24: return overrunFlow
-        case 25: return logoCacheMaxFlow
-        case 26: return clearCacheBtn
-        case 27: return resetDbBtn
-        case 28: return githubBtn
-        case 29: return checkUpdatesBtn
-        case 30: return freeServerSwitchRow
-        case 31: return freeServerReAddBtn
+        case  9: return toneMappingAlgoRow
+        case 10: return subtitlesSwitch
+        case 11: return subLangFlow
+        case 12: return secSubLangFlow
+        case 13: return subSizeRow
+        case 14: return subColorFlow
+        case 15: return subBgFlow
+        case 16: return syncIntervalFlow
+        case 17: return epgSyncFlow
+        case 18: return gdriveConnectBtn
+        case 19: return gdriveFolderInput
+        case 20: return gdriveSaveFolderBtn
+        case 21: return recDestFlow
+        case 22: return keepLocalSwitch
+        case 23: return recBrowseBtn
+        case 24: return maxRecSizeFlow
+        case 25: return leadTimeFlow
+        case 26: return overrunFlow
+        case 27: return logoCacheMaxFlow
+        case 28: return clearCacheBtn
+        case 29: return maintenanceBtn
+        case 30: return resetDbBtn
+        case 31: return githubBtn
+        case 32: return checkUpdatesBtn
+        case 33: return freeServerSwitchRow
+        case 34: return freeServerReAddBtn
         default: return null
+        }
+    }
+
+    function focusTarget() {
+        return focusTargetForIndex(currentFocusIndex)
+    }
+
+    function isFocusableTarget(target) {
+        return target && (target.visible === undefined || target.visible)
+    }
+
+    function moveFocus(delta) {
+        var index = currentFocusIndex + delta
+        while (index >= 0 && index < focusItemCount) {
+            var target = focusTargetForIndex(index)
+            if (isFocusableTarget(target)) {
+                currentFocusIndex = index
+                scrollToFocused()
+                return
+            }
+            index += delta
         }
     }
 
@@ -83,16 +111,10 @@ Item {
     }
 
     Keys.onUpPressed: {
-        if (currentFocusIndex > 0) {
-            currentFocusIndex--
-            scrollToFocused()
-        }
+        moveFocus(-1)
     }
     Keys.onDownPressed: {
-        if (currentFocusIndex < focusItemCount - 1) {
-            currentFocusIndex++
-            scrollToFocused()
-        }
+        moveFocus(1)
     }
     Keys.onReturnPressed: activateFocusedItem()
     Keys.onEnterPressed: activateFocusedItem()
@@ -889,41 +911,82 @@ Item {
                             Layout.preferredWidth: 80
                         }
 
-                        Row {
-                            spacing: 4
-                            property string currentAlgo: appViewModel ? appViewModel.toneMappingAlgorithm : "auto"
-
-                            Repeater {
-                                model: [
-                                    { value: "auto", label: "Auto" },
-                                    { value: "mobius", label: "Mobius" },
-                                    { value: "reinhard", label: "Reinhard" },
-                                    { value: "hable", label: "Hable" },
-                                    { value: "bt.2390", label: "BT.2390" }
-                                ]
-
-                                Rectangle {
-                                    width: algoLabel.implicitWidth + 16
-                                    height: 28
-                                    radius: 14
-                                    color: parent.currentAlgo === modelData.value ? Theme.accent : "transparent"
-                                    border.color: parent.currentAlgo === modelData.value ? Theme.accent : Theme.surfaceBorder
-                                    border.width: 1
-
-                                    Text {
-                                        id: algoLabel
-                                        anchors.centerIn: parent
-                                        text: modelData.label
-                                        font.pixelSize: Theme.fontSizeXs
-                                        font.bold: parent.parent.currentAlgo === modelData.value
-                                        color: parent.parent.currentAlgo === modelData.value ? Theme.textOnAccent : Theme.textSecondary
+                        Item {
+                            id: toneMappingAlgoRow
+                            Layout.fillWidth: true
+                            implicitHeight: toneMappingAlgoInner.implicitHeight
+                            property int subFocusIndex: 0
+                            property int subCount: 5
+                            property var subValues: ["auto", "mobius", "reinhard", "hable", "bt.2390"]
+                            function syncToCurrent() {
+                                var currentAlgo = appViewModel ? appViewModel.toneMappingAlgorithm : "auto"
+                                for (var i = 0; i < subValues.length; ++i) {
+                                    if (subValues[i] === currentAlgo) {
+                                        subFocusIndex = i
+                                        return
                                     }
+                                }
+                                subFocusIndex = 0
+                            }
+                            function activateSubIndex(idx) {
+                                if (appViewModel && idx >= 0 && idx < subValues.length)
+                                    appViewModel.toneMappingAlgorithm = subValues[idx]
+                            }
+                            function decrementSlider() {
+                                if (subFocusIndex > 0) {
+                                    subFocusIndex--
+                                    activateSubIndex(subFocusIndex)
+                                }
+                            }
+                            function incrementSlider() {
+                                if (subFocusIndex < subCount - 1) {
+                                    subFocusIndex++
+                                    activateSubIndex(subFocusIndex)
+                                }
+                            }
+                            onVisibleChanged: {
+                                if (visible) syncToCurrent()
+                            }
 
-                                    MouseArea {
-                                        anchors.fill: parent
-                                        cursorShape: Qt.PointingHandCursor
-                                        onClicked: {
-                                            if (appViewModel) appViewModel.toneMappingAlgorithm = modelData.value
+                            Row {
+                                id: toneMappingAlgoInner
+                                spacing: 4
+                                property string currentAlgo: appViewModel ? appViewModel.toneMappingAlgorithm : "auto"
+
+                                Repeater {
+                                    model: [
+                                        { value: "auto", label: "Auto" },
+                                        { value: "mobius", label: "Mobius" },
+                                        { value: "reinhard", label: "Reinhard" },
+                                        { value: "hable", label: "Hable" },
+                                        { value: "bt.2390", label: "BT.2390" }
+                                    ]
+
+                                    Rectangle {
+                                        width: algoLabel.implicitWidth + 16
+                                        height: 28
+                                        radius: 14
+                                        color: parent.currentAlgo === modelData.value ? Theme.accent : "transparent"
+                                        border.color: (settingsView.currentFocusIndex === 9 && settingsView.activeFocus && toneMappingAlgoRow.subFocusIndex === index)
+                                            ? Theme.accent
+                                            : parent.currentAlgo === modelData.value ? Theme.accent : Theme.surfaceBorder
+                                        border.width: 1
+
+                                        Text {
+                                            id: algoLabel
+                                            anchors.centerIn: parent
+                                            text: modelData.label
+                                            font.pixelSize: Theme.fontSizeXs
+                                            font.bold: parent.parent.currentAlgo === modelData.value
+                                            color: parent.parent.currentAlgo === modelData.value ? Theme.textOnAccent : Theme.textSecondary
+                                        }
+
+                                        MouseArea {
+                                            anchors.fill: parent
+                                            cursorShape: Qt.PointingHandCursor
+                                            onClicked: {
+                                                if (appViewModel) appViewModel.toneMappingAlgorithm = modelData.value
+                                            }
                                         }
                                     }
                                 }

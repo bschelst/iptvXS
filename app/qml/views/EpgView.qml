@@ -48,10 +48,29 @@ Item {
 
     function focusPrimary() {
         if (progDetailPopup.visible || recConfirm.visible) return
-        currentChannelIndex = Math.min(currentChannelIndex, Math.max(0, guideListView.count - 1))
+        clampGuideSelection()
+        currentProgrammeIndex = 0
         channelColumnFocused = false
         guideFlickable.forceActiveFocus()
         ensureChannelVisible()
+        ensureProgrammeVisible()
+    }
+
+    function clampGuideSelection() {
+        if (!guideListView) return
+        if (guideListView.count <= 0) {
+            currentChannelIndex = 0
+            currentProgrammeIndex = 0
+            return
+        }
+
+        currentChannelIndex = Math.max(0, Math.min(currentChannelIndex, guideListView.count - 1))
+        var progs = appViewModel ? appViewModel.epg.programmesForChannel(currentChannelIndex) : null
+        if (progs && progs.length > 0) {
+            currentProgrammeIndex = Math.max(0, Math.min(currentProgrammeIndex, progs.length - 1))
+        } else {
+            currentProgrammeIndex = 0
+        }
     }
 
     function ensureChannelVisible() {
@@ -793,6 +812,7 @@ Item {
                     model: appViewModel ? appViewModel.epg : null
                     clip: false
                     cacheBuffer: rowHeight * 4
+                    onCountChanged: epgView.clampGuideSelection()
 
                     delegate: Item {
                         id: guideRowDelegate

@@ -107,7 +107,7 @@ Item {
              i += delta) {
             var section = recordingSectionRepeater.itemAt(i)
             if (section && section.rowItems && section.rowItems.length > 0) {
-                var targetCard = Math.min(currentCardIdx, section.rowItems.length - 1)
+                var targetCard = Math.max(0, Math.min(currentCardIdx, section.rowItems.length - 1))
                 section.focusCardAt(targetCard)
                 ensureSectionVisible(section)
                 return
@@ -1518,7 +1518,7 @@ Item {
                 selectedChannelId = 0
                 return
             }
-            if (serverCombo.currentIndex < 0) {
+            if (serverCombo.currentIndex < 0 || serverCombo.currentIndex >= serverCombo.count) {
                 channelChoices = []
                 selectedChannelId = 0
                 return
@@ -1594,6 +1594,13 @@ Item {
                         radius: Theme.borderRadiusSmall
                     }
                 }
+                onCountChanged: {
+                    if (count <= 0) {
+                        currentIndex = -1
+                    } else if (currentIndex < 0 || currentIndex >= count) {
+                        currentIndex = 0
+                    }
+                }
                 onCurrentIndexChanged: {
                     manualRecordDialog.refreshChannelChoices()
                 }
@@ -1642,6 +1649,13 @@ Item {
                         border.color: Theme.surfaceBorder
                         border.width: 1
                         radius: Theme.borderRadiusSmall
+                    }
+                }
+                onCountChanged: {
+                    if (count <= 0) {
+                        currentIndex = -1
+                    } else if (currentIndex < 0 || currentIndex >= count) {
+                        currentIndex = 0
                     }
                 }
                 onCurrentIndexChanged: {

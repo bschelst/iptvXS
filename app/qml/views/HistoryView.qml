@@ -13,7 +13,9 @@ Item {
 
     function focusPrimary() {
         if (historyList.count > 0) {
-            if (historyList.currentIndex < 0) historyList.currentIndex = 0
+            if (historyList.currentIndex < 0 || historyList.currentIndex >= historyList.count) {
+                historyList.currentIndex = 0
+            }
             historyList.forceActiveFocus()
         }
     }
@@ -38,7 +40,7 @@ Item {
             }
             return
         }
-        if (historyList.currentIndex < 0) {
+        if (historyList.currentIndex < 0 || historyList.currentIndex >= historyList.count) {
             historyList.currentIndex = 0
         }
         historyList.forceActiveFocus()
@@ -54,7 +56,7 @@ Item {
     }
 
     function requestDeleteFocus(index) {
-        if (index < 0) return false
+        if (index < 0 || !historyList || index >= historyList.count) return false
         deleteFocusIndex = index
         historyList.currentIndex = index
         deleteFocusTimer.restart()
@@ -63,6 +65,10 @@ Item {
 
     function tryRestoreDeleteFocus() {
         if (deleteFocusIndex < 0 || !historyList) return
+        if (deleteFocusIndex >= historyList.count) {
+            deleteFocusIndex = -1
+            return
+        }
         if (historyList.currentIndex !== deleteFocusIndex) {
             historyList.currentIndex = deleteFocusIndex
         }
@@ -185,6 +191,14 @@ Item {
             keyNavigationEnabled: true
             highlight: Rectangle { color: Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.13); radius: Theme.borderRadiusSmall }
             highlightFollowsCurrentItem: true
+
+            onCountChanged: {
+                if (count <= 0) {
+                    currentIndex = -1
+                } else if (currentIndex < 0 || currentIndex >= count) {
+                    currentIndex = 0
+                }
+            }
 
             function focusDeleteForCurrentItem() {
                 if (currentIndex < 0) return false
