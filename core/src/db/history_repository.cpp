@@ -94,7 +94,7 @@ std::optional<HistoryEntry> HistoryRepository::findById(int64_t id) const {
         "FROM history h "
         "LEFT JOIN channels c ON c.id = h.channel_id AND h.channel_id > 0 "
         "LEFT JOIN servers s ON s.id = c.server_id "
-        "WHERE h.id = ? AND (h.channel_id = 0 OR COALESCE(s.enabled, 1) = 1) "
+        "WHERE h.id = ? AND h.deleted_at IS NULL AND (h.channel_id = 0 OR COALESCE(s.enabled, 1) = 1) "
         "LIMIT 1");
     query.addBindValue(QVariant::fromValue(id));
 
@@ -129,7 +129,7 @@ QVector<HistoryEntry> HistoryRepository::findRecent(int limit, int offset) const
         "FROM history h "
         "LEFT JOIN channels c ON c.id = h.channel_id AND h.channel_id > 0 "
         "LEFT JOIN servers s ON s.id = c.server_id "
-        "WHERE h.channel_id = 0 OR COALESCE(s.enabled, 1) = 1 "
+        "WHERE h.deleted_at IS NULL AND (h.channel_id = 0 OR COALESCE(s.enabled, 1) = 1) "
         "ORDER BY h.watched_at DESC "
         "LIMIT ? OFFSET ?");
     query.addBindValue(limit);
@@ -162,25 +162,30 @@ int HistoryRepository::count() const {
         "FROM history h "
         "LEFT JOIN channels c ON c.id = h.channel_id AND h.channel_id > 0 "
         "LEFT JOIN servers s ON s.id = c.server_id "
-        "WHERE h.channel_id = 0 OR COALESCE(s.enabled, 1) = 1");
+        "WHERE h.deleted_at IS NULL AND (h.channel_id = 0 OR COALESCE(s.enabled, 1) = 1)");
     return query.next() ? query.value(0).toInt() : 0;
 }
 
 void HistoryRepository::removeEntry(int64_t id) {
+    // Tombstone instead of physical delete so the change syncs to other devices.
     QSqlQuery query(db_);
-    query.prepare("DELETE FROM history WHERE id = ?");
+    query.prepare("UPDATE history "
+                  "SET deleted_at = strftime('%s', 'now'), updated_at = strftime('%s', 'now') "
+                  "WHERE id = ? AND deleted_at IS NULL");
     query.addBindValue(QVariant::fromValue(id));
     query.exec();
 }
 
 void HistoryRepository::clear() {
     QSqlQuery query(db_);
-    query.exec("DELETE FROM history");
+    query.exec("UPDATE history "
+               "SET deleted_at = strftime('%s', 'now'), updated_at = strftime('%s', 'now') "
+               "WHERE deleted_at IS NULL");
 }
 
 bool HistoryRepository::hasWatched(int64_t channelId) const {
     QSqlQuery query(db_);
-    query.prepare("SELECT 1 FROM history WHERE channel_id = ? LIMIT 1");
+    query.prepare("SELECT 1 FROM history WHERE channel_id = ? AND deleted_at IS NULL LIMIT 1");
     query.addBindValue(QVariant::fromValue(channelId));
 
     if (!query.exec()) {

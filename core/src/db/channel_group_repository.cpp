@@ -119,7 +119,8 @@ ChannelGroupRepository::ChannelGroupRepository(QSqlDatabase db, QObject *parent)
 std::optional<ChannelGroup> ChannelGroupRepository::findGroup(int64_t id) const {
     QSqlQuery q(db_);
     q.prepare("SELECT id, name, kind, filter_scope, filter_field, filter_operator, "
-              "filter_value, position, created_at FROM channel_groups WHERE id = ?");
+              "filter_value, position, created_at FROM channel_groups "
+              "WHERE id = ? AND deleted_at IS NULL");
     q.addBindValue(static_cast<qlonglong>(id));
     if (!q.exec() || !q.next()) {
         return std::nullopt;
@@ -190,8 +191,9 @@ qint64 ChannelGroupRepository::createGroup(const QString &name, const QString &k
 
     QSqlQuery q(db_);
     q.prepare("INSERT INTO channel_groups "
-              "(name, kind, filter_scope, filter_field, filter_operator, filter_value, position, created_at) "
-              "VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+              "(name, kind, filter_scope, filter_field, filter_operator, filter_value, "
+              "position, created_at, updated_at) "
+              "VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%s', 'now'))");
     q.addBindValue(trimmed);
     q.addBindValue(safeKind);
     q.addBindValue(safeScope);
@@ -241,7 +243,8 @@ bool ChannelGroupRepository::updateGroup(int64_t id, const QString &name, const 
 
     QSqlQuery q(db_);
     q.prepare("UPDATE channel_groups SET name = ?, kind = ?, filter_scope = ?, filter_field = ?, "
-              "filter_operator = ?, filter_value = ? WHERE id = ?");
+              "filter_operator = ?, filter_value = ?, updated_at = strftime('%s', 'now') "
+              "WHERE id = ? AND deleted_at IS NULL");
     q.addBindValue(trimmed);
     q.addBindValue(safeKind);
     q.addBindValue(safeScope);
@@ -261,7 +264,8 @@ bool ChannelGroupRepository::updateGroup(int64_t id, const QString &name, const 
 
 bool ChannelGroupRepository::renameGroup(int64_t id, const QString &name) {
     QSqlQuery q(db_);
-    q.prepare("UPDATE channel_groups SET name = ? WHERE id = ?");
+    q.prepare("UPDATE channel_groups SET name = ?, updated_at = strftime('%s', 'now') "
+              "WHERE id = ? AND deleted_at IS NULL");
     q.addBindValue(name);
     q.addBindValue(static_cast<qlonglong>(id));
     if (!q.exec()) {
@@ -273,11 +277,30 @@ bool ChannelGroupRepository::renameGroup(int64_t id, const QString &name) {
 }
 
 bool ChannelGroupRepository::deleteGroup(int64_t id) {
+    // Tombstone the group AND its members so the delete propagates via sync.
+    if (!db_.transaction()) return false;
     QSqlQuery q(db_);
-    q.prepare("DELETE FROM channel_groups WHERE id = ?");
+    q.prepare("UPDATE channel_groups "
+              "SET deleted_at = strftime('%s', 'now'), updated_at = strftime('%s', 'now') "
+              "WHERE id = ? AND deleted_at IS NULL");
     q.addBindValue(static_cast<qlonglong>(id));
     if (!q.exec()) {
+        db_.rollback();
         emit errorOccurred(QStringLiteral("Failed to delete group: %1").arg(q.lastError().text()));
+        return false;
+    }
+    QSqlQuery m(db_);
+    m.prepare("UPDATE group_members "
+              "SET deleted_at = strftime('%s', 'now'), updated_at = strftime('%s', 'now') "
+              "WHERE group_id = ? AND deleted_at IS NULL");
+    m.addBindValue(static_cast<qlonglong>(id));
+    if (!m.exec()) {
+        db_.rollback();
+        emit errorOccurred(QStringLiteral("Failed to tombstone group members: %1").arg(m.lastError().text()));
+        return false;
+    }
+    if (!db_.commit()) {
+        db_.rollback();
         return false;
     }
     emit groupsChanged();
@@ -286,7 +309,8 @@ bool ChannelGroupRepository::deleteGroup(int64_t id) {
 
 bool ChannelGroupRepository::reorderGroup(int64_t id, int newPosition) {
     QSqlQuery q(db_);
-    q.prepare("UPDATE channel_groups SET position = ? WHERE id = ?");
+    q.prepare("UPDATE channel_groups SET position = ?, updated_at = strftime('%s', 'now') "
+              "WHERE id = ? AND deleted_at IS NULL");
     q.addBindValue(newPosition);
     q.addBindValue(static_cast<qlonglong>(id));
     if (!q.exec()) {
@@ -299,7 +323,7 @@ bool ChannelGroupRepository::reorderGroup(int64_t id, int newPosition) {
 
 int ChannelGroupRepository::groupCount() const {
     QSqlQuery q(db_);
-    if (!q.exec("SELECT COUNT(*) FROM channel_groups")) {
+    if (!q.exec("SELECT COUNT(*) FROM channel_groups WHERE deleted_at IS NULL")) {
         return 0;
     }
     return q.next() ? q.value(0).toInt() : 0;
@@ -315,7 +339,7 @@ QVector<GroupMember> ChannelGroupRepository::findStaticMembers(int64_t groupId) 
                c.type, c.added_at, c.first_seen_at
         FROM group_members gm
         JOIN channels c ON c.id = gm.channel_id
-        WHERE gm.group_id = ?
+        WHERE gm.group_id = ? AND gm.deleted_at IS NULL
         ORDER BY gm.position ASC
     )");
     q.addBindValue(static_cast<qlonglong>(groupId));
@@ -415,7 +439,20 @@ bool ChannelGroupRepository::addMember(int64_t groupId, int64_t channelId) {
         return true;
     }
     QSqlQuery q(db_);
-    q.prepare("INSERT INTO group_members (group_id, channel_id, position) VALUES (?, ?, ?)");
+    // Revive a tombstoned membership if one exists, else INSERT.
+    QSqlQuery revive(db_);
+    revive.prepare("UPDATE group_members "
+                   "SET deleted_at = NULL, updated_at = strftime('%s', 'now'), position = ? "
+                   "WHERE group_id = ? AND channel_id = ? AND deleted_at IS NOT NULL");
+    revive.addBindValue(nextMemberPosition(groupId));
+    revive.addBindValue(static_cast<qlonglong>(groupId));
+    revive.addBindValue(static_cast<qlonglong>(channelId));
+    if (revive.exec() && revive.numRowsAffected() > 0) {
+        emit groupsChanged();
+        return true;
+    }
+    q.prepare("INSERT INTO group_members (group_id, channel_id, position, updated_at) "
+              "VALUES (?, ?, ?, strftime('%s', 'now'))");
     q.addBindValue(static_cast<qlonglong>(groupId));
     q.addBindValue(static_cast<qlonglong>(channelId));
     q.addBindValue(nextMemberPosition(groupId));
@@ -433,7 +470,9 @@ bool ChannelGroupRepository::removeMember(int64_t groupId, int64_t channelId) {
         return false;
     }
     QSqlQuery q(db_);
-    q.prepare("DELETE FROM group_members WHERE group_id = ? AND channel_id = ?");
+    q.prepare("UPDATE group_members "
+              "SET deleted_at = strftime('%s', 'now'), updated_at = strftime('%s', 'now') "
+              "WHERE group_id = ? AND channel_id = ? AND deleted_at IS NULL");
     q.addBindValue(static_cast<qlonglong>(groupId));
     q.addBindValue(static_cast<qlonglong>(channelId));
     if (!q.exec()) {
@@ -451,7 +490,9 @@ bool ChannelGroupRepository::reorderMember(int64_t groupId, int64_t channelId, i
         return false;
     }
     QSqlQuery q(db_);
-    q.prepare("UPDATE group_members SET position = ? WHERE group_id = ? AND channel_id = ?");
+    q.prepare("UPDATE group_members "
+              "SET position = ?, updated_at = strftime('%s', 'now') "
+              "WHERE group_id = ? AND channel_id = ? AND deleted_at IS NULL");
     q.addBindValue(newPosition);
     q.addBindValue(static_cast<qlonglong>(groupId));
     q.addBindValue(static_cast<qlonglong>(channelId));
@@ -479,7 +520,8 @@ bool ChannelGroupRepository::isMember(int64_t groupId, int64_t channelId) const 
     }
 
     QSqlQuery q(db_);
-    q.prepare("SELECT 1 FROM group_members WHERE group_id = ? AND channel_id = ?");
+    q.prepare("SELECT 1 FROM group_members "
+              "WHERE group_id = ? AND channel_id = ? AND deleted_at IS NULL");
     q.addBindValue(static_cast<qlonglong>(groupId));
     q.addBindValue(static_cast<qlonglong>(channelId));
     if (!q.exec()) {
@@ -498,7 +540,8 @@ int ChannelGroupRepository::memberCount(int64_t groupId) const {
     }
 
     QSqlQuery q(db_);
-    q.prepare("SELECT COUNT(*) FROM group_members WHERE group_id = ?");
+    q.prepare("SELECT COUNT(*) FROM group_members "
+              "WHERE group_id = ? AND deleted_at IS NULL");
     q.addBindValue(static_cast<qlonglong>(groupId));
     if (!q.exec()) {
         return 0;

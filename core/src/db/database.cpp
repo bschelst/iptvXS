@@ -399,6 +399,59 @@ std::vector<Database::Migration> Database::migrations() const {
              }
              return true;
          }},
+        {18, "Sync metadata: updated_at + tombstones + sync_state", [](QSqlDatabase &db) -> bool {
+             QSqlQuery q(db);
+
+             // Helper: defensive ADD COLUMN — checks PRAGMA table_info first.
+             auto ensureColumn = [&](const QString &table, const QString &column,
+                                     const QString &type) -> bool {
+                 QSqlQuery probe(db);
+                 if (!probe.exec(QStringLiteral("PRAGMA table_info(%1)").arg(table))) {
+                     return false;
+                 }
+                 bool exists = false;
+                 while (probe.next()) {
+                     if (probe.value(1).toString() == column) {
+                         exists = true;
+                         break;
+                     }
+                 }
+                 if (exists) return true;
+                 const auto sql = QStringLiteral("ALTER TABLE %1 ADD COLUMN %2 %3")
+                                      .arg(table, column, type);
+                 return q.exec(sql);
+             };
+
+             const QStringList syncTables = {
+                 QStringLiteral("favorites"),
+                 QStringLiteral("history"),
+                 QStringLiteral("channel_groups"),
+                 QStringLiteral("group_members"),
+                 QStringLiteral("servers")
+             };
+
+             for (const auto &t : syncTables) {
+                 // updated_at — required, default to now so existing rows get a stamp.
+                 if (!ensureColumn(t, QStringLiteral("updated_at"),
+                                   QStringLiteral("INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))"))) {
+                     return false;
+                 }
+                 // deleted_at — nullable tombstone; rows with non-null values are
+                 // hidden from the UI but kept around so the delete propagates.
+                 if (!ensureColumn(t, QStringLiteral("deleted_at"),
+                                   QStringLiteral("INTEGER"))) {
+                     return false;
+                 }
+             }
+
+             // Per-device sync state (key/value).
+             if (!q.exec("CREATE TABLE IF NOT EXISTS sync_state ("
+                         "key TEXT PRIMARY KEY, "
+                         "value TEXT NOT NULL)")) {
+                 return false;
+             }
+             return true;
+         }},
     };
 }
 

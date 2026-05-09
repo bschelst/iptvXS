@@ -40,7 +40,8 @@ QVector<Server> ServerRepository::findAll() const {
     QSqlQuery query(db_);
     query.prepare("SELECT id, name, type, url, username, password, user_agent, "
                   "epg_url, epg_source_id, last_synced_at, created_at, enabled, is_primary, is_builtin_free "
-                  "FROM servers ORDER BY is_primary DESC, enabled DESC, name");
+                  "FROM servers WHERE deleted_at IS NULL "
+                  "ORDER BY is_primary DESC, enabled DESC, name");
     if (!query.exec()) {
         return {};
     }
@@ -56,7 +57,7 @@ std::optional<Server> ServerRepository::findById(int64_t id) const {
     QSqlQuery query(db_);
     query.prepare("SELECT id, name, type, url, username, password, user_agent, "
                   "epg_url, epg_source_id, last_synced_at, created_at, enabled, is_primary, is_builtin_free "
-                  "FROM servers WHERE id = ?");
+                  "FROM servers WHERE id = ? AND deleted_at IS NULL");
     query.addBindValue(toVariant(id));
     if (!query.exec() || !query.next()) {
         return std::nullopt;
@@ -71,8 +72,9 @@ int64_t ServerRepository::create(const Server &server) {
     }
 
     QSqlQuery query(db_);
-    query.prepare("INSERT INTO servers (name, type, url, username, password, user_agent, epg_url, epg_source_id, is_builtin_free) "
-                  "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+    query.prepare("INSERT INTO servers (name, type, url, username, password, user_agent, "
+                  "epg_url, epg_source_id, is_builtin_free, updated_at) "
+                  "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, strftime('%s', 'now'))");
     query.addBindValue(server.name);
     query.addBindValue(server.type);
     query.addBindValue(server.url);
@@ -104,7 +106,9 @@ bool ServerRepository::update(const Server &server) {
 
     QSqlQuery query(db_);
     query.prepare("UPDATE servers SET name = ?, type = ?, url = ?, username = ?, "
-                  "password = ?, user_agent = ?, epg_url = ?, epg_source_id = ?, is_builtin_free = ? WHERE id = ?");
+                  "password = ?, user_agent = ?, epg_url = ?, epg_source_id = ?, "
+                  "is_builtin_free = ?, updated_at = strftime('%s', 'now') "
+                  "WHERE id = ? AND deleted_at IS NULL");
     query.addBindValue(server.name);
     query.addBindValue(server.type);
     query.addBindValue(server.url);
@@ -143,7 +147,8 @@ bool ServerRepository::remove(int64_t id) {
 
 bool ServerRepository::updateLastSynced(int64_t id, int64_t timestamp) {
     QSqlQuery query(db_);
-    query.prepare("UPDATE servers SET last_synced_at = ? WHERE id = ?");
+    query.prepare("UPDATE servers SET last_synced_at = ?, updated_at = strftime('%s', 'now') "
+                  "WHERE id = ? AND deleted_at IS NULL");
     query.addBindValue(toVariant(timestamp));
     query.addBindValue(toVariant(id));
     if (!query.exec()) {
@@ -156,7 +161,8 @@ bool ServerRepository::updateLastSynced(int64_t id, int64_t timestamp) {
 
 bool ServerRepository::setEnabled(int64_t id, bool enabled) {
     QSqlQuery query(db_);
-    query.prepare("UPDATE servers SET enabled = ? WHERE id = ?");
+    query.prepare("UPDATE servers SET enabled = ?, updated_at = strftime('%s', 'now') "
+                  "WHERE id = ? AND deleted_at IS NULL");
     query.addBindValue(enabled ? 1 : 0);
     query.addBindValue(toVariant(id));
     if (!query.exec()) {
@@ -170,12 +176,14 @@ bool ServerRepository::setEnabled(int64_t id, bool enabled) {
 bool ServerRepository::setPrimary(int64_t id) {
     QSqlQuery query(db_);
     // Clear primary from all servers first
-    if (!query.exec("UPDATE servers SET is_primary = 0")) {
+    if (!query.exec("UPDATE servers SET is_primary = 0, updated_at = strftime('%s', 'now') "
+                    "WHERE deleted_at IS NULL")) {
         emit errorOccurred(QStringLiteral("Failed to clear primary: %1")
                                .arg(query.lastError().text()));
         return false;
     }
-    query.prepare("UPDATE servers SET is_primary = 1 WHERE id = ?");
+    query.prepare("UPDATE servers SET is_primary = 1, updated_at = strftime('%s', 'now') "
+                  "WHERE id = ? AND deleted_at IS NULL");
     query.addBindValue(toVariant(id));
     if (!query.exec()) {
         emit errorOccurred(QStringLiteral("Failed to set primary: %1")
@@ -187,7 +195,7 @@ bool ServerRepository::setPrimary(int64_t id) {
 
 int ServerRepository::count() const {
     QSqlQuery query(db_);
-    if (!query.exec("SELECT COUNT(*) FROM servers") || !query.next()) {
+    if (!query.exec("SELECT COUNT(*) FROM servers WHERE deleted_at IS NULL") || !query.next()) {
         return 0;
     }
     return query.value(0).toInt();
@@ -301,7 +309,8 @@ bool ServerRepository::migrateCredentialStorage() {
 
 bool ServerRepository::setEpgSource(int64_t id, int64_t epgSourceId) {
     QSqlQuery query(db_);
-    query.prepare("UPDATE servers SET epg_source_id = ? WHERE id = ?");
+    query.prepare("UPDATE servers SET epg_source_id = ?, updated_at = strftime('%s', 'now') "
+                  "WHERE id = ? AND deleted_at IS NULL");
     query.addBindValue(epgSourceId > 0 ? QVariant(static_cast<qlonglong>(epgSourceId)) : QVariant());
     query.addBindValue(toVariant(id));
     if (!query.exec()) {
