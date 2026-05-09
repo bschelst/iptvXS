@@ -2654,15 +2654,17 @@ Item {
 
     Timer {
         id: controlsTimer
-                interval: 3000
-                running: appViewModel ? (!appViewModel.player.stopped) : false
-                onTriggered: {
-                    if (playerView.focusedControlIndex() >= 0 || (seekSlider && seekSlider.activeFocus)) {
-                        controlsTimer.restart()
-                        return
-                    }
-                    controlsVisible = false
-                }
+        interval: 3000
+        running: appViewModel ? (!appViewModel.player.stopped) : false
+        onTriggered: {
+            // Hide unconditionally after the interval. Any real user input
+            // (key press, mouse movement past the deadzone, focus change)
+            // calls showControls() which restarts the timer — that's the
+            // correct path. Keeping controls visible just because a button
+            // happens to have focus made the HUD stick forever during
+            // playback.
+            controlsVisible = false
+        }
     }
 
     function showControls() {
