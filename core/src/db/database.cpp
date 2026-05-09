@@ -402,24 +402,18 @@ std::vector<Database::Migration> Database::migrations() const {
         {18, "Sync metadata: updated_at + tombstones + sync_state", [](QSqlDatabase &db) -> bool {
              QSqlQuery q(db);
 
-             // Helper: defensive ADD COLUMN — checks PRAGMA table_info first.
-             auto ensureColumn = [&](const QString &table, const QString &column,
-                                     const QString &type) -> bool {
+             // Helper: returns true if the column is already on the table.
+             auto columnExists = [&](const QString &table, const QString &column) -> bool {
                  QSqlQuery probe(db);
                  if (!probe.exec(QStringLiteral("PRAGMA table_info(%1)").arg(table))) {
                      return false;
                  }
-                 bool exists = false;
                  while (probe.next()) {
                      if (probe.value(1).toString() == column) {
-                         exists = true;
-                         break;
+                         return true;
                      }
                  }
-                 if (exists) return true;
-                 const auto sql = QStringLiteral("ALTER TABLE %1 ADD COLUMN %2 %3")
-                                      .arg(table, column, type);
-                 return q.exec(sql);
+                 return false;
              };
 
              const QStringList syncTables = {
@@ -430,17 +424,32 @@ std::vector<Database::Migration> Database::migrations() const {
                  QStringLiteral("servers")
              };
 
+             // SQLite restriction: ALTER TABLE ADD COLUMN may only use CONSTANT
+             // default expressions. strftime('%s','now') is not constant, so we
+             // ADD with DEFAULT 0 and then backfill every existing row in a
+             // separate UPDATE. New inserts in the repos already write the real
+             // timestamp inline.
              for (const auto &t : syncTables) {
-                 // updated_at — required, default to now so existing rows get a stamp.
-                 if (!ensureColumn(t, QStringLiteral("updated_at"),
-                                   QStringLiteral("INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))"))) {
-                     return false;
+                 if (!columnExists(t, QStringLiteral("updated_at"))) {
+                     if (!q.exec(QStringLiteral(
+                             "ALTER TABLE %1 ADD COLUMN updated_at INTEGER NOT NULL DEFAULT 0")
+                             .arg(t))) {
+                         return false;
+                     }
+                     if (!q.exec(QStringLiteral(
+                             "UPDATE %1 SET updated_at = strftime('%s', 'now')")
+                             .arg(t))) {
+                         return false;
+                     }
                  }
                  // deleted_at — nullable tombstone; rows with non-null values are
                  // hidden from the UI but kept around so the delete propagates.
-                 if (!ensureColumn(t, QStringLiteral("deleted_at"),
-                                   QStringLiteral("INTEGER"))) {
-                     return false;
+                 if (!columnExists(t, QStringLiteral("deleted_at"))) {
+                     if (!q.exec(QStringLiteral(
+                             "ALTER TABLE %1 ADD COLUMN deleted_at INTEGER")
+                             .arg(t))) {
+                         return false;
+                     }
                  }
              }
 
