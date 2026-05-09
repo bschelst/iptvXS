@@ -33,7 +33,7 @@
   <img src="https://img.shields.io/badge/C++-20-00599C?logo=c%2B%2B&logoColor=white" alt="C++20" />
 </p>
 <p>
-I created this app because I was a bit disappointed in the IPTV clients on Linux, SteamOS, and Android TV. Despite there being some good clients available, there are always some kind of issues with them, or you need to pay for basic functionality. On the other hand, managing a large number of channels was also problematic. Hence my attempt to create something better. Of course, at the end it's worse, but I tried :)  Note: the logo was made with AI, as I'm terrible with creating images. Feel free to propose a better logo.
+I created this app because I was a bit disappointed in the IPTV clients on Linux, SteamOS, and Android TV. Despite there being some good clients available, there are always some kind of issues with them, or you need to pay for basic functionality. Hence my attempt to create something better. Of course, at the end it's worse, but I tried :)  <br> Note: the logo was made with AI, as I'm terrible with creating images. Feel free to propose a better logo.
   This has been made with a lot of open source software, e.g: QT, mpv, ffmpeg, etc. All credits to all those projects. <br><br>
   This app contains a free IPTVXS server/playlist with *free*, publicly available, curated TV channels. We do **not** support any illegal IPTV providers.
  If you would like a channel to be removed, please send an email to [iptvxs@schelstraete.org](mailto:iptvxs@schelstraete.org) or submit a pull request.
