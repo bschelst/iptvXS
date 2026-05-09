@@ -36,6 +36,7 @@ find_package(Qt6 6.5 REQUIRED COMPONENTS
     Network
     Quick
     QuickControls2
+    Concurrent
 )
 
 qt_standard_project_setup(REQUIRES 6.5)

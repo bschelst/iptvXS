@@ -124,6 +124,7 @@ target_link_libraries(iptvxs-core
         Qt6::Core
         Qt6::Sql
         Qt6::Network
+        Qt6::Concurrent
         OpenSSL::Crypto
         ${MPV_LIBRARIES}
 )

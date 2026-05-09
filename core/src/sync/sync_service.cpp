@@ -6,10 +6,12 @@
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QFutureWatcher>
 #include <QSqlError>
 #include <QSqlQuery>
 #include <QStandardPaths>
 #include <QUuid>
+#include <QtConcurrent/QtConcurrentRun>
 
 #include "iptvxs/sync/snapshot.h"
 
@@ -318,23 +320,8 @@ void SyncService::backupDatabase(const QString &dbPath, BackupCallback cb) {
     }
 
     setBackupInProgress(true);
-    qInfo("[SYNC] starting database backup (raw=%lld bytes) — compressing",
+    qInfo("[SYNC] starting database backup (raw=%lld bytes) — compressing in background",
           static_cast<long long>(fi.size()));
-
-    QFile src(dbPath);
-    if (!src.open(QIODevice::ReadOnly)) {
-        fail(QStringLiteral("Cannot read DB: %1").arg(src.errorString()));
-        return;
-    }
-    const auto raw = src.readAll();
-    src.close();
-    // qCompress = zlib deflate with a 4-byte length prefix (Qt-specific).
-    // .qcz extension keeps users from assuming the file is a real .gz.
-    const auto compressed = qCompress(raw, 9);
-    if (compressed.isEmpty()) {
-        fail(QStringLiteral("Compression failed"));
-        return;
-    }
 
     const auto cacheRoot =
         QStandardPaths::writableLocation(QStandardPaths::CacheLocation);
@@ -343,34 +330,76 @@ void SyncService::backupDatabase(const QString &dbPath, BackupCallback cb) {
     const auto fileName = QStringLiteral("iptvXS-backup-%1.db.qcz").arg(stamp);
     const auto tempPath = cacheRoot + QLatin1Char('/') + fileName;
 
-    QFile out(tempPath);
-    if (!out.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
-        fail(QStringLiteral("Cannot write temp file: %1").arg(out.errorString()));
-        return;
-    }
-    if (out.write(compressed) != compressed.size()) {
+    // Compress + write the temp file on a worker thread so the GUI thread
+    // stays responsive while a 100MB DB is being read/deflated/written.
+    // qCompress = zlib deflate with a 4-byte length prefix (Qt-specific).
+    // .qcz extension keeps users from assuming the file is a real .gz.
+    struct PrepResult {
+        QString error;
+        qint64 rawSize{0};
+        qint64 compressedSize{0};
+    };
+    auto future = QtConcurrent::run([dbPath, tempPath]() -> PrepResult {
+        PrepResult r;
+        QFile src(dbPath);
+        if (!src.open(QIODevice::ReadOnly)) {
+            r.error = QStringLiteral("Cannot read DB: %1").arg(src.errorString());
+            return r;
+        }
+        const auto raw = src.readAll();
+        src.close();
+        r.rawSize = raw.size();
+        const auto compressed = qCompress(raw, 9);
+        if (compressed.isEmpty()) {
+            r.error = QStringLiteral("Compression failed");
+            return r;
+        }
+        r.compressedSize = compressed.size();
+        QFile out(tempPath);
+        if (!out.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+            r.error = QStringLiteral("Cannot write temp file: %1").arg(out.errorString());
+            return r;
+        }
+        if (out.write(compressed) != compressed.size()) {
+            out.close();
+            QFile::remove(tempPath);
+            r.error = QStringLiteral("Short write to temp file");
+            return r;
+        }
         out.close();
-        QFile::remove(tempPath);
-        fail(QStringLiteral("Short write to temp file"));
-        return;
-    }
-    out.close();
+        return r;
+    });
 
-    const double ratio = raw.isEmpty() ? 0.0
-                         : 100.0 * (1.0 - static_cast<double>(compressed.size()) /
-                                              static_cast<double>(raw.size()));
-    qInfo("[SYNC] compressed backup: %lld → %lld bytes (%.1f%% saved)",
-          static_cast<long long>(raw.size()),
-          static_cast<long long>(compressed.size()), ratio);
+    auto *watcher = new QFutureWatcher<PrepResult>(this);
+    connect(watcher, &QFutureWatcher<PrepResult>::finished, this,
+            [this, watcher, tempPath, fileName, cb]() {
+                watcher->deleteLater();
+                const auto r = watcher->result();
+                if (!r.error.isEmpty()) {
+                    setBackupInProgress(false);
+                    if (cb) cb(false, r.error, {});
+                    emit backupCompleted(false, r.error);
+                    return;
+                }
+                const double ratio = r.rawSize <= 0 ? 0.0
+                    : 100.0 * (1.0 - static_cast<double>(r.compressedSize)
+                                       / static_cast<double>(r.rawSize));
+                qInfo("[SYNC] compressed backup: %lld → %lld bytes (%.1f%% saved)",
+                      static_cast<long long>(r.rawSize),
+                      static_cast<long long>(r.compressedSize), ratio);
 
-    resolveBackupFolderThen([this, tempPath, fileName, cb](const QString &folderId) {
-        const auto rid = backupRecordingIdSeq_--;
-        pendingBackups_.insert(rid, cb);
-        pendingBackupTempFiles_.insert(rid, tempPath);
-        // Route through GDriveUploader (resumable, chunked) — Drive's
-        // multipart endpoint caps at 5 MB which is way under our DB size.
-        uploader_->uploadFile(rid, tempPath, fileName, folderId);
-    }, cb);
+                resolveBackupFolderThen(
+                    [this, tempPath, fileName, cb](const QString &folderId) {
+                        const auto rid = backupRecordingIdSeq_--;
+                        pendingBackups_.insert(rid, cb);
+                        pendingBackupTempFiles_.insert(rid, tempPath);
+                        // Route through GDriveUploader (resumable, chunked) —
+                        // Drive's multipart endpoint caps at 5 MB which is way
+                        // under our DB size.
+                        uploader_->uploadFile(rid, tempPath, fileName, folderId);
+                    }, cb);
+            });
+    watcher->setFuture(future);
 }
 
 void SyncService::garbageCollectTombstones(qint64 cutoffSecs) {
