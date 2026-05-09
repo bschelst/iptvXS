@@ -128,7 +128,10 @@ QtObject {
             success: "#22d3ee",
             warning: "#fbbf24",
             error: "#fb7185",
-            live: "#ef4444"
+            live: "#ef4444",
+            // Light-green accent has poor contrast against the default
+            // white textOnAccent — switch to black for readability.
+            textOnAccent: "#000000"
         },
         "sunset": {
             background: "#140a0a",
