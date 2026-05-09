@@ -178,7 +178,7 @@ Item {
                     clip: true
                     model: groupListModel
                     keyNavigationEnabled: true
-                    highlightFollowsCurrentItem: false
+                    highlightFollowsCurrentItem: true
                     onCountChanged: groupsView.clampListIndex(groupListView)
 
                     Keys.onUpPressed: {
@@ -565,7 +565,7 @@ Item {
                 model: memberListModel
                 spacing: 6
                 keyNavigationEnabled: true
-                highlightFollowsCurrentItem: false
+                highlightFollowsCurrentItem: true
                 onCountChanged: groupsView.clampListIndex(memberListView)
 
                 ScrollBar.vertical: ScrollBar { active: true; policy: ScrollBar.AsNeeded }
@@ -690,6 +690,8 @@ Item {
                         width: 32; height: 32; radius: 16
                         color: mDelHov ? Qt.rgba(Theme.error.r, Theme.error.g, Theme.error.b, 0.19) : "transparent"
                         property bool mDelHov: false
+                        focus: false
+                        activeFocusOnTab: true
 
                         Text {
                             anchors.centerIn: parent
@@ -709,6 +711,29 @@ Item {
                                     groupsView.reloadMembers()
                                     groupsView.reloadGroups()
                                 }
+                            }
+                        }
+
+                        Keys.onLeftPressed: {
+                            if (memberListView) memberListView.forceActiveFocus()
+                        }
+                        Keys.onReturnPressed: {
+                            if (appViewModel) {
+                                appViewModel.groupList.removeChannel(selectedGroupId, model.mchannelId)
+                                groupsView.reloadMembers()
+                                groupsView.reloadGroups()
+                            }
+                        }
+                        Keys.onEnterPressed: Keys.onReturnPressed(event)
+                        Keys.onPressed: function(event) {
+                            if (event.key === Qt.Key_Select || event.key === Qt.Key_Space
+                                    || event.key === Qt.Key_Delete || event.key === Qt.Key_Backspace) {
+                                if (appViewModel) {
+                                    appViewModel.groupList.removeChannel(selectedGroupId, model.mchannelId)
+                                    groupsView.reloadMembers()
+                                    groupsView.reloadGroups()
+                                }
+                                event.accepted = true
                             }
                         }
                     }
@@ -2160,6 +2185,14 @@ Item {
                         else chSearchInput.forceActiveFocus()
                     }
                     Keys.onDownPressed: { if (currentIndex < count - 1) currentIndex++ }
+                    Keys.onRightPressed: {
+                        if (currentIndex >= 0 && currentIndex < count) {
+                            var currentItem = chSearchList.currentItem
+                            if (currentItem && currentItem.srBtn) {
+                                currentItem.srBtn.forceActiveFocus()
+                            }
+                        }
+                    }
                     Keys.onReturnPressed: {
                         if (currentIndex >= 0 && currentIndex < count && appViewModel) {
                             var item = chSearchResults.get(currentIndex)
@@ -2232,6 +2265,8 @@ Item {
                                 ? (srBtnHov ? Theme.error : Qt.rgba(Theme.error.r, Theme.error.g, Theme.error.b, 0.13))
                                 : (srBtnHov ? Theme.accent : Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.13))
                             property bool srBtnHov: false
+                            focus: false
+                            activeFocusOnTab: true
 
                             Text {
                                 anchors.centerIn: parent
@@ -2265,6 +2300,9 @@ Item {
                                 inGrp = !inGrp
                             }
                             Keys.onEnterPressed: Keys.onReturnPressed(event)
+                            Keys.onLeftPressed: {
+                                if (chSearchList) chSearchList.forceActiveFocus()
+                            }
                             Keys.onPressed: function(event) {
                                 if (event.key === Qt.Key_Select || event.key === Qt.Key_Space) {
                                     Keys.onReturnPressed(event)
