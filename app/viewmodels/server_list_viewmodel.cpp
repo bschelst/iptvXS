@@ -786,6 +786,8 @@ void ServerListViewModel::saveXtreamStreams(
             continue;
         }
         ch.addedAt = s.added;
+        ch.tvArchive = s.tvArchive;
+        ch.tvArchiveDuration = s.tvArchiveDuration;
         dbChannels.append(ch);
     }
     channelRepo_->batchUpsert(dbChannels);

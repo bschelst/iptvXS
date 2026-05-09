@@ -836,6 +836,28 @@ Item {
                     }
                 }
 
+                // Catchup / timeshift indicator (server-side archive)
+                Rectangle {
+                    visible: (model.tvArchive || 0) > 0
+                    anchors.top: posterCard.top
+                    anchors.right: posterCard.right
+                    anchors.margins: 10
+                    width: 26
+                    height: 26
+                    radius: 13
+                    color: "#C0000000"
+                    z: 200
+
+                    Text {
+                        anchors.centerIn: parent
+                        text: "↻"
+                        font.pixelSize: 14
+                        font.bold: true
+                        font.family: "DejaVu Sans"
+                        color: "#ffffff"
+                    }
+                }
+
                 // Title area
                 Item {
                     anchors.top: posterImgArea.bottom

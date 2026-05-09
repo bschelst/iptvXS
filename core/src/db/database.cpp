@@ -376,6 +376,29 @@ std::vector<Database::Migration> Database::migrations() const {
 
              return true;
          }},
+        {17, "Add timeshift/catchup metadata to channels", [](QSqlDatabase &db) -> bool {
+             QSqlQuery q(db);
+             bool hasArchive = false;
+             bool hasArchiveDuration = false;
+             if (q.exec("PRAGMA table_info(channels)")) {
+                 while (q.next()) {
+                     const auto col = q.value(1).toString();
+                     if (col == QStringLiteral("tv_archive")) hasArchive = true;
+                     if (col == QStringLiteral("tv_archive_duration")) hasArchiveDuration = true;
+                 }
+             }
+             if (!hasArchive) {
+                 if (!q.exec("ALTER TABLE channels ADD COLUMN tv_archive INTEGER NOT NULL DEFAULT 0")) {
+                     return false;
+                 }
+             }
+             if (!hasArchiveDuration) {
+                 if (!q.exec("ALTER TABLE channels ADD COLUMN tv_archive_duration INTEGER NOT NULL DEFAULT 0")) {
+                     return false;
+                 }
+             }
+             return true;
+         }},
     };
 }
 

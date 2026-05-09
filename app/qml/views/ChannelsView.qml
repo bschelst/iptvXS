@@ -990,6 +990,28 @@ Item {
                                             opacity: 0.7
                                         }
 
+                                        // Catchup / timeshift indicator (server-side archive)
+                                        Rectangle {
+                                            visible: (model.tvArchive || 0) > 0
+                                            anchors.top: parent.top
+                                            anchors.left: parent.left
+                                            anchors.margins: 6
+                                            width: 22
+                                            height: 22
+                                            radius: 11
+                                            color: "#C0000000"
+                                            z: 200
+
+                                            Text {
+                                                anchors.centerIn: parent
+                                                text: "\u21BB"
+                                                font.pixelSize: 12
+                                                font.bold: true
+                                                font.family: "DejaVu Sans"
+                                                color: "#ffffff"
+                                            }
+                                        }
+
                                         MouseArea {
                                             anchors.fill: parent
                                             hoverEnabled: true
@@ -1146,6 +1168,28 @@ Item {
                             logoOpacity: 0.15
                             anchors.verticalCenterOffset: -20
                             visible: !chGridLogo.visible
+                        }
+
+                        // Catchup / timeshift indicator (server-side archive)
+                        Rectangle {
+                            visible: (model.tvArchive || 0) > 0
+                            anchors.top: parent.top
+                            anchors.right: parent.right
+                            anchors.margins: 8
+                            width: 26
+                            height: 26
+                            radius: 13
+                            color: "#C0000000"
+                            z: 200
+
+                            Text {
+                                anchors.centerIn: parent
+                                text: "↻"
+                                font.pixelSize: 14
+                                font.bold: true
+                                font.family: "DejaVu Sans"
+                                color: "#ffffff"
+                            }
                         }
 
                         Text {

@@ -42,7 +42,9 @@ public:
         CategoryIdRole,
         EpgChannelIdRole,
         ExternalIdRole,
-        ServerIdRole
+        ServerIdRole,
+        TvArchiveRole,
+        TvArchiveDurationRole
     };
 
     explicit ChannelListViewModel(QObject *parent = nullptr);

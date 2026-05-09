@@ -36,6 +36,8 @@ QVariant ChannelListViewModel::data(const QModelIndex &index, int role) const {
     case EpgChannelIdRole: return ch.epgChannelId;
     case ExternalIdRole: return ch.externalId;
     case ServerIdRole: return QVariant::fromValue(ch.serverId);
+    case TvArchiveRole: return ch.tvArchive;
+    case TvArchiveDurationRole: return ch.tvArchiveDuration;
     default: return {};
     }
 }
@@ -51,6 +53,8 @@ QHash<int, QByteArray> ChannelListViewModel::roleNames() const {
         {EpgChannelIdRole, "epgChannelId"},
         {ExternalIdRole, "externalId"},
         {ServerIdRole, "serverId"},
+        {TvArchiveRole, "tvArchive"},
+        {TvArchiveDurationRole, "tvArchiveDuration"},
     };
 }
 
