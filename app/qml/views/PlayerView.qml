@@ -2812,8 +2812,12 @@ Item {
                             anchors.left: parent.left
                             anchors.leftMargin: Theme.spacingMd
                             anchors.verticalCenter: parent.verticalCenter
-                            text: (modelData.isLive ? "▶  " : "↻  ") + modelData.label
+                            // ▷ (U+25B7 WHITE) instead of ▶ (U+25B6 BLACK) so the
+                            // glyph stays monochrome — the BLACK variant renders as
+                            // a colored emoji via the OS font fallback chain.
+                            text: (modelData.isLive ? "▷  " : "↻  ") + modelData.label
                             font.pixelSize: Theme.fontSizeSm
+                            font.family: "DejaVu Sans"
                             color: Theme.textPrimary
                         }
 
