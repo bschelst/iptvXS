@@ -228,6 +228,18 @@ ApplicationWindow {
         target: appViewModel
         function onCurrentViewChanged() {
             var view = appViewModel.currentView
+            // Whenever the user leaves the player, drop the fullscreen
+            // flag so the sidebar (whose visibility is bound to
+            // !videoFullscreen) reappears. Exit paths other than the
+            // explicit Back button (Escape, controller B, view-switch
+            // via mouse, etc.) used to leave the flag set, which made
+            // the sidebar invisible after coming back to a menu view.
+            if (view !== "player" && appViewModel.videoFullscreen) {
+                appViewModel.videoFullscreen = false
+                if (window.visibility === Window.FullScreen) {
+                    window.showNormal()
+                }
+            }
             sidebar.activeItem = view
             loadViewForCurrentName(view)
             if (sidebar.activeFocus) {
