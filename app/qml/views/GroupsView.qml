@@ -670,21 +670,25 @@ Item {
                         clip: true
                         property bool memHov: false
 
+                        // Logo area at the top, inset from card edges so the
+                        // rounded card surface frames the image instead of the
+                        // image rendering edge-to-edge.
                         Image {
                             id: mGridLogo
-                            anchors.fill: parent
+                            anchors.top: parent.top
+                            anchors.left: parent.left
+                            anchors.right: parent.right
+                            height: parent.height - 50
                             source: model.mlogoUrl || ""
-                            fillMode: Image.PreserveAspectCrop
+                            fillMode: Image.PreserveAspectFit
                             asynchronous: true
                             visible: status === Image.Ready
-                            cache: true
                         }
 
                         FallbackLogo {
                             visible: !mGridLogo.visible
-                            logoOpacity: 0.2
-                            logoSize: 56
-                            logoYOffset: -20
+                            logoOpacity: 0.15
+                            anchors.verticalCenterOffset: -20
                         }
 
                         // Channel-type icon (top-left), same monochrome style as HomeView
@@ -712,29 +716,21 @@ Item {
                             }
                         }
 
-                        // Bottom gradient + name
-                        Rectangle {
+                        // Channel name (bottom strip, on card surface \u2014 not gradient overlay)
+                        Text {
+                            anchors.left: parent.left
+                            anchors.right: parent.right
                             anchors.bottom: parent.bottom
-                            width: parent.width
-                            height: 50
-                            gradient: Gradient {
-                                GradientStop { position: 0.0; color: "transparent" }
-                                GradientStop { position: 0.4; color: "#CC000000" }
-                            }
-
-                            Text {
-                                anchors.left: parent.left
-                                anchors.right: parent.right
-                                anchors.bottom: parent.bottom
-                                anchors.margins: 8
-                                text: model.mname
-                                font.pixelSize: Theme.fontSizeXs
-                                font.bold: true
-                                color: "#ffffff"
-                                elide: Text.ElideRight
-                                wrapMode: Text.Wrap
-                                maximumLineCount: 2
-                            }
+                            anchors.leftMargin: 8
+                            anchors.rightMargin: 8
+                            anchors.bottomMargin: 8
+                            text: model.mname
+                            font.pixelSize: Theme.fontSizeXs
+                            font.bold: true
+                            color: Theme.textPrimary
+                            elide: Text.ElideRight
+                            maximumLineCount: 2
+                            wrapMode: Text.Wrap
                         }
 
                         // Delete button (top-right) for static groups only
@@ -797,14 +793,27 @@ Item {
                             }
                         }
 
-                        // Focus/hover border
+                        // Focus/hover border. When the GridView has keyboard
+                        // focus, only currentIndex drives the border (hover is
+                        // ignored) \u2014 otherwise the cursor's last-hovered card
+                        // would stay lit while D-pad moves to a new card.
                         Rectangle {
                             anchors.fill: parent
                             radius: mGridCard.radius
                             color: "transparent"
-                            border.color: (mGridCard.memHov || (memberListView.activeFocus && memberListView.currentIndex === index))
-                                ? Theme.accent : "transparent"
-                            border.width: (mGridCard.memHov || (memberListView.activeFocus && memberListView.currentIndex === index)) ? 2 : 0
+                            border.color: {
+                                if (memberListView.activeFocus) {
+                                    return memberListView.currentIndex === index
+                                        ? Theme.accent : "transparent"
+                                }
+                                return mGridCard.memHov ? Theme.accent : "transparent"
+                            }
+                            border.width: {
+                                if (memberListView.activeFocus) {
+                                    return memberListView.currentIndex === index ? 2 : 0
+                                }
+                                return mGridCard.memHov ? 2 : 0
+                            }
                             z: 100
                         }
                     }
