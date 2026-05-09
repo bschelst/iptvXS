@@ -113,7 +113,7 @@ modules:
     sources:
       - type: git
         url: https://github.com/bschelst/iptvXS.git
-        commit: 99647108713d9b46e7903179294e3dffc7b3da4d
+        commit: 708f1700218290230f33903c4e711e67d5fa5c34
       # The gateway API key lives in `.secrets` (gitignored) next to the
       # manifest. CMakeLists reads `${CMAKE_SOURCE_DIR}/.secrets` at configure
       # time and bakes IPTVXS_GATEWAY_API_KEY into the binary. Without this
