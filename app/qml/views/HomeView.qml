@@ -13,20 +13,27 @@ Item {
     property bool focusRestorePending: false
     property int focusRestoreAttempts: 0
     property bool continueWatchingReady: false
+    property int homeRevealStage: -1
     readonly property var allRows: [continueWatchingRow, favoritesRow, recentlyAddedRow, quickAccessRow]
+
+    function startRowRevealSequence() {
+        homeRevealStage = 0
+        homeRevealTimer.restart()
+    }
 
     function snapRowToFirstCard(row) {
         if (!row || !row.cardListView) return
         if (row.cardListView.count > 0) {
             row.cardListView.currentIndex = 0
             row.cardListView.positionViewAtIndex(0, ListView.Beginning)
+            row.cardListView.contentX = -row.cardListView.leftMargin
         }
     }
 
     function focusFirstAvailableRow() {
         for (var i = 0; i < allRows.length; i++) {
             var row = allRows[i]
-            if (row && row.visible && row.cardListView && row.cardListView.count > 0) {
+            if (row && row.visible && row.enabled && row.cardListView && row.cardListView.count > 0) {
                 currentRowIndex = i
                 snapRowToFirstCard(row)
                 row.cardListView.forceActiveFocus()
@@ -104,7 +111,7 @@ Item {
         var rows = allRows
         if (currentRowIndex >= 0 && currentRowIndex < rows.length) {
             var r = rows[currentRowIndex]
-            if (r && r.visible) {
+            if (r && r.visible && r.enabled) {
                 snapRowToFirstCard(r)
                 r.cardListView.forceActiveFocus()
                 return
@@ -112,7 +119,7 @@ Item {
         }
         // Fall back to first visible row
         for (var i = 0; i < rows.length; i++) {
-            if (rows[i].visible && rows[i].cardListView && rows[i].cardListView.count > 0) {
+            if (rows[i].visible && rows[i].enabled && rows[i].cardListView && rows[i].cardListView.count > 0) {
                 currentRowIndex = i
                 snapRowToFirstCard(rows[i])
                 rows[i].cardListView.forceActiveFocus()
@@ -126,7 +133,7 @@ Item {
         var target = fromRow + direction
         while (target >= 0 && target < rows.length) {
             var row = rows[target]
-            if (row && row.visible && row.cardListView && row.cardListView.count > 0) {
+            if (row && row.visible && row.enabled && row.cardListView && row.cardListView.count > 0) {
                 currentRowIndex = target
                 snapRowToFirstCard(row)
                 row.cardListView.forceActiveFocus()
@@ -173,10 +180,20 @@ Item {
         cwPopulateTimer.start()
         requestFocusRestore()
     }
+    onContinueWatchingReadyChanged: {
+        if (continueWatchingReady) {
+            startRowRevealSequence()
+        }
+    }
     Component.onDestruction: {
         if (appViewModel && appViewModel.channelList) {
             appViewModel.channelList.recentlyAddedFilter = false
         }
+        focusRestorePending = false
+        continueWatchingReady = false
+        homeRevealTimer.stop()
+        cwPopulateTimer.stop()
+        focusRestoreTimer.stop()
     }
 
     // ======================================================================
@@ -344,6 +361,7 @@ Item {
                 listModel: continueWatchingModel
                 isHistory: true
                 visible: continueWatchingModel.count > 0
+                revealed: continueWatchingReady && homeRevealStage >= 0
 
             }
 
@@ -358,6 +376,7 @@ Item {
                 cardHeight: 232
                 listModel: appViewModel ? appViewModel.favoriteList : null
                 visible: appViewModel && appViewModel.favoriteList && appViewModel.favoriteList.count > 0
+                revealed: continueWatchingReady && homeRevealStage >= 1
 
             }
 
@@ -372,6 +391,7 @@ Item {
                 cardHeight: 232
                 listModel: recentlyAddedReady && appViewModel ? appViewModel.channelList : null
                 visible: recentlyAddedReady && appViewModel && appViewModel.channelList && appViewModel.channelList.count > 0
+                revealed: continueWatchingReady && homeRevealStage >= 2
 
             }
 
@@ -387,6 +407,7 @@ Item {
                 listModel: quickAccessModel
                 isQuickAccess: true
                 visible: true
+                revealed: continueWatchingReady && homeRevealStage >= 3
 
             }
 
@@ -496,7 +517,6 @@ Item {
         if (continueWatchingRow && continueWatchingRow.cardListView) {
             if (continueWatchingModel.count > 0) {
                 continueWatchingRow.cardListView.currentIndex = 0
-                continueWatchingRow.cardListView.positionViewAtIndex(0, ListView.Beginning)
             } else {
                 continueWatchingRow.cardListView.currentIndex = -1
             }
@@ -509,6 +529,23 @@ Item {
         interval: 75
         repeat: false
         onTriggered: homeView.tryRestoreFocus()
+    }
+
+    Timer {
+        id: homeRevealTimer
+        interval: 80
+        repeat: true
+        onTriggered: {
+            if (homeRevealStage < 3) {
+                homeRevealStage++
+            }
+            if (homeRevealStage >= 3) {
+                homeRevealTimer.stop()
+            }
+            if (focusRestorePending) {
+                focusRestoreTimer.restart()
+            }
+        }
     }
 
     // ======================================================================
@@ -539,7 +576,36 @@ Item {
         property var listModel: null
         property bool isQuickAccess: false
         property bool isHistory: false
+        property bool revealed: false
         property alias cardListView: cardLv
+
+        opacity: revealed ? 1.0 : 0.0
+        enabled: revealed
+        Behavior on opacity {
+            NumberAnimation { duration: 120; easing.type: Easing.OutCubic }
+        }
+
+        function snapCardList(direction) {
+            if (!cardLv || cardLv.count <= 0) return
+
+            var step = cardWidth + cardLv.spacing
+            if (step <= 0) return
+
+            var minX = -cardLv.leftMargin
+            var maxX = Math.max(minX, cardLv.contentWidth - cardLv.width + cardLv.rightMargin)
+            var maxBoundary = minX + Math.floor((maxX - minX) / step) * step
+            var current = cardLv.contentX
+            var target
+
+            if (direction < 0) {
+                target = minX + Math.floor((current - minX - 0.001) / step) * step
+            } else {
+                target = minX + Math.ceil((current - minX + 0.001) / step) * step
+            }
+
+            target = Math.max(minX, Math.min(maxBoundary, target))
+            cardLv.contentX = target
+        }
 
         function activateCard(idx) {
             cardLv.currentIndex = idx
@@ -585,7 +651,7 @@ Item {
                     MouseArea {
                         anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
                         onEntered: parent.slHov = true; onExited: parent.slHov = false
-                        onClicked: cardLv.contentX = Math.max(cardLv.contentX - 216, -cardLv.leftMargin)
+                        onClicked: cardRow.snapCardList(-1)
                     }
 
                     Keys.onRightPressed: {
@@ -597,11 +663,11 @@ Item {
                             cardLv.forceActiveFocus()
                         }
                     }
-                    Keys.onReturnPressed: cardLv.contentX = Math.max(cardLv.contentX - 216, -cardLv.leftMargin)
+                    Keys.onReturnPressed: cardRow.snapCardList(-1)
                     Keys.onEnterPressed: Keys.onReturnPressed(event)
                     Keys.onPressed: function(event) {
                         if (event.key === Qt.Key_Select || event.key === Qt.Key_Space) {
-                            cardLv.contentX = Math.max(cardLv.contentX - 216, -cardLv.leftMargin)
+                            cardRow.snapCardList(-1)
                             event.accepted = true
                         }
                     }
@@ -623,8 +689,7 @@ Item {
                     MouseArea {
                         anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
                         onEntered: parent.srHov = true; onExited: parent.srHov = false
-                        onClicked: cardLv.contentX = Math.min(cardLv.contentX + 216,
-                            cardLv.contentWidth - cardLv.width + cardLv.rightMargin)
+                        onClicked: cardRow.snapCardList(1)
                     }
 
                     Keys.onLeftPressed: {
@@ -636,13 +701,11 @@ Item {
                             cardLv.forceActiveFocus()
                         }
                     }
-                    Keys.onReturnPressed: cardLv.contentX = Math.min(cardLv.contentX + 216,
-                        cardLv.contentWidth - cardLv.width + cardLv.rightMargin)
+                    Keys.onReturnPressed: cardRow.snapCardList(1)
                     Keys.onEnterPressed: Keys.onReturnPressed(event)
                     Keys.onPressed: function(event) {
                         if (event.key === Qt.Key_Select || event.key === Qt.Key_Space) {
-                            cardLv.contentX = Math.min(cardLv.contentX + 216,
-                                cardLv.contentWidth - cardLv.width + cardLv.rightMargin)
+                            cardRow.snapCardList(1)
                             event.accepted = true
                         }
                     }
@@ -660,6 +723,7 @@ Item {
             clip: true
             leftMargin: Theme.spacingXl
             rightMargin: Theme.spacingXl
+            contentX: -leftMargin
             boundsBehavior: Flickable.StopAtBounds
             keyNavigationEnabled: true
             currentIndex: -1
@@ -981,7 +1045,8 @@ Item {
                 color: qaCard.cardHovered ? Theme.surfaceHover : Theme.surfaceElevated
                 border.width: {
                     var lv = qaDelegate.ListView.view
-                    return (lv && lv.currentIndex === index) ? 2 : 1
+                    if (qaHoverHandler.hovered) return 2
+                    return (lv && lv.activeFocus && lv.currentIndex === index) ? 2 : 1
                 }
                 border.color: {
                     if (qaHoverHandler.hovered) {
