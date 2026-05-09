@@ -1600,17 +1600,23 @@ void AppViewModel::ensureDefaultServers() {
 void AppViewModel::applyToneMappingToPlayer() {
     if (!playerVm_ || !playerVm_->mpvPlayer()->handle()) return;
     const auto algo = toneMapping() ? toneMappingAlgorithm() : QString();
-    const auto hdrPeak = toneMapping() ? QStringLiteral("yes") : QStringLiteral("no");
     if (!algo.isEmpty() && algo != QStringLiteral("auto")) {
         const QStringList toneCmd{QStringLiteral("set"), QStringLiteral("tone-mapping"), algo};
         playerVm_->mpvPlayer()->command(toneCmd);
     }
-    const QStringList hdrCmd{QStringLiteral("set"), QStringLiteral("hdr-compute-peak"), hdrPeak};
+    // hdr-compute-peak runs a per-frame compute shader that reads back the
+    // GPU framebuffer to measure actual peak luminance. mpv's docs warn it
+    // is "potentially very expensive especially on low-power hardware" —
+    // the Steam Deck iGPU qualifies. Force it off; mpv uses static stream
+    // metadata as a fallback, which is fine for both SDR and HDR content
+    // and avoids the periodic stutter the per-frame readback caused.
+    const QStringList hdrCmd{QStringLiteral("set"),
+                             QStringLiteral("hdr-compute-peak"),
+                             QStringLiteral("no")};
     playerVm_->mpvPlayer()->command(hdrCmd);
-    qInfo("Tone mapping %s: algorithm=%s hdr-compute-peak=%s",
+    qInfo("Tone mapping %s: algorithm=%s hdr-compute-peak=no",
           toneMapping() ? "enabled" : "disabled",
-          algo.isEmpty() ? "auto/default" : qPrintable(algo),
-          qPrintable(hdrPeak));
+          algo.isEmpty() ? "auto/default" : qPrintable(algo));
 }
 
 void AppViewModel::applyAudioPresetToPlayer() {
