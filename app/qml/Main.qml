@@ -149,6 +149,23 @@ ApplicationWindow {
                 }
             }
 
+            // L1/R1 controller shortcuts (synthesized as PageUp/PageDown
+            // by controller_input_bridge.cpp) step the top-nav focus
+            // left/right from anywhere inside the loaded view. AfterItem
+            // priority lets the inner focus chain consume the key first
+            // if it has a dedicated meaning, but in practice no view
+            // handles PageUp/PageDown so they fall through here.
+            Keys.priority: Keys.AfterItem
+            Keys.onPressed: function(event) {
+                if (event.key === Qt.Key_PageUp) {
+                    topBar.stepMenuFocus(-1)
+                    event.accepted = true
+                } else if (event.key === Qt.Key_PageDown) {
+                    topBar.stepMenuFocus(+1)
+                    event.accepted = true
+                }
+            }
+
             Behavior on opacity {
                 NumberAnimation {
                     duration: Theme.animFast
