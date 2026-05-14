@@ -149,7 +149,13 @@ Item {
                         selectServer(appViewModel.serverList.serverIdAt(index))
                     }
 
-                    Keys.onUpPressed: selectServerAt(currentIndex - 1)
+                    Keys.onUpPressed: {
+                        if (currentIndex > 0) {
+                            selectServerAt(currentIndex - 1)
+                        } else if (Window.window && Window.window.focusSidebar) {
+                            Window.window.focusSidebar()
+                        }
+                    }
                     Keys.onDownPressed: {
                         // Past the last server, fall through into the category
                         // sidebar (filter input → All Channels) so the chain
@@ -679,6 +685,11 @@ Item {
                             Keys.onDownPressed: {
                                 channelsView.focusPrimary()
                             }
+                            Keys.onUpPressed: {
+                                if (Window.window && Window.window.focusSidebar) {
+                                    Window.window.focusSidebar()
+                                }
+                            }
                             Keys.onPressed: function(event) {
                                 if (event.key === Qt.Key_Back || event.key === Qt.Key_Escape) {
                                     if (Window.window && Window.window.focusSidebar) {
@@ -974,18 +985,18 @@ Item {
                                         chRowListView.playCurrentItem()
                                     }
 
-                                    Rectangle {
-                                        id: chNetCard
-                                        anchors.fill: parent
-                                        anchors.margins: 6
-                                        radius: 10
-                                        color: Theme.surfaceElevated
-                                        border.width: chRowListView.activeFocus && chRowListView.currentIndex === index ? 2 : 1
-                                        border.color: chRowListView.activeFocus && chRowListView.currentIndex === index
-                                            ? Theme.accent
-                                            : Theme.surfaceBorder
-                                        clip: true
-                                        property bool chNetHov: false
+                                        Rectangle {
+                                            id: chNetCard
+                                            anchors.fill: parent
+                                            anchors.margins: 6
+                                            radius: 10
+                                            color: chNetHov ? Theme.surfaceHover : Theme.surfaceElevated
+                                            border.width: chNetHov || (chRowListView.activeFocus && chRowListView.currentIndex === index) ? 2 : 1
+                                            border.color: chNetHov || (chRowListView.activeFocus && chRowListView.currentIndex === index)
+                                                ? Theme.accent
+                                                : Theme.surfaceBorder
+                                            clip: true
+                                            property bool chNetHov: false
 
                                         // Logo area (centered, not cropped). Height tracks
                                         // card height so a portrait card auto-leaves room
@@ -1056,16 +1067,40 @@ Item {
                                         }
                                     }
 
-                                        // Favorite indicator
-                                        Text {
-                                            visible: appViewModel && appViewModel.favoriteList.isFavorite(model.channelId)
+                                        // Favorite heart button (top-right)
+                                        Rectangle {
+                                            id: favBtn
                                             anchors.top: parent.top
                                             anchors.right: parent.right
-                                            anchors.topMargin: 4
-                                            anchors.rightMargin: 4
-                                            text: "\u2B50"
-                                            font.pixelSize: 10
-                                            opacity: 0.7
+                                            anchors.topMargin: 6
+                                            anchors.rightMargin: 6
+                                            width: 26
+                                            height: 26
+                                            radius: 13
+                                            color: favHov ? "#80000000" : "#50000000"
+                                            property bool favHov: false
+                                            property bool isFav: appViewModel ? appViewModel.favoriteList.isFavorite(model.channelId) : false
+
+                                            Text {
+                                                anchors.centerIn: parent
+                                                text: parent.isFav ? "\u2764" : "\u2661"
+                                                font.pixelSize: 13
+                                                color: parent.isFav ? Theme.error : "#FFFFFF"
+                                            }
+
+                                            MouseArea {
+                                                anchors.fill: parent
+                                                hoverEnabled: true
+                                                cursorShape: Qt.PointingHandCursor
+                                                onEntered: parent.favHov = true
+                                                onExited: parent.favHov = false
+                                                onClicked: {
+                                                    if (appViewModel) {
+                                                        appViewModel.favoriteList.toggleFavorite(model.channelId)
+                                                        parent.isFav = !parent.isFav
+                                                    }
+                                                }
+                                            }
                                         }
 
                                         // Catchup / timeshift indicator (server-side archive)
@@ -1094,6 +1129,7 @@ Item {
                                             anchors.fill: parent
                                             hoverEnabled: true
                                             cursorShape: Qt.PointingHandCursor
+                                            anchors.rightMargin: 34
                                             onEntered: chNetCard.chNetHov = true
                                             onExited: chNetCard.chNetHov = false
                                             onClicked: activate()
@@ -1103,9 +1139,9 @@ Item {
                                             anchors.fill: parent
                                             radius: chNetCard.radius
                                             color: "transparent"
-                                            border.color: (chNetCard.chNetHov || (chRowListView.activeFocus && chRowListView.currentIndex === index))
-                                                ? Theme.accent : "transparent"
-                                            border.width: 2
+                                            border.color: chNetCard.chNetHov || (chRowListView.activeFocus && chRowListView.currentIndex === index)
+                                                ? Theme.accent : Theme.surfaceBorder
+                                            border.width: (chNetCard.chNetHov || (chRowListView.activeFocus && chRowListView.currentIndex === index)) ? 2 : 1
                                             z: 100
                                         }
                                     }
@@ -1317,9 +1353,9 @@ Item {
                             anchors.fill: parent
                             radius: chNetCard.radius
                             color: "transparent"
-                            border.color: (chNetCard.chHovered || (channelGrid.activeFocus && channelGrid.currentIndex === index))
+                            border.color: (channelGrid.activeFocus && channelGrid.currentIndex === index)
                                 ? Theme.accent : Theme.surfaceBorder
-                            border.width: (chNetCard.chHovered || (channelGrid.activeFocus && channelGrid.currentIndex === index)) ? 2 : 1
+                            border.width: (channelGrid.activeFocus && channelGrid.currentIndex === index) ? 2 : 1
                             z: 100
                         }
                     }

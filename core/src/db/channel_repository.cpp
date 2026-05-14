@@ -173,12 +173,25 @@ std::optional<Channel> ChannelRepository::findById(int64_t id) const {
 
 QVector<Channel> ChannelRepository::searchAll(const QString &searchQuery, int limit) const {
     QSqlQuery query(db_);
-    query.prepare("SELECT id, server_id, category_id, external_id, name, stream_url, "
-                  "logo_url, epg_channel_id, type, added_at, first_seen_at, "
-                  "tv_archive, tv_archive_duration "
-                  "FROM channels WHERE name LIKE ? COLLATE NOCASE "
-                  "ORDER BY name COLLATE NOCASE LIMIT ?");
+    query.prepare("SELECT c.id, c.server_id, c.category_id, c.external_id, c.name, c.stream_url, "
+                  "c.logo_url, c.epg_channel_id, c.type, c.added_at, c.first_seen_at, "
+                  "c.tv_archive, c.tv_archive_duration "
+                  "FROM channels c LEFT JOIN categories cat ON c.category_id = cat.id "
+                  "WHERE c.name LIKE ? COLLATE NOCASE "
+                  "OR COALESCE(c.external_id, '') LIKE ? COLLATE NOCASE "
+                  "OR COALESCE(c.stream_url, '') LIKE ? COLLATE NOCASE "
+                  "OR COALESCE(c.logo_url, '') LIKE ? COLLATE NOCASE "
+                  "OR COALESCE(c.epg_channel_id, '') LIKE ? COLLATE NOCASE "
+                  "OR COALESCE(c.type, '') LIKE ? COLLATE NOCASE "
+                  "OR COALESCE(cat.name, '') LIKE ? COLLATE NOCASE "
+                  "ORDER BY c.name COLLATE NOCASE LIMIT ?");
     auto pattern = QStringLiteral("%%%1%%").arg(searchQuery);
+    query.addBindValue(pattern);
+    query.addBindValue(pattern);
+    query.addBindValue(pattern);
+    query.addBindValue(pattern);
+    query.addBindValue(pattern);
+    query.addBindValue(pattern);
     query.addBindValue(pattern);
     query.addBindValue(limit);
 

@@ -23,6 +23,7 @@ public:
     std::optional<Recording> findById(int64_t id) const;
     QVector<Recording> findAll() const;
     QVector<Recording> findByStatus(const QString &status) const;
+    QVector<Recording> search(const QString &query, int limit = 100, int offset = 0) const;
     QVector<Recording> findScheduled(int64_t fromTime, int64_t toTime) const;
     QVector<Recording> findByChannel(int64_t channelId) const;
 

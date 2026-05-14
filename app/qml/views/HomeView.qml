@@ -16,9 +16,6 @@ Item {
     property int homeRevealStage: -1
     readonly property var allRows: [continueWatchingRow, favoritesRow, recentlyAddedRow, quickAccessRow]
 
-    // True while the user is keyboard-driving any card row. Card delegates
-    // use this to suppress stale mouse hover, otherwise the cursor's
-    // last-hovered card stays lit when focus moves to a different row.
     readonly property bool anyRowFocused: {
         for (var i = 0; i < allRows.length; i++) {
             var r = allRows[i]
@@ -566,6 +563,7 @@ Item {
         id: quickAccessModel
         ListElement { title: "Add Server";      desc: "Connect to Xtream or M3U"; icon: "\u2194";       target: "servers";    accentR: 0.424; accentG: 0.361; accentB: 0.906 }
         ListElement { title: "Browse Channels"; desc: "Explore your library";      icon: "\u25AD";       target: "channels";   accentR: 0.0;   accentG: 0.808; accentB: 0.788 }
+        ListElement { title: "Groups";          desc: "Organize your channels";    icon: "\u26D1";       target: "groups";     accentR: 0.600; accentG: 0.420; accentB: 0.950 }
         ListElement { title: "TV Guide";        desc: "Check what's on now";       icon: "\u25A6";       target: "epg";        accentR: 0.992; accentG: 0.475; accentB: 0.659 }
         ListElement { title: "Recordings";      desc: "Manage your recordings";    icon: "\u25CF";       target: "recordings"; accentR: 1.0;   accentG: 0.420; accentB: 0.420 }
         ListElement { title: "Speed Test";      desc: "Check your connection";     icon: "\u21AF";       target: "speedtest";  accentR: 0.992; accentG: 0.796; accentB: 0.431 }
@@ -641,7 +639,7 @@ Item {
 
             Row {
                 anchors.right: parent.right
-                anchors.rightMargin: Theme.spacingSm
+                anchors.rightMargin: Theme.spacingXl
                 anchors.verticalCenter: parent.verticalCenter
                 spacing: 4
                 visible: cardLv.contentWidth > cardLv.width - cardLv.leftMargin - cardLv.rightMargin
@@ -733,7 +731,7 @@ Item {
             spacing: Theme.spacingSm
             clip: true
             leftMargin: Theme.spacingXl
-            rightMargin: Theme.spacingXl
+            rightMargin: Theme.spacingXl * 2 + 40
             contentX: -leftMargin
             boundsBehavior: Flickable.StopAtBounds
             keyNavigationEnabled: true
@@ -747,6 +745,7 @@ Item {
                     currentIndex = -1
                 } else if (currentIndex < 0 || currentIndex >= count) {
                     currentIndex = 0
+                    positionViewAtIndex(currentIndex, ListView.Contain)
                 }
             }
 
@@ -754,16 +753,25 @@ Item {
                 if (activeFocus && count > 0 && (currentIndex < 0 || currentIndex >= count)) {
                     currentIndex = 0
                 }
+                if (activeFocus && currentIndex >= 0) {
+                    positionViewAtIndex(currentIndex, ListView.Contain)
+                }
             }
 
             Keys.onReturnPressed: activateCurrentCard()
             Keys.onEnterPressed: activateCurrentCard()
             Keys.onLeftPressed: {
-                if (currentIndex > 0) currentIndex--
+                if (currentIndex > 0) {
+                    currentIndex--
+                    positionViewAtIndex(currentIndex, ListView.Contain)
+                }
                 else if (Window.window && Window.window.focusSidebar) Window.window.focusSidebar()
             }
             Keys.onRightPressed: {
-                if (currentIndex < count - 1) currentIndex++
+                if (currentIndex < count - 1) {
+                    currentIndex++
+                    positionViewAtIndex(currentIndex, ListView.Contain)
+                }
             }
             Keys.onUpPressed: homeView.focusAdjacentRow(cardRow.rowIndex, currentIndex, -1)
             Keys.onDownPressed: homeView.focusAdjacentRow(cardRow.rowIndex, currentIndex, 1)
@@ -832,15 +840,15 @@ Item {
 
             // Expose channelId for activateCurrentCard
             property var itemChannelId: model.channelId || 0
+            property bool cardHovered: false
 
-                Rectangle {
-                    id: posterCard
-                    anchors.fill: parent
-                    anchors.margins: 4
-                    radius: 10
-                color: Theme.surfaceElevated
+            Rectangle {
+                id: posterCard
+                anchors.fill: parent
+                anchors.margins: 4
+                radius: 10
+                color: posterDelegate.cardHovered ? Theme.surfaceHover : Theme.surfaceElevated
                 clip: true
-                property bool cardHovered: posterHoverHandler.hovered
 
                 // Poster image area
                 Rectangle {
@@ -863,13 +871,15 @@ Item {
                     }
 
                     Image {
+                        visible: posterImg.status !== Image.Ready
                         anchors.centerIn: parent
-                        width: Math.min(parent.width * 0.28, 48)
+                        width: Math.min(parent.width, parent.height) - 48
                         height: width
                         source: "qrc:/images/iptvxs_tray.png"
                         fillMode: Image.PreserveAspectFit
-                        opacity: 0.4
-                        visible: posterImg.status !== Image.Ready
+                        asynchronous: false
+                        cache: true
+                        opacity: 0.3
                     }
                 }
 
@@ -954,13 +964,6 @@ Item {
                     }
                 }
 
-                // Mouse interaction
-                scale: {
-                    return posterHoverHandler.hovered ? 1.03 : 1.0
-                }
-                Behavior on scale {
-                    NumberAnimation { duration: Theme.animFast; easing.type: Easing.OutCubic }
-                }
             }
 
             // Single hover/click area covering entire delegate
@@ -969,6 +972,8 @@ Item {
                 anchors.fill: parent
                 hoverEnabled: true
                 cursorShape: Qt.PointingHandCursor
+                onEntered: posterDelegate.cardHovered = true
+                onExited: posterDelegate.cardHovered = false
                 onClicked: function(mouse) {
                     // Check if click is on the ✓ button area (top-right corner)
                     var btnRight = posterDelegate.width - 4   // posterCard right edge
@@ -991,36 +996,23 @@ Item {
                 }
             }
 
-            HoverHandler {
-                id: posterHoverHandler
-                target: posterDelegate
-            }
-
             // Focus/hover border.
-            // When the ListView has keyboard focus, only the current item
-            // highlights — hover is ignored. Otherwise hover takes over.
-            // Without this guard, a stale hover on a card that the user
-            // previously moused over keeps it lit while D-pad moves on,
-            // so multiple cards appear "highlighted" simultaneously.
             Rectangle {
                 anchors.fill: posterCard
                 radius: posterCard.radius
                 color: "transparent"
                 border.width: {
                     var lv = posterDelegate.ListView.view
-                    if (lv && lv.activeFocus && lv.currentIndex === index) return 2
-                    if (!homeView.anyRowFocused && posterHoverHandler.hovered) return 2
-                    return 1
+                    return ((lv && lv.activeFocus && lv.currentIndex === index) || posterDelegate.cardHovered) ? 2 : 1
                 }
                 border.color: {
                     var lv = posterDelegate.ListView.view
+                    if (posterDelegate.cardHovered) {
+                        return Theme.accent
+                    }
                     if (lv && lv.activeFocus) {
                         return lv.currentIndex === index ? Theme.accent : Theme.surfaceBorder
                     }
-                    // Another row (or sidebar) owns keyboard focus —
-                    // suppress hover so we don't double-highlight.
-                    if (homeView.anyRowFocused) return Theme.surfaceBorder
-                    if (posterHoverHandler.hovered) return Theme.accent
                     return Theme.surfaceBorder
                 }
                 z: 100
@@ -1030,7 +1022,8 @@ Item {
             Rectangle {
                 visible: {
                     var lv = posterDelegate.ListView.view
-                    return posterCard.cardHovered && lv && lv.activeFocus && (model.historyId || 0) > 0
+                    return (model.historyId || 0) > 0
+                        && (((lv && lv.activeFocus && lv.currentIndex === index) || posterDelegate.cardHovered))
                 }
                 anchors.top: posterCard.top
                 anchors.right: posterCard.right
@@ -1061,44 +1054,31 @@ Item {
             width: 160
             height: 112
 
-                property var itemChannelId: 0
+            property var itemChannelId: 0
+            property bool cardHovered: false
 
             Rectangle {
                 id: qaCard
                 anchors.fill: parent
                 anchors.margins: 4
                 radius: Theme.borderRadius
-                color: qaCard.cardHovered ? Theme.surfaceHover : Theme.surfaceElevated
+                color: qaDelegate.cardHovered ? Theme.surfaceHover : Theme.surfaceElevated
                 border.width: {
                     var lv = qaDelegate.ListView.view
-                    if (lv && lv.activeFocus) {
-                        return lv.currentIndex === index ? 2 : 1
-                    }
-                    if (homeView.anyRowFocused) return 1
-                    if (qaHoverHandler.hovered) return 2
-                    return 1
+                    return ((lv && lv.activeFocus && lv.currentIndex === index) || qaDelegate.cardHovered) ? 2 : 1
                 }
                 border.color: {
                     var lv = qaDelegate.ListView.view
+                    if (qaDelegate.cardHovered) {
+                        return Theme.accent
+                    }
                     if (lv && lv.activeFocus) {
                         return lv.currentIndex === index ? Theme.accent : Theme.surfaceBorder
                     }
-                    if (homeView.anyRowFocused) return Theme.surfaceBorder
-                    if (qaHoverHandler.hovered) return Theme.accent
                     return Theme.surfaceBorder
                 }
 
-                property bool cardHovered: qaHoverHandler.hovered
-
                 Behavior on color { ColorAnimation { duration: Theme.animFast } }
-                Behavior on border.color { ColorAnimation { duration: Theme.animFast } }
-
-                scale: {
-                    return qaHoverHandler.hovered ? 1.03 : 1.0
-                }
-                Behavior on scale {
-                    NumberAnimation { duration: Theme.animFast; easing.type: Easing.OutCubic }
-                }
 
                 ColumnLayout {
                     anchors.fill: parent
@@ -1146,7 +1126,10 @@ Item {
                 MouseArea {
                     id: qaMouseArea
                     anchors.fill: parent
+                    hoverEnabled: true
                     cursorShape: Qt.PointingHandCursor
+                    onEntered: qaDelegate.cardHovered = true
+                    onExited: qaDelegate.cardHovered = false
                     onClicked: {
                         var node = qaDelegate.parent
                         while (node && !node.activateCard) node = node.parent
@@ -1154,10 +1137,6 @@ Item {
                     }
                 }
 
-                HoverHandler {
-                    id: qaHoverHandler
-                    target: qaDelegate
-                }
             }
         }
     }

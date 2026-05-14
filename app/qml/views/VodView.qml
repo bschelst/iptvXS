@@ -209,7 +209,13 @@ Item {
                         selectServer(appViewModel.serverList.serverIdAt(index))
                     }
 
-                    Keys.onUpPressed: selectServerAt(currentIndex - 1)
+                    Keys.onUpPressed: {
+                        if (currentIndex > 0) {
+                            selectServerAt(currentIndex - 1)
+                        } else if (Window.window && Window.window.focusSidebar) {
+                            Window.window.focusSidebar()
+                        }
+                    }
                     Keys.onDownPressed: {
                         if (currentIndex < count - 1) {
                             selectServerAt(currentIndex + 1)
@@ -791,6 +797,11 @@ Item {
                             Keys.onDownPressed: {
                                 vodView.focusPrimary()
                             }
+                            Keys.onUpPressed: {
+                                if (Window.window && Window.window.focusSidebar) {
+                                    Window.window.focusSidebar()
+                                }
+                            }
                             Keys.onPressed: function(event) {
                                 if (event.key === Qt.Key_Back || event.key === Qt.Key_Escape) {
                                     vodView.focusCategorySidebar()
@@ -1041,7 +1052,6 @@ Item {
                                             ? Theme.accent
                                             : Theme.surfaceBorder
                                         clip: true
-                                        property bool posterHov: false
 
                                         // Poster image
                                         Image {
@@ -1164,10 +1174,7 @@ Item {
                                         MouseArea {
                                             anchors.fill: parent
                                             anchors.rightMargin: 30
-                                            hoverEnabled: true
                                             cursorShape: Qt.PointingHandCursor
-                                            onEntered: posterCard.posterHov = true
-                                            onExited: posterCard.posterHov = false
                                             onClicked: if (parent.activate) parent.activate()
                                         }
 
@@ -1175,9 +1182,9 @@ Item {
                                             anchors.fill: parent
                                             radius: posterCard.radius
                                             color: "transparent"
-                                            border.color: (posterCard.posterHov || (rowListView.activeFocus && rowListView.currentIndex === index))
-                                                ? Theme.accent : "transparent"
-                                            border.width: 2
+                                            border.color: (rowListView.activeFocus && rowListView.currentIndex === index)
+                                                ? Theme.accent : Theme.surfaceBorder
+                                            border.width: (rowListView.activeFocus && rowListView.currentIndex === index) ? 2 : 1
                                             z: 100
                                         }
 
@@ -1305,15 +1312,17 @@ Item {
                     height: categoryGrid.cellHeight
                     focus: categoryGrid.activeFocus && categoryGrid.currentIndex === index
                     activeFocusOnTab: true
+                    property bool catGridHov: false
 
                     Rectangle {
                         id: catGridCard
                         anchors.fill: parent
                         anchors.margins: 4
                         radius: 10
-                        color: Theme.surfaceElevated
+                        color: catGridHov ? Theme.surfaceHover : Theme.surfaceElevated
+                        border.width: catGridHov ? 2 : 1
+                        border.color: catGridHov ? Theme.accent : Theme.surfaceBorder
                         clip: true
-                        property bool catGridHov: false
 
                         Image {
                             id: catGridPoster
@@ -1370,8 +1379,8 @@ Item {
                             anchors.fill: parent
                             hoverEnabled: true
                             cursorShape: Qt.PointingHandCursor
-                            onEntered: parent.catGridHov = true
-                            onExited: parent.catGridHov = false
+                            onEntered: catGridHov = true
+                            onExited: catGridHov = false
                             onClicked: if (parent.activate) parent.activate()
                         }
 
@@ -1379,9 +1388,9 @@ Item {
                             anchors.fill: parent
                             radius: catGridCard.radius
                             color: "transparent"
-                            border.color: (catGridCard.catGridHov || (categoryGrid.activeFocus && categoryGrid.currentIndex === index))
+                            border.color: catGridHov || (categoryGrid.activeFocus && categoryGrid.currentIndex === index)
                                 ? Theme.accent : Theme.surfaceBorder
-                            border.width: (catGridCard.catGridHov || (categoryGrid.activeFocus && categoryGrid.currentIndex === index)) ? 2 : 1
+                            border.width: (catGridHov || (categoryGrid.activeFocus && categoryGrid.currentIndex === index)) ? 2 : 1
                             z: 100
                         }
 
@@ -1417,9 +1426,11 @@ Item {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 visible: vodSearch.text.length > 0
-                property int cols: appViewModel ? appViewModel.gridColumns : 2
-                cellWidth: Math.floor(width / cols)
-                cellHeight: 72
+                property int cardWidth: 158
+                property int cardHeight: 232
+                property int cols: Math.max(2, Math.min(5, Math.floor(width / (cardWidth + Theme.spacingSm))))
+                cellWidth: cardWidth + Theme.spacingSm
+                cellHeight: cardHeight + Theme.spacingSm
                 clip: true
                 focus: visible && !vodSearch.activeFocus
                 keyNavigationEnabled: true
@@ -1481,135 +1492,134 @@ Item {
                 }
 
                 delegate: Item {
-                    width: vodGrid.cellWidth - Theme.spacingSm
-                    height: vodGrid.cellHeight - Theme.spacingSm
+                    width: vodGrid.cardWidth
+                    height: vodGrid.cardHeight
                     focus: vodGrid.activeFocus && vodGrid.currentIndex === index
                     activeFocusOnTab: true
+                    property bool searchCardHov: false
 
                     Rectangle {
                         id: searchCard
                         anchors.fill: parent
-                        anchors.margins: 2
-                        radius: Theme.borderRadiusLarge
-                        color: searchItemHov ? Theme.surfaceHover : Theme.surfaceElevated
-                        border.color: (searchItemHov || (vodGrid.activeFocus && vodGrid.currentIndex === index))
-                            ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.50) : "transparent"
-                        border.width: (searchItemHov || (vodGrid.activeFocus && vodGrid.currentIndex === index)) ? 2 : 1
+                        anchors.margins: 0
+                        radius: 10
+                        color: searchCardHov ? Theme.surfaceHover : Theme.surfaceElevated
+                        border.color: searchCardHov || (vodGrid.activeFocus && vodGrid.currentIndex === index)
+                            ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.50) : Theme.surfaceBorder
+                        border.width: (searchCardHov || (vodGrid.activeFocus && vodGrid.currentIndex === index)) ? 2 : 1
 
-                        scale: searchItemHov ? 1.02 : 1.0
-                        Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
                         Behavior on color { ColorAnimation { duration: 150 } }
 
-                        property bool searchItemHov: false
+                        Rectangle {
+                            id: searchPosterArea
+                            anchors.top: parent.top
+                            anchors.left: parent.left
+                            anchors.right: parent.right
+                            height: parent.height - 52
+                            color: "transparent"
 
-                        RowLayout {
+                            Image {
+                                id: searchPosterImg
+                                anchors.centerIn: parent
+                                width: parent.width - 16
+                                height: parent.height - 12
+                                source: vodView.logoSource(model.logoUrl)
+                                fillMode: Image.PreserveAspectFit
+                                asynchronous: true
+                                visible: status === Image.Ready
+                            }
+
+                            Image {
+                                anchors.centerIn: parent
+                                width: Math.min(parent.width, parent.height) - 48
+                                height: width
+                                source: "qrc:/images/iptvxs_tray.png"
+                                fillMode: Image.PreserveAspectFit
+                                asynchronous: false
+                                cache: true
+                                opacity: 0.3
+                                visible: searchPosterImg.status !== Image.Ready
+                            }
+                        }
+
+                        Item {
+                            anchors.top: searchPosterArea.bottom
+                            anchors.bottom: parent.bottom
+                            anchors.left: parent.left
+                            anchors.right: parent.right
+
+                            Text {
+                                anchors.centerIn: parent
+                                width: parent.width - 12
+                                text: model.name
+                                font.pixelSize: Theme.fontSizeXs
+                                font.bold: true
+                                color: Theme.textPrimary
+                                elide: Text.ElideRight
+                                maximumLineCount: 2
+                                wrapMode: Text.Wrap
+                                horizontalAlignment: Text.AlignHCenter
+                            }
+                        }
+
+                        MouseArea {
                             anchors.fill: parent
-                            anchors.margins: Theme.spacingSm
-                            spacing: Theme.spacingSm
+                            anchors.rightMargin: 38
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onEntered: searchCardHov = true
+                            onExited: searchCardHov = false
+                            onClicked: if (parent.activate) parent.activate()
+                        }
 
-                            Rectangle {
-                                Layout.preferredWidth: 48
-                                Layout.preferredHeight: 48
-                                radius: Theme.borderRadiusSmall
-                                color: Theme.surface
-                                clip: true
+                        Rectangle {
+                            id: searchFavBtn
+                            visible: true
+                            anchors.top: parent.top
+                            anchors.right: parent.right
+                            anchors.margins: 8
+                            width: 26
+                            height: 26
+                            radius: 13
+                            color: searchFavHov ? "#80000000" : "#50000000"
+                            z: 220
+                            property bool searchFavHov: false
+                            property bool isFav: appViewModel ? appViewModel.favoriteList.isFavorite(model.channelId) : false
 
-                                Image {
-                                    anchors.fill: parent
-                                    anchors.margins: 4
-                                    source: vodView.logoSource(model.logoUrl)
-                                    fillMode: Image.PreserveAspectFit
-                                    asynchronous: true
-                                    visible: status === Image.Ready
-                                }
-
-                                Text {
-                                    anchors.centerIn: parent
-                                    text: "\uD83C\uDFAC"
-                                    font.pixelSize: Theme.fontSizeMd
-                                    visible: !model.logoUrl
-                                }
+                            Text {
+                                anchors.centerIn: parent
+                                text: parent.isFav ? "\u2764" : "\u2661"
+                                font.pixelSize: 13
+                                color: parent.isFav ? Theme.error : "#FFFFFF"
                             }
 
-                            ColumnLayout {
-                                Layout.fillWidth: true
-                                spacing: 2
-
-                                Text {
-                                    text: model.name
-                                    font.pixelSize: Theme.fontSizeSm
-                                    color: Theme.textPrimary
-                                    elide: Text.ElideRight
-                                    Layout.fillWidth: true
-                                }
-
-                                Text {
-                                    text: model.type === "vod" ? "Movie" : "Series"
-                                    font.pixelSize: Theme.fontSizeXs
-                                    color: Theme.textMuted
-                                }
-                            }
-
-                            Rectangle {
-                                Layout.preferredWidth: 28
-                                Layout.preferredHeight: 28
-                                radius: 14
-                                color: searchFavHov ? Theme.surfaceHover : "transparent"
-                                focus: false
-                                activeFocusOnTab: true
-                                property bool searchFavHov: false
-                                property bool isFav: appViewModel ? appViewModel.favoriteList.isFavorite(model.channelId) : false
-
-                                Text {
-                                    anchors.centerIn: parent
-                                    text: parent.isFav ? "\u2764" : "\u2661"
-                                    font.pixelSize: 14
-                                    color: parent.isFav ? Theme.error : Theme.textMuted
-                                }
-
-                                MouseArea {
-                                    anchors.fill: parent
-                                    hoverEnabled: true
-                                    cursorShape: Qt.PointingHandCursor
-                                    onEntered: parent.searchFavHov = true
-                                    onExited: parent.searchFavHov = false
-                                    onClicked: {
-                                        if (appViewModel) {
-                                            appViewModel.favoriteList.toggleFavorite(model.channelId)
-                                            parent.isFav = !parent.isFav
-                                        }
-                                    }
-                                }
-
-                                onActiveFocusChanged: parent.searchFavHov = activeFocus
-
-                                Keys.onReturnPressed: {
+                            MouseArea {
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onEntered: parent.searchFavHov = true
+                                onExited: parent.searchFavHov = false
+                                onClicked: {
                                     if (appViewModel) {
                                         appViewModel.favoriteList.toggleFavorite(model.channelId)
                                         parent.isFav = !parent.isFav
                                     }
                                 }
-                                Keys.onEnterPressed: Keys.onReturnPressed(event)
-                                Keys.onPressed: function(event) {
-                                    if (event.key === Qt.Key_Select || event.key === Qt.Key_Space) {
-                                        Keys.onReturnPressed(event)
-                                        event.accepted = true
-                                    }
+                            }
+
+                            Keys.onReturnPressed: {
+                                if (appViewModel) {
+                                    appViewModel.favoriteList.toggleFavorite(model.channelId)
+                                    parent.isFav = !parent.isFav
                                 }
                             }
-                        }
-
-                        MouseArea {
-                            anchors.left: parent.left
-                            anchors.right: parent.right
-                            anchors.top: parent.top
-                            anchors.bottom: parent.bottom
-                            anchors.rightMargin: 36
-                            hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
-                            onEntered: searchCard.searchItemHov = true
-                            onExited: searchCard.searchItemHov = false
-                            onClicked: if (parent.activate) parent.activate()
+                            Keys.onEnterPressed: Keys.onReturnPressed(event)
+                            Keys.onPressed: function(event) {
+                                if (event.key === Qt.Key_Select || event.key === Qt.Key_Space) {
+                                    Keys.onReturnPressed(event)
+                                    event.accepted = true
+                                }
+                            }
                         }
 
                         function activate() {

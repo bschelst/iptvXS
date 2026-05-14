@@ -18,7 +18,7 @@ ApplicationWindow {
 
     // Note: ApplicationWindow inherits Window which is NOT an Item, so the
     // `Keys` attached property cannot be used at this level. Use per-item
-    // Keys handlers (HomeView, Sidebar, cardListView, etc.) instead.
+    // Keys handlers (HomeView, top nav, cardListView, etc.) instead.
 
     onClosing: function(close) {
         if (appViewModel && appViewModel.closeToTray && systemTrayAvailable) {
@@ -50,63 +50,123 @@ ApplicationWindow {
         "log": "Application Log"
     })
 
-    RowLayout {
+    property var topNavItems: ([
+        { "view": "home", "label": "Home" },
+        { "view": "channels", "label": "Live TV" },
+        { "view": "epg", "label": "TV Guide" },
+        { "view": "recordings", "label": "Recordings" },
+        { "view": "vod_movies", "label": "Films" },
+        { "view": "vod_series", "label": "Series" },
+        { "view": "favorites", "label": "Favorites" },
+        { "view": "groups", "label": "Groups" },
+        { "view": "servers", "label": "Servers" }
+    ])
+
+    function navViewForCurrentView(view) {
+        if (view === "player") {
+            if (appViewModel && appViewModel.player && appViewModel.player.isLive) {
+                return "channels"
+            }
+            var prev = appViewModel ? appViewModel.previousView() : ""
+            if (prev === "vod_series" || prev === "vod_movies" || prev === "recordings"
+                    || prev === "history" || prev === "channels" || prev === "favorites"
+                    || prev === "epg" || prev === "servers" || prev === "home") {
+                return prev
+            }
+            return "home"
+        }
+        return view
+    }
+
+    function topNavIndexForView(view) {
+        var navView = navViewForCurrentView(view)
+        for (var i = 0; i < topNavItems.length; i++) {
+            if (topNavItems[i].view === navView) {
+                return i
+            }
+        }
+        return 0
+    }
+
+    function focusTopNav() {
+        if (topBar) {
+            topBar.forceMenuFocus()
+        }
+    }
+
+    function openSearchOverlay() {
+        if (searchOverlay) {
+            searchOverlay.openOverlay()
+        }
+    }
+
+    function closeSearchOverlay() {
+        if (searchOverlay) {
+            searchOverlay.closeOverlay()
+        }
+    }
+
+    ColumnLayout {
         anchors.fill: parent
         spacing: 0
 
-        Sidebar {
-            id: sidebar
-            Layout.fillHeight: true
+        TopBar {
+            id: topBar
+            Layout.fillWidth: true
             visible: !appViewModel || !appViewModel.videoFullscreen
+            menuItems: topNavItems
+            activeView: navViewForCurrentView(appViewModel ? appViewModel.currentView : "home")
 
-            onItemClicked: function(name) {
+            onMenuActivated: function(view) {
                 if (appViewModel) {
-                    appViewModel.currentView = name
+                    appViewModel.currentView = view
+                }
+            }
+            onSpeedTestRequested: {
+                if (appViewModel) appViewModel.currentView = "speedtest"
+            }
+            onLogRequested: {
+                if (appViewModel) appViewModel.currentView = "log"
+            }
+            onSearchRequested: openSearchOverlay()
+            onSettingsRequested: {
+                if (appViewModel) appViewModel.currentView = "settings"
+            }
+            onLogoActivated: {
+                if (appViewModel) appViewModel.currentView = "home"
+            }
+        }
+
+        Loader {
+            id: viewLoader
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            source: "views/HomeView.qml"
+            asynchronous: false
+            onLoaded: {
+                if (!topBar.activeFocus && !searchOverlay.open) {
+                    requestViewFocusRestore()
+                }
+            }
+
+            Behavior on opacity {
+                NumberAnimation {
+                    duration: Theme.animFast
                 }
             }
         }
 
-        ColumnLayout {
-            Layout.fillWidth: true
-            Layout.fillHeight: true
-            spacing: 0
+    }
 
-            TopBar {
-                id: topBar
-                Layout.fillWidth: true
-                title: {
-                    var view = appViewModel ? appViewModel.currentView : "home"
-                    if (view === "player") {
-                        if (appViewModel && appViewModel.player.isLive) return "Live TV"
-                        var prev = appViewModel ? appViewModel.previousView() : ""
-                        if (prev === "vod_series") return "VOD Series"
-                        if (prev === "vod_movies") return "VOD Movies"
-                        return "Now Playing"
-                    }
-                    return viewTitles[view] || "Home"
-                }
-                visible: !appViewModel || !appViewModel.videoFullscreen
-
-                onToggleSidebar: sidebar.collapsed = !sidebar.collapsed
-            }
-
-            Loader {
-                id: viewLoader
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                source: "views/HomeView.qml"
-                asynchronous: false
-                onLoaded: {
-                    if (!sidebar.activeFocus) {
-                        requestViewFocusRestore()
-                    }
-                }
-
-                Behavior on opacity {
-                    NumberAnimation {
-                        duration: Theme.animFast
-                    }
-                }
+    GlobalSearchOverlay {
+        id: searchOverlay
+        onClosed: {
+            focusTopNav()
+        }
+        onResultActivated: function(result) {
+            closeOverlay()
+            if (appViewModel) {
+                appViewModel.openSearchResult(result)
             }
         }
     }
@@ -146,9 +206,7 @@ ApplicationWindow {
     }
 
     function focusSidebar() {
-        if (sidebar.visible) {
-            sidebar.forceActiveFocus()
-        }
+        focusTopNav()
     }
 
     function focusCurrentViewPrimary() {
@@ -240,9 +298,8 @@ ApplicationWindow {
                     window.showNormal()
                 }
             }
-            sidebar.activeItem = view
             loadViewForCurrentName(view)
-            if (sidebar.activeFocus) {
+            if (topBar.activeFocus || searchOverlay.open) {
                 focusRestorePending = false
                 focusContentTimer.stop()
             } else {
@@ -277,8 +334,7 @@ ApplicationWindow {
     property bool _reconnecting: appViewModel && appViewModel.player.reconnecting
     property bool pipMode: _playing && !_inPlayer && !_reconnecting
 
-
-        Rectangle {
+    Rectangle {
             id: videoContainer
             visible: _playing
         focus: pipMode
@@ -292,7 +348,7 @@ ApplicationWindow {
 
         Keys.onReturnPressed: { if (pipMode && appViewModel) appViewModel.currentView = "player" }
         Keys.onEnterPressed: Keys.onReturnPressed(event)
-        Keys.onLeftPressed: { if (pipMode) focusSidebar() }
+        Keys.onLeftPressed: { if (pipMode) focusTopNav() }
         Keys.onRightPressed: { if (pipMode) focusCurrentViewPrimary() }
         Keys.onUpPressed: { if (pipMode) focusCurrentViewPrimary() }
         Keys.onDownPressed: { if (pipMode && pipCloseButton.visible) pipCloseButton.forceActiveFocus() }
@@ -328,9 +384,9 @@ ApplicationWindow {
                 when: !pipMode
                 PropertyChanges {
                     target: videoContainer
-                    x: sidebar.visible ? sidebar.width : 0
+                    x: 0
                     y: topBar.visible ? topBar.height : 0
-                    width: parent.width - (sidebar.visible ? sidebar.width : 0)
+                    width: parent.width
                     height: parent.height - (topBar.visible ? topBar.height : 0)
                     z: -1
                 }
@@ -501,6 +557,7 @@ ApplicationWindow {
 
     Shortcut {
         sequence: "Escape"
+        enabled: !searchOverlay.open
         onActivated: {
             if (appViewModel && appViewModel.currentView === "player") {
                 appViewModel.player.stop()
@@ -514,7 +571,7 @@ ApplicationWindow {
         }
     }
 
-    property var navItems: ["home", "servers", "channels", "epg", "vod_movies", "vod_series", "favorites", "groups", "recordings", "history", "speedtest", "settings"]
+    property var navItems: ["home", "channels", "recordings", "vod_movies", "vod_series", "favorites", "epg", "servers"]
 
     Shortcut {
         sequences: ["F1"]
@@ -535,10 +592,10 @@ ApplicationWindow {
     }
 
     function navigateSidebar(delta) {
-        var idx = navItems.indexOf(sidebar.activeItem)
+        var idx = navItems.indexOf(navViewForCurrentView(appViewModel ? appViewModel.currentView : "home"))
         if (idx < 0) idx = 0
         idx = Math.max(0, Math.min(navItems.length - 1, idx + delta))
-        sidebar.activeItem = navItems[idx]
+        topBar.focusMenuItem(idx)
         if (appViewModel) appViewModel.currentView = navItems[idx]
     }
 

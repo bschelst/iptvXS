@@ -741,6 +741,43 @@ Item {
                             wrapMode: Text.Wrap
                         }
 
+                        // Favorite heart button (top-right)
+                        Rectangle {
+                            id: favBtn
+                            visible: true
+                            anchors.top: parent.top
+                            anchors.right: parent.right
+                            anchors.margins: 8
+                            width: 26
+                            height: 26
+                            radius: 13
+                            color: favHov ? "#80000000" : "#50000000"
+                            z: 220
+                            property bool favHov: false
+                            property bool isFav: appViewModel ? appViewModel.favoriteList.isFavorite(model.mchannelId) : false
+
+                            Text {
+                                anchors.centerIn: parent
+                                text: parent.isFav ? "\u2764" : "\u2661"
+                                font.pixelSize: 13
+                                color: parent.isFav ? Theme.error : "#FFFFFF"
+                            }
+
+                            MouseArea {
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onEntered: parent.favHov = true
+                                onExited: parent.favHov = false
+                                onClicked: {
+                                    if (appViewModel) {
+                                        appViewModel.favoriteList.toggleFavorite(model.mchannelId)
+                                        parent.isFav = !parent.isFav
+                                    }
+                                }
+                            }
+                        }
+
                         // Delete button (top-right) for static groups only
                         Rectangle {
                             id: mDelBtn
@@ -748,7 +785,8 @@ Item {
                                 && (mGridCard.memHov || (memberListView.activeFocus && memberListView.currentIndex === index))
                             anchors.top: parent.top
                             anchors.right: parent.right
-                            anchors.margins: 8
+                            anchors.topMargin: 8
+                            anchors.rightMargin: 40
                             width: 26
                             height: 26
                             radius: 13
@@ -789,12 +827,15 @@ Item {
                             onClicked: {
                                 // Don't trigger play if clicking the delete button area
                                 var btnRight = parent.width
-                                var btnLeft = btnRight - 42
+                                var btnLeft = btnRight - 84
                                 var btnTop = 0
                                 var btnBottom = 42
-                                if (mDelBtn.visible
+                                if ((mDelBtn.visible
                                         && mouseX >= btnLeft && mouseX <= btnRight
-                                        && mouseY >= btnTop && mouseY <= btnBottom) {
+                                        && mouseY >= btnTop && mouseY <= btnBottom)
+                                        || (favBtn.visible
+                                            && mouseX >= btnRight - 42 && mouseX <= btnRight
+                                            && mouseY >= btnTop && mouseY <= btnBottom)) {
                                     return
                                 }
                                 activate()

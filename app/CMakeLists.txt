@@ -49,8 +49,8 @@ qt_add_qml_module(iptvXS
         qml/views/LogView.qml
         qml/views/HistoryView.qml
         qml/views/GroupsView.qml
-        qml/components/Sidebar.qml
         qml/components/TopBar.qml
+        qml/components/GlobalSearchOverlay.qml
         qml/components/AddServerDialog.qml
         qml/components/AddEpgSourceDialog.qml
         qml/components/StyledTextField.qml

@@ -9,6 +9,7 @@
 #include <QQmlEngine>
 #include <QString>
 #include <QVariantList>
+#include <QVariantMap>
 #include <QTimer>
 
 #include "iptvxs/db/database.h"
@@ -90,7 +91,6 @@ class AppViewModel : public QObject {
     Q_PROPERTY(qint64 maxRecordingSizeGb READ maxRecordingSizeGb WRITE setMaxRecordingSizeGb NOTIFY maxRecordingSizeGbChanged)
     Q_PROPERTY(int epgRecordingLeadTime READ epgRecordingLeadTime WRITE setEpgRecordingLeadTime NOTIFY epgRecordingLeadTimeChanged)
     Q_PROPERTY(int epgRecordingOverrun READ epgRecordingOverrun WRITE setEpgRecordingOverrun NOTIFY epgRecordingOverrunChanged)
-    Q_PROPERTY(int gridColumns READ gridColumns WRITE setGridColumns NOTIFY gridColumnsChanged)
     Q_PROPERTY(bool closeToTray READ closeToTray WRITE setCloseToTray NOTIFY closeToTrayChanged)
     Q_PROPERTY(QString videoEnhancement READ videoEnhancement WRITE setVideoEnhancement NOTIFY videoEnhancementChanged)
     Q_PROPERTY(QString audioPreset READ audioPreset WRITE setAudioPreset NOTIFY audioPresetChanged)
@@ -185,8 +185,6 @@ public:
     void setEpgRecordingLeadTime(int minutes);
     int epgRecordingOverrun() const;
     void setEpgRecordingOverrun(int minutes);
-    int gridColumns() const;
-    void setGridColumns(int cols);
     bool closeToTray() const;
     void setCloseToTray(bool enabled);
     QString videoEnhancement() const;
@@ -214,6 +212,8 @@ public:
     Q_INVOKABLE bool fileExists(const QString &path) const;
     Q_INVOKABLE void resetDatabase();
     Q_INVOKABLE void searchSubtitles(const QString &query);
+    Q_INVOKABLE QVariantList globalSearch(const QString &query, int limit = 50) const;
+    Q_INVOKABLE void openSearchResult(const QVariantMap &result);
     Q_INVOKABLE void loadSubtitleResult(int index);
     Q_INVOKABLE void fetchSeriesEpisodes(int64_t serverId, const QString &seriesId,
                                           const QString &seriesName, const QString &logoUrl);
@@ -281,7 +281,6 @@ signals:
     void maxRecordingSizeGbChanged();
     void epgRecordingLeadTimeChanged();
     void epgRecordingOverrunChanged();
-    void gridColumnsChanged();
     void closeToTrayChanged();
     void videoEnhancementChanged();
     void audioPresetChanged();

@@ -30,6 +30,7 @@ Item {
     property int seriesDialogChannelId: 0
     property bool zapDialogVisible: false
     property bool catchupDialogVisible: false
+    property var audioTrackPopupRef: null
 
     // Server-side timeshift availability for the currently-playing channel.
     // Re-evaluates only when the active channelId changes.
@@ -45,7 +46,7 @@ Item {
     }
 
     function visibleControlButtons() {
-        var buttons = [playPauseBtn, stopBtn, favBtn, recBtn, castBtn, ccBtn, audioBtn, episodeBtn, zapPrevBtn, zapNextBtn, zapBtn, catchupBtn, muteBtn, stretchBtn, fullscreenBtn]
+        var buttons = [playPauseBtn, stopBtn, favBtn, recBtn, castBtn, zapPrevBtn, zapNextBtn, zapBtn, ccBtn, audioBtn, episodeBtn, catchupBtn, muteBtn, stretchBtn, fullscreenBtn]
         var visibleButtons = []
         for (var i = 0; i < buttons.length; i++) {
             if (buttons[i] && buttons[i].visible)
@@ -563,9 +564,39 @@ Item {
                         }
                     }
 
+                    PlayerButton {
+                        id: zapPrevBtn
+                        visible: appViewModel && appViewModel.hasZapContext && appViewModel.player.isLive
+                        text: "CH-"
+                        iconSize: 11
+                        onClicked: {
+                            if (appViewModel) appViewModel.zapPrevious()
+                            zapDialogVisible = false
+                        }
+                    }
+
+                    PlayerButton {
+                        id: zapNextBtn
+                        visible: appViewModel && appViewModel.hasZapContext && appViewModel.player.isLive
+                        text: "CH+"
+                        iconSize: 11
+                        onClicked: {
+                            if (appViewModel) appViewModel.zapNext()
+                            zapDialogVisible = false
+                        }
+                    }
+
+                    PlayerButton {
+                        id: zapBtn
+                        visible: appViewModel && appViewModel.hasZapContext && appViewModel.player.isLive
+                        text: "ZAP"
+                        iconSize: 11
+                        onClicked: showZapDialog()
+                    }
+
                     Rectangle {
                         width: 1; height: 28; color: "#40ffffff"
-                        visible: ccBtn.visible
+                        visible: zapPrevBtn.visible || zapNextBtn.visible || zapBtn.visible || ccBtn.visible || audioBtn.visible || episodeBtn.visible || catchupBtn.visible
                     }
 
                     PlayerButton {
@@ -602,36 +633,6 @@ Item {
                     }
 
                     PlayerButton {
-                        id: zapPrevBtn
-                        visible: appViewModel && appViewModel.hasZapContext && appViewModel.player.isLive
-                        text: "CH-"
-                        iconSize: 11
-                        onClicked: {
-                            if (appViewModel) appViewModel.zapPrevious()
-                            zapDialogVisible = false
-                        }
-                    }
-
-                    PlayerButton {
-                        id: zapNextBtn
-                        visible: appViewModel && appViewModel.hasZapContext && appViewModel.player.isLive
-                        text: "CH+"
-                        iconSize: 11
-                        onClicked: {
-                            if (appViewModel) appViewModel.zapNext()
-                            zapDialogVisible = false
-                        }
-                    }
-
-                    PlayerButton {
-                        id: zapBtn
-                        visible: appViewModel && appViewModel.hasZapContext && appViewModel.player.isLive
-                        text: "ZAP"
-                        iconSize: 11
-                        onClicked: showZapDialog()
-                    }
-
-                    PlayerButton {
                         id: catchupBtn
                         visible: appViewModel
                                  && (appViewModel.player.isLive || appViewModel.player.isCatchup)
@@ -639,11 +640,6 @@ Item {
                         text: "↻"
                         iconSize: 16
                         onClicked: catchupDialogVisible = !catchupDialogVisible
-                    }
-
-                    Rectangle {
-                        width: 1; height: 28; color: "#40ffffff"
-                        visible: ccBtn.visible || audioBtn.visible || episodeBtn.visible || zapPrevBtn.visible || zapNextBtn.visible || zapBtn.visible || catchupBtn.visible
                     }
 
                     Rectangle {
@@ -798,14 +794,18 @@ Item {
             anchors.right: parent.right
             anchors.top: parent.top
             height: 56
-            visible: controlsOverlay.visible
-            opacity: controlsOverlay.opacity
+            visible: controlsOverlay.visible || liveInfoVisible
+            opacity: controlsOverlay.opacity > 0.0 ? controlsOverlay.opacity
+                                                   : (liveInfoVisible ? 1.0 : 0.0)
 
+            property bool liveInfoVisible: {
+                if (!appViewModel) return false
+                return appViewModel.player.isLive
+            }
             property bool epgInfoVisible: {
                 if (!appViewModel) return false
                 return appViewModel.player.isLive
-                    && appViewModel.player.epgChannelId.length > 0
-                    && epgNowText.length > 0
+                    && (epgNowText.length > 0 || epgNextText.length > 0)
             }
             property string epgNowText: ""
             property string epgNextText: ""
@@ -814,11 +814,16 @@ Item {
 
             function refreshEpg() {
                 if (!appViewModel || !appViewModel.player.isLive) return
-                var epgId = appViewModel.player.epgChannelId
-                if (!epgId) return
-                epgNowText = appViewModel.currentProgrammeTitle(epgId)
-                epgNextText = appViewModel.nextProgrammeTitle(epgId)
-                epgNextTime = appViewModel.nextProgrammeTime(epgId)
+                var epgId = appViewModel.player.epgChannelId || ""
+                if (!epgId && appViewModel.player.channelId > 0) {
+                    var info = appViewModel.channelInfo(appViewModel.player.channelId)
+                    if (info && info.epgChannelId) {
+                        epgId = info.epgChannelId
+                    }
+                }
+                epgNowText = epgId ? appViewModel.currentProgrammeTitle(epgId) : ""
+                epgNextText = epgId ? appViewModel.nextProgrammeTitle(epgId) : ""
+                epgNextTime = epgId ? appViewModel.nextProgrammeTime(epgId) : ""
             }
 
             Timer {
@@ -860,7 +865,9 @@ Item {
                 }
 
                 Text {
-                    text: appViewModel ? appViewModel.player.channelName : ""
+                    text: topOverlay.epgNowText && topOverlay.epgNowText.length > 0
+                        ? topOverlay.epgNowText
+                        : (appViewModel ? appViewModel.player.channelName : "")
                     font.pixelSize: Theme.fontSizeMd
                     font.bold: true
                     color: "#ffffff"
@@ -2014,6 +2021,7 @@ Item {
             border.color: "#40ffffff"
             border.width: 1
             z: 50
+            Component.onCompleted: playerView.audioTrackPopupRef = audioTrackPopup
 
             function closeDialog() {
                 visible = false
@@ -2123,29 +2131,29 @@ Item {
                                 anchors.fill: parent
                                 hoverEnabled: true
                                 cursorShape: Qt.PointingHandCursor
-                                onEntered: { parent.atHov = true; audioTrackPopup.pokeAutoHide() }
-                                onExited: { parent.atHov = false; audioTrackPopup.pokeAutoHide() }
+                                onEntered: { parent.atHov = true; playerView.audioTrackPopupRef.pokeAutoHide() }
+                                onExited: { parent.atHov = false; playerView.audioTrackPopupRef.pokeAutoHide() }
                                 onClicked: {
                                     if (appViewModel) appViewModel.player.selectAudioTrack(modelData.id)
-                                    audioTrackPopup.closeDialog()
+                                    playerView.audioTrackPopupRef.closeDialog()
                                 }
                             }
 
-                            onActiveFocusChanged: { atHov = activeFocus; audioTrackPopup.pokeAutoHide() }
+                            onActiveFocusChanged: { atHov = activeFocus; playerView.audioTrackPopupRef.pokeAutoHide() }
 
                             Keys.onReturnPressed: {
                                 if (appViewModel) appViewModel.player.selectAudioTrack(modelData.id)
-                                audioTrackPopup.closeDialog()
+                                playerView.audioTrackPopupRef.closeDialog()
                             }
                             Keys.onEnterPressed: Keys.onReturnPressed(event)
-                            Keys.onUpPressed: audioTrackPopup.focusAudioTrackAt(index - 1)
-                            Keys.onDownPressed: audioTrackPopup.focusAudioTrackAt(index + 1)
+                            Keys.onUpPressed: playerView.audioTrackPopupRef.focusAudioTrackAt(index - 1)
+                            Keys.onDownPressed: playerView.audioTrackPopupRef.focusAudioTrackAt(index + 1)
                             Keys.onPressed: function(event) {
                                 if (event.key === Qt.Key_Select || event.key === Qt.Key_Space) {
                                     Keys.onReturnPressed(event)
                                     event.accepted = true
                                 } else if (event.key === Qt.Key_Up || event.key === Qt.Key_Down || event.key === Qt.Key_Left || event.key === Qt.Key_Right) {
-                                    audioTrackPopup.pokeAutoHide()
+                                    playerView.audioTrackPopupRef.pokeAutoHide()
                                 }
                             }
                         }
@@ -2710,6 +2718,12 @@ Item {
 
     Connections {
         target: appViewModel ? appViewModel.player : null
+        function onChannelIdChanged() {
+            topOverlay.refreshEpg()
+        }
+        function onChannelNameChanged() {
+            topOverlay.refreshEpg()
+        }
         function onEpgChannelIdChanged() {
             topOverlay.refreshEpg()
         }

@@ -167,6 +167,50 @@ QVector<Recording> RecordingRepository::findByStatus(const QString &status) cons
     return results;
 }
 
+QVector<Recording> RecordingRepository::search(const QString &query, int limit, int offset) const {
+    QVector<Recording> results;
+    const auto trimmed = query.trimmed();
+    if (trimmed.isEmpty()) {
+        return results;
+    }
+
+    QSqlQuery q(db_);
+    q.prepare(R"(
+        SELECT r.id, r.channel_id, r.programme_id, r.status, r.file_path, r.quality,
+               r.start_time, r.end_time, r.file_size_bytes, r.gdrive_file_id,
+               r.gdrive_upload_url, r.error_message, r.created_at, r.pinned,
+               r.thumbnail_url
+        FROM recordings r
+        LEFT JOIN channels c ON c.id = r.channel_id
+        LEFT JOIN programmes p ON p.id = r.programme_id
+        WHERE COALESCE(c.name, '') LIKE ? COLLATE NOCASE
+           OR COALESCE(p.title, '') LIKE ? COLLATE NOCASE
+           OR COALESCE(r.file_path, '') LIKE ? COLLATE NOCASE
+           OR COALESCE(r.status, '') LIKE ? COLLATE NOCASE
+           OR COALESCE(r.quality, '') LIKE ? COLLATE NOCASE
+        ORDER BY r.start_time DESC
+        LIMIT ? OFFSET ?
+    )");
+    const auto pattern = QStringLiteral("%%%1%%").arg(trimmed);
+    q.addBindValue(pattern);
+    q.addBindValue(pattern);
+    q.addBindValue(pattern);
+    q.addBindValue(pattern);
+    q.addBindValue(pattern);
+    q.addBindValue(limit);
+    q.addBindValue(offset);
+
+    if (!q.exec()) {
+        return results;
+    }
+
+    while (q.next()) {
+        results.append(recordingFromQuery(q));
+    }
+
+    return results;
+}
+
 QVector<Recording> RecordingRepository::findScheduled(int64_t fromTime, int64_t toTime) const {
     QVector<Recording> results;
     QSqlQuery q(db_);

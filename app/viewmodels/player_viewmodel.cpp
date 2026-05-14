@@ -11,6 +11,7 @@
 #include <QDateTime>
 #include <QDir>
 #include <QFileInfo>
+#include <QSet>
 #include <QTimer>
 
 PlayerViewModel::PlayerViewModel(QObject *parent)
@@ -487,16 +488,25 @@ void PlayerViewModel::refreshAudioTracks() {
 
     auto primaryAid = player_->getProperty(QStringLiteral("aid")).toInt();
     auto trackCount = player_->getProperty(QStringLiteral("track-list/count")).toInt();
+    QSet<QString> seenTracks;
     for (int i = 0; i < trackCount; ++i) {
         auto prefix = QStringLiteral("track-list/%1/").arg(i);
         auto type = player_->getProperty(prefix + QStringLiteral("type")).toString();
         if (type != QStringLiteral("audio")) continue;
 
         auto trackId = player_->getProperty(prefix + QStringLiteral("id")).toInt();
+        auto title = player_->getProperty(prefix + QStringLiteral("title")).toString().trimmed();
+        auto lang = player_->getProperty(prefix + QStringLiteral("lang")).toString().trimmed();
+        auto key = QStringLiteral("%1|%2").arg(title.toLower(), lang.toLower());
+        if (seenTracks.contains(key)) {
+            continue;
+        }
+        seenTracks.insert(key);
+
         QVariantMap track;
         track[QStringLiteral("id")] = trackId;
-        track[QStringLiteral("title")] = player_->getProperty(prefix + QStringLiteral("title")).toString();
-        track[QStringLiteral("lang")] = player_->getProperty(prefix + QStringLiteral("lang")).toString();
+        track[QStringLiteral("title")] = title;
+        track[QStringLiteral("lang")] = lang;
         track[QStringLiteral("selected")] = (trackId == primaryAid);
         audioTracks_.append(track);
     }

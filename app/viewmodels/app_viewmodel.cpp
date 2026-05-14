@@ -24,6 +24,7 @@
 #include <QSqlError>
 #include <QSqlQuery>
 #include <QStandardPaths>
+#include <QUrl>
 #include <QUrlQuery>
 #include <QTimer>
 
@@ -577,6 +578,8 @@ bool AppViewModel::initialize(const QString &dbPath) {
 
     auto subSize = settingsRepo_->getInt(QStringLiteral("subtitle_size"), 48);
     playerVm_->mpvPlayer()->setProperty(QStringLiteral("sub-font-size"), QVariant(subSize));
+    playerVm_->mpvPlayer()->setProperty(QStringLiteral("sub-border-style"), QVariant(QStringLiteral("background-box")));
+    playerVm_->mpvPlayer()->setProperty(QStringLiteral("sub-ass-override"), QVariant(QStringLiteral("yes")));
     auto subColor = settingsRepo_->getString(QStringLiteral("subtitle_color"), QStringLiteral("#FFFFFF"));
     playerVm_->mpvPlayer()->setProperty(QStringLiteral("sub-color"), QVariant(subColor));
     auto subBg = settingsRepo_->getString(QStringLiteral("subtitle_bg_color"), QStringLiteral("#80000000"));
@@ -1230,6 +1233,8 @@ QString AppViewModel::subtitleColor() const {
 void AppViewModel::setSubtitleColor(const QString &color) {
     if (!settingsRepo_) return;
     settingsRepo_->set(QStringLiteral("subtitle_color"), color);
+    if (playerVm_) playerVm_->mpvPlayer()->setProperty(QStringLiteral("sub-border-style"), QVariant(QStringLiteral("background-box")));
+    if (playerVm_) playerVm_->mpvPlayer()->setProperty(QStringLiteral("sub-ass-override"), QVariant(QStringLiteral("yes")));
     if (playerVm_) playerVm_->mpvPlayer()->setProperty(QStringLiteral("sub-color"), QVariant(color));
     emit subtitleColorChanged();
 }
@@ -1241,6 +1246,8 @@ QString AppViewModel::subtitleBgColor() const {
 void AppViewModel::setSubtitleBgColor(const QString &color) {
     if (!settingsRepo_) return;
     settingsRepo_->set(QStringLiteral("subtitle_bg_color"), color);
+    if (playerVm_) playerVm_->mpvPlayer()->setProperty(QStringLiteral("sub-border-style"), QVariant(QStringLiteral("background-box")));
+    if (playerVm_) playerVm_->mpvPlayer()->setProperty(QStringLiteral("sub-ass-override"), QVariant(QStringLiteral("yes")));
     if (playerVm_) playerVm_->mpvPlayer()->setProperty(QStringLiteral("sub-back-color"), QVariant(color));
     emit subtitleBgColorChanged();
 }
@@ -1273,17 +1280,6 @@ void AppViewModel::setEpgRecordingOverrun(int minutes) {
     if (!settingsRepo_) return;
     settingsRepo_->set(QStringLiteral("epg_recording_overrun"), qBound(0, minutes, 5));
     emit epgRecordingOverrunChanged();
-}
-
-int AppViewModel::gridColumns() const {
-    return settingsRepo_ ? settingsRepo_->getInt(QStringLiteral("grid_columns"), 2) : 2;
-}
-
-void AppViewModel::setGridColumns(int cols) {
-    if (!settingsRepo_) return;
-    cols = qBound(1, cols, 3);
-    settingsRepo_->set(QStringLiteral("grid_columns"), cols);
-    emit gridColumnsChanged();
 }
 
 bool AppViewModel::closeToTray() const {
@@ -2043,6 +2039,7 @@ QVariantMap AppViewModel::channelInfo(int64_t channelId) const {
     result[QStringLiteral("type")] = ch->type;
     result[QStringLiteral("serverId")] = QVariant::fromValue(ch->serverId);
     result[QStringLiteral("externalId")] = ch->externalId;
+    result[QStringLiteral("epgChannelId")] = ch->epgChannelId;
     result[QStringLiteral("name")] = ch->name;
     result[QStringLiteral("logoUrl")] = ch->logoUrl;
     result[QStringLiteral("tvArchive")] = ch->tvArchive;
@@ -2113,6 +2110,16 @@ void AppViewModel::playHistoryEntry(int64_t historyId) {
     const auto jumpedToNext = resumePlan.value(QStringLiteral("jumpedToNext")).toBool();
     const bool isSeriesEntry = entry->channelType == QStringLiteral("series")
                                || entry->streamUrl.contains(QStringLiteral("/series/"));
+
+    if (playUrl.isEmpty() && entry->channelId > 0 && channelRepo_) {
+        if (auto channel = channelRepo_->findById(entry->channelId)) {
+            playerVm_->play(channel->streamUrl, playTitle, playLogo, channel->id,
+                            channel->epgChannelId, startPositionSecs, true,
+                            channel->type == QStringLiteral("live"));
+            setCurrentView(QStringLiteral("player"));
+            return;
+        }
+    }
 
     if (!jumpedToNext) {
         resumeHistoryPending_ = true;
@@ -2552,6 +2559,143 @@ void AppViewModel::playChannelByName(const QString &name) {
                             ch.type == QStringLiteral("live"));
             setCurrentView(QStringLiteral("player"));
             return;
+        }
+    }
+}
+
+QVariantList AppViewModel::globalSearch(const QString &query, int limit) const {
+    QVariantList results;
+    const auto trimmed = query.trimmed();
+    if (trimmed.size() < 2 || limit <= 0) {
+        return results;
+    }
+
+    auto appendItem = [&results](const QVariantMap &item) {
+        results.append(item);
+    };
+
+    auto makeSubtitle = [](const QString &type) {
+        if (type == QStringLiteral("live")) return QStringLiteral("Live TV");
+        if (type == QStringLiteral("series")) return QStringLiteral("Series");
+        if (type == QStringLiteral("vod")) return QStringLiteral("Movies");
+        if (type == QStringLiteral("movie")) return QStringLiteral("Movies");
+        return QStringLiteral("Channel");
+    };
+
+    const int perSourceLimit = qBound(5, limit / 3, 20);
+    int remaining = limit;
+
+    if (channelRepo_ && remaining > 0) {
+        const int count = qMin(remaining, perSourceLimit);
+        const auto channels = channelRepo_->searchAll(trimmed, count);
+        for (const auto &ch : channels) {
+            QVariantMap item;
+            item[QStringLiteral("kind")] = QStringLiteral("channel");
+            item[QStringLiteral("title")] = ch.name;
+            item[QStringLiteral("subtitle")] = makeSubtitle(ch.type);
+            item[QStringLiteral("logoUrl")] = ch.logoUrl;
+            item[QStringLiteral("streamUrl")] = ch.streamUrl;
+            item[QStringLiteral("channelId")] = QVariant::fromValue(ch.id);
+            item[QStringLiteral("type")] = ch.type;
+            appendItem(item);
+        }
+        remaining -= channels.size();
+    }
+
+    if (historyRepo_ && remaining > 0) {
+        const int count = qMin(remaining, perSourceLimit);
+        const auto entries = historyRepo_->search(trimmed, count);
+        for (const auto &entry : entries) {
+            QVariantMap item;
+            item[QStringLiteral("kind")] = QStringLiteral("history");
+            item[QStringLiteral("title")] = entry.channelName;
+            item[QStringLiteral("subtitle")] = entry.watchedAt > 0
+                ? QDateTime::fromSecsSinceEpoch(entry.watchedAt)
+                      .toString(QStringLiteral("MMM d, HH:mm"))
+                : QStringLiteral("History");
+            item[QStringLiteral("logoUrl")] = entry.channelLogo;
+            item[QStringLiteral("streamUrl")] = entry.streamUrl;
+            item[QStringLiteral("channelId")] = QVariant::fromValue(entry.channelId);
+            item[QStringLiteral("historyId")] = QVariant::fromValue(entry.id);
+            item[QStringLiteral("type")] = entry.channelType;
+            appendItem(item);
+        }
+        remaining -= entries.size();
+    }
+
+    if (recordingRepo_ && remaining > 0) {
+        const int count = qMin(remaining, perSourceLimit);
+        const auto recordings = recordingRepo_->search(trimmed, count);
+        for (const auto &rec : recordings) {
+            QString title = rec.filePath.isEmpty()
+                ? QStringLiteral("Recording %1").arg(rec.id)
+                : QFileInfo(rec.filePath).completeBaseName();
+            if (title.isEmpty() && channelRepo_) {
+                auto channel = channelRepo_->findById(rec.channelId);
+                if (channel) {
+                    title = channel->name;
+                }
+            }
+
+            QString subtitle = rec.status;
+            if (subtitle.isEmpty()) {
+                subtitle = QStringLiteral("Recording");
+            }
+            if (rec.startTime > 0) {
+                subtitle += QStringLiteral(" • ")
+                            + QDateTime::fromSecsSinceEpoch(rec.startTime)
+                                  .toString(QStringLiteral("MMM d, HH:mm"));
+            }
+
+            QVariantMap item;
+            item[QStringLiteral("kind")] = QStringLiteral("recording");
+            item[QStringLiteral("title")] = title;
+            item[QStringLiteral("subtitle")] = subtitle;
+            item[QStringLiteral("logoUrl")] = rec.thumbnailUrl;
+            item[QStringLiteral("filePath")] = rec.filePath;
+            item[QStringLiteral("recordingId")] = QVariant::fromValue(rec.id);
+            item[QStringLiteral("channelId")] = QVariant::fromValue(rec.channelId);
+            item[QStringLiteral("gdriveFileId")] = rec.gdriveFileId;
+            item[QStringLiteral("type")] = rec.status;
+            appendItem(item);
+        }
+    }
+
+    return results;
+}
+
+void AppViewModel::openSearchResult(const QVariantMap &result) {
+    const auto kind = result.value(QStringLiteral("kind")).toString();
+    if (kind == QStringLiteral("channel")) {
+        const auto channelId = result.value(QStringLiteral("channelId")).toLongLong();
+        if (channelId > 0) {
+            playChannelById(channelId);
+        }
+        return;
+    }
+
+    if (kind == QStringLiteral("history")) {
+        const auto historyId = result.value(QStringLiteral("historyId")).toLongLong();
+        if (historyId > 0) {
+            playHistoryEntry(historyId);
+        }
+        return;
+    }
+
+    if (kind == QStringLiteral("recording")) {
+        const auto recordingId = result.value(QStringLiteral("recordingId")).toLongLong();
+        const auto filePath = result.value(QStringLiteral("filePath")).toString();
+        const auto gdriveFileId = result.value(QStringLiteral("gdriveFileId")).toString();
+        if (recordingId > 0 && !gdriveFileId.isEmpty()) {
+            playRecordingFromDrive(recordingId);
+            return;
+        }
+        if (!filePath.isEmpty() && playerVm_) {
+            const auto url = QUrl::fromLocalFile(filePath).toString();
+            if (!url.isEmpty()) {
+                playerVm_->play(url, QFileInfo(filePath).completeBaseName(), {}, 0, {}, 0, true, false);
+                setCurrentView(QStringLiteral("player"));
+            }
         }
     }
 }

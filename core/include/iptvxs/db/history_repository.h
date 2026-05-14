@@ -36,6 +36,7 @@ public:
     void markFinished(int64_t id);
     std::optional<HistoryEntry> findById(int64_t id) const;
     QVector<HistoryEntry> findRecent(int limit = 100, int offset = 0) const;
+    QVector<HistoryEntry> search(const QString &query, int limit = 100, int offset = 0) const;
     int count() const;
     void removeEntry(int64_t id);
     void clear();

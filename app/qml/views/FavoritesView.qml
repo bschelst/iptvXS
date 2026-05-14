@@ -9,11 +9,13 @@ Item {
     id: favoritesView
 
     function focusPrimary() {
-        if (favoritesList.count > 0) {
-            if (favoritesList.currentIndex < 0 || favoritesList.currentIndex >= favoritesList.count) {
-                favoritesList.currentIndex = 0
+        if (favoritesGrid.count > 0) {
+            if (favoritesGrid.currentIndex < 0 || favoritesGrid.currentIndex >= favoritesGrid.count) {
+                favoritesGrid.currentIndex = 0
             }
-            favoritesList.forceActiveFocus()
+            favoritesGrid.forceActiveFocus()
+        } else if (Window.window && Window.window.focusSidebar) {
+            Window.window.focusSidebar()
         }
     }
 
@@ -51,16 +53,22 @@ Item {
             }
         }
 
-        ListView {
-            id: favoritesList
+        GridView {
+            id: favoritesGrid
             Layout.fillWidth: true
             Layout.fillHeight: true
             clip: true
             model: appViewModel ? appViewModel.favoriteList : null
-            spacing: Theme.spacingXs
+            cellWidth: 158
+            cellHeight: 232
+            leftMargin: Theme.spacingMd
+            rightMargin: Theme.spacingMd
+            topMargin: Theme.spacingSm
             keyNavigationEnabled: true
             highlightFollowsCurrentItem: true
             currentIndex: -1
+
+            property int cols: Math.max(1, Math.floor((width - leftMargin - rightMargin) / cellWidth))
 
             onCountChanged: {
                 if (count <= 0) {
@@ -75,18 +83,30 @@ Item {
                 policy: ScrollBar.AsNeeded
             }
 
-                Keys.onUpPressed: { if (currentIndex > 0) currentIndex-- }
-                Keys.onDownPressed: { if (currentIndex < count - 1) currentIndex++ }
-                Keys.onLeftPressed: {
-                    if (Window.window && Window.window.focusSidebar) Window.window.focusSidebar()
+            Keys.onUpPressed: {
+                if (currentIndex >= cols) {
+                    currentIndex -= cols
+                } else if (currentIndex >= 0 && Window.window && Window.window.focusSidebar) {
+                    Window.window.focusSidebar()
                 }
-                Keys.onRightPressed: {
-                    if (currentItem && currentItem.favRemoveBtn) {
-                        currentItem.favRemoveBtn.forceActiveFocus()
-                    }
+            }
+            Keys.onDownPressed: {
+                if (currentIndex + cols < count) {
+                    currentIndex += cols
                 }
-                Keys.onReturnPressed: activateCurrentItem()
-                Keys.onEnterPressed: activateCurrentItem()
+            }
+            Keys.onLeftPressed: {
+                if (currentIndex > 0 && (currentIndex % cols) !== 0) {
+                    currentIndex--
+                }
+            }
+            Keys.onRightPressed: {
+                if (currentItem && currentItem.favRemoveBtn) {
+                    currentItem.favRemoveBtn.forceActiveFocus()
+                }
+            }
+            Keys.onReturnPressed: activateCurrentItem()
+            Keys.onEnterPressed: activateCurrentItem()
             Keys.onPressed: function(event) {
                 if (event.key === Qt.Key_Back || event.key === Qt.Key_Escape) {
                     if (Window.window && Window.window.focusSidebar) Window.window.focusSidebar()
@@ -107,22 +127,12 @@ Item {
                 currentItem.activate()
             }
 
-            delegate: Rectangle {
-                width: favoritesList.width - Theme.spacingMd * 2
-                height: 64
-                x: Theme.spacingMd
-                radius: Theme.borderRadius
-                color: favHovered ? Theme.surfaceHover : Theme.surfaceElevated
-                focus: favoritesList.activeFocus && favoritesList.currentIndex === index
+            delegate: Item {
+                width: favoritesGrid.cellWidth
+                height: favoritesGrid.cellHeight
+                focus: favoritesGrid.activeFocus && favoritesGrid.currentIndex === index
                 activeFocusOnTab: true
-                border.color: {
-                    if (favoritesList.activeFocus && favoritesList.currentIndex === index) return Theme.accent
-                    if (favHovered) return Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.25)
-                    return "transparent"
-                }
-                border.width: (favoritesList.activeFocus && favoritesList.currentIndex === index) ? 2 : 1
 
-                property bool favHovered: false
                 property int itemChannelId: model.channelId || 0
 
                 function activate() {
@@ -141,71 +151,101 @@ Item {
                     }
                 }
 
-                Behavior on color {
-                    ColorAnimation { duration: Theme.animFast }
-                }
-
-                RowLayout {
+                Rectangle {
+                    id: favCard
                     anchors.fill: parent
-                    anchors.margins: Theme.spacingSm
-                    spacing: Theme.spacingMd
-
-                    Text {
-                        text: (index + 1).toString()
-                        font.pixelSize: Theme.fontSizeXs
-                        font.bold: true
-                        color: Theme.textMuted
-                        Layout.preferredWidth: 28
-                        horizontalAlignment: Text.AlignHCenter
-                    }
+                    anchors.margins: 6
+                    radius: 10
+                    color: Theme.surfaceElevated
+                    border.width: favoritesGrid.activeFocus && favoritesGrid.currentIndex === index ? 2 : 1
+                    border.color: favoritesGrid.activeFocus && favoritesGrid.currentIndex === index
+                        ? Theme.accent
+                        : Theme.surfaceBorder
+                    clip: true
+                    property bool cardHovered: false
 
                     Rectangle {
-                        Layout.preferredWidth: 44
-                        Layout.preferredHeight: 44
-                        radius: Theme.borderRadiusSmall
-                        color: Theme.surface
-                        clip: true
+                        id: favLogoArea
+                        anchors.top: parent.top
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        height: parent.height - 52
+                        color: "transparent"
 
                         Image {
-                            anchors.fill: parent
-                            anchors.margins: 4
+                            id: favPoster
+                            anchors.centerIn: parent
+                            width: parent.width - 24
+                            height: parent.height - 16
                             source: model.logoUrl || ""
                             fillMode: Image.PreserveAspectFit
                             asynchronous: true
                             visible: status === Image.Ready
                         }
+                    }
+
+                    Image {
+                        visible: !favPoster.visible
+                        anchors.centerIn: favCard
+                        width: Math.min(favCard.width, favCard.height) - 48
+                        height: width
+                        source: "qrc:/images/iptvxs_tray.png"
+                        fillMode: Image.PreserveAspectFit
+                        asynchronous: false
+                        cache: true
+                        opacity: 0.15
+                    }
+
+                    Rectangle {
+                        anchors.top: favLogoArea.bottom
+                        anchors.bottom: parent.bottom
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        color: "transparent"
 
                         Text {
                             anchors.centerIn: parent
-                            text: "📺"
-                            font.pixelSize: Theme.fontSizeSm
-                            visible: !model.logoUrl
+                            width: parent.width - 16
+                            text: model.name
+                            font.pixelSize: Theme.fontSizeXs
+                            font.bold: true
+                            color: Theme.textPrimary
+                            elide: Text.ElideRight
+                            maximumLineCount: 2
+                            wrapMode: Text.Wrap
+                            horizontalAlignment: Text.AlignHCenter
                         }
                     }
 
-                    ColumnLayout {
-                        Layout.fillWidth: true
-                        spacing: 2
+                    MouseArea {
+                        anchors.fill: parent
+                        z: 120
+                        hoverEnabled: true
+                        preventStealing: true
+                        cursorShape: Qt.PointingHandCursor
+                        onEntered: favCard.cardHovered = true
+                        onExited: favCard.cardHovered = false
+                        onPressed: activate()
+                        onClicked: activate()
+                    }
 
-                        Text {
-                            text: model.name
-                            font.pixelSize: Theme.fontSizeSm
-                            color: Theme.textPrimary
-                            elide: Text.ElideRight
-                            Layout.fillWidth: true
-                        }
-
-                        Text {
-                            text: model.type
-                            font.pixelSize: Theme.fontSizeXs
-                            color: Theme.textMuted
-                        }
+                    Rectangle {
+                        visible: favCard.cardHovered && !favoritesGrid.activeFocus
+                        anchors.fill: parent
+                        radius: favCard.radius
+                        color: Qt.rgba(Theme.surfaceHover.r, Theme.surfaceHover.g, Theme.surfaceHover.b, 0.0)
+                        border.color: Theme.surfaceHover
+                        border.width: 1
+                        z: 101
                     }
 
                     Rectangle {
                         visible: (model.tvArchive || 0) > 0
-                        Layout.preferredWidth: 26
-                        Layout.preferredHeight: 26
+                        anchors.top: parent.top
+                        anchors.right: parent.right
+                        anchors.margins: 8
+                        width: 26
+                        height: 26
                         radius: 13
                         color: "#C0000000"
 
@@ -221,12 +261,16 @@ Item {
 
                     Rectangle {
                         id: favRemoveBtn
-                        Layout.preferredWidth: 32
-                        Layout.preferredHeight: 32
-                        radius: 16
-                        color: removeHovered || activeFocus ? Qt.rgba(Theme.error.r, Theme.error.g, Theme.error.b, 0.19) : "transparent"
-                        border.width: activeFocus ? 2 : 0
-                        border.color: Theme.error
+                        anchors.top: parent.top
+                        anchors.right: parent.right
+                        anchors.margins: 8
+                        width: 28
+                        height: 28
+                        radius: 14
+                        z: 130
+                        color: removeHovered || activeFocus ? Qt.rgba(Theme.error.r, Theme.error.g, Theme.error.b, 0.22) : "#26000000"
+                        border.width: activeFocus ? 2 : 1
+                        border.color: activeFocus ? Theme.error : Qt.rgba(Theme.error.r, Theme.error.g, Theme.error.b, 0.50)
                         focus: false
                         activeFocusOnTab: true
 
@@ -235,10 +279,10 @@ Item {
                         Text {
                             anchors.centerIn: parent
                             text: "\u232B"
-                            font.pixelSize: Theme.fontSizeMd
+                            font.pixelSize: Theme.fontSizeSm
                             font.bold: true
                             font.family: "DejaVu Sans"
-                            color: parent.removeHovered ? "#ffffff" : Theme.textMuted
+                            color: parent.removeHovered || parent.activeFocus ? "#ffffff" : Theme.textMuted
                         }
 
                         MouseArea {
@@ -255,7 +299,10 @@ Item {
                         }
 
                         Keys.onLeftPressed: {
-                            if (favoritesList) favoritesList.forceActiveFocus()
+                            if (favoritesGrid) favoritesGrid.forceActiveFocus()
+                        }
+                        Keys.onUpPressed: {
+                            if (Window.window && Window.window.focusSidebar) Window.window.focusSidebar()
                         }
                         Keys.onReturnPressed: {
                             if (appViewModel) {
@@ -271,42 +318,47 @@ Item {
                                 }
                                 event.accepted = true
                             } else if (event.key === Qt.Key_Left) {
-                                if (favoritesList) favoritesList.forceActiveFocus()
+                                if (favoritesGrid) favoritesGrid.forceActiveFocus()
+                                event.accepted = true
+                            } else if (event.key === Qt.Key_Up) {
+                                if (Window.window && Window.window.focusSidebar) {
+                                    Window.window.focusSidebar()
+                                }
                                 event.accepted = true
                             }
                         }
                     }
-                }
 
-                MouseArea {
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
-                    onEntered: parent.favHovered = true
-                    onExited: parent.favHovered = false
-                    onClicked: {
-                        if (!appViewModel) return
-                        if (model.type === "series") {
-                            favEpDialog.seriesChannelId = model.channelId
-                            appViewModel.fetchSeriesEpisodes(model.serverId, model.externalId, model.name, model.logoUrl)
-                        } else {
-                            if (model.type === "live") {
-                                appViewModel.setZapContext(appViewModel.favoriteList.favoritesAsList(), model.channelId, "Favorites")
-                            } else {
-                                appViewModel.clearZapContext()
-                            }
-                            appViewModel.player.play(model.streamUrl, model.name, model.logoUrl, model.channelId, "", 0, true, true)
-                            appViewModel.currentView = "player"
+                    Keys.onReturnPressed: activate()
+                    Keys.onEnterPressed: Keys.onReturnPressed(event)
+                    Keys.onRightPressed: {
+                        if (favRemoveBtn) favRemoveBtn.forceActiveFocus()
+                    }
+                    Keys.onUpPressed: {
+                        if (index >= favoritesGrid.cols) {
+                            favoritesGrid.currentIndex = index - favoritesGrid.cols
+                        } else if (Window.window && Window.window.focusSidebar) {
+                            Window.window.focusSidebar()
                         }
                     }
-
-                    z: -1
+                    Keys.onPressed: function(event) {
+                        if (event.key === Qt.Key_Select || event.key === Qt.Key_Space) {
+                            activate()
+                            event.accepted = true
+                        } else if (event.key === Qt.Key_Delete || event.key === Qt.Key_X) {
+                            if (appViewModel) {
+                                appViewModel.favoriteList.toggleFavorite(model.channelId)
+                            }
+                            event.accepted = true
+                        }
+                    }
                 }
+
             }
 
             Text {
                 anchors.centerIn: parent
-                visible: favoritesList.count === 0
+                visible: favoritesGrid.count === 0
                 text: "No favorites yet.\nClick the star on any channel to add it here."
                 font.pixelSize: Theme.fontSizeMd
                 color: Theme.textMuted
@@ -314,9 +366,23 @@ Item {
                 lineHeight: 1.5
             }
         }
-    }
 
     property bool favReturnPending: false
+
+    function closeFavEpisodesDialog() {
+        if (!favEpDialog) return
+        favEpDialog.visible = false
+        Qt.callLater(function() {
+            if (favoritesGrid && favoritesGrid.count > 0) {
+                if (favoritesGrid.currentIndex < 0 || favoritesGrid.currentIndex >= favoritesGrid.count) {
+                    favoritesGrid.currentIndex = 0
+                }
+                favoritesGrid.forceActiveFocus()
+            } else if (favoritesView && favoritesView.focusPrimary) {
+                favoritesView.focusPrimary()
+            }
+        })
+    }
 
     Connections {
         target: appViewModel
@@ -328,12 +394,13 @@ Item {
         }
     }
 
-    Rectangle {
-        id: favEpDialog
-        visible: false
-        anchors.fill: parent
-        color: "#C0000000"
-        z: 200
+        Rectangle {
+            id: favEpDialog
+            visible: false
+            width: parent.width
+            height: parent.height
+            color: "#C0000000"
+            z: 200
 
         property string seriesTitle: ""
         property var seasonsData: []
@@ -345,20 +412,6 @@ Item {
             index = Math.max(0, Math.min(seasonsRepeater.count - 1, index))
             var item = seasonsRepeater.itemAt(index)
             if (item && item.forceActiveFocus) item.forceActiveFocus()
-        }
-
-            function closeDialog() {
-            visible = false
-            Qt.callLater(function() {
-                if (favoritesList && favoritesList.count > 0) {
-                    if (favoritesList.currentIndex < 0 || favoritesList.currentIndex >= favoritesList.count) {
-                        favoritesList.currentIndex = 0
-                    }
-                    favoritesList.forceActiveFocus()
-                } else if (favoritesView && favoritesView.focusPrimary) {
-                    favoritesView.focusPrimary()
-                }
-            })
         }
 
         onVisibleChanged: {
@@ -376,7 +429,7 @@ Item {
             }
         }
 
-        MouseArea { anchors.fill: parent; onClicked: favEpDialog.closeDialog() }
+        MouseArea { anchors.fill: parent; onClicked: closeFavEpisodesDialog() }
 
         Rectangle {
             anchors.centerIn: parent
@@ -406,7 +459,7 @@ Item {
                         color: favCloseHov ? Theme.surfaceHover : "transparent"
                         property bool favCloseHov: false
                         Text { anchors.centerIn: parent; text: "\u2715"; font.pixelSize: 16; font.bold: true; color: Theme.textSecondary }
-                        MouseArea { anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onEntered: parent.favCloseHov = true; onExited: parent.favCloseHov = false; onClicked: favEpDialog.closeDialog() }
+                        MouseArea { anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onEntered: parent.favCloseHov = true; onExited: parent.favCloseHov = false; onClicked: closeFavEpisodesDialog() }
                     }
                 }
 
@@ -459,7 +512,7 @@ Item {
 
                     Keys.onReturnPressed: playFavEpisode(currentIndex)
                     Keys.onEnterPressed: playFavEpisode(currentIndex)
-                    Keys.onEscapePressed: favEpDialog.closeDialog()
+                    Keys.onEscapePressed: closeFavEpisodesDialog()
                     Keys.onUpPressed: {
                         if (favEpDialog.seasonsData.length > 0) {
                             favEpDialog.focusSeasonTab(favEpDialog.selectedSeason)
@@ -470,7 +523,7 @@ Item {
                             playFavEpisode(currentIndex)
                             event.accepted = true
                         } else if (event.key === Qt.Key_Back || event.key === Qt.Key_B) {
-                            favEpDialog.closeDialog()
+                            closeFavEpisodesDialog()
                             event.accepted = true
                         } else if (event.key === Qt.Key_Left) {
                             if (favEpDialog.selectedSeason > 0) {
@@ -495,7 +548,7 @@ Item {
                         if (url) {
                             appViewModel.player.play(url, ep.title || favEpDialog.seriesTitle, "", favEpDialog.seriesChannelId)
                             appViewModel.currentView = "player"
-                            favEpDialog.closeDialog()
+                            closeFavEpisodesDialog()
                         }
                     }
 
@@ -544,11 +597,27 @@ Item {
 
                             }
 
-                            Text {
+                            Canvas {
                                 anchors.verticalCenter: parent.verticalCenter
-                                text: "\u25B6"
-                                font.pixelSize: 12
-                                color: Theme.accent
+                                width: 12
+                                height: 12
+                                antialiasing: true
+                                onPaint: {
+                                    var ctx = getContext("2d")
+                                    ctx.reset()
+                                    ctx.fillStyle = Theme.textPrimary
+                                    ctx.beginPath()
+                                    ctx.moveTo(3, 2)
+                                    ctx.lineTo(10, 6)
+                                    ctx.lineTo(3, 10)
+                                    ctx.closePath()
+                                    ctx.fill()
+                                }
+                                Component.onCompleted: requestPaint()
+                                Connections {
+                                    target: Theme
+                                    function onTextPrimaryChanged() { parent.requestPaint() }
+                                }
                             }
                         }
 
@@ -564,7 +633,7 @@ Item {
                                     var title = ep.title || favEpDialog.seriesTitle
                                     appViewModel.player.play(url, title, "", favEpDialog.seriesChannelId)
                                     appViewModel.currentView = "player"
-                                    favEpDialog.closeDialog()
+                                    closeFavEpisodesDialog()
                                 }
                             }
                         }
@@ -573,4 +642,5 @@ Item {
             }
         }
     }
+}
 }

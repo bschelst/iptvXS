@@ -605,76 +605,16 @@ Item {
                         spacing: Theme.spacingXs
 
                         Text {
-                            text: "VOD Grid Columns"
+                            text: "VOD Grid Layout"
                             font.pixelSize: Theme.fontSizeSm
                             color: Theme.textPrimary
                         }
 
                         Text {
-                            text: "Number of columns in the VOD search results grid"
+                            text: "Search results now use an automatic card grid that adapts to the available width."
                             font.pixelSize: Theme.fontSizeXs
                             color: Theme.textMuted
-                        }
-
-                        Item {
-                            id: gridColFlow
-                            Layout.fillWidth: true
-                            Layout.topMargin: Theme.spacingXs
-                            implicitHeight: gridColFlowInner.implicitHeight
-                            property int subFocusIndex: 0
-                            property int subCount: 3
-                            property var subValues: [1, 2, 3]
-                            function activateSubIndex(idx) {
-                                if (appViewModel && idx >= 0 && idx < subValues.length)
-                                    appViewModel.gridColumns = subValues[idx]
-                            }
-
-                        Flow {
-                            id: gridColFlowInner
-                            width: parent.width
-                            spacing: Theme.spacingSm
-
-                            Repeater {
-                                model: [
-                                    { value: 1, label: "1 column" },
-                                    { value: 2, label: "2 columns" },
-                                    { value: 3, label: "3 columns" }
-                                ]
-
-                                Rectangle {
-                                    width: 80
-                                    height: 32
-                                    radius: Theme.borderRadiusSmall
-                                    color: appViewModel && appViewModel.gridColumns === modelData.value
-                                        ? Theme.accent : colHovered
-                                            ? Theme.surfaceHover : Theme.surface
-                                    border.width: settingsView.focusBorderWidth(2, gridColFlow, index, appViewModel && appViewModel.gridColumns === modelData.value)
-                                    border.color: settingsView.focusBorderColor(2, gridColFlow, index, appViewModel && appViewModel.gridColumns === modelData.value)
-
-                                    property bool colHovered: false
-
-                                    Text {
-                                        anchors.centerIn: parent
-                                        text: modelData.label
-                                        font.pixelSize: Theme.fontSizeXs
-                                        color: appViewModel && appViewModel.gridColumns === modelData.value
-                                            ? Theme.textOnAccent : Theme.textSecondary
-                                    }
-
-                                    MouseArea {
-                                        anchors.fill: parent
-                                        hoverEnabled: true
-                                        cursorShape: Qt.PointingHandCursor
-                                        onEntered: parent.colHovered = true
-                                        onExited: parent.colHovered = false
-                                        onClicked: {
-                                            if (appViewModel)
-                                                appViewModel.gridColumns = modelData.value
-                                        }
-                                    }
-                                }
-                            }
-                        }
+                            wrapMode: Text.Wrap
                         }
                     }
 

@@ -22,6 +22,17 @@ Item {
     }
 
     function focusPrimary() {
+        focusFirstRecordingCard()
+    }
+
+    function focusFirstRecordingCard() {
+        for (var i = 0; i < recordingSectionRepeater.count; i++) {
+            var section = recordingSectionRepeater.itemAt(i)
+            if (section && section.rowItems && section.rowItems.length > 0) {
+                section.focusCardAt(0)
+                return
+            }
+        }
         focusHeaderStrip()
     }
 
@@ -103,7 +114,11 @@ Item {
             }
         }
         if (delta < 0) {
-            recordingsView.focusFilterStrip()
+            if (Window.window && Window.window.focusSidebar) {
+                Window.window.focusSidebar()
+            } else {
+                recordingsView.focusFilterStrip()
+            }
             recordingsFlickable.contentY = 0
         }
     }
@@ -259,7 +274,9 @@ Item {
                             }
                             event.accepted = true
                         } else if (event.key === Qt.Key_Up) {
-                            focusHeaderStrip()
+                            if (Window.window && Window.window.focusSidebar) {
+                                Window.window.focusSidebar()
+                            }
                             event.accepted = true
                         }
                     }
@@ -343,7 +360,9 @@ Item {
                                 recordingsView.focusPrimary()
                             }
                             Keys.onUpPressed: {
-                                recordingsView.focusHeaderStrip()
+                                if (Window.window && Window.window.focusSidebar) {
+                                    Window.window.focusSidebar()
+                                }
                             }
                             Keys.onReturnPressed: {
                                 if (appViewModel) {
@@ -578,7 +597,6 @@ Item {
                                         activeFocusOnTab: true
 
                                         property int cardIndex: index
-                                        property bool actionFocusMode: false
                                         property bool cardHovered: false
 
                                         readonly property bool playable: Boolean(
@@ -634,25 +652,9 @@ Item {
                                         function focusCard() {
                                             recordingSection.currentCardIndex = cardIndex
                                             recordingCard.forceActiveFocus()
-                                            actionFocusMode = false
-                                        }
-
-                                        function focusFirstAction() {
-                                            if (recordingCard.playable && openBtn.visible) {
-                                                openBtn.forceActiveFocus()
-                                                actionFocusMode = true
-                                                return true
-                                            }
-                                            if (moreBtn) {
-                                                moreBtn.forceActiveFocus()
-                                                actionFocusMode = true
-                                                return true
-                                            }
-                                            return false
                                         }
 
                                         function openActionsPopup() {
-                                            actionFocusMode = true
                                             recordingActionsPopup.open()
                                         }
 
@@ -660,7 +662,6 @@ Item {
                                             if (recordingActionsPopup && recordingActionsPopup.visible) {
                                                 recordingActionsPopup.close()
                                             }
-                                            actionFocusMode = false
                                         }
 
                                         function focusNextCard() {
@@ -691,17 +692,12 @@ Item {
                                             } else if (event.key === Qt.Key_Delete || event.key === Qt.Key_Backspace) {
                                                 requestDelete()
                                                 event.accepted = true
+                                            } else if (event.key === Qt.Key_Menu || event.key === Qt.Key_M) {
+                                                recordingCard.openActionsPopup()
+                                                event.accepted = true
                                             } else if (event.key === Qt.Key_Left) {
                                                 if (recordingActionsPopup.visible) {
                                                     recordingCard.closeRecordingActionsPopup()
-                                                } else if (actionFocusMode) {
-                                                    if (moreBtn.activeFocus) {
-                                                        if (openBtn.visible) openBtn.forceActiveFocus()
-                                                        else recordingCard.forceActiveFocus()
-                                                    } else {
-                                                        recordingCard.forceActiveFocus()
-                                                    }
-                                                    actionFocusMode = false
                                                 } else if (cardIndex > 0) {
                                                     focusPrevCard()
                                                 } else {
@@ -714,43 +710,32 @@ Item {
                                                 if (recordingActionsPopup.visible) {
                                                     event.accepted = true
                                                     return
-                                                } else if (actionFocusMode) {
-                                                    if (openBtn.activeFocus && moreBtn.visible) {
-                                                        moreBtn.forceActiveFocus()
-                                                    } else if (moreBtn.activeFocus) {
-                                                        recordingActionsPopup.open()
-                                                    } else if (openBtn.visible) {
-                                                        openBtn.forceActiveFocus()
-                                                    }
                                                 } else if (cardIndex < rowItems.length - 1) {
                                                     focusNextCard()
-                                                } else if (focusFirstAction()) {
-                                                    actionFocusMode = true
+                                                } else {
+                                                    recordingCard.openActionsPopup()
                                                 }
                                                 event.accepted = true
                                             } else if (event.key === Qt.Key_Up) {
                                                 if (recordingActionsPopup.visible) {
                                                     event.accepted = true
                                                     return
-                                                } else if (actionFocusMode) {
-                                                    recordingCard.forceActiveFocus()
-                                                    actionFocusMode = false
-                                                } else if (sectionIdx === 0) {
-                                                    recordingsView.focusFilterStrip()
+                                            } else if (sectionIdx === 0) {
+                                                if (Window.window && Window.window.focusSidebar) {
+                                                    Window.window.focusSidebar()
                                                 } else {
-                                                    recordingsView.focusAdjacentSection(sectionRepeaterIndex, cardIndex, -1)
+                                                    recordingsView.focusFilterStrip()
                                                 }
-                                                event.accepted = true
+                                            } else {
+                                                recordingsView.focusAdjacentSection(sectionRepeaterIndex, cardIndex, -1)
+                                            }
+                                            event.accepted = true
                                             } else if (event.key === Qt.Key_Down) {
                                                 if (recordingActionsPopup.visible) {
                                                     event.accepted = true
                                                     return
-                                                } else if (actionFocusMode) {
-                                                    recordingsView.focusAdjacentSection(sectionRepeaterIndex, cardIndex, 1)
-                                                } else if (!focusFirstAction()) {
-                                                    recordingsView.focusAdjacentSection(sectionRepeaterIndex, cardIndex, 1)
                                                 } else {
-                                                    actionFocusMode = true
+                                                    recordingsView.focusAdjacentSection(sectionRepeaterIndex, cardIndex, 1)
                                                 }
                                                 event.accepted = true
                                             } else if (event.key === Qt.Key_Y) {
@@ -770,6 +755,7 @@ Item {
                                         MouseArea {
                                             anchors.fill: parent
                                             hoverEnabled: true
+                                            cursorShape: recordingCard.playable ? Qt.PointingHandCursor : Qt.ArrowCursor
                                             onEntered: {
                                                 recordingCard.cardHovered = true
                                                 recordingSection.currentCardIndex = cardIndex
@@ -780,7 +766,6 @@ Item {
                                                 recordingSection.currentCardIndex = cardIndex
                                                 openRecording()
                                             }
-                                            cursorShape: recordingCard.playable ? Qt.PointingHandCursor : Qt.ArrowCursor
                                         }
 
                                         Rectangle {
@@ -803,7 +788,7 @@ Item {
 
                                                 Rectangle {
                                                     Layout.fillWidth: true
-                                                    Layout.preferredHeight: 110
+                                                    Layout.preferredHeight: 128
                                                     radius: Theme.borderRadius
                                                     clip: true
                                                     color: {
@@ -828,17 +813,16 @@ Item {
                                                         cache: true
                                                     }
 
-                                                    Rectangle {
-                                                        anchors.fill: parent
+                                                    Image {
                                                         visible: !recThumb.visible
-                                                        color: "transparent"
-                                                        Text {
-                                                            anchors.centerIn: parent
-                                                            text: "REC"
-                                                            font.pixelSize: Theme.fontSizeSm
-                                                            font.bold: true
-                                                            color: Theme.textSecondary
-                                                        }
+                                                        anchors.centerIn: parent
+                                                        width: Math.min(parent.width, parent.height) - 48
+                                                        height: width
+                                                        source: "qrc:/images/iptvxs_tray.png"
+                                                        fillMode: Image.PreserveAspectFit
+                                                        asynchronous: false
+                                                        cache: true
+                                                        opacity: 0.15
                                                     }
 
                                                     Rectangle {
@@ -869,7 +853,6 @@ Item {
                                                             }
 
                                                             Text {
-                                                                id: statusTag
                                                                 text: modelData.status
                                                                 font.pixelSize: 10
                                                                 font.bold: true
@@ -914,6 +897,8 @@ Item {
                                                         font.bold: true
                                                         color: Theme.textPrimary
                                                         elide: Text.ElideRight
+                                                        maximumLineCount: 2
+                                                        wrapMode: Text.Wrap
                                                     }
 
                                                     Text {
@@ -933,142 +918,43 @@ Item {
                                                         elide: Text.ElideRight
                                                     }
                                                 }
+                                            }
 
-                                                Rectangle {
-                                                    id: actionStrip
-                                                    readonly property bool actionStripVisible: recordingCard.activeFocus
-                                                        || recordingCard.actionFocusMode
-                                                        || recordingActionsPopup.visible
-                                                        || recordingCard.cardHovered
-                                                    Layout.fillWidth: true
-                                                    Layout.preferredHeight: actionStripVisible ? 36 : 0
-                                                    visible: actionStripVisible
-                                                    radius: 12
-                                                    color: Theme.surfaceElevated
-                                                    border.width: 1
-                                                    border.color: recordingCard.actionFocusMode ? Theme.accent : Theme.surfaceBorder
-                                                    clip: true
+                                            Rectangle {
+                                                id: recMoreBtn
+                                                anchors.right: parent.right
+                                                anchors.top: parent.top
+                                                anchors.margins: 8
+                                                width: 26
+                                                height: 26
+                                                radius: 13
+                                                visible: recordingCard.activeFocus || recordingCard.cardHovered || recordingActionsPopup.visible
+                                                color: recMoreBtnHov ? Theme.surfaceHover : "transparent"
+                                                border.width: 1
+                                                border.color: recMoreBtnHov ? Theme.accent : Theme.surfaceBorder
+                                                property bool recMoreBtnHov: false
 
-                                                    RowLayout {
-                                                        anchors.fill: parent
-                                                        anchors.margins: Theme.spacingXs
-                                                        spacing: Theme.spacingXs
-
-                                                        Rectangle {
-                                                            id: openBtn
-                                                            visible: recordingCard.playable
-                                                            Layout.preferredWidth: 60
-                                                            Layout.preferredHeight: 28
-                                                            radius: 14
-                                                            color: openHov ? Theme.accentHover : Theme.accent
-                                                            focus: false
-                                                            activeFocusOnTab: true
-                                                            property bool openHov: false
-                                                            onActiveFocusChanged: recordingCard.actionFocusMode = activeFocus
-                                                            border.width: activeFocus ? 2 : 1
-                                                            border.color: activeFocus ? Theme.textOnAccent : Theme.surfaceBorder
-                                                            scale: activeFocus ? 1.03 : 1.0
-
-                                                            Text {
-                                                                anchors.centerIn: parent
-                                                                text: "Open"
-                                                                font.pixelSize: 11
-                                                                font.bold: true
-                                                                color: "#000000"
-                                                            }
-
-                                                            MouseArea {
-                                                                anchors.fill: parent
-                                                                hoverEnabled: true
-                                                                cursorShape: Qt.PointingHandCursor
-                                                                onEntered: parent.openHov = true
-                                                                onExited: parent.openHov = false
-                                                                onClicked: recordingCard.openRecording()
-                                                            }
-
-                                                            Keys.onLeftPressed: {
-                                                                recordingCard.forceActiveFocus()
-                                                                recordingCard.actionFocusMode = false
-                                                            }
-                                                            Keys.onRightPressed: {
-                                                                if (moreBtn.visible) {
-                                                                    moreBtn.forceActiveFocus()
-                                                                } else if (!recordingCard.focusNextCard()) {
-                                                                    recordingCard.forceActiveFocus()
-                                                                    recordingCard.actionFocusMode = false
-                                                                }
-                                                            }
-                                                            Keys.onUpPressed: {
-                                                                recordingCard.forceActiveFocus()
-                                                                recordingCard.actionFocusMode = false
-                                                            }
-                                                            Keys.onDownPressed: {
-                                                                recordingSection.focusCardAt(cardIndex)
-                                                            }
-                                                        }
-
-                                                        Rectangle {
-                                                            id: moreBtn
-                                                            Layout.preferredWidth: 62
-                                                            Layout.preferredHeight: 28
-                                                            radius: 14
-                                                            color: moreHov || activeFocus ? Theme.surfaceHover : Theme.surface
-                                                            border.width: activeFocus ? 2 : 1
-                                                            border.color: activeFocus ? Theme.accent : Theme.surfaceBorder
-                                                            focus: false
-                                                            activeFocusOnTab: true
-                                                            property bool moreHov: false
-                                                            onActiveFocusChanged: recordingCard.actionFocusMode = activeFocus
-                                                            scale: activeFocus ? 1.03 : 1.0
-
-                                                            Text {
-                                                                anchors.centerIn: parent
-                                                                text: "More"
-                                                                font.pixelSize: 11
-                                                                font.bold: true
-                                                                color: "#ffffff"
-                                                            }
-
-                                                            MouseArea {
-                                                                anchors.fill: parent
-                                                                hoverEnabled: true
-                                                                cursorShape: Qt.PointingHandCursor
-                                                                onEntered: parent.moreHov = true
-                                                                onExited: parent.moreHov = false
-                                                                onClicked: recordingCard.openActionsPopup()
-                                                            }
-
-                                                            Keys.onLeftPressed: {
-                                                                if (openBtn.visible) openBtn.forceActiveFocus()
-                                                                else {
-                                                                    recordingCard.forceActiveFocus()
-                                                                    recordingCard.actionFocusMode = false
-                                                                }
-                                                            }
-                                                            Keys.onRightPressed: {
-                                                                recordingCard.openActionsPopup()
-                                                            }
-                                                            Keys.onUpPressed: {
-                                                                recordingCard.forceActiveFocus()
-                                                                recordingCard.actionFocusMode = false
-                                                            }
-                                                            Keys.onDownPressed: {
-                                                                recordingSection.focusCardAt(cardIndex)
-                                                            }
-                                                            Keys.onReturnPressed: recordingCard.openActionsPopup()
-                                                            Keys.onEnterPressed: Keys.onReturnPressed(event)
-                                                            Keys.onPressed: function(event) {
-                                                                if (event.key === Qt.Key_Select || event.key === Qt.Key_Space) {
-                                                                    recordingCard.openActionsPopup()
-                                                                    event.accepted = true
-                                                                }
-                                                            }
-                                                        }
-                                                    }
+                                                Text {
+                                                    anchors.centerIn: parent
+                                                    text: "\u22EE"
+                                                    font.pixelSize: 14
+                                                    font.bold: true
+                                                    color: Theme.textSecondary
                                                 }
 
-                                                Popup {
-                                                    id: recordingActionsPopup
+                                                MouseArea {
+                                                    anchors.fill: parent
+                                                    hoverEnabled: true
+                                                    cursorShape: Qt.PointingHandCursor
+                                                    onEntered: parent.recMoreBtnHov = true
+                                                    onExited: parent.recMoreBtnHov = false
+                                                    onClicked: recordingCard.openActionsPopup()
+                                                }
+                                            }
+                                        }
+
+                                            Popup {
+                                                id: recordingActionsPopup
                                                     parent: recordingsView
                                                     modal: false
                                                     focus: true
@@ -1076,7 +962,7 @@ Item {
                                                     closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutsideParent
                                                     x: {
                                                         var cardPos = recordingCard.mapToItem(recordingsView, 0, 0)
-                                                        return Math.max(4, Math.min(recordingsView.width - width - 4, cardPos.x + moreBtn.x))
+                                                        return Math.max(4, Math.min(recordingsView.width - width - 4, cardPos.x + recMoreBtn.x))
                                                     }
                                                     y: {
                                                         var popupH = popupColumn ? popupColumn.implicitHeight + (recordingActionsPopup.padding * 2) : 0
@@ -1084,8 +970,8 @@ Item {
                                                             popupH = deleteFileAction.visible ? 156 : 108
                                                         }
                                                         var cardPos = recordingCard.mapToItem(recordingsView, 0, 0)
-                                                        var below = cardPos.y + actionStrip.y + actionStrip.height + 4
-                                                        var above = cardPos.y + actionStrip.y - popupH - 4
+                                                        var below = cardPos.y + recMoreBtn.y + recMoreBtn.height + 4
+                                                        var above = cardPos.y + recMoreBtn.y - popupH - 4
                                                         if (below + popupH <= recordingsView.height - 8) {
                                                             return below
                                                         }
@@ -1158,11 +1044,10 @@ Item {
                                                         if (popupFocusRoot) popupFocusRoot.forceActiveFocus()
                                                     }
                                                     onClosed: {
-                                                        recordingCard.actionFocusMode = false
                                                         popupActionIndex = 0
                                                         Qt.callLater(function() {
                                                             if (!recordingCard || !recordingCard.visible) return
-                                                            if (moreBtn && moreBtn.visible) moreBtn.forceActiveFocus()
+                                                            if (recMoreBtn && recMoreBtn.visible) recMoreBtn.forceActiveFocus()
                                                             else recordingCard.forceActiveFocus()
                                                         })
                                                     }
@@ -1478,9 +1363,6 @@ Item {
                     }
                 }
             }
-        }
-    }
-
     Timer {
         id: focusRestoreTimer
         interval: 75

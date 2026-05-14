@@ -2,6 +2,7 @@
 #include "iptvxs/db/history_repository.h"
 
 #include <QDateTime>
+#include <QSet>
 #include <QSqlQuery>
 #include <QUrl>
 #include <QVariant>
@@ -153,6 +154,76 @@ QVector<HistoryEntry> HistoryRepository::findRecent(int limit, int offset) const
         }
     }
     return entries;
+}
+
+QVector<HistoryEntry> HistoryRepository::search(const QString &query, int limit, int offset) const {
+    const auto trimmed = query.trimmed();
+    if (trimmed.isEmpty()) {
+        return {};
+    }
+
+    QSqlQuery sql(db_);
+    sql.prepare(
+        "SELECT h.id, h.channel_id, "
+        "COALESCE(NULLIF(h.name, ''), c.name, 'Unknown'), "
+        "COALESCE(NULLIF(h.logo_url, ''), c.logo_url, ''), "
+        "COALESCE(NULLIF(h.type, ''), c.type, 'live'), "
+        "h.watched_at, h.duration_secs, "
+        "COALESCE(h.stream_url, c.stream_url, ''), "
+        "h.position_secs, h.total_duration_secs "
+        "FROM history h "
+        "LEFT JOIN channels c ON c.id = h.channel_id AND h.channel_id > 0 "
+        "LEFT JOIN servers s ON s.id = c.server_id "
+        "WHERE h.deleted_at IS NULL AND (h.channel_id = 0 OR COALESCE(s.enabled, 1) = 1) "
+        "AND (COALESCE(NULLIF(h.name, ''), c.name, '') LIKE ? COLLATE NOCASE "
+        "OR COALESCE(h.stream_url, c.stream_url, '') LIKE ? COLLATE NOCASE "
+        "OR COALESCE(NULLIF(h.type, ''), c.type, '') LIKE ? COLLATE NOCASE "
+        "OR COALESCE(NULLIF(c.name, ''), '') LIKE ? COLLATE NOCASE) "
+        "ORDER BY h.watched_at DESC "
+        "LIMIT ? OFFSET ?");
+    const auto pattern = QStringLiteral("%%%1%%").arg(trimmed);
+    sql.addBindValue(pattern);
+    sql.addBindValue(pattern);
+    sql.addBindValue(pattern);
+    sql.addBindValue(pattern);
+    sql.addBindValue(limit);
+    sql.addBindValue(offset);
+
+    QVector<HistoryEntry> entries;
+    if (sql.exec()) {
+        while (sql.next()) {
+            HistoryEntry e;
+            e.id = sql.value(0).toLongLong();
+            e.channelId = sql.value(1).toLongLong();
+            e.channelName = sql.value(2).toString();
+            e.channelLogo = sanitizeRemoteUrl(sql.value(3).toString());
+            e.channelType = sql.value(4).toString();
+            e.watchedAt = sql.value(5).toLongLong();
+            e.durationSecs = sql.value(6).toInt();
+            e.streamUrl = sanitizeRemoteUrl(sql.value(7).toString());
+            e.positionSecs = sql.value(8).toInt();
+            e.totalDurationSecs = sql.value(9).toInt();
+            entries.append(e);
+        }
+    }
+
+    QVector<HistoryEntry> deduped;
+    deduped.reserve(entries.size());
+    QSet<QString> seen;
+    for (const auto &entry : entries) {
+        const QString key = entry.channelId > 0
+            ? QStringLiteral("channel:%1").arg(entry.channelId)
+            : QStringLiteral("anon:%1|%2").arg(entry.channelName, entry.streamUrl);
+        if (seen.contains(key)) {
+            continue;
+        }
+        seen.insert(key);
+        deduped.append(entry);
+        if (limit > 0 && deduped.size() >= limit) {
+            break;
+        }
+    }
+    return deduped;
 }
 
 int HistoryRepository::count() const {
