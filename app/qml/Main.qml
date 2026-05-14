@@ -137,24 +137,11 @@ ApplicationWindow {
             }
         }
 
-        Loader {
-            id: viewLoader
+        Item {
+            id: viewContainer
             Layout.fillWidth: true
             Layout.fillHeight: true
-            source: "views/HomeView.qml"
-            asynchronous: false
-            onLoaded: {
-                if (!topBar.activeFocus && !searchOverlay.open && !(viewLoader.item && viewLoader.item.activeFocus)) {
-                    requestViewFocusRestore()
-                }
-            }
 
-            // L1/R1 controller shortcuts (synthesized as PageUp/PageDown
-            // by controller_input_bridge.cpp) step the top-nav focus
-            // left/right from anywhere inside the loaded view. AfterItem
-            // priority lets the inner focus chain consume the key first
-            // if it has a dedicated meaning, but in practice no view
-            // handles PageUp/PageDown so they fall through here.
             Keys.priority: Keys.AfterItem
             Keys.onPressed: function(event) {
                 if (event.key === Qt.Key_PageUp) {
@@ -166,11 +153,50 @@ ApplicationWindow {
                 }
             }
 
-            Behavior on opacity {
-                NumberAnimation {
-                    duration: Theme.animFast
+            property var activated: ({})
+
+            function activateView(name) {
+                if (!activated[name]) {
+                    var a = activated
+                    a[name] = true
+                    activated = a
                 }
             }
+
+            function loaderFor(name) {
+                switch (name) {
+                case "home": return homeLoader
+                case "channels": return channelsLoader
+                case "epg": return epgLoader
+                case "recordings": return recordingsLoader
+                case "vod_movies": return vodMoviesLoader
+                case "vod_series": return vodSeriesLoader
+                case "favorites": return favoritesLoader
+                case "groups": return groupsLoader
+                case "servers": return serversLoader
+                case "speedtest": return speedtestLoader
+                case "settings": return settingsLoader
+                case "log": return logLoader
+                case "player": return playerLoader
+                case "history": return historyLoader
+                default: return homeLoader
+                }
+            }
+
+            Loader { id: homeLoader; anchors.fill: parent; active: viewContainer.activated["home"] || false; visible: false; source: "views/HomeView.qml"; onLoaded: requestViewFocusRestore() }
+            Loader { id: channelsLoader; anchors.fill: parent; active: viewContainer.activated["channels"] || false; visible: false; source: "views/ChannelsView.qml"; onLoaded: requestViewFocusRestore() }
+            Loader { id: epgLoader; anchors.fill: parent; active: viewContainer.activated["epg"] || false; visible: false; source: "views/EpgView.qml"; onLoaded: requestViewFocusRestore() }
+            Loader { id: recordingsLoader; anchors.fill: parent; active: viewContainer.activated["recordings"] || false; visible: false; source: "views/RecordingsView.qml"; onLoaded: requestViewFocusRestore() }
+            Loader { id: vodMoviesLoader; anchors.fill: parent; active: viewContainer.activated["vod_movies"] || false; visible: false; source: "views/VodView.qml"; onLoaded: { if (item) item.initialType = "vod"; requestViewFocusRestore() } }
+            Loader { id: vodSeriesLoader; anchors.fill: parent; active: viewContainer.activated["vod_series"] || false; visible: false; source: "views/VodView.qml"; onLoaded: { if (item) item.initialType = "series"; requestViewFocusRestore() } }
+            Loader { id: favoritesLoader; anchors.fill: parent; active: viewContainer.activated["favorites"] || false; visible: false; source: "views/FavoritesView.qml"; onLoaded: requestViewFocusRestore() }
+            Loader { id: groupsLoader; anchors.fill: parent; active: viewContainer.activated["groups"] || false; visible: false; source: "views/GroupsView.qml"; onLoaded: requestViewFocusRestore() }
+            Loader { id: serversLoader; anchors.fill: parent; active: viewContainer.activated["servers"] || false; visible: false; source: "views/ServersView.qml"; onLoaded: requestViewFocusRestore() }
+            Loader { id: speedtestLoader; anchors.fill: parent; active: viewContainer.activated["speedtest"] || false; visible: false; source: "views/SpeedTestView.qml"; onLoaded: requestViewFocusRestore() }
+            Loader { id: settingsLoader; anchors.fill: parent; active: viewContainer.activated["settings"] || false; visible: false; source: "views/SettingsView.qml"; onLoaded: requestViewFocusRestore() }
+            Loader { id: logLoader; anchors.fill: parent; active: viewContainer.activated["log"] || false; visible: false; source: "views/LogView.qml"; onLoaded: requestViewFocusRestore() }
+            Loader { id: playerLoader; anchors.fill: parent; active: viewContainer.activated["player"] || false; visible: false; source: "views/PlayerView.qml"; onLoaded: requestViewFocusRestore() }
+            Loader { id: historyLoader; anchors.fill: parent; active: viewContainer.activated["history"] || false; visible: false; source: "views/HistoryView.qml"; onLoaded: requestViewFocusRestore() }
         }
 
     }
@@ -188,68 +214,42 @@ ApplicationWindow {
         }
     }
 
-    function viewForName(name: string): string {
-        switch (name) {
-        case "home":
-            return "views/HomeView.qml"
-        case "servers":
-            return "views/ServersView.qml"
-        case "channels":
-            return "views/ChannelsView.qml"
-        case "vod_movies":
-        case "vod_series":
-            return "views/VodView.qml"
-        case "favorites":
-            return "views/FavoritesView.qml"
-        case "groups":
-            return "views/GroupsView.qml"
-        case "epg":
-            return "views/EpgView.qml"
-        case "recordings":
-            return "views/RecordingsView.qml"
-        case "history":
-            return "views/HistoryView.qml"
-        case "speedtest":
-            return "views/SpeedTestView.qml"
-        case "settings":
-            return "views/SettingsView.qml"
-        case "log":
-            return "views/LogView.qml"
-        case "player":
-            return "views/PlayerView.qml"
-        default:
-            return "views/HomeView.qml"
-        }
-    }
-
     function focusSidebar() {
         focusTopNav()
     }
 
+    function currentViewItem() {
+        var loader = viewContainer.loaderFor(appViewModel ? appViewModel.currentView : "home")
+        return loader ? loader.item : null
+    }
+
     function focusCurrentViewPrimary() {
-        if (viewLoader.item && viewLoader.item.focusPrimary) {
-            viewLoader.item.focusPrimary()
+        var item = currentViewItem()
+        if (item && item.focusPrimary) {
+            item.focusPrimary()
         }
     }
 
     function focusCurrentViewSecondary() {
-        if (viewLoader.item && viewLoader.item.focusCategorySidebar) {
-            viewLoader.item.focusCategorySidebar()
+        var item = currentViewItem()
+        if (item && item.focusCategorySidebar) {
+            item.focusCategorySidebar()
             return
         }
         focusCurrentViewPrimary()
     }
 
     function loadViewForCurrentName(view) {
-        var src = viewForName(view)
-        if (viewLoader.source === src && viewLoader.item) {
-            return
+        // Hide all loaders, show + activate the target
+        for (var i = 0; i < viewContainer.children.length; i++) {
+            var child = viewContainer.children[i]
+            if (child.hasOwnProperty("active")) {
+                child.visible = false
+            }
         }
-        if (view === "vod_movies" || view === "vod_series") {
-            viewLoader.setSource(src, { "initialType": view === "vod_series" ? "series" : "vod" })
-        } else {
-            viewLoader.setSource(src)
-        }
+        viewContainer.activateView(view)
+        var loader = viewContainer.loaderFor(view)
+        if (loader) loader.visible = true
     }
 
     property bool focusRestorePending: false
@@ -263,7 +263,8 @@ ApplicationWindow {
 
     function tryRestoreViewFocus() {
         if (!focusRestorePending) return
-        if (!viewLoader.item) {
+        var item = currentViewItem()
+        if (!item) {
             if (++focusRestoreAttempts < 20) {
                 focusContentTimer.restart()
             } else {
@@ -272,18 +273,18 @@ ApplicationWindow {
             return
         }
 
-        if (viewLoader.item.activeFocus) {
+        if (item.activeFocus) {
             focusRestorePending = false
             return
         }
 
-        if (viewLoader.item.requestFocusRestore) {
-            viewLoader.item.requestFocusRestore()
-        } else if (viewLoader.item.focusPrimary) {
-            viewLoader.item.focusPrimary()
+        if (item.requestFocusRestore) {
+            item.requestFocusRestore()
+        } else if (item.focusPrimary) {
+            item.focusPrimary()
         }
 
-        if (viewLoader.item.activeFocus) {
+        if (item.activeFocus) {
             focusRestorePending = false
             return
         }
@@ -347,6 +348,7 @@ ApplicationWindow {
             var savedTheme = appViewModel.theme
             if (savedTheme) Theme.applyTheme(savedTheme)
         }
+        loadViewForCurrentName("home")
         requestViewFocusRestore()
     }
 
