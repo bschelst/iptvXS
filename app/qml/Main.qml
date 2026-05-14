@@ -593,32 +593,22 @@ ApplicationWindow {
         }
     }
 
-    property var navItems: ["home", "channels", "recordings", "vod_movies", "vod_series", "favorites", "epg", "servers"]
-
     Shortcut {
         sequences: ["F1"]
-        onActivated: navigateSidebar(-1)
+        onActivated: topBar.stepMenuFocus(-1)
     }
     Shortcut {
         sequences: ["F2"]
-        onActivated: navigateSidebar(1)
+        onActivated: topBar.stepMenuFocus(1)
     }
 
     Shortcut {
-        sequences: ["Ctrl+Left", "PgUp"]
-        onActivated: navigateSidebar(-1)
+        sequences: ["Ctrl+Left"]
+        onActivated: topBar.stepMenuFocus(-1)
     }
     Shortcut {
-        sequences: ["Ctrl+Right", "PgDown"]
-        onActivated: navigateSidebar(1)
-    }
-
-    function navigateSidebar(delta) {
-        var idx = navItems.indexOf(navViewForCurrentView(appViewModel ? appViewModel.currentView : "home"))
-        if (idx < 0) idx = 0
-        idx = Math.max(0, Math.min(navItems.length - 1, idx + delta))
-        topBar.focusMenuItem(idx)
-        if (appViewModel) appViewModel.currentView = navItems[idx]
+        sequences: ["Ctrl+Right"]
+        onActivated: topBar.stepMenuFocus(1)
     }
 
     Rectangle {
