@@ -50,6 +50,33 @@ Rectangle {
         }
     }
 
+    // Step the menu focus left (-1) or right (+1), wrapping at ends.
+    // Used by L1/R1 controller shortcuts (mapped to PageUp/PageDown).
+    function stepMenuFocus(delta) {
+        if (menuItems.length === 0) return
+        var current = focusedMenuIndex
+        if (current < 0) current = indexForView(activeView)
+        var next = (current + delta + menuItems.length) % menuItems.length
+        focusMenuItem(next)
+        if (menuItems[next] && menuItems[next].view) {
+            topBar.menuActivated(menuItems[next].view)
+        }
+    }
+
+    // Catch PageUp/PageDown anywhere within the TopBar's focus subtree so
+    // the user can tab through nav items via L1/R1 even when focus is on
+    // the search/log/speedtest buttons or the logo.
+    Keys.priority: Keys.AfterItem
+    Keys.onPressed: function(event) {
+        if (event.key === Qt.Key_PageUp) {
+            stepMenuFocus(-1)
+            event.accepted = true
+        } else if (event.key === Qt.Key_PageDown) {
+            stepMenuFocus(+1)
+            event.accepted = true
+        }
+    }
+
     function focusContentPrimary() {
         if (Window.window && Window.window.focusCurrentViewPrimary) {
             Window.window.focusCurrentViewPrimary()

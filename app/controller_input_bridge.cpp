@@ -22,6 +22,10 @@ Qt::Key keyForControllerButton(SDL_GameControllerButton button) {
         return Qt::Key_Escape;
     case SDL_CONTROLLER_BUTTON_X:
         return Qt::Key_Space;
+    case SDL_CONTROLLER_BUTTON_LEFTSHOULDER:
+        return Qt::Key_PageUp;
+    case SDL_CONTROLLER_BUTTON_RIGHTSHOULDER:
+        return Qt::Key_PageDown;
     default:
         return Qt::Key_unknown;
     }
