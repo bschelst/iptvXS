@@ -94,35 +94,36 @@ void ControllerInputBridge::sendKey(Qt::Key key, bool pressed) {
 }
 
 void ControllerInputBridge::handleControllerButton(int button, bool pressed) {
-    if (pressed) {
-        qInfo("[CTRL] SDL button down: %d (%s)", button,
-              SDL_GameControllerGetStringForButton(
-                  static_cast<SDL_GameControllerButton>(button)));
-    }
+    const char *name = SDL_GameControllerGetStringForButton(
+        static_cast<SDL_GameControllerButton>(button));
+    qInfo("[CTRL] SDL button %s: %d (%s)", pressed ? "down" : "up  ",
+          button, name);
 
-    // Steam Input on the Steam Deck fires repeated BUTTONDOWN events
-    // while a button is physically held (auto-repeat). For tap-style
-    // controls (L1/R1 menu nav, A/B/X) every repeat re-runs the action
-    // and the user gets +N steps instead of +1. Track held state per
-    // button and ignore subsequent BUTTONDOWN until BUTTONUP arrives.
+    // Per-button cooldown on DISPATCH (not on BUTTONDOWN arrival).
+    // Steam Input on the Steam Deck sends fake BUTTONUP events between
+    // its auto-repeat BUTTONDOWN events, which defeats a held-state
+    // tracker (heldButtons_ flips back to false). Time-based debounce
+    // on the dispatch path is the only thing Steam Input can't fool.
     //
-    // The short cooldown still applies on top: it absorbs D-pad hat+button
-    // double-events that arrive from the same physical press (SDL emits
-    // both on some controllers).
+    // Per-button-type intervals:
+    //   - L1/R1, face buttons, etc.: aggressive (500 ms) — these are
+    //     pure tap controls; users never need to repeat them.
+    //   - D-pad: lenient (80 ms) — held D-pad should repeat for list
+    //     scrolling, which is the normal Steam-Deck UX expectation.
     if (pressed) {
-        if (heldButtons_.value(button, false)) {
-            return; // already held, ignore auto-repeat
-        }
         const qint64 now = cooldownClock_.elapsed();
-        const qint64 last = lastDpadPressMs_.value(button, 0);
-        if (now - last < kButtonCooldownMs) {
-            qInfo("[CTRL]   suppressed (%lld ms since last press)", now - last);
-            return; // suppress duplicate
+        const qint64 last = lastDispatchMs_.value(button, 0);
+        const bool isDpad = (button == SDL_CONTROLLER_BUTTON_DPAD_UP
+                          || button == SDL_CONTROLLER_BUTTON_DPAD_DOWN
+                          || button == SDL_CONTROLLER_BUTTON_DPAD_LEFT
+                          || button == SDL_CONTROLLER_BUTTON_DPAD_RIGHT);
+        const qint64 cooldown = isDpad ? kDpadCooldownMs : kButtonCooldownMs;
+        if (now - last < cooldown) {
+            qInfo("[CTRL]   suppressed (%lld ms < %lld ms)",
+                  now - last, cooldown);
+            return;
         }
-        lastDpadPressMs_[button] = now;
-        heldButtons_[button] = true;
-    } else {
-        heldButtons_[button] = false;
+        lastDispatchMs_[button] = now;
     }
 
     sendKey(keyForControllerButton(static_cast<SDL_GameControllerButton>(button)), pressed);

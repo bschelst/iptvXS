@@ -28,16 +28,19 @@ private:
     QTimer pollTimer_;
     QHash<SDL_JoystickID, SDL_GameController *> controllers_;
 
-    // Button cooldown: prevent duplicate inputs from hat+button overlap
-    // (D-pad) and from Steam Input auto-repeating BUTTONDOWN events while
-    // a button is held (shoulders, face buttons). 300 ms is fast enough
-    // that intentional rapid presses still register but slow enough to
-    // swallow Steam's auto-repeat.
-    static constexpr qint64 kButtonCooldownMs = 300;
-    QHash<int, qint64> lastDpadPressMs_;
-    // Tracks whether each button is currently considered "held" — set on
-    // the first BUTTONDOWN, cleared on BUTTONUP. Lets us discard auto-
-    // repeat BUTTONDOWN events that Steam Input synthesizes mid-hold.
-    QHash<int, bool> heldButtons_;
+    // Cooldowns on DISPATCH (not on event arrival). Steam Input sends
+    // fake BUTTONUP between its auto-repeat BUTTONDOWN events, so any
+    // state-based debounce gets defeated. Only time since last DISPATCH
+    // is reliable.
+    //
+    // - kDpadCooldownMs: held D-pad should repeat for list scrolling
+    //   (~12 events/sec). 80 ms feels responsive.
+    // - kButtonCooldownMs: shoulders + face buttons are tap-style;
+    //   500 ms is well past the longest Steam Input repeat (~700 ms)
+    //   while still allowing intentional double-taps (e.g., for a
+    //   confirm-then-confirm pattern).
+    static constexpr qint64 kDpadCooldownMs = 80;
+    static constexpr qint64 kButtonCooldownMs = 500;
+    QHash<int, qint64> lastDispatchMs_;
     QElapsedTimer cooldownClock_;
 };
