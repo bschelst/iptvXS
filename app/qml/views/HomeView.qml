@@ -1024,15 +1024,21 @@ Item {
                 color: "transparent"
                 border.width: {
                     var lv = posterDelegate.ListView.view
-                    return ((lv && lv.activeFocus && lv.currentIndex === index) || posterDelegate.cardHovered) ? 2 : 1
+                    if (lv && lv.activeFocus && lv.currentIndex === index) return 2
+                    // Only allow hover-highlight when no row owns keyboard
+                    // focus. Steam Deck's invisible cursor often parks over a
+                    // card and falsely lights it up next to the actually-
+                    // focused row.
+                    if (!homeView.anyRowFocused && posterDelegate.cardHovered) return 2
+                    return 1
                 }
                 border.color: {
                     var lv = posterDelegate.ListView.view
-                    if (posterDelegate.cardHovered) {
-                        return Theme.accent
-                    }
                     if (lv && lv.activeFocus) {
                         return lv.currentIndex === index ? Theme.accent : Theme.surfaceBorder
+                    }
+                    if (!homeView.anyRowFocused && posterDelegate.cardHovered) {
+                        return Theme.accent
                     }
                     return Theme.surfaceBorder
                 }
@@ -1086,15 +1092,17 @@ Item {
                 color: qaDelegate.cardHovered ? Theme.surfaceHover : Theme.surfaceElevated
                 border.width: {
                     var lv = qaDelegate.ListView.view
-                    return ((lv && lv.activeFocus && lv.currentIndex === index) || qaDelegate.cardHovered) ? 2 : 1
+                    if (lv && lv.activeFocus && lv.currentIndex === index) return 2
+                    if (!homeView.anyRowFocused && qaDelegate.cardHovered) return 2
+                    return 1
                 }
                 border.color: {
                     var lv = qaDelegate.ListView.view
-                    if (qaDelegate.cardHovered) {
-                        return Theme.accent
-                    }
                     if (lv && lv.activeFocus) {
                         return lv.currentIndex === index ? Theme.accent : Theme.surfaceBorder
+                    }
+                    if (!homeView.anyRowFocused && qaDelegate.cardHovered) {
+                        return Theme.accent
                     }
                     return Theme.surfaceBorder
                 }

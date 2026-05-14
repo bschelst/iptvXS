@@ -52,10 +52,15 @@ Rectangle {
 
     // Step the menu focus left (-1) or right (+1), wrapping at ends.
     // Used by L1/R1 controller shortcuts (mapped to PageUp/PageDown).
+    // Always derive the current position from `activeView` (the view that
+    // is actually loaded) rather than `focusedMenuIndex` (the menu button
+    // that last had keyboard focus). Otherwise — when the user reaches a
+    // view by mouse-click or any path that doesn't go through
+    // focusMenuItem — focusedMenuIndex is stale and L1/R1 steps from the
+    // wrong origin.
     function stepMenuFocus(delta) {
         if (menuItems.length === 0) return
-        var current = focusedMenuIndex
-        if (current < 0) current = indexForView(activeView)
+        var current = indexForView(activeView)
         var next = (current + delta + menuItems.length) % menuItems.length
         focusMenuItem(next)
         if (menuItems[next] && menuItems[next].view) {
