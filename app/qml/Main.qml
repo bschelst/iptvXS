@@ -321,7 +321,7 @@ ApplicationWindow {
                 }
             }
             loadViewForCurrentName(view)
-            if (topBar.activeFocus || searchOverlay.open) {
+            if (searchOverlay.open) {
                 focusRestorePending = false
                 focusContentTimer.stop()
             } else {
