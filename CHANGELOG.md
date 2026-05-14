@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.0
+
+### Changed
+- Replaced left sidebar menu with a top navigation bar.
+- Changed Favorites layout to the new standard grid layout.
+
 ## 0.3.15
 
 Fixing issues in flatpak & testing Sync.
