@@ -62,6 +62,12 @@ Rectangle {
         if (menuItems.length === 0) return
         var current = indexForView(activeView)
         var next = (current + delta + menuItems.length) % menuItems.length
+        console.log("[NAV] stepMenuFocus delta=" + delta
+                    + " activeView=" + activeView
+                    + " current=" + current
+                    + " next=" + next
+                    + " (" + (menuItems[next] ? menuItems[next].view : "?") + ")"
+                    + " menuItems.length=" + menuItems.length)
         focusMenuItem(next)
         if (menuItems[next] && menuItems[next].view) {
             topBar.menuActivated(menuItems[next].view)
