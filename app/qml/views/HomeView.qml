@@ -74,6 +74,11 @@ Item {
             return
         }
 
+        if (homeView.activeFocus || anyRowFocused) {
+            focusRestorePending = false
+            return
+        }
+
         if (!continueWatchingReady) {
             if (++focusRestoreAttempts < 40) {
                 focusRestoreTimer.restart()

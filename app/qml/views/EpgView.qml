@@ -133,6 +133,12 @@ Item {
         }
     }
 
+    function focusTopMenu() {
+        if (Window.window && Window.window.focusSidebar) {
+            Window.window.focusSidebar()
+        }
+    }
+
     ColumnLayout {
         anchors.fill: parent
         spacing: 0
@@ -223,6 +229,9 @@ Item {
                                 if (Window.window && Window.window.focusSidebar) {
                                     Window.window.focusSidebar()
                                 }
+                            }
+                            Keys.onUpPressed: {
+                                epgView.focusTopMenu()
                             }
                             Keys.onPressed: function(event) {
                                 if (event.key === Qt.Key_Back || event.key === Qt.Key_Escape) {
@@ -315,6 +324,9 @@ Item {
                     Keys.onLeftPressed: {
                         if (epgSearch) epgSearch.forceActiveFocus()
                     }
+                    Keys.onUpPressed: {
+                        epgView.focusTopMenu()
+                    }
                     Keys.onRightPressed: {
                         if (epgPrevBtn) epgPrevBtn.forceActiveFocus()
                     }
@@ -366,6 +378,9 @@ Item {
 
                     Keys.onRightPressed: {
                         if (epgNextBtn) epgNextBtn.forceActiveFocus()
+                    }
+                    Keys.onUpPressed: {
+                        epgView.focusTopMenu()
                     }
                     Keys.onDownPressed: {
                         if (guideFlickable) guideFlickable.forceActiveFocus()
@@ -426,6 +441,9 @@ Item {
 
                     Keys.onLeftPressed: {
                         if (epgPrevBtn) epgPrevBtn.forceActiveFocus()
+                    }
+                    Keys.onUpPressed: {
+                        epgView.focusTopMenu()
                     }
                     Keys.onRightPressed: {
                         if (epgSyncBtn) epgSyncBtn.forceActiveFocus()
@@ -493,6 +511,9 @@ Item {
 
                     Keys.onLeftPressed: {
                         if (epgNextBtn) epgNextBtn.forceActiveFocus()
+                    }
+                    Keys.onUpPressed: {
+                        epgView.focusTopMenu()
                     }
                     Keys.onDownPressed: {
                         if (guideFlickable) guideFlickable.forceActiveFocus()

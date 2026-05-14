@@ -85,6 +85,11 @@ Item {
             return
         }
 
+        if (vodView.activeFocus || (vodGrid && vodGrid.activeFocus) || (categoryGrid && categoryGrid.activeFocus) || (vodCategoryList && vodCategoryList.activeFocus)) {
+            focusRestorePending = false
+            return
+        }
+
         if (vodGrid.visible && vodGrid.count > 0) {
             vodGrid.currentIndex = 0
             vodGrid.forceActiveFocus()

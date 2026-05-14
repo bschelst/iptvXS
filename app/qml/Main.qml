@@ -144,7 +144,7 @@ ApplicationWindow {
             source: "views/HomeView.qml"
             asynchronous: false
             onLoaded: {
-                if (!topBar.activeFocus && !searchOverlay.open) {
+                if (!topBar.activeFocus && !searchOverlay.open && !(viewLoader.item && viewLoader.item.activeFocus)) {
                     requestViewFocusRestore()
                 }
             }
@@ -252,6 +252,11 @@ ApplicationWindow {
             } else {
                 focusRestorePending = false
             }
+            return
+        }
+
+        if (viewLoader.item.activeFocus) {
+            focusRestorePending = false
             return
         }
 
