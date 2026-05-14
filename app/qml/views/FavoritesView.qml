@@ -98,11 +98,19 @@ Item {
             Keys.onLeftPressed: {
                 if (currentIndex > 0 && (currentIndex % cols) !== 0) {
                     currentIndex--
+                    event.accepted = true
                 }
             }
             Keys.onRightPressed: {
-                if (currentItem && currentItem.favRemoveBtn) {
-                    currentItem.favRemoveBtn.forceActiveFocus()
+                // Standard grid nav: advance to the next card in the row.
+                // Press X (Qt.Key_Space) to toggle the favorite off — see
+                // the delegate's Keys.onPressed handler. The remove button
+                // is no longer reachable via D-pad Right to keep nav
+                // intuitive.
+                if (currentIndex + 1 < count
+                        && (currentIndex + 1) % cols !== 0) {
+                    currentIndex++
+                    event.accepted = true
                 }
             }
             Keys.onReturnPressed: activateCurrentItem()
@@ -331,9 +339,11 @@ Item {
 
                     Keys.onReturnPressed: activate()
                     Keys.onEnterPressed: Keys.onReturnPressed(event)
-                    Keys.onRightPressed: {
-                        if (favRemoveBtn) favRemoveBtn.forceActiveFocus()
-                    }
+                    // Right used to focus the remove button on the same
+                    // card, but that broke standard grid navigation. The
+                    // GridView's own Keys.onRightPressed now advances to
+                    // the next card; remove-via-X is unchanged via
+                    // delegate's Keys.onPressed below.
                     Keys.onUpPressed: {
                         if (index >= favoritesGrid.cols) {
                             favoritesGrid.currentIndex = index - favoritesGrid.cols

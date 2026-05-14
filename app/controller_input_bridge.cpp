@@ -100,19 +100,29 @@ void ControllerInputBridge::handleControllerButton(int button, bool pressed) {
                   static_cast<SDL_GameControllerButton>(button)));
     }
 
-    // Apply cooldown only to d-pad press events to prevent double-firing
-    // (some controllers emit both hat and button events for d-pad).
-    const bool isDpad = (button == SDL_CONTROLLER_BUTTON_DPAD_UP ||
-                         button == SDL_CONTROLLER_BUTTON_DPAD_DOWN ||
-                         button == SDL_CONTROLLER_BUTTON_DPAD_LEFT ||
-                         button == SDL_CONTROLLER_BUTTON_DPAD_RIGHT);
-    if (isDpad && pressed) {
+    // Steam Input on the Steam Deck fires repeated BUTTONDOWN events
+    // while a button is physically held (auto-repeat). For tap-style
+    // controls (L1/R1 menu nav, A/B/X) every repeat re-runs the action
+    // and the user gets +N steps instead of +1. Track held state per
+    // button and ignore subsequent BUTTONDOWN until BUTTONUP arrives.
+    //
+    // The short cooldown still applies on top: it absorbs D-pad hat+button
+    // double-events that arrive from the same physical press (SDL emits
+    // both on some controllers).
+    if (pressed) {
+        if (heldButtons_.value(button, false)) {
+            return; // already held, ignore auto-repeat
+        }
         const qint64 now = cooldownClock_.elapsed();
         const qint64 last = lastDpadPressMs_.value(button, 0);
-        if (now - last < kDpadCooldownMs) {
+        if (now - last < kButtonCooldownMs) {
+            qInfo("[CTRL]   suppressed (%lld ms since last press)", now - last);
             return; // suppress duplicate
         }
         lastDpadPressMs_[button] = now;
+        heldButtons_[button] = true;
+    } else {
+        heldButtons_[button] = false;
     }
 
     sendKey(keyForControllerButton(static_cast<SDL_GameControllerButton>(button)), pressed);
