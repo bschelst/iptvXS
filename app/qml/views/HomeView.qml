@@ -748,18 +748,34 @@ Item {
             onCountChanged: {
                 if (count <= 0) {
                     currentIndex = -1
-                } else if (currentIndex < 0 || currentIndex >= count) {
+                } else if (activeFocus
+                           && (currentIndex < 0 || currentIndex >= count)) {
+                    // Only auto-select the first card if THIS row is the
+                    // currently focused one. Otherwise leave currentIndex
+                    // at -1 so the delegate's `currentIndex === index`
+                    // highlight check doesn't make the first card look
+                    // focused while another row actually owns keyboard
+                    // focus.
                     currentIndex = 0
                     positionViewAtIndex(currentIndex, ListView.Contain)
+                } else if (currentIndex >= count) {
+                    currentIndex = -1
                 }
             }
 
             onActiveFocusChanged: {
-                if (activeFocus && count > 0 && (currentIndex < 0 || currentIndex >= count)) {
-                    currentIndex = 0
-                }
-                if (activeFocus && currentIndex >= 0) {
-                    positionViewAtIndex(currentIndex, ListView.Contain)
+                if (activeFocus) {
+                    if (count > 0 && (currentIndex < 0 || currentIndex >= count)) {
+                        currentIndex = 0
+                    }
+                    if (currentIndex >= 0) {
+                        positionViewAtIndex(currentIndex, ListView.Contain)
+                    }
+                } else {
+                    // Clear the "current" marker when this row loses focus
+                    // so the delegate's highlight binding can never paint a
+                    // stale accent border on an unfocused row.
+                    currentIndex = -1
                 }
             }
 

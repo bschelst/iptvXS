@@ -94,6 +94,12 @@ void ControllerInputBridge::sendKey(Qt::Key key, bool pressed) {
 }
 
 void ControllerInputBridge::handleControllerButton(int button, bool pressed) {
+    if (pressed) {
+        qInfo("[CTRL] SDL button down: %d (%s)", button,
+              SDL_GameControllerGetStringForButton(
+                  static_cast<SDL_GameControllerButton>(button)));
+    }
+
     // Apply cooldown only to d-pad press events to prevent double-firing
     // (some controllers emit both hat and button events for d-pad).
     const bool isDpad = (button == SDL_CONTROLLER_BUTTON_DPAD_UP ||
