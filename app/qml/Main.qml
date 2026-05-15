@@ -157,7 +157,10 @@ ApplicationWindow {
 
             function activateView(name) {
                 if (!activated[name]) {
-                    var a = activated
+                    var a = ({})
+                    var keys = Object.keys(activated)
+                    for (var i = 0; i < keys.length; i++)
+                        a[keys[i]] = true
                     a[name] = true
                     activated = a
                 }
