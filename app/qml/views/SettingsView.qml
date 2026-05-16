@@ -13,6 +13,10 @@ Item {
     // --- D-pad / controller navigation state ---
     property int currentFocusIndex: 0
 
+    onVisibleChanged: {
+        if (visible) focusPrimary()
+    }
+
     function focusPrimary() {
         currentFocusIndex = 0
         if (focusTarget()) {
@@ -105,10 +109,15 @@ Item {
             if (isFocusableTarget(target)) {
                 currentFocusIndex = index
                 scrollToFocused()
-                return
+                return true
             }
             index += delta
         }
+        return false
+    }
+
+    function moveFocusUp() {
+        return moveFocus(-1)
     }
 
     function scrollToFocused() {
@@ -135,7 +144,10 @@ Item {
     }
 
     Keys.onUpPressed: {
-        moveFocus(-1)
+        if (currentFocusIndex <= 0 || !moveFocusUp()) {
+            if (Window.window && Window.window.focusSidebar)
+                Window.window.focusSidebar()
+        }
     }
     Keys.onDownPressed: {
         moveFocus(1)

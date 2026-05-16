@@ -514,8 +514,7 @@ Item {
                             focusControlButton(0)
                         }
                         Keys.onUpPressed: {
-                            playerView.forceActiveFocus()
-                            showControls()
+                            focusTopBackButton()
                         }
                         onActiveFocusChanged: if (activeFocus) showControls()
                     }
