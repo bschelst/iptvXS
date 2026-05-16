@@ -23,7 +23,7 @@ Item {
 
     // Direct lookup by index — returns the QML item for the given focus slot.
     // Using a function (not a property) so ids resolve after component completion.
-    readonly property int focusItemCount: 41
+    readonly property int focusItemCount: 43
 
     function focusTargetForIndex(index) {
         switch (index) {
@@ -31,43 +31,45 @@ Item {
         case  1: return startMinSwitch
         case  2: return gridColFlow
         case  3: return bufferFlow
-        case  4: return chromecastSwitch
-        case  5: return hwdecFlow
-        case  6: return videoEnhFlow
-        case  7: return deinterlaceSwitch
-        case  8: return toneMappingSwitch
-        case  9: return toneMappingAlgoRow
-        case 10: return audioPresetFlow
-        case 11: return subtitlesSwitch
-        case 12: return subLangFlow
-        case 13: return secSubLangFlow
-        case 14: return subSizeRow
-        case 15: return subColorFlow
-        case 16: return subBgFlow
-        case 17: return syncIntervalFlow
-        case 18: return epgSyncFlow
-        case 19: return gdriveConnectBtn
-        case 20: return gdriveFolderInput
-        case 21: return gdriveSaveFolderBtn
-        case 22: return syncEnableSwitch
-        case 23: return syncFolderInput
-        case 24: return syncNowBtn
-        case 25: return backupFolderInput
-        case 26: return backupNowBtn
-        case 27: return recDestFlow
-        case 28: return keepLocalSwitch
-        case 29: return recBrowseBtn
-        case 30: return maxRecSizeFlow
-        case 31: return leadTimeFlow
-        case 32: return overrunFlow
-        case 33: return logoCacheMaxFlow
-        case 34: return clearCacheBtn
-        case 35: return maintenanceBtn
-        case 36: return resetDbBtn
-        case 37: return githubBtn
-        case 38: return checkUpdatesBtn
-        case 39: return freeServerSwitchRow
-        case 40: return freeServerReAddBtn
+        case  4: return hudFlow
+        case  5: return chromecastSwitch
+        case  6: return hwdecFlow
+        case  7: return slowHardwareSwitch
+        case  8: return videoEnhFlow
+        case  9: return deinterlaceSwitch
+        case 10: return toneMappingSwitch
+        case 11: return toneMappingAlgoRow
+        case 12: return audioPresetFlow
+        case 13: return subtitlesSwitch
+        case 14: return subLangFlow
+        case 15: return secSubLangFlow
+        case 16: return subSizeRow
+        case 17: return subColorFlow
+        case 18: return subBgFlow
+        case 19: return syncIntervalFlow
+        case 20: return epgSyncFlow
+        case 21: return gdriveConnectBtn
+        case 22: return gdriveFolderInput
+        case 23: return gdriveSaveFolderBtn
+        case 24: return syncEnableSwitch
+        case 25: return syncFolderInput
+        case 26: return syncNowBtn
+        case 27: return backupFolderInput
+        case 28: return backupNowBtn
+        case 29: return recDestFlow
+        case 30: return keepLocalSwitch
+        case 31: return recBrowseBtn
+        case 32: return maxRecSizeFlow
+        case 33: return leadTimeFlow
+        case 34: return overrunFlow
+        case 35: return logoCacheMaxFlow
+        case 36: return clearCacheBtn
+        case 37: return maintenanceBtn
+        case 38: return resetDbBtn
+        case 39: return githubBtn
+        case 40: return checkUpdatesBtn
+        case 41: return freeServerSwitchRow
+        case 42: return freeServerReAddBtn
         default: return null
         }
     }
@@ -542,6 +544,85 @@ Item {
                                     }
                                 }
                             }
+                    }
+                }
+
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        spacing: Theme.spacingXs
+
+                        Text {
+                            text: "HUD visibility"
+                            font.pixelSize: Theme.fontSizeSm
+                            color: Theme.textPrimary
+                        }
+
+                        Text {
+                            text: "How long the player controls stay visible after input"
+                            font.pixelSize: Theme.fontSizeXs
+                            color: Theme.textMuted
+                        }
+
+                        Item {
+                            id: hudFlow
+                            Layout.fillWidth: true
+                            Layout.topMargin: Theme.spacingXs
+                            implicitHeight: hudFlowInner.implicitHeight
+                            property int subFocusIndex: 0
+                            property int subCount: 4
+                            property var subValues: [3, 5, 10, 15]
+                            function activateSubIndex(idx) {
+                                if (appViewModel && idx >= 0 && idx < subValues.length)
+                                    appViewModel.hudVisibilitySeconds = subValues[idx]
+                            }
+
+                            Flow {
+                                id: hudFlowInner
+                                width: parent.width
+                                spacing: Theme.spacingSm
+
+                                Repeater {
+                                    model: [
+                                        { value: 3, label: "3s" },
+                                        { value: 5, label: "5s" },
+                                        { value: 10, label: "10s" },
+                                        { value: 15, label: "15s" }
+                                    ]
+
+                                    Rectangle {
+                                        width: 64
+                                        height: 32
+                                        radius: Theme.borderRadiusSmall
+                                        color: appViewModel && appViewModel.hudVisibilitySeconds === modelData.value
+                                            ? Theme.accent : hudHovered
+                                                ? Theme.surfaceHover : Theme.surface
+                                        border.width: settingsView.focusBorderWidth(4, hudFlow, index, appViewModel && appViewModel.hudVisibilitySeconds === modelData.value)
+                                        border.color: settingsView.focusBorderColor(4, hudFlow, index, appViewModel && appViewModel.hudVisibilitySeconds === modelData.value)
+
+                                        property bool hudHovered: false
+
+                                        Text {
+                                            anchors.centerIn: parent
+                                            text: modelData.label
+                                            font.pixelSize: Theme.fontSizeXs
+                                            color: appViewModel && appViewModel.hudVisibilitySeconds === modelData.value
+                                                ? Theme.textOnAccent : Theme.textSecondary
+                                        }
+
+                                        MouseArea {
+                                            anchors.fill: parent
+                                            hoverEnabled: true
+                                            cursorShape: Qt.PointingHandCursor
+                                            onEntered: parent.hudHovered = true
+                                            onExited: parent.hudHovered = false
+                                            onClicked: {
+                                                if (appViewModel)
+                                                    appViewModel.hudVisibilitySeconds = modelData.value
+                                            }
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
 
@@ -576,48 +657,38 @@ Item {
                             }
                         }
                     }
-                }
-            }
 
-            Rectangle {
-                Layout.fillWidth: true
-                Layout.preferredHeight: appBehaviorCol.implicitHeight + Theme.spacingLg * 2
-                radius: Theme.borderRadiusLarge
-                color: Theme.surfaceElevated
-                border.color: Theme.surfaceBorder
-                border.width: 1
-
-                ColumnLayout {
-                    id: appBehaviorCol
-                    anchors.fill: parent
-                    anchors.margins: Theme.spacingLg
-                    spacing: Theme.spacingMd
-
-                    Text {
-                        text: "Application"
-                        font.pixelSize: Theme.fontSizeMd
-                        font.bold: true
-                        color: Theme.textPrimary
-                    }
-
-                    ColumnLayout {
+                    RowLayout {
+                        id: slowHardwareSwitch
                         Layout.fillWidth: true
-                        spacing: Theme.spacingXs
+                        spacing: Theme.spacingMd
+                        function toggle() { slowHardwareSwitchCtrl.toggle() }
 
-                        Text {
-                            text: "VOD Grid Layout"
-                            font.pixelSize: Theme.fontSizeSm
-                            color: Theme.textPrimary
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            spacing: Theme.spacingXs
+
+                            Text {
+                                text: "Slow hardware"
+                                font.pixelSize: Theme.fontSizeSm
+                                color: Theme.textPrimary
+                            }
+
+                            Text {
+                                text: "Lower mpv cache use and switch to lighter playback defaults for weak devices"
+                                font.pixelSize: Theme.fontSizeXs
+                                color: Theme.textMuted
+                            }
                         }
 
-                        Text {
-                            text: "Search results now use an automatic card grid that adapts to the available width."
-                            font.pixelSize: Theme.fontSizeXs
-                            color: Theme.textMuted
-                            wrapMode: Text.Wrap
+                        ThemeSwitch {
+                            id: slowHardwareSwitchCtrl
+                            checked: appViewModel ? appViewModel.slowHardware : false
+                            onToggled: {
+                                if (appViewModel) appViewModel.slowHardware = checked
+                            }
                         }
                     }
-
                 }
             }
 

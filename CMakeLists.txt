@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.22)
 
 find_package(Git QUIET)
-set(IPTVXS_VERSION "0.4.1")
+set(IPTVXS_VERSION "0.4.2")
 if(GIT_FOUND)
     execute_process(
         COMMAND "${GIT_EXECUTABLE}" describe --tags --match "v*" --abbrev=0

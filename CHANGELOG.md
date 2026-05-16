@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.4.2
+
+### Added
+- HUD visibility setting for the player controls, with 3, 5, 10, and 15 second options.
+- Slow hardware preset for weaker devices, using lighter mpv defaults and a smaller cache cap.
+
+### Changed
+- Renewed the player HUD layout, including the bottom now/next strip and translucent controls.
+- Matched the Favorites remove control and controller behavior with the Home page.
+
+### Fixed
+- Recordings page startup work was reduced by caching section/item data and lazy-loading the action popup.
+
 ## 0.4.0
 
 ### Changed

@@ -81,6 +81,7 @@ class AppViewModel : public QObject {
     Q_PROPERTY(QString recordingDirectory READ recordingDirectory WRITE setRecordingDirectory NOTIFY recordingDirectoryChanged)
     Q_PROPERTY(QString recordingDestination READ recordingDestination WRITE setRecordingDestination NOTIFY recordingDestinationChanged)
     Q_PROPERTY(int bufferSeconds READ bufferSeconds WRITE setBufferSeconds NOTIFY bufferSecondsChanged)
+    Q_PROPERTY(int hudVisibilitySeconds READ hudVisibilitySeconds WRITE setHudVisibilitySeconds NOTIFY hudVisibilitySecondsChanged)
     Q_PROPERTY(QString theme READ theme WRITE setTheme NOTIFY themeChanged)
     Q_PROPERTY(QString subtitleLanguage READ subtitleLanguage WRITE setSubtitleLanguage NOTIFY subtitleLanguageChanged)
     Q_PROPERTY(QString subtitleLanguageSecondary READ subtitleLanguageSecondary WRITE setSubtitleLanguageSecondary NOTIFY subtitleLanguageSecondaryChanged)
@@ -95,6 +96,7 @@ class AppViewModel : public QObject {
     Q_PROPERTY(QString videoEnhancement READ videoEnhancement WRITE setVideoEnhancement NOTIFY videoEnhancementChanged)
     Q_PROPERTY(QString audioPreset READ audioPreset WRITE setAudioPreset NOTIFY audioPresetChanged)
     Q_PROPERTY(QString hwdecMode READ hwdecMode WRITE setHwdecMode NOTIFY hwdecModeChanged)
+    Q_PROPERTY(bool slowHardware READ slowHardware WRITE setSlowHardware NOTIFY slowHardwareChanged)
     Q_PROPERTY(bool deinterlace READ deinterlace WRITE setDeinterlace NOTIFY deinterlaceChanged)
     Q_PROPERTY(bool toneMapping READ toneMapping WRITE setToneMapping NOTIFY toneMappingChanged)
     Q_PROPERTY(QString toneMappingAlgorithm READ toneMappingAlgorithm WRITE setToneMappingAlgorithm NOTIFY toneMappingAlgorithmChanged)
@@ -163,6 +165,8 @@ public:
 
     int bufferSeconds() const;
     void setBufferSeconds(int seconds);
+    int hudVisibilitySeconds() const;
+    void setHudVisibilitySeconds(int seconds);
 
     QString theme() const;
     void setTheme(const QString &name);
@@ -193,6 +197,8 @@ public:
     void setAudioPreset(const QString &preset);
     QString hwdecMode() const;
     void setHwdecMode(const QString &mode);
+    bool slowHardware() const;
+    void setSlowHardware(bool enabled);
     bool deinterlace() const;
     void setDeinterlace(bool enabled);
     bool toneMapping() const;
@@ -271,6 +277,7 @@ signals:
     void recordingDirectoryChanged();
     void recordingDestinationChanged();
     void bufferSecondsChanged();
+    void hudVisibilitySecondsChanged();
     void themeChanged();
     void subtitleLanguageChanged();
     void subtitleLanguageSecondaryChanged();
@@ -285,6 +292,7 @@ signals:
     void videoEnhancementChanged();
     void audioPresetChanged();
     void hwdecModeChanged();
+    void slowHardwareChanged();
     void deinterlaceChanged();
     void toneMappingChanged();
     void toneMappingAlgorithmChanged();
@@ -310,6 +318,7 @@ private:
     void bootstrapDefaultFreeServerSync();
     void applyAudioPresetToPlayer();
     void applyToneMappingToPlayer();
+    void applySlowHardwareToPlayer();
     void purgeDisabledServerData(int64_t serverId);
     void refreshAfterServerStateChange(int64_t serverId, bool enabled);
 

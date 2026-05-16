@@ -127,8 +127,8 @@ Rectangle {
                     fillMode: Image.PreserveAspectFit
                     smooth: true
                     mipmap: true
-                    width: 24
-                    height: 24
+                    width: 40
+                    height: 40
                     anchors.verticalCenter: parent.verticalCenter
                 }
             }

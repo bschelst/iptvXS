@@ -90,6 +90,14 @@ Item {
             return
         }
 
+        for (var i = 0; i < categoryRepeater.count; i++) {
+            var item = categoryRepeater.itemAt(i)
+            if (item && item.rowView && item.rowView.activeFocus) {
+                focusRestorePending = false
+                return
+            }
+        }
+
         if (vodGrid.visible && vodGrid.count > 0) {
             vodGrid.currentIndex = 0
             vodGrid.forceActiveFocus()

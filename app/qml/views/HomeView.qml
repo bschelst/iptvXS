@@ -256,11 +256,11 @@ Item {
                     spacing: Theme.spacingMd
 
                     Image {
-                        Layout.preferredWidth: 40
-                        Layout.preferredHeight: 40
-                        source: "qrc:/images/iptvxs_tray.png"
+                        Layout.preferredWidth: 52
+                        Layout.preferredHeight: 52
+                        source: "qrc:/images/iptvxs_logo.png"
                         fillMode: Image.PreserveAspectFit
-                        opacity: 0.7
+                        opacity: 1.0
                     }
 
                     ColumnLayout {
@@ -388,6 +388,7 @@ Item {
                 cardWidth: 158
                 cardHeight: 232
                 listModel: appViewModel ? appViewModel.favoriteList : null
+                isFavorites: true
                 visible: appViewModel && appViewModel.favoriteList && appViewModel.favoriteList.count > 0
                 revealed: continueWatchingReady && homeRevealStage >= 1
 
@@ -590,6 +591,7 @@ Item {
         property var listModel: null
         property bool isQuickAccess: false
         property bool isHistory: false
+        property bool isFavorites: false
         property bool revealed: false
         property alias cardListView: cardLv
 
@@ -728,10 +730,10 @@ Item {
         }
 
         // --- Horizontal card list ---
-        ListView {
-            id: cardLv
-            width: cardRow.width
-            height: cardRow.rowHeight
+            ListView {
+                id: cardLv
+                width: cardRow.width
+                height: cardRow.rowHeight
             orientation: ListView.Horizontal
             spacing: Theme.spacingSm
             clip: true
@@ -740,10 +742,11 @@ Item {
             contentX: -leftMargin
             boundsBehavior: Flickable.StopAtBounds
             keyNavigationEnabled: true
-            currentIndex: -1
-            highlightMoveDuration: 150
+                currentIndex: -1
+                highlightMoveDuration: 150
+                property bool isFavoritesRow: cardRow.isFavorites
 
-            model: cardRow.listModel
+                model: cardRow.listModel
 
             onCountChanged: {
                 if (count <= 0) {
@@ -799,6 +802,11 @@ Item {
             Keys.onPressed: function(event) {
                 if (event.key === Qt.Key_Space || event.key === Qt.Key_Select) {
                     activateCurrentCard()
+                    event.accepted = true
+                } else if (cardRow.isFavorites && (event.key === Qt.Key_Delete || event.key === Qt.Key_X)) {
+                    if (appViewModel) {
+                        appViewModel.favoriteList.toggleFavorite(currentItem.itemChannelId)
+                    }
                     event.accepted = true
                 }
             }
@@ -862,6 +870,7 @@ Item {
             // Expose channelId for activateCurrentCard
             property var itemChannelId: model.channelId || 0
             property bool cardHovered: false
+            property bool showRemoveBtn: ListView.view ? ListView.view.isFavoritesRow : false
 
             Rectangle {
                 id: posterCard
@@ -894,13 +903,13 @@ Item {
                     Image {
                         visible: posterImg.status !== Image.Ready
                         anchors.centerIn: parent
-                        width: Math.min(parent.width, parent.height) - 48
-                        height: width
-                        source: "qrc:/images/iptvxs_tray.png"
+                        width: parent.width - 10
+                        height: parent.height - 10
+                        source: "qrc:/images/iptvxs_logo.png"
                         fillMode: Image.PreserveAspectFit
                         asynchronous: false
                         cache: true
-                        opacity: 0.3
+                        opacity: 0.95
                     }
                 }
 
@@ -1017,6 +1026,54 @@ Item {
                 }
             }
 
+            Rectangle {
+                id: favRemoveBtn
+                visible: {
+                    var lv = posterDelegate.ListView.view
+                    return posterDelegate.showRemoveBtn
+                        && (((lv && lv.activeFocus && lv.currentIndex === index) || posterDelegate.cardHovered))
+                }
+                anchors.top: parent.top
+                anchors.right: parent.right
+                anchors.margins: 10
+                width: 26
+                height: 26
+                radius: 13
+                color: "#C0000000"
+                z: 200
+                activeFocusOnTab: true
+                focus: false
+
+                Text {
+                    anchors.centerIn: parent
+                    text: "×"
+                    font.pixelSize: 14
+                    font.bold: true
+                    font.family: "DejaVu Sans"
+                    color: "#ffffff"
+                    renderType: Text.NativeRendering
+                }
+
+                MouseArea {
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: if (appViewModel) appViewModel.favoriteList.toggleFavorite(Number(model.channelId || 0))
+                }
+
+                Keys.onReturnPressed: {
+                    if (appViewModel) appViewModel.favoriteList.toggleFavorite(Number(model.channelId || 0))
+                }
+                Keys.onEnterPressed: Keys.onReturnPressed(event)
+                Keys.onPressed: function(event) {
+                    if (event.key === Qt.Key_Select || event.key === Qt.Key_Space
+                            || event.key === Qt.Key_Delete || event.key === Qt.Key_X) {
+                        if (appViewModel) appViewModel.favoriteList.toggleFavorite(Number(model.channelId || 0))
+                        event.accepted = true
+                    }
+                }
+            }
+
             // Focus/hover border.
             Rectangle {
                 anchors.fill: posterCard
@@ -1065,6 +1122,7 @@ Item {
                     font.pixelSize: 14
                     font.bold: true
                     color: "#ffffff"
+                    renderType: Text.NativeRendering
                 }
             }
         }

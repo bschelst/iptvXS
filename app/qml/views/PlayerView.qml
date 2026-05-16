@@ -31,6 +31,14 @@ Item {
     property bool zapDialogVisible: false
     property bool catchupDialogVisible: false
     property var audioTrackPopupRef: null
+    property date hudNow: new Date()
+
+    Timer {
+        interval: 1000
+        running: true
+        repeat: true
+        onTriggered: playerView.hudNow = new Date()
+    }
 
     // Server-side timeshift availability for the currently-playing channel.
     // Re-evaluates only when the active channelId changes.
@@ -71,11 +79,25 @@ Item {
         showControls()
     }
 
+    function stepControlFocus(delta) {
+        var buttons = visibleControlButtons()
+        if (!buttons.length) return
+        var current = focusedControlIndex()
+        if (current < 0) {
+            current = delta > 0 ? -1 : buttons.length
+        }
+        var idx = Math.max(0, Math.min(buttons.length - 1, current + delta))
+        buttons[idx].forceActiveFocus()
+        showControls()
+    }
+
     function focusSeekSlider() {
         showControls()
         Qt.callLater(function() {
             if (seekSlider && seekSlider.visible) {
                 seekSlider.forceActiveFocus()
+            } else if (topBackBtn && topBackBtn.visible) {
+                topBackBtn.forceActiveFocus()
             } else {
                 focusControlButton(0)
             }
@@ -184,6 +206,38 @@ Item {
         return preset.charAt(0).toUpperCase() + preset.slice(1)
     }
 
+    function logoSource(url) {
+        if (!url || url.length === 0) return ""
+        if (!appViewModel || !appViewModel.logoCache || url.indexOf("http") !== 0) {
+            return url
+        }
+        var _ = appViewModel.logoCache.revision
+        var __ = appViewModel.logoCache.failedRevision
+        return appViewModel.logoCache.resolve(url)
+    }
+
+    function hudLogoSource() {
+        var url = appViewModel ? appViewModel.player.channelLogo : ""
+        if (!url || url.length === 0) return "qrc:/images/iptvxs_logo.png"
+        var resolved = logoSource(url)
+        return resolved && resolved.length > 0 ? resolved : "qrc:/images/iptvxs_logo.png"
+    }
+
+    function playbackInfoText() {
+        if (!appViewModel) return ""
+        var pos = appViewModel.player.position
+        var dur = appViewModel.player.duration
+        if (dur > 0) {
+            return appViewModel.player.formatTime(pos) + " / " + appViewModel.player.formatTime(dur)
+        }
+        if (appViewModel.player.paused && appViewModel.player.isLive && pos > 0) {
+            var cache = appViewModel.player.cacheDuration
+            return appViewModel.player.formatTime(pos) + " / " + appViewModel.player.formatTime(pos + cache) + "  \u2016 PAUSED"
+        }
+        if (pos > 0) return appViewModel.player.formatTime(pos)
+        return "● LIVE"
+    }
+
     function showSeriesDialog(seriesName, seasons) {
         seriesDialogTitle = seriesName
         seriesDialogSeasons = seasons || []
@@ -246,548 +300,637 @@ Item {
             anchors.left: parent.left
             anchors.right: parent.right
             anchors.bottom: parent.bottom
-            height: 130
+            height: 212
             visible: opacity > 0
             opacity: controlsVisible ? 1.0 : 0.0
+            color: "transparent"
 
             Behavior on opacity {
                 NumberAnimation { duration: Theme.animNormal }
             }
 
-            gradient: Gradient {
-                GradientStop { position: 0.0; color: "transparent" }
-                GradientStop { position: 0.4; color: "#80000000" }
-                GradientStop { position: 1.0; color: "#cc000000" }
-            }
-
-            ColumnLayout {
+            Rectangle {
+                id: controlsShell
                 anchors.fill: parent
                 anchors.margins: Theme.spacingMd
-                spacing: Theme.spacingSm
+                radius: Theme.borderRadiusLarge
+                clip: true
+                color: Qt.rgba(0, 0, 0, 0.44)
+                border.width: 1
+                border.color: Qt.rgba(255, 255, 255, 0.10)
 
-                Slider {
-                    id: seekSlider
-                    Layout.fillWidth: true
-                    activeFocusOnTab: true
-                    visible: {
-                        if (!appViewModel) return false
-                        if (appViewModel.player.duration > 0) return true
-                        return appViewModel.player.paused && appViewModel.player.isLive
-                    }
-                    from: 0
-                    to: {
-                        if (!appViewModel) return 1
-                        if (appViewModel.player.duration > 0) return appViewModel.player.duration
-                        if (appViewModel.player.paused && appViewModel.player.isLive)
-                            return Math.max(appViewModel.player.position + appViewModel.player.cacheDuration, 1)
-                        return 1
-                    }
-                    value: appViewModel ? appViewModel.player.position : 0
-                    enabled: visible
-
-                    onMoved: {
-                        if (appViewModel) appViewModel.player.seek(value)
-                    }
-
-                    background: Rectangle {
-                        x: seekSlider.leftPadding
-                        y: seekSlider.topPadding + seekSlider.availableHeight / 2 - 3
-                        width: seekSlider.availableWidth
-                        height: 6
-                        radius: 3
-                        color: "#40ffffff"
-
-                        Rectangle {
-                            width: seekSlider.visualPosition * parent.width
-                            height: parent.height
-                            radius: 3
-                            color: Theme.accent
-                        }
-
-                        Text {
-                            anchors.left: parent.left
-                            anchors.top: parent.bottom
-                            anchors.topMargin: 2
-                            text: appViewModel ? appViewModel.player.formatTime(seekSlider.value) : ""
-                            font.pixelSize: 10
-                            color: "#aaffffff"
-                            visible: !appViewModel || !appViewModel.player.isLive
-                        }
-
-                        Text {
-                            anchors.right: parent.right
-                            anchors.top: parent.bottom
-                            anchors.topMargin: 2
-                            text: appViewModel ? appViewModel.player.formatTime(appViewModel.player.duration) : ""
-                            font.pixelSize: 10
-                            color: "#60ffffff"
-                            visible: !appViewModel || !appViewModel.player.isLive
-                        }
-                    }
-
-                    handle: Rectangle {
-                        x: seekSlider.leftPadding + seekSlider.visualPosition * (seekSlider.availableWidth - width)
-                        y: seekSlider.topPadding + seekSlider.availableHeight / 2 - height / 2
-                        width: 14
-                        height: 14
-                        radius: 7
-                        color: seekSlider.pressed ? Theme.accentHover : Theme.accent
-                        visible: seekSlider.hovered || seekSlider.pressed || seekSlider.activeFocus
-                    }
-
-                    Keys.onLeftPressed: {
-                        if (appViewModel) {
-                            appViewModel.player.seek(Math.max(0, appViewModel.player.position - 10))
-                            showControls()
-                        }
-                    }
-                    Keys.onRightPressed: {
-                        if (appViewModel) {
-                            appViewModel.player.seek(appViewModel.player.position + 10)
-                            showControls()
-                        }
-                    }
-                    Keys.onDownPressed: {
-                        focusControlButton(0)
-                    }
-                    Keys.onUpPressed: {
-                        playerView.forceActiveFocus()
-                        showControls()
-                    }
-                    onActiveFocusChanged: if (activeFocus) showControls()
+                gradient: Gradient {
+                    GradientStop { position: 0.0; color: Qt.rgba(0, 0, 0, 0.18) }
+                    GradientStop { position: 0.45; color: Qt.rgba(0, 0, 0, 0.50) }
+                    GradientStop { position: 1.0; color: Qt.rgba(0, 0, 0, 0.82) }
                 }
 
-                RowLayout {
-                    Layout.fillWidth: true
+                ColumnLayout {
+                    anchors.fill: parent
+                    anchors.margins: Theme.spacingMd
                     spacing: Theme.spacingSm
 
-                    PlayerButton {
-                        id: playPauseBtn
-                        text: appViewModel && appViewModel.player.paused ? "\u25B7" : "II"
-                        btnSize: 36
-                        iconSize: 16
-                        onClicked: {
-                            if (appViewModel) appViewModel.player.togglePause()
-                        }
-                    }
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: Theme.spacingSm
 
-                    PlayerButton {
-                        id: stopBtn
-                        text: "\u25A0"
-                        btnSize: 36
-                        iconSize: 14
-                        onClicked: goBack()
-                    }
+                        Rectangle {
+                            Layout.preferredWidth: 50
+                            Layout.preferredHeight: 50
+                            radius: 12
+                            color: Qt.rgba(255, 255, 255, 0.06)
+                            border.width: 1
+                            border.color: Qt.rgba(255, 255, 255, 0.12)
 
-                    Text {
-                        text: {
-                            if (!appViewModel) return ""
-                            var pos = appViewModel.player.position
-                            var dur = appViewModel.player.duration
-                            if (dur > 0) {
-                                return appViewModel.player.formatTime(pos) + " / " + appViewModel.player.formatTime(dur)
-                            }
-                            if (appViewModel.player.paused && appViewModel.player.isLive && pos > 0) {
-                                var cache = appViewModel.player.cacheDuration
-                                return appViewModel.player.formatTime(pos) + " / " + appViewModel.player.formatTime(pos + cache) + "  \u2016 PAUSED"
-                            }
-                            if (pos > 0) return appViewModel.player.formatTime(pos)
-                            return "● LIVE"
-                        }
-                        font.pixelSize: Theme.fontSizeSm
-                        color: "#ffffff"
-                    }
-
-                    Item { Layout.fillWidth: true }
-
-                    Text {
-                        visible: appViewModel ? appViewModel.player.channelName.length > 0 : false
-                        text: appViewModel ? appViewModel.player.channelName : ""
-                        font.pixelSize: Theme.fontSizeSm
-                        font.bold: true
-                        color: "#ffffff"
-                        elide: Text.ElideRight
-                        Layout.maximumWidth: 300
-                    }
-
-                    Item { Layout.fillWidth: true }
-
-                    // --- Favorite button (any content with a channelId) ---
-                    PlayerButton {
-                        id: favBtn
-                        text: isFav ? "\u2605" : "\u2606"
-                        btnSize: 36
-                        iconSize: 16
-                        property bool isFav: false
-                        visible: appViewModel ? appViewModel.player.channelId > 0 : false
-                        onClicked: {
-                            if (appViewModel && appViewModel.player.channelId > 0) {
-                                appViewModel.favoriteList.toggleFavorite(appViewModel.player.channelId)
-                                isFav = !isFav
+                            FallbackLogo {
+                                anchors.fill: parent
+                                logoSource: playerView.hudLogoSource()
+                                logoSize: 32
+                                logoWidth: 32
+                                logoHeight: 32
+                                logoOpacity: 1.0
+                                logoAreaHeight: 50
+                                liveTvGeometry: false
                             }
                         }
-                        Component.onCompleted: updateFav()
-                        function updateFav() {
-                            if (appViewModel && appViewModel.player.channelId > 0)
-                                isFav = appViewModel.favoriteList.isFavorite(appViewModel.player.channelId)
-                        }
-                        Connections {
-                            target: appViewModel ? appViewModel.player : null
-                            function onChannelIdChanged() { favBtn.updateFav() }
-                        }
-                    }
 
-                    // --- Record button (live only) ---
-                    PlayerButton {
-                        id: recBtn
-                        readonly property bool recActive: appViewModel ? appViewModel.player.recording : false
-                        text: recActive ? "\u25A0" : "\u25CF"
-                        btnSize: 36
-                        iconSize: 14
-                        btnColor: recActive ? Theme.error : "transparent"
-                        visible: appViewModel ? appViewModel.player.isLive : false
-                        onClicked: {
-                            if (!appViewModel) return
-                            showControls()
-                            if (recActive) {
-                                appViewModel.player.stopStreamRecord()
-                            } else {
-                                var now = new Date()
-                                var ts = now.getFullYear() + "-" +
-                                    String(now.getMonth()+1).padStart(2,'0') + "-" +
-                                    String(now.getDate()).padStart(2,'0') + "_" +
-                                    String(now.getHours()).padStart(2,'0') +
-                                    String(now.getMinutes()).padStart(2,'0') +
-                                    String(now.getSeconds()).padStart(2,'0')
-                                var name = (appViewModel.player.channelName || "recording").replace(/[^a-zA-Z0-9_.-]/g, "_").replace(/_{2,}/g, "_").trim() || "recording"
-                                var dir = appViewModel.recordingDirectory
-                                var base = dir + "/" + ts + "_" + name
-                                var outPath = base + ".mkv"
-                                var counter = 1
-                                while (appViewModel.fileExists(outPath)) {
-                                    outPath = base + "_" + counter + ".mkv"
-                                    counter++
-                                }
-                                appViewModel.recordingList.startStreamRecording(
-                                    appViewModel.player.channelId, outPath)
-                                appViewModel.player.startStreamRecord(outPath)
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            spacing: 2
+
+                            Text {
+                                text: appViewModel ? appViewModel.player.channelName : ""
+                                font.pixelSize: Theme.fontSizeLg
+                                font.bold: true
+                                color: "#ffffff"
+                                elide: Text.ElideRight
+                                Layout.fillWidth: true
                             }
+
+                            Text {
+                                text: playerView.playbackInfoText()
+                                font.pixelSize: Theme.fontSizeSm
+                                color: "#d8ffffff"
+                                elide: Text.ElideRight
+                                Layout.fillWidth: true
+                            }
+                        }
+
+                        Text {
+                            text: Qt.formatTime(playerView.hudNow, "HH:mm")
+                            font.pixelSize: Theme.fontSizeMd
+                            font.bold: true
+                            color: "#ffffff"
                         }
                     }
 
                     Rectangle {
-                        id: castBtn
-                        visible: appViewModel ? appViewModel.chromecastEnabled : true
-                        width: 44
-                        height: 44
-                        radius: Theme.borderRadius
-                        color: castBtnHov ? "#40ffffff" : "transparent"
-                        property bool castBtnHov: false
-                        property bool isCasting: appViewModel && appViewModel.chromecast.connected
-                        activeFocusOnTab: true
-                        border.width: activeFocus ? 2 : 0
-                        border.color: Theme.accent
-                        onActiveFocusChanged: if (activeFocus) showControls()
-                        Keys.onReturnPressed: castBtnArea.clicked(null)
-                        Keys.onEnterPressed: castBtnArea.clicked(null)
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 40
+                        radius: 12
+                        visible: topOverlay.epgInfoVisible
+                        color: Qt.rgba(255, 255, 255, 0.05)
+                        border.width: 1
+                        border.color: Qt.rgba(255, 255, 255, 0.10)
 
-                        Canvas {
-                            id: castCanvas
-                            anchors.centerIn: parent
-                            width: 24
-                            height: 20
-                            antialiasing: true
-                            property bool casting: castBtn.isCasting
-                            onCastingChanged: requestPaint()
-                            Component.onCompleted: requestPaint()
-
-                            onPaint: {
-                                var ctx = getContext("2d")
-                                ctx.reset()
-                                ctx.strokeStyle = casting ? Theme.accent : "#ffffff"
-                                ctx.fillStyle = casting ? Theme.accent : "#ffffff"
-                                ctx.lineWidth = 1.6
-                                ctx.lineCap = "round"
-
-                                // TV/monitor outline (rounded rect, open bottom-left)
-                                ctx.beginPath()
-                                ctx.moveTo(1, 16)
-                                ctx.lineTo(1, 3)
-                                ctx.quadraticCurveTo(1, 1, 3, 1)
-                                ctx.lineTo(21, 1)
-                                ctx.quadraticCurveTo(23, 1, 23, 3)
-                                ctx.lineTo(23, 16)
-                                ctx.quadraticCurveTo(23, 18, 21, 18)
-                                ctx.lineTo(15, 18)
-                                ctx.stroke()
-
-                                // Cast waves (bottom-left corner)
-                                ctx.beginPath()
-                                ctx.arc(1, 18, 2, -Math.PI/2, 0)
-                                ctx.stroke()
-
-                                ctx.beginPath()
-                                ctx.arc(1, 18, 6, -Math.PI/2, 0)
-                                ctx.stroke()
-
-                                ctx.beginPath()
-                                ctx.arc(1, 18, 10, -Math.PI/2, 0)
-                                ctx.stroke()
-
-                                // Filled dot at origin when casting
-                                if (casting) {
-                                    ctx.beginPath()
-                                    ctx.arc(2, 17, 1.5, 0, 2 * Math.PI)
-                                    ctx.fill()
-                                }
-                            }
-                        }
-
-                        MouseArea {
-                            id: castBtnArea
+                        RowLayout {
                             anchors.fill: parent
-                            hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
-                            onEntered: castBtn.castBtnHov = true
-                            onExited: castBtn.castBtnHov = false
-                            onClicked: {
-                                castBtn.forceActiveFocus()
-                                if (appViewModel && appViewModel.chromecast.connected) {
-                                    castStopPopup.visible = !castStopPopup.visible
-                                    if (castStopPopup.visible && castDevicePopup.visible) castDevicePopup.closeDialog()
-                                } else if (appViewModel) {
-                                    appViewModel.chromecast.startDiscovery()
-                                    castDevicePopup.visible = !castDevicePopup.visible
-                                    if (castDevicePopup.visible && castStopPopup.visible) castStopPopup.closeDialog()
-                                }
+                            anchors.leftMargin: Theme.spacingMd
+                            anchors.rightMargin: Theme.spacingMd
+                            spacing: Theme.spacingMd
+
+                            Text {
+                                Layout.fillWidth: true
+                                text: topOverlay.epgNowText && topOverlay.epgNowText.length > 0
+                                    ? ("Now playing: " + topOverlay.epgNowText)
+                                    : ""
+                                font.pixelSize: Theme.fontSizeSm
+                                font.bold: true
+                                color: "#ffffff"
+                                elide: Text.ElideRight
+                                visible: text.length > 0
                             }
-                        }
-                    }
 
-                    PlayerButton {
-                        id: zapPrevBtn
-                        visible: appViewModel && appViewModel.hasZapContext && appViewModel.player.isLive
-                        text: "CH-"
-                        iconSize: 11
-                        onClicked: {
-                            if (appViewModel) appViewModel.zapPrevious()
-                            zapDialogVisible = false
-                        }
-                    }
-
-                    PlayerButton {
-                        id: zapNextBtn
-                        visible: appViewModel && appViewModel.hasZapContext && appViewModel.player.isLive
-                        text: "CH+"
-                        iconSize: 11
-                        onClicked: {
-                            if (appViewModel) appViewModel.zapNext()
-                            zapDialogVisible = false
-                        }
-                    }
-
-                    PlayerButton {
-                        id: zapBtn
-                        visible: appViewModel && appViewModel.hasZapContext && appViewModel.player.isLive
-                        text: "ZAP"
-                        iconSize: 11
-                        onClicked: showZapDialog()
-                    }
-
-                    Rectangle {
-                        width: 1; height: 28; color: "#40ffffff"
-                        visible: zapPrevBtn.visible || zapNextBtn.visible || zapBtn.visible || ccBtn.visible || audioBtn.visible || episodeBtn.visible || catchupBtn.visible
-                    }
-
-                    PlayerButton {
-                        id: ccBtn
-                        visible: appViewModel && !appViewModel.player.isLive
-                        text: "CC"
-                        iconSize: 14
-                        onClicked: subTrackPopup.visible = !subTrackPopup.visible
-                    }
-
-                    PlayerButton {
-                        id: audioBtn
-                        visible: appViewModel && appViewModel.player.audioTracks.length > 1
-                        text: "AUD"
-                        iconSize: 12
-                        onClicked: audioTrackPopup.visible = !audioTrackPopup.visible
-                    }
-
-                    PlayerButton {
-                        id: episodeBtn
-                        visible: appViewModel && appViewModel.hasActiveSeriesDialog()
-                                 && !appViewModel.player.isLive
-                        text: "EP"
-                        iconSize: 12
-                        onClicked: {
-                            if (appViewModel) {
-                                if (appViewModel.hasPendingSeriesEpisodes()) {
-                                    showSeriesDialog(appViewModel.pendingSeriesName(), appViewModel.pendingSeriesEpisodes())
-                                } else {
-                                    appViewModel.reopenSeriesEpisodes()
+                            Text {
+                                Layout.fillWidth: true
+                                text: {
+                                    if (!topOverlay.epgNextText) return ""
+                                    var t = "Next: " + topOverlay.epgNextText
+                                    if (topOverlay.epgNextTime) t += " (" + topOverlay.epgNextTime + ")"
+                                    return t
                                 }
-                            }
-                        }
-                    }
-
-                    PlayerButton {
-                        id: catchupBtn
-                        visible: appViewModel
-                                 && (appViewModel.player.isLive || appViewModel.player.isCatchup)
-                                 && playerView.currentChannelTvArchive > 0
-                        text: "↻"
-                        iconSize: 16
-                        onClicked: catchupDialogVisible = !catchupDialogVisible
-                    }
-
-                    Rectangle {
-                        id: muteBtn
-                        width: 44
-                        height: 44
-                        radius: Theme.borderRadius
-                        color: {
-                            if (appViewModel && appViewModel.player.muted) return Qt.rgba(Theme.error.r, Theme.error.g, Theme.error.b, 0.38)
-                            return muteHov ? "#40ffffff" : "transparent"
-                        }
-                        property bool muteHov: false
-                        readonly property bool isMuted: appViewModel ? appViewModel.player.muted : false
-                        activeFocusOnTab: true
-                        border.width: activeFocus ? 2 : 0
-                        border.color: Theme.accent
-                        onActiveFocusChanged: if (activeFocus) showControls()
-                        Keys.onReturnPressed: muteBtnArea.clicked(null)
-                        Keys.onEnterPressed: muteBtnArea.clicked(null)
-
-                        Canvas {
-                            id: speakerCanvas
-                            anchors.centerIn: parent
-                            width: 24
-                            height: 24
-                            antialiasing: true
-                            property bool muted: parent.isMuted
-                            onMutedChanged: requestPaint()
-                            Component.onCompleted: requestPaint()
-
-                            onPaint: {
-                                var ctx = getContext("2d")
-                                ctx.reset()
-                                ctx.fillStyle = "#ffffff"
-                                ctx.strokeStyle = "#ffffff"
-                                ctx.lineWidth = 1.8
-                                ctx.lineCap = "round"
-
-                                // Speaker body (trapezoid with rectangular base)
-                                ctx.beginPath()
-                                ctx.moveTo(3, 9)
-                                ctx.lineTo(3, 15)
-                                ctx.lineTo(8, 15)
-                                ctx.lineTo(13, 20)
-                                ctx.lineTo(13, 4)
-                                ctx.lineTo(8, 9)
-                                ctx.closePath()
-                                ctx.fill()
-
-                                if (muted) {
-                                    // Cross mark to the right
-                                    ctx.beginPath()
-                                    ctx.moveTo(16, 8)
-                                    ctx.lineTo(22, 16)
-                                    ctx.moveTo(22, 8)
-                                    ctx.lineTo(16, 16)
-                                    ctx.stroke()
-                                } else {
-                                    // Two concentric sound-wave arcs
-                                    ctx.beginPath()
-                                    ctx.arc(14, 12, 3.5, -Math.PI / 3, Math.PI / 3)
-                                    ctx.stroke()
-                                    ctx.beginPath()
-                                    ctx.arc(14, 12, 6.5, -Math.PI / 3, Math.PI / 3)
-                                    ctx.stroke()
-                                }
-                            }
-                        }
-
-                        MouseArea {
-                            id: muteBtnArea
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
-                            onEntered: muteBtn.muteHov = true
-                            onExited: muteBtn.muteHov = false
-                            onClicked: {
-                                muteBtn.forceActiveFocus()
-                                if (appViewModel) {
-                                    var newMuted = !appViewModel.player.muted
-                                    appViewModel.player.muted = newMuted
-                                }
+                                font.pixelSize: Theme.fontSizeSm
+                                color: "#d8ffffff"
+                                elide: Text.ElideRight
+                                horizontalAlignment: Text.AlignRight
+                                visible: text.length > 0
                             }
                         }
                     }
 
                     Slider {
-                        id: volumeSlider
-                        Layout.preferredWidth: 100
+                        id: seekSlider
+                        Layout.fillWidth: true
+                        activeFocusOnTab: true
+                        visible: {
+                            if (!appViewModel) return false
+                            if (appViewModel.player.duration > 0) return true
+                            return appViewModel.player.paused && appViewModel.player.isLive
+                        }
                         from: 0
-                        to: 100
-                        stepSize: 5
-                        value: appViewModel ? appViewModel.player.volume : 100
-                        focusPolicy: Qt.NoFocus
+                        to: {
+                            if (!appViewModel) return 1
+                            if (appViewModel.player.duration > 0) return appViewModel.player.duration
+                            if (appViewModel.player.paused && appViewModel.player.isLive)
+                                return Math.max(appViewModel.player.position + appViewModel.player.cacheDuration, 1)
+                            return 1
+                        }
+                        value: appViewModel ? appViewModel.player.position : 0
+                        enabled: visible
 
                         onMoved: {
-                            if (appViewModel) appViewModel.player.volume = value
+                            if (appViewModel) appViewModel.player.seek(value)
                         }
 
                         background: Rectangle {
-                            x: volumeSlider.leftPadding
-                            y: volumeSlider.topPadding + volumeSlider.availableHeight / 2 - 2
-                            width: volumeSlider.availableWidth
-                            height: 4
-                            radius: 2
+                            x: seekSlider.leftPadding
+                            y: seekSlider.topPadding + seekSlider.availableHeight / 2 - 3
+                            width: seekSlider.availableWidth
+                            height: 6
+                            radius: 3
                             color: "#40ffffff"
 
                             Rectangle {
-                                width: volumeSlider.visualPosition * parent.width
+                                width: seekSlider.visualPosition * parent.width
                                 height: parent.height
-                                radius: 2
-                                color: "#ffffff"
+                                radius: 3
+                                color: Theme.accent
+                            }
+
+                            Text {
+                                anchors.left: parent.left
+                                anchors.top: parent.bottom
+                                anchors.topMargin: 2
+                                text: appViewModel ? appViewModel.player.formatTime(seekSlider.value) : ""
+                                font.pixelSize: 10
+                                color: "#aaffffff"
+                                visible: !appViewModel || !appViewModel.player.isLive
+                            }
+
+                            Text {
+                                anchors.right: parent.right
+                                anchors.top: parent.bottom
+                                anchors.topMargin: 2
+                                text: appViewModel ? appViewModel.player.formatTime(appViewModel.player.duration) : ""
+                                font.pixelSize: 10
+                                color: "#60ffffff"
+                                visible: !appViewModel || !appViewModel.player.isLive
                             }
                         }
 
                         handle: Rectangle {
-                            x: volumeSlider.leftPadding + volumeSlider.visualPosition * (volumeSlider.availableWidth - width)
-                            y: volumeSlider.topPadding + volumeSlider.availableHeight / 2 - height / 2
-                            width: 12
-                            height: 12
-                            radius: 6
-                            color: "#ffffff"
+                            x: seekSlider.leftPadding + seekSlider.visualPosition * (seekSlider.availableWidth - width)
+                            y: seekSlider.topPadding + seekSlider.availableHeight / 2 - height / 2
+                            width: 14
+                            height: 14
+                            radius: 7
+                            color: seekSlider.pressed ? Theme.accentHover : Theme.accent
+                            visible: seekSlider.hovered || seekSlider.pressed || seekSlider.activeFocus
                         }
+
+                        Keys.onLeftPressed: {
+                            if (appViewModel) {
+                                appViewModel.player.seek(Math.max(0, appViewModel.player.position - 10))
+                                showControls()
+                            }
+                        }
+                        Keys.onRightPressed: {
+                            if (appViewModel) {
+                                appViewModel.player.seek(appViewModel.player.position + 10)
+                                showControls()
+                            }
+                        }
+                        Keys.onDownPressed: {
+                            focusControlButton(0)
+                        }
+                        Keys.onUpPressed: {
+                            playerView.forceActiveFocus()
+                            showControls()
+                        }
+                        onActiveFocusChanged: if (activeFocus) showControls()
                     }
 
-                    PlayerButton {
-                        id: stretchBtn
-                        text: appViewModel && appViewModel.player.stretched ? "⇤⇥" : "⇔"
-                        iconSize: 16
-                        ToolTip.visible: stretchBtn.btnHovered
-                        ToolTip.text: appViewModel && appViewModel.player.stretched ? "Original aspect" : "Stretch 16:9"
-                        ToolTip.delay: 500
-                        onClicked: {
-                            if (appViewModel) appViewModel.player.toggleStretch()
-                        }
-                    }
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: Theme.spacingSm
 
-                    PlayerButton {
-                        id: fullscreenBtn
-                        text: videoFullscreen ? "⤢" : "⛶\uFE0E"
-                        iconSize: 20
-                        onClicked: toggleVideoFullscreen()
+                        Item { Layout.fillWidth: true }
+
+                        PlayerButton {
+                            id: playPauseBtn
+                            text: appViewModel && appViewModel.player.paused ? "\u25B7" : "II"
+                            btnSize: 36
+                            iconSize: 16
+                            onClicked: {
+                                if (appViewModel) appViewModel.player.togglePause()
+                            }
+                        }
+
+                        PlayerButton {
+                            id: stopBtn
+                            text: "\u25A0"
+                            btnSize: 36
+                            iconSize: 14
+                            onClicked: goBack()
+                        }
+
+                        // --- Favorite button (any content with a channelId) ---
+                        PlayerButton {
+                            id: favBtn
+                            text: isFav ? "\u2605" : "\u2606"
+                            btnSize: 36
+                            iconSize: 16
+                            property bool isFav: false
+                            visible: appViewModel ? appViewModel.player.channelId > 0 : false
+                            onClicked: {
+                                if (appViewModel && appViewModel.player.channelId > 0) {
+                                    appViewModel.favoriteList.toggleFavorite(appViewModel.player.channelId)
+                                    isFav = !isFav
+                                }
+                            }
+                            Component.onCompleted: updateFav()
+                            function updateFav() {
+                                if (appViewModel && appViewModel.player.channelId > 0)
+                                    isFav = appViewModel.favoriteList.isFavorite(appViewModel.player.channelId)
+                            }
+                            Connections {
+                                target: appViewModel ? appViewModel.player : null
+                                function onChannelIdChanged() { favBtn.updateFav() }
+                            }
+                        }
+
+                        // --- Record button (live only) ---
+                        PlayerButton {
+                            id: recBtn
+                            readonly property bool recActive: appViewModel ? appViewModel.player.recording : false
+                            text: recActive ? "\u25A0" : "\u25CF"
+                            btnSize: 36
+                            iconSize: 14
+                            btnColor: recActive ? Theme.error : "transparent"
+                            visible: appViewModel ? appViewModel.player.isLive : false
+                            onClicked: {
+                                if (!appViewModel) return
+                                showControls()
+                                if (recActive) {
+                                    appViewModel.player.stopStreamRecord()
+                                } else {
+                                    var now = new Date()
+                                    var ts = now.getFullYear() + "-" +
+                                        String(now.getMonth()+1).padStart(2,'0') + "-" +
+                                        String(now.getDate()).padStart(2,'0') + "_" +
+                                        String(now.getHours()).padStart(2,'0') +
+                                        String(now.getMinutes()).padStart(2,'0') +
+                                        String(now.getSeconds()).padStart(2,'0')
+                                    var name = (appViewModel.player.channelName || "recording").replace(/[^a-zA-Z0-9_.-]/g, "_").replace(/_{2,}/g, "_").trim() || "recording"
+                                    var dir = appViewModel.recordingDirectory
+                                    var base = dir + "/" + ts + "_" + name
+                                    var outPath = base + ".mkv"
+                                    var counter = 1
+                                    while (appViewModel.fileExists(outPath)) {
+                                        outPath = base + "_" + counter + ".mkv"
+                                        counter++
+                                    }
+                                    appViewModel.recordingList.startStreamRecording(
+                                        appViewModel.player.channelId, outPath)
+                                    appViewModel.player.startStreamRecord(outPath)
+                                }
+                            }
+                        }
+
+                        Rectangle {
+                            id: castBtn
+                            visible: appViewModel ? appViewModel.chromecastEnabled : true
+                            width: 44
+                            height: 44
+                            radius: Theme.borderRadius
+                            color: castBtnHov ? "#40ffffff" : "transparent"
+                            property bool castBtnHov: false
+                            property bool isCasting: appViewModel && appViewModel.chromecast.connected
+                            activeFocusOnTab: true
+                            border.width: activeFocus ? 2 : 0
+                            border.color: Theme.accent
+                            onActiveFocusChanged: if (activeFocus) showControls()
+                            Keys.onReturnPressed: castBtnArea.clicked(null)
+                            Keys.onEnterPressed: castBtnArea.clicked(null)
+                            Keys.onLeftPressed: function(event) { stepControlFocus(-1); event.accepted = true }
+                            Keys.onRightPressed: function(event) { stepControlFocus(1); event.accepted = true }
+                            Keys.onUpPressed: function(event) { focusSeekSlider(); event.accepted = true }
+                            Keys.onDownPressed: function(event) { focusSeekSlider(); event.accepted = true }
+
+                            Canvas {
+                                id: castCanvas
+                                anchors.centerIn: parent
+                                width: 24
+                                height: 20
+                                antialiasing: true
+                                property bool casting: castBtn.isCasting
+                                onCastingChanged: requestPaint()
+                                Component.onCompleted: requestPaint()
+
+                                onPaint: {
+                                    var ctx = getContext("2d")
+                                    ctx.reset()
+                                    ctx.strokeStyle = casting ? Theme.accent : "#ffffff"
+                                    ctx.fillStyle = casting ? Theme.accent : "#ffffff"
+                                    ctx.lineWidth = 1.6
+                                    ctx.lineCap = "round"
+
+                                    // TV/monitor outline (rounded rect, open bottom-left)
+                                    ctx.beginPath()
+                                    ctx.moveTo(1, 16)
+                                    ctx.lineTo(1, 3)
+                                    ctx.quadraticCurveTo(1, 1, 3, 1)
+                                    ctx.lineTo(21, 1)
+                                    ctx.quadraticCurveTo(23, 1, 23, 3)
+                                    ctx.lineTo(23, 16)
+                                    ctx.quadraticCurveTo(23, 18, 21, 18)
+                                    ctx.lineTo(15, 18)
+                                    ctx.stroke()
+
+                                    // Cast waves (bottom-left corner)
+                                    ctx.beginPath()
+                                    ctx.arc(1, 18, 2, -Math.PI/2, 0)
+                                    ctx.stroke()
+
+                                    ctx.beginPath()
+                                    ctx.arc(1, 18, 6, -Math.PI/2, 0)
+                                    ctx.stroke()
+
+                                    ctx.beginPath()
+                                    ctx.arc(1, 18, 10, -Math.PI/2, 0)
+                                    ctx.stroke()
+
+                                    // Filled dot at origin when casting
+                                    if (casting) {
+                                        ctx.beginPath()
+                                        ctx.arc(2, 17, 1.5, 0, 2 * Math.PI)
+                                        ctx.fill()
+                                    }
+                                }
+                            }
+
+                            MouseArea {
+                                id: castBtnArea
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onEntered: castBtn.castBtnHov = true
+                                onExited: castBtn.castBtnHov = false
+                                onClicked: {
+                                    castBtn.forceActiveFocus()
+                                    if (appViewModel && appViewModel.chromecast.connected) {
+                                        castStopPopup.visible = !castStopPopup.visible
+                                        if (castStopPopup.visible && castDevicePopup.visible) castDevicePopup.closeDialog()
+                                    } else if (appViewModel) {
+                                        appViewModel.chromecast.startDiscovery()
+                                        castDevicePopup.visible = !castDevicePopup.visible
+                                        if (castDevicePopup.visible && castStopPopup.visible) castStopPopup.closeDialog()
+                                    }
+                                }
+                            }
+                        }
+
+                        PlayerButton {
+                            id: zapPrevBtn
+                            visible: appViewModel && appViewModel.hasZapContext && appViewModel.player.isLive
+                            text: "CH-"
+                            iconSize: 11
+                            onClicked: {
+                                if (appViewModel) appViewModel.zapPrevious()
+                                zapDialogVisible = false
+                            }
+                        }
+
+                        PlayerButton {
+                            id: zapNextBtn
+                            visible: appViewModel && appViewModel.hasZapContext && appViewModel.player.isLive
+                            text: "CH+"
+                            iconSize: 11
+                            onClicked: {
+                                if (appViewModel) appViewModel.zapNext()
+                                zapDialogVisible = false
+                            }
+                        }
+
+                        PlayerButton {
+                            id: zapBtn
+                            visible: appViewModel && appViewModel.hasZapContext && appViewModel.player.isLive
+                            text: "ZAP"
+                            iconSize: 11
+                            onClicked: showZapDialog()
+                        }
+
+                        Rectangle {
+                            width: 1; height: 28; color: "#40ffffff"
+                            visible: zapPrevBtn.visible || zapNextBtn.visible || zapBtn.visible || ccBtn.visible || audioBtn.visible || episodeBtn.visible || catchupBtn.visible
+                        }
+
+                        PlayerButton {
+                            id: ccBtn
+                            visible: appViewModel && !appViewModel.player.isLive
+                            text: "CC"
+                            iconSize: 14
+                            onClicked: subTrackPopup.visible = !subTrackPopup.visible
+                        }
+
+                        PlayerButton {
+                            id: audioBtn
+                            visible: appViewModel && appViewModel.player.audioTracks.length > 1
+                            text: "AUD"
+                            iconSize: 12
+                            onClicked: audioTrackPopup.visible = !audioTrackPopup.visible
+                        }
+
+                        PlayerButton {
+                            id: episodeBtn
+                            visible: appViewModel && appViewModel.hasActiveSeriesDialog()
+                                     && !appViewModel.player.isLive
+                            text: "EP"
+                            iconSize: 12
+                            onClicked: {
+                                if (appViewModel) {
+                                    if (appViewModel.hasPendingSeriesEpisodes()) {
+                                        showSeriesDialog(appViewModel.pendingSeriesName(), appViewModel.pendingSeriesEpisodes())
+                                    } else {
+                                        appViewModel.reopenSeriesEpisodes()
+                                    }
+                                }
+                            }
+                        }
+
+                        PlayerButton {
+                            id: catchupBtn
+                            visible: appViewModel
+                                     && (appViewModel.player.isLive || appViewModel.player.isCatchup)
+                                     && playerView.currentChannelTvArchive > 0
+                            text: "↻"
+                            iconSize: 16
+                            onClicked: catchupDialogVisible = !catchupDialogVisible
+                        }
+
+                        Rectangle {
+                            id: muteBtn
+                            width: 44
+                            height: 44
+                            radius: Theme.borderRadius
+                            color: {
+                                if (appViewModel && appViewModel.player.muted) return Qt.rgba(Theme.error.r, Theme.error.g, Theme.error.b, 0.38)
+                                return muteHov ? "#40ffffff" : "transparent"
+                            }
+                            property bool muteHov: false
+                            readonly property bool isMuted: appViewModel ? appViewModel.player.muted : false
+                            activeFocusOnTab: true
+                            border.width: activeFocus ? 2 : 0
+                            border.color: Theme.accent
+                            onActiveFocusChanged: if (activeFocus) showControls()
+                            Keys.onReturnPressed: muteBtnArea.clicked(null)
+                            Keys.onEnterPressed: muteBtnArea.clicked(null)
+                            Keys.onLeftPressed: function(event) { stepControlFocus(-1); event.accepted = true }
+                            Keys.onRightPressed: function(event) { stepControlFocus(1); event.accepted = true }
+                            Keys.onUpPressed: function(event) { focusSeekSlider(); event.accepted = true }
+                            Keys.onDownPressed: function(event) { focusSeekSlider(); event.accepted = true }
+
+                            Canvas {
+                                id: speakerCanvas
+                                anchors.centerIn: parent
+                                width: 24
+                                height: 24
+                                antialiasing: true
+                                property bool muted: parent.isMuted
+                                onMutedChanged: requestPaint()
+                                Component.onCompleted: requestPaint()
+
+                                onPaint: {
+                                    var ctx = getContext("2d")
+                                    ctx.reset()
+                                    ctx.fillStyle = "#ffffff"
+                                    ctx.strokeStyle = "#ffffff"
+                                    ctx.lineWidth = 1.8
+                                    ctx.lineCap = "round"
+
+                                    // Speaker body (trapezoid with rectangular base)
+                                    ctx.beginPath()
+                                    ctx.moveTo(3, 9)
+                                    ctx.lineTo(3, 15)
+                                    ctx.lineTo(8, 15)
+                                    ctx.lineTo(13, 20)
+                                    ctx.lineTo(13, 4)
+                                    ctx.lineTo(8, 9)
+                                    ctx.closePath()
+                                    ctx.fill()
+
+                                    if (muted) {
+                                        // Cross mark to the right
+                                        ctx.beginPath()
+                                        ctx.moveTo(16, 8)
+                                        ctx.lineTo(22, 16)
+                                        ctx.moveTo(22, 8)
+                                        ctx.lineTo(16, 16)
+                                        ctx.stroke()
+                                    } else {
+                                        // Two concentric sound-wave arcs
+                                        ctx.beginPath()
+                                        ctx.arc(14, 12, 3.5, -Math.PI / 3, Math.PI / 3)
+                                        ctx.stroke()
+                                        ctx.beginPath()
+                                        ctx.arc(14, 12, 6.5, -Math.PI / 3, Math.PI / 3)
+                                        ctx.stroke()
+                                    }
+                                }
+                            }
+
+                            MouseArea {
+                                id: muteBtnArea
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onEntered: muteBtn.muteHov = true
+                                onExited: muteBtn.muteHov = false
+                                onClicked: {
+                                    muteBtn.forceActiveFocus()
+                                    if (appViewModel) {
+                                        var newMuted = !appViewModel.player.muted
+                                        appViewModel.player.muted = newMuted
+                                    }
+                                }
+                            }
+                        }
+
+                        Slider {
+                            id: volumeSlider
+                            Layout.preferredWidth: 100
+                            from: 0
+                            to: 100
+                            stepSize: 5
+                            value: appViewModel ? appViewModel.player.volume : 100
+                            focusPolicy: Qt.NoFocus
+
+                            onMoved: {
+                                if (appViewModel) appViewModel.player.volume = value
+                            }
+
+                            background: Rectangle {
+                                x: volumeSlider.leftPadding
+                                y: volumeSlider.topPadding + volumeSlider.availableHeight / 2 - 2
+                                width: volumeSlider.availableWidth
+                                height: 4
+                                radius: 2
+                                color: "#40ffffff"
+
+                                Rectangle {
+                                    width: volumeSlider.visualPosition * parent.width
+                                    height: parent.height
+                                    radius: 2
+                                    color: "#ffffff"
+                                }
+                            }
+
+                            handle: Rectangle {
+                                x: volumeSlider.leftPadding + volumeSlider.visualPosition * (volumeSlider.availableWidth - width)
+                                y: volumeSlider.topPadding + volumeSlider.availableHeight / 2 - height / 2
+                                width: 12
+                                height: 12
+                                radius: 6
+                                color: "#ffffff"
+                            }
+                        }
+
+                        PlayerButton {
+                            id: stretchBtn
+                            text: appViewModel && appViewModel.player.stretched ? "⇤⇥" : "⇔"
+                            iconSize: 16
+                            ToolTip.visible: stretchBtn.btnHovered
+                            ToolTip.text: appViewModel && appViewModel.player.stretched ? "Original aspect" : "Stretch 16:9"
+                            ToolTip.delay: 500
+                            onClicked: {
+                                if (appViewModel) appViewModel.player.toggleStretch()
+                            }
+                        }
+
+                        PlayerButton {
+                            id: fullscreenBtn
+                            text: videoFullscreen ? "⤢" : "⛶\uFE0E"
+                            iconSize: 20
+                            onClicked: toggleVideoFullscreen()
+                        }
+
+                        Item { Layout.fillWidth: true }
                     }
                 }
             }
         }
 
-        // --- Top overlay with back button, title, EPG info, and clock ---
+        // --- Top overlay with back button, title, and clock ---
         Rectangle {
             id: topOverlay
             anchors.left: parent.left
@@ -810,7 +953,6 @@ Item {
             property string epgNowText: ""
             property string epgNextText: ""
             property string epgNextTime: ""
-            property bool epgShowNext: false
 
             function refreshEpg() {
                 if (!appViewModel || !appViewModel.player.isLive) return
@@ -832,14 +974,6 @@ Item {
                 running: topOverlay.epgInfoVisible
                 repeat: true
                 onTriggered: topOverlay.refreshEpg()
-            }
-
-            Timer {
-                id: epgRotateTimer
-                interval: 5000
-                running: topOverlay.epgInfoVisible && topOverlay.epgNextText.length > 0
-                repeat: true
-                onTriggered: topOverlay.epgShowNext = !topOverlay.epgShowNext
             }
 
             gradient: Gradient {
@@ -865,9 +999,7 @@ Item {
                 }
 
                 Text {
-                    text: topOverlay.epgNowText && topOverlay.epgNowText.length > 0
-                        ? topOverlay.epgNowText
-                        : (appViewModel ? appViewModel.player.channelName : "")
+                    text: appViewModel ? appViewModel.player.channelName : ""
                     font.pixelSize: Theme.fontSizeMd
                     font.bold: true
                     color: "#ffffff"
@@ -903,44 +1035,6 @@ Item {
 
                 Item {
                     Layout.fillWidth: true
-                    Layout.fillHeight: true
-                    visible: topOverlay.epgInfoVisible
-
-                    Text {
-                        id: epgNowLabel
-                        anchors.centerIn: parent
-                        width: parent.width
-                        text: "Now: " + topOverlay.epgNowText
-                        font.pixelSize: Theme.fontSizeMd
-                        color: "#ffffff"
-                        elide: Text.ElideRight
-                        horizontalAlignment: Text.AlignHCenter
-                        opacity: topOverlay.epgShowNext ? 0.0 : 1.0
-                        Behavior on opacity { NumberAnimation { duration: 400; easing.type: Easing.InOutQuad } }
-                    }
-
-                    Text {
-                        id: epgNextLabel
-                        anchors.centerIn: parent
-                        width: parent.width
-                        text: {
-                            if (!topOverlay.epgNextText) return ""
-                            var t = "Next: " + topOverlay.epgNextText
-                            if (topOverlay.epgNextTime) t += " (" + topOverlay.epgNextTime + ")"
-                            return t
-                        }
-                        font.pixelSize: Theme.fontSizeMd
-                        color: "#ffffff"
-                        elide: Text.ElideRight
-                        horizontalAlignment: Text.AlignHCenter
-                        opacity: topOverlay.epgShowNext ? 1.0 : 0.0
-                        Behavior on opacity { NumberAnimation { duration: 400; easing.type: Easing.InOutQuad } }
-                    }
-                }
-
-                Item {
-                    Layout.fillWidth: true
-                    visible: !topOverlay.epgInfoVisible
                 }
 
                 Rectangle {
@@ -1051,7 +1145,7 @@ Item {
 
                 Text {
                     id: clockText
-                    text: Qt.formatTime(new Date(), "HH:mm")
+                    text: Qt.formatTime(playerView.hudNow, "HH:mm")
                     font.pixelSize: Theme.fontSizeMd
                     font.bold: true
                     color: "#ffffff"
@@ -2626,7 +2720,7 @@ Item {
         interval: 30000
         running: true
         repeat: true
-        onTriggered: clockText.text = Qt.formatTime(new Date(), "HH:mm")
+        onTriggered: playerView.hudNow = new Date()
     }
 
     Timer {
@@ -2662,7 +2756,7 @@ Item {
 
     Timer {
         id: controlsTimer
-        interval: 3000
+        interval: appViewModel ? appViewModel.hudVisibilitySeconds * 1000 : 5000
         running: appViewModel ? (!appViewModel.player.stopped) : false
         onTriggered: {
             // Hide unconditionally after the interval. Any real user input
@@ -2672,6 +2766,13 @@ Item {
             // happens to have focus made the HUD stick forever during
             // playback.
             controlsVisible = false
+        }
+    }
+
+    Connections {
+        target: appViewModel
+        function onHudVisibilitySecondsChanged() {
+            if (controlsVisible) controlsTimer.restart()
         }
     }
 
@@ -2734,6 +2835,15 @@ Item {
         }
         function onLiveReconnectFailed(message) {
             reconnectToast.show(message)
+        }
+    }
+
+    Connections {
+        target: appViewModel
+        function onHudVisibilitySecondsChanged() {
+            if (controlsVisible) {
+                controlsTimer.restart()
+            }
         }
     }
 
@@ -2947,6 +3057,10 @@ Item {
                 event.accepted = true
             }
         }
+        Keys.onLeftPressed: function(event) { stepControlFocus(-1); event.accepted = true }
+        Keys.onRightPressed: function(event) { stepControlFocus(1); event.accepted = true }
+        Keys.onUpPressed: function(event) { focusSeekSlider(); event.accepted = true }
+        Keys.onDownPressed: function(event) { focusSeekSlider(); event.accepted = true }
     }
 
     // ----- Catchup / rewind popup ------------------------------------------------

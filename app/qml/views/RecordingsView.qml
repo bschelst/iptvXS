@@ -425,9 +425,9 @@ Item {
                         property alias rowFlickable: rowListView
 
                         function snapRowContent(direction) {
-                            if (!rowListView || rowRepeater.count <= 0) return
+                            if (!rowListView || rowListView.count <= 0) return
 
-                            var step = 220 + rowContent.spacing
+                            var step = 220 + rowListView.spacing
                             if (step <= 0) return
 
                             var minX = 0
@@ -446,9 +446,10 @@ Item {
                         }
 
                                         function focusCardAt(i) {
-                                            if (!rowRepeater || rowItems.length <= 0) return
+                                            if (!rowListView || rowItems.length <= 0) return
                                             currentCardIndex = Math.max(0, Math.min(i, rowItems.length - 1))
-                                            var item = rowRepeater.itemAt(currentCardIndex)
+                                            rowListView.currentIndex = currentCardIndex
+                                            var item = rowListView.itemAtIndex(currentCardIndex)
                                             if (item) {
                                                 item.forceActiveFocus()
                                                 recordingsView.ensureCardVisible(recordingSection, currentCardIndex)
@@ -507,7 +508,7 @@ Item {
                                             if (recScrollRightBtn) recScrollRightBtn.forceActiveFocus()
                                         }
                                         Keys.onDownPressed: {
-                                            if (rowRepeater && rowRepeater.count > 0) {
+                                            if (rowListView && rowListView.count > 0) {
                                                 if (recordingSection.currentCardIndex < 0) recordingSection.currentCardIndex = 0
                                                 recordingSection.focusCardAt(recordingSection.currentCardIndex)
                                             }
@@ -553,7 +554,7 @@ Item {
                                             if (recScrollLeftBtn) recScrollLeftBtn.forceActiveFocus()
                                         }
                                         Keys.onDownPressed: {
-                                            if (rowRepeater && rowRepeater.count > 0) {
+                                            if (rowListView && rowListView.count > 0) {
                                                 if (recordingSection.currentCardIndex < 0) recordingSection.currentCardIndex = 0
                                                 recordingSection.focusCardAt(recordingSection.currentCardIndex)
                                             }
@@ -570,26 +571,22 @@ Item {
                             }
                         }
 
-                        Flickable {
+                        ListView {
                             id: rowListView
                             width: parent.width
                             height: 286
                             clip: true
+                            orientation: ListView.Horizontal
+                            spacing: Theme.spacingSm
                             boundsBehavior: Flickable.StopAtBounds
                             interactive: false
-                            contentWidth: rowContent.width + rowContent.x + Theme.spacingMd
-                            contentHeight: height
+                            leftMargin: Theme.spacingMd
+                            rightMargin: Theme.spacingMd
+                            cacheBuffer: width * 2
+                            currentIndex: -1
+                            model: rowItems
 
-                            Row {
-                                id: rowContent
-                                x: Theme.spacingMd
-                                spacing: Theme.spacingSm
-
-                                Repeater {
-                                    id: rowRepeater
-                                    model: rowItems
-
-                                    delegate: FocusScope {
+                            delegate: FocusScope {
                                         id: recordingCard
                                         width: 220
                                         height: 272
@@ -598,6 +595,7 @@ Item {
 
                                         property int cardIndex: index
                                         property bool cardHovered: false
+                                        property bool popupRequested: false
 
                                         readonly property bool playable: Boolean(
                                             (modelData.status === "completed" || modelData.status === "uploaded" || modelData.status === "recording")
@@ -655,13 +653,21 @@ Item {
                                         }
 
                                         function openActionsPopup() {
-                                            recordingActionsPopup.open()
+                                            popupRequested = true
+                                            if (recordingActionsPopupLoader.item && recordingActionsPopupLoader.item.open) {
+                                                recordingActionsPopupLoader.item.open()
+                                            }
                                         }
 
                                         function closeRecordingActionsPopup() {
-                                            if (recordingActionsPopup && recordingActionsPopup.visible) {
-                                                recordingActionsPopup.close()
+                                            if (recordingActionsPopupLoader.item && recordingActionsPopupLoader.item.visible) {
+                                                recordingActionsPopupLoader.item.close()
                                             }
+                                        }
+
+                                        function actionsPopupVisible() {
+                                            return recordingActionsPopupLoader.item
+                                                && recordingActionsPopupLoader.item.visible
                                         }
 
                                         function focusNextCard() {
@@ -696,7 +702,7 @@ Item {
                                                 recordingCard.openActionsPopup()
                                                 event.accepted = true
                                             } else if (event.key === Qt.Key_Left) {
-                                                if (recordingActionsPopup.visible) {
+                                                if (recordingCard.actionsPopupVisible()) {
                                                     recordingCard.closeRecordingActionsPopup()
                                                 } else if (cardIndex > 0) {
                                                     focusPrevCard()
@@ -707,7 +713,7 @@ Item {
                                                 }
                                                 event.accepted = true
                                             } else if (event.key === Qt.Key_Right) {
-                                                if (recordingActionsPopup.visible) {
+                                                if (recordingCard.actionsPopupVisible()) {
                                                     event.accepted = true
                                                     return
                                                 } else if (cardIndex < rowItems.length - 1) {
@@ -717,7 +723,7 @@ Item {
                                                 }
                                                 event.accepted = true
                                             } else if (event.key === Qt.Key_Up) {
-                                                if (recordingActionsPopup.visible) {
+                                                if (recordingCard.actionsPopupVisible()) {
                                                     event.accepted = true
                                                     return
                                             } else if (sectionIdx === 0) {
@@ -731,7 +737,7 @@ Item {
                                             }
                                             event.accepted = true
                                             } else if (event.key === Qt.Key_Down) {
-                                                if (recordingActionsPopup.visible) {
+                                                if (recordingCard.actionsPopupVisible()) {
                                                     event.accepted = true
                                                     return
                                                 } else {
@@ -928,7 +934,7 @@ Item {
                                                 width: 26
                                                 height: 26
                                                 radius: 13
-                                                visible: recordingCard.activeFocus || recordingCard.cardHovered || recordingActionsPopup.visible
+                                                visible: recordingCard.activeFocus || recordingCard.cardHovered || recordingCard.actionsPopupVisible()
                                                 color: recMoreBtnHov ? Theme.surfaceHover : "transparent"
                                                 border.width: 1
                                                 border.color: recMoreBtnHov ? Theme.accent : Theme.surfaceBorder
@@ -951,9 +957,23 @@ Item {
                                                     onClicked: recordingCard.openActionsPopup()
                                                 }
                                             }
+
+                                            Loader {
+                                                id: recordingActionsPopupLoader
+                                                active: recordingCard.cardHovered || recordingCard.activeFocus || recordingCard.popupRequested
+                                                sourceComponent: recordingActionsPopupComponent
+                                                onLoaded: {
+                                                    if (recordingCard.popupRequested && item && item.open) {
+                                                        item.open()
+                                                    }
+                                                }
+                                            }
                                         }
 
-                                            Popup {
+                                            Component {
+                                                id: recordingActionsPopupComponent
+
+                                                Popup {
                                                 id: recordingActionsPopup
                                                     parent: recordingsView
                                                     modal: false
@@ -1045,6 +1065,7 @@ Item {
                                                     }
                                                     onClosed: {
                                                         popupActionIndex = 0
+                                                        recordingCard.popupRequested = false
                                                         Qt.callLater(function() {
                                                             if (!recordingCard || !recordingCard.visible) return
                                                             if (recMoreBtn && recMoreBtn.visible) recMoreBtn.forceActiveFocus()
@@ -1342,8 +1363,6 @@ Item {
                                             }
                                         }
                                     }
-                                }
-                            }
                         }
                     }
                 }
@@ -2403,5 +2422,6 @@ Item {
             font.pixelSize: Theme.fontSizeXs
             color: Theme.textSecondary
         }
+    }
     }
 }

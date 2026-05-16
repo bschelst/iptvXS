@@ -269,36 +269,33 @@ Item {
 
                     Rectangle {
                         id: favRemoveBtn
+                        visible: favCard.cardHovered
+                            || (favoritesGrid.activeFocus && favoritesGrid.currentIndex === index)
                         anchors.top: parent.top
                         anchors.right: parent.right
                         anchors.margins: 8
-                        width: 28
-                        height: 28
-                        radius: 14
+                        width: 26
+                        height: 26
+                        radius: 13
                         z: 130
-                        color: removeHovered || activeFocus ? Qt.rgba(Theme.error.r, Theme.error.g, Theme.error.b, 0.22) : "#26000000"
-                        border.width: activeFocus ? 2 : 1
-                        border.color: activeFocus ? Theme.error : Qt.rgba(Theme.error.r, Theme.error.g, Theme.error.b, 0.50)
+                        color: "#C0000000"
                         focus: false
                         activeFocusOnTab: true
 
-                        property bool removeHovered: false
-
                         Text {
                             anchors.centerIn: parent
-                            text: "\u232B"
-                            font.pixelSize: Theme.fontSizeSm
+                            text: "×"
+                            font.pixelSize: 14
                             font.bold: true
                             font.family: "DejaVu Sans"
-                            color: parent.removeHovered || parent.activeFocus ? "#ffffff" : Theme.textMuted
+                            color: "#ffffff"
+                            renderType: Text.NativeRendering
                         }
 
                         MouseArea {
                             anchors.fill: parent
                             hoverEnabled: true
                             cursorShape: Qt.PointingHandCursor
-                            onEntered: parent.removeHovered = true
-                            onExited: parent.removeHovered = false
                             onClicked: {
                                 if (appViewModel) {
                                     appViewModel.favoriteList.toggleFavorite(model.channelId)
@@ -307,6 +304,12 @@ Item {
                         }
 
                         Keys.onLeftPressed: {
+                            if (favoritesGrid) favoritesGrid.forceActiveFocus()
+                        }
+                        Keys.onRightPressed: {
+                            if (favoritesGrid) favoritesGrid.forceActiveFocus()
+                        }
+                        Keys.onDownPressed: {
                             if (favoritesGrid) favoritesGrid.forceActiveFocus()
                         }
                         Keys.onUpPressed: {
@@ -328,6 +331,9 @@ Item {
                             } else if (event.key === Qt.Key_Left) {
                                 if (favoritesGrid) favoritesGrid.forceActiveFocus()
                                 event.accepted = true
+                            } else if (event.key === Qt.Key_Right || event.key === Qt.Key_Down) {
+                                if (favoritesGrid) favoritesGrid.forceActiveFocus()
+                                event.accepted = true
                             } else if (event.key === Qt.Key_Up) {
                                 if (Window.window && Window.window.focusSidebar) {
                                     Window.window.focusSidebar()
@@ -345,6 +351,10 @@ Item {
                     // the next card; remove-via-X is unchanged via
                     // delegate's Keys.onPressed below.
                     Keys.onUpPressed: {
+                        if (favRemoveBtn && favRemoveBtn.visible) {
+                            favRemoveBtn.forceActiveFocus()
+                            return
+                        }
                         if (index >= favoritesGrid.cols) {
                             favoritesGrid.currentIndex = index - favoritesGrid.cols
                         } else if (Window.window && Window.window.focusSidebar) {

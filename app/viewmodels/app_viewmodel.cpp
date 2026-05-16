@@ -575,6 +575,9 @@ bool AppViewModel::initialize(const QString &dbPath) {
     if (bufSecs > 0) {
         playerVm_->setBufferSeconds(bufSecs);
     }
+    if (settingsRepo_->getInt(QStringLiteral("hud_visibility_seconds"), -1) < 0) {
+        settingsRepo_->set(QStringLiteral("hud_visibility_seconds"), 5);
+    }
 
     auto subSize = settingsRepo_->getInt(QStringLiteral("subtitle_size"), 48);
     playerVm_->mpvPlayer()->setProperty(QStringLiteral("sub-font-size"), QVariant(subSize));
@@ -623,6 +626,9 @@ bool AppViewModel::initialize(const QString &dbPath) {
         playerVm_->mpvPlayer()->setProperty(QStringLiteral("deinterlace"), QVariant(QStringLiteral("yes")));
     }
     applyToneMappingToPlayer();
+    if (slowHardware()) {
+        applySlowHardwareToPlayer();
+    }
 
     // Clean up stale recordings left in "recording" state from a previous crash/shutdown
     auto staleRecordings = recordingRepo_->findByStatus(QStringLiteral("recording"));
@@ -1172,7 +1178,22 @@ void AppViewModel::setBufferSeconds(int seconds) {
     if (!settingsRepo_) return;
     settingsRepo_->set(QStringLiteral("buffer_seconds"), seconds);
     if (playerVm_) playerVm_->setBufferSeconds(seconds);
+    if (slowHardware()) {
+        applySlowHardwareToPlayer();
+    }
     emit bufferSecondsChanged();
+}
+
+int AppViewModel::hudVisibilitySeconds() const {
+    if (!settingsRepo_) return 5;
+    return qBound(3, settingsRepo_->getInt(QStringLiteral("hud_visibility_seconds"), 5), 15);
+}
+
+void AppViewModel::setHudVisibilitySeconds(int seconds) {
+    if (!settingsRepo_) return;
+    seconds = qBound(3, seconds, 15);
+    settingsRepo_->set(QStringLiteral("hud_visibility_seconds"), seconds);
+    emit hudVisibilitySecondsChanged();
 }
 
 QString AppViewModel::theme() const {
@@ -1339,6 +1360,10 @@ void AppViewModel::setVideoEnhancement(const QString &preset) {
                                   QStringLiteral("lavfi=\"hqdn3d=luma_spatial=1.8:chroma_spatial=1.8:luma_tmp=6:chroma_tmp=6\"")});
     }
 
+    if (slowHardware()) {
+        applySlowHardwareToPlayer();
+    }
+
     emit videoEnhancementChanged();
 }
 
@@ -1369,6 +1394,20 @@ void AppViewModel::setHwdecMode(const QString &mode) {
     settingsRepo_->set(QStringLiteral("hwdec_mode"), mode);
     if (playerVm_) playerVm_->mpvPlayer()->setProperty(QStringLiteral("hwdec"), QVariant(mode));
     emit hwdecModeChanged();
+}
+
+bool AppViewModel::slowHardware() const {
+    return settingsRepo_ ? settingsRepo_->getBool(QStringLiteral("slow_hardware"), false) : false;
+}
+
+void AppViewModel::setSlowHardware(bool enabled) {
+    if (!settingsRepo_) return;
+    settingsRepo_->set(QStringLiteral("slow_hardware"), enabled ? QStringLiteral("true") : QStringLiteral("false"));
+    qInfo("Slow hardware preset %s", enabled ? "enabled" : "disabled");
+    if (playerVm_) {
+        applySlowHardwareToPlayer();
+    }
+    emit slowHardwareChanged();
 }
 
 bool AppViewModel::deinterlace() const {
@@ -1613,6 +1652,32 @@ void AppViewModel::applyToneMappingToPlayer() {
     qInfo("Tone mapping %s: algorithm=%s hdr-compute-peak=no",
           toneMapping() ? "enabled" : "disabled",
           algo.isEmpty() ? "auto/default" : qPrintable(algo));
+}
+
+void AppViewModel::applySlowHardwareToPlayer() {
+    if (!playerVm_ || !playerVm_->mpvPlayer()->handle()) return;
+
+    auto *mpv = playerVm_->mpvPlayer();
+    const qint64 slowCapBytes = 32LL * 1024LL * 1024LL;
+    const qint64 normalCapBytes = 128LL * 1024LL * 1024LL;
+    const int bufferedSeconds = slowHardware() ? qMin(bufferSeconds(), 5) : bufferSeconds();
+
+    qInfo("Slow hardware preset applied: %s cache-secs=%d demuxer-max-bytes=%lld",
+          slowHardware() ? "enabled" : "disabled",
+          bufferedSeconds,
+          static_cast<long long>(slowHardware() ? slowCapBytes : normalCapBytes));
+
+    mpv->setProperty(QStringLiteral("cache-secs"), QVariant(bufferedSeconds));
+    mpv->setProperty(QStringLiteral("demuxer-readahead-secs"), QVariant(bufferedSeconds));
+    mpv->setProperty(QStringLiteral("demuxer-max-bytes"), QVariant(slowHardware() ? slowCapBytes : normalCapBytes));
+    mpv->setProperty(QStringLiteral("demuxer-max-back-bytes"), QVariant(slowHardware() ? slowCapBytes : normalCapBytes));
+
+    if (slowHardware()) {
+        mpv->setProperty(QStringLiteral("deband"), QVariant(false));
+        mpv->setProperty(QStringLiteral("scale"), QVariant(QStringLiteral("bilinear")));
+        mpv->setProperty(QStringLiteral("cscale"), QVariant(QStringLiteral("bilinear")));
+        mpv->setProperty(QStringLiteral("sigmoid-upscaling"), QVariant(false));
+    }
 }
 
 void AppViewModel::applyAudioPresetToPlayer() {

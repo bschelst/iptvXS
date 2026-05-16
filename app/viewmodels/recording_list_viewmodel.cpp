@@ -443,6 +443,8 @@ void RecordingListViewModel::loadRecordings() {
 
     beginResetModel();
     recordings_.clear();
+    sectionCache_.clear();
+    sectionItemsCache_.clear();
 
     auto recs = filterStatus_.isEmpty()
                     ? recordingRepo_->findAll()
@@ -450,6 +452,7 @@ void RecordingListViewModel::loadRecordings() {
 
     QHash<int64_t, iptvxs::Channel> channelCache;
     QHash<int64_t, QString> programmeCache;
+    QHash<QString, QVariantList> sectionItems;
     QSet<int64_t> channelIds;
     QSet<int64_t> programmeIds;
     for (const auto &rec : recs) {
@@ -510,42 +513,10 @@ void RecordingListViewModel::loadRecordings() {
         entry.showDateHeader = entry.dateSection != previousSection;
         previousSection = entry.dateSection;
         recordings_.append(entry);
-    }
 
-    endResetModel();
-    emit countChanged();
-    ++modelRevision_;
-    emit modelRevisionChanged();
-}
-
-void RecordingListViewModel::togglePin(int64_t recordingId) {
-    if (!recordingRepo_) return;
-    auto rec = recordingRepo_->findById(recordingId);
-    if (!rec) return;
-    recordingRepo_->setPinned(recordingId, !rec->pinned);
-    scheduleLoadRecordings();
-}
-
-QVariantList RecordingListViewModel::recordingSections() const {
-    QVariantList sections;
-    QString lastSection;
-    for (const auto &entry : recordings_) {
-        if (entry.dateSection == lastSection) {
-            continue;
+        if (!sectionItems.contains(entry.dateSection)) {
+            sectionCache_.append(entry.dateSection);
         }
-        lastSection = entry.dateSection;
-        sections.append(entry.dateSection);
-    }
-    return sections;
-}
-
-QVariantList RecordingListViewModel::recordingsForSection(const QString &section) const {
-    QVariantList items;
-    if (section.isEmpty()) return items;
-
-    for (const auto &entry : recordings_) {
-        if (entry.dateSection != section) continue;
-        const auto &rec = entry.recording;
         QVariantMap item;
         item[QStringLiteral("recordingId")] = QVariant::fromValue(rec.id);
         item[QStringLiteral("channelId")] = QVariant::fromValue(rec.channelId);
@@ -565,9 +536,36 @@ QVariantList RecordingListViewModel::recordingsForSection(const QString &section
         item[QStringLiteral("channelLogo")] = entry.channelLogo;
         item[QStringLiteral("dateSection")] = entry.dateSection;
         item[QStringLiteral("gdriveFileId")] = rec.gdriveFileId;
-        items.append(item);
+        sectionItems[entry.dateSection].append(item);
     }
-    return items;
+
+    sectionItemsCache_ = sectionItems;
+
+    endResetModel();
+    emit countChanged();
+    ++modelRevision_;
+    emit modelRevisionChanged();
+}
+
+void RecordingListViewModel::togglePin(int64_t recordingId) {
+    if (!recordingRepo_) return;
+    auto rec = recordingRepo_->findById(recordingId);
+    if (!rec) return;
+    recordingRepo_->setPinned(recordingId, !rec->pinned);
+    scheduleLoadRecordings();
+}
+
+QVariantList RecordingListViewModel::recordingSections() const {
+    QVariantList sections;
+    sections.reserve(sectionCache_.size());
+    for (const auto &section : sectionCache_) {
+        sections.append(section);
+    }
+    return sections;
+}
+
+QVariantList RecordingListViewModel::recordingsForSection(const QString &section) const {
+    return sectionItemsCache_.value(section);
 }
 
 QString RecordingListViewModel::channelNameForId(int64_t channelId) const {

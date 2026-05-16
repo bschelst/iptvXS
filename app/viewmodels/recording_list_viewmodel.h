@@ -2,6 +2,7 @@
 #pragma once
 
 #include <QAbstractListModel>
+#include <QHash>
 #include <QQmlEngine>
 
 #include "iptvxs/db/channel_repository.h"
@@ -111,6 +112,8 @@ private:
     iptvxs::ProgrammeRepository *progRepo_{nullptr};
     iptvxs::RecordingManager *manager_{nullptr};
     QVector<RecordingEntry> recordings_;
+    QStringList sectionCache_;
+    QHash<QString, QVariantList> sectionItemsCache_;
     QString filterStatus_;
     int modelRevision_{0};
     bool loadPending_{false};
