@@ -187,6 +187,7 @@ Item {
     property bool recentlyAddedReady: false
     Component.onCompleted: {
         if (appViewModel && appViewModel.channelList) {
+            appViewModel.channelList.typeFilter = ""
             appViewModel.channelList.recentlyAddedFilter = true
             recentlyAddedReady = true
         }

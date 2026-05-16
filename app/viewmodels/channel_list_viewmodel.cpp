@@ -290,7 +290,7 @@ void ChannelListViewModel::loadChannels(bool append) {
     emit loadingChanged();
 
     int offset = append ? static_cast<int>(channels_.size()) : 0;
-    const auto recentSince = QDateTime::currentSecsSinceEpoch() - 7 * 24 * 3600;
+    const auto recentSince = QDateTime::currentSecsSinceEpoch() - 14 * 24 * 3600;
 
     QVector<iptvxs::Channel> result;
     if (recentlyAddedFilter_ && searchQuery_.isEmpty() && categoryId_ <= 0) {
@@ -357,7 +357,7 @@ void ChannelListViewModel::loadChannels(bool append) {
 
 void ChannelListViewModel::updateTotalCount() {
     int newTotal = 0;
-    const auto recentSince = QDateTime::currentSecsSinceEpoch() - 7 * 24 * 3600;
+    const auto recentSince = QDateTime::currentSecsSinceEpoch() - 14 * 24 * 3600;
     if (recentlyAddedFilter_ && searchQuery_.isEmpty() && categoryId_ <= 0) {
         if (typeFilter_.isEmpty()) {
             newTotal = repo_->countRecentlyAdded(serverId_, recentSince);
