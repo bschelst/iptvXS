@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.4.3
+
+### Fixed
+- Fixed the Flatpak main view blank screen on Steam Deck gamescope.
+
 ## 0.4.2
 
 ### Added

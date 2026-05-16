@@ -141,6 +141,7 @@ ApplicationWindow {
             id: viewContainer
             Layout.fillWidth: true
             Layout.fillHeight: true
+            property string currentViewName: appViewModel ? appViewModel.currentView : "home"
 
             Keys.priority: Keys.AfterItem
             Keys.onPressed: function(event) {
@@ -186,20 +187,20 @@ ApplicationWindow {
                 }
             }
 
-            Loader { id: homeLoader; anchors.fill: parent; active: viewContainer.activated["home"] || false; visible: false; source: "views/HomeView.qml"; onLoaded: requestViewFocusRestore() }
-            Loader { id: channelsLoader; anchors.fill: parent; active: viewContainer.activated["channels"] || false; visible: false; source: "views/ChannelsView.qml"; onLoaded: requestViewFocusRestore() }
-            Loader { id: epgLoader; anchors.fill: parent; active: viewContainer.activated["epg"] || false; visible: false; source: "views/EpgView.qml"; onLoaded: requestViewFocusRestore() }
-            Loader { id: recordingsLoader; anchors.fill: parent; active: viewContainer.activated["recordings"] || false; visible: false; source: "views/RecordingsView.qml"; onLoaded: requestViewFocusRestore() }
-            Loader { id: vodMoviesLoader; anchors.fill: parent; active: viewContainer.activated["vod_movies"] || false; visible: false; source: "views/VodView.qml"; onLoaded: { if (item) item.initialType = "vod"; requestViewFocusRestore() } }
-            Loader { id: vodSeriesLoader; anchors.fill: parent; active: viewContainer.activated["vod_series"] || false; visible: false; source: "views/VodView.qml"; onLoaded: { if (item) item.initialType = "series"; requestViewFocusRestore() } }
-            Loader { id: favoritesLoader; anchors.fill: parent; active: viewContainer.activated["favorites"] || false; visible: false; source: "views/FavoritesView.qml"; onLoaded: requestViewFocusRestore() }
-            Loader { id: groupsLoader; anchors.fill: parent; active: viewContainer.activated["groups"] || false; visible: false; source: "views/GroupsView.qml"; onLoaded: requestViewFocusRestore() }
-            Loader { id: serversLoader; anchors.fill: parent; active: viewContainer.activated["servers"] || false; visible: false; source: "views/ServersView.qml"; onLoaded: requestViewFocusRestore() }
-            Loader { id: speedtestLoader; anchors.fill: parent; active: viewContainer.activated["speedtest"] || false; visible: false; source: "views/SpeedTestView.qml"; onLoaded: requestViewFocusRestore() }
-            Loader { id: settingsLoader; anchors.fill: parent; active: viewContainer.activated["settings"] || false; visible: false; source: "views/SettingsView.qml"; onLoaded: requestViewFocusRestore() }
-            Loader { id: logLoader; anchors.fill: parent; active: viewContainer.activated["log"] || false; visible: false; source: "views/LogView.qml"; onLoaded: requestViewFocusRestore() }
-            Loader { id: playerLoader; anchors.fill: parent; active: viewContainer.activated["player"] || false; visible: false; source: "views/PlayerView.qml"; onLoaded: requestViewFocusRestore() }
-            Loader { id: historyLoader; anchors.fill: parent; active: viewContainer.activated["history"] || false; visible: false; source: "views/HistoryView.qml"; onLoaded: requestViewFocusRestore() }
+            Loader { id: homeLoader; anchors.fill: parent; active: viewContainer.activated["home"] || viewContainer.currentViewName === "home"; visible: viewContainer.currentViewName === "home"; source: "views/HomeView.qml"; onLoaded: requestViewFocusRestore() }
+            Loader { id: channelsLoader; anchors.fill: parent; active: viewContainer.activated["channels"] || viewContainer.currentViewName === "channels"; visible: viewContainer.currentViewName === "channels"; source: "views/ChannelsView.qml"; onLoaded: requestViewFocusRestore() }
+            Loader { id: epgLoader; anchors.fill: parent; active: viewContainer.activated["epg"] || viewContainer.currentViewName === "epg"; visible: viewContainer.currentViewName === "epg"; source: "views/EpgView.qml"; onLoaded: requestViewFocusRestore() }
+            Loader { id: recordingsLoader; anchors.fill: parent; active: viewContainer.activated["recordings"] || viewContainer.currentViewName === "recordings"; visible: viewContainer.currentViewName === "recordings"; source: "views/RecordingsView.qml"; onLoaded: requestViewFocusRestore() }
+            Loader { id: vodMoviesLoader; anchors.fill: parent; active: viewContainer.activated["vod_movies"] || viewContainer.currentViewName === "vod_movies"; visible: viewContainer.currentViewName === "vod_movies"; source: "views/VodView.qml"; onLoaded: { if (item) item.initialType = "vod"; requestViewFocusRestore() } }
+            Loader { id: vodSeriesLoader; anchors.fill: parent; active: viewContainer.activated["vod_series"] || viewContainer.currentViewName === "vod_series"; visible: viewContainer.currentViewName === "vod_series"; source: "views/VodView.qml"; onLoaded: { if (item) item.initialType = "series"; requestViewFocusRestore() } }
+            Loader { id: favoritesLoader; anchors.fill: parent; active: viewContainer.activated["favorites"] || viewContainer.currentViewName === "favorites"; visible: viewContainer.currentViewName === "favorites"; source: "views/FavoritesView.qml"; onLoaded: requestViewFocusRestore() }
+            Loader { id: groupsLoader; anchors.fill: parent; active: viewContainer.activated["groups"] || viewContainer.currentViewName === "groups"; visible: viewContainer.currentViewName === "groups"; source: "views/GroupsView.qml"; onLoaded: requestViewFocusRestore() }
+            Loader { id: serversLoader; anchors.fill: parent; active: viewContainer.activated["servers"] || viewContainer.currentViewName === "servers"; visible: viewContainer.currentViewName === "servers"; source: "views/ServersView.qml"; onLoaded: requestViewFocusRestore() }
+            Loader { id: speedtestLoader; anchors.fill: parent; active: viewContainer.activated["speedtest"] || viewContainer.currentViewName === "speedtest"; visible: viewContainer.currentViewName === "speedtest"; source: "views/SpeedTestView.qml"; onLoaded: requestViewFocusRestore() }
+            Loader { id: settingsLoader; anchors.fill: parent; active: viewContainer.activated["settings"] || viewContainer.currentViewName === "settings"; visible: viewContainer.currentViewName === "settings"; source: "views/SettingsView.qml"; onLoaded: requestViewFocusRestore() }
+            Loader { id: logLoader; anchors.fill: parent; active: viewContainer.activated["log"] || viewContainer.currentViewName === "log"; visible: viewContainer.currentViewName === "log"; source: "views/LogView.qml"; onLoaded: requestViewFocusRestore() }
+            Loader { id: playerLoader; anchors.fill: parent; active: viewContainer.activated["player"] || viewContainer.currentViewName === "player"; visible: viewContainer.currentViewName === "player"; source: "views/PlayerView.qml"; onLoaded: requestViewFocusRestore() }
+            Loader { id: historyLoader; anchors.fill: parent; active: viewContainer.activated["history"] || viewContainer.currentViewName === "history"; visible: viewContainer.currentViewName === "history"; source: "views/HistoryView.qml"; onLoaded: requestViewFocusRestore() }
         }
 
     }
@@ -243,16 +244,7 @@ ApplicationWindow {
     }
 
     function loadViewForCurrentName(view) {
-        // Hide all loaders, show + activate the target
-        for (var i = 0; i < viewContainer.children.length; i++) {
-            var child = viewContainer.children[i]
-            if (child.hasOwnProperty("active")) {
-                child.visible = false
-            }
-        }
         viewContainer.activateView(view)
-        var loader = viewContainer.loaderFor(view)
-        if (loader) loader.visible = true
     }
 
     property bool focusRestorePending: false
