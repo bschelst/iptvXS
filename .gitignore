@@ -18,4 +18,5 @@ repo/
 .mc*
 iptvxs.flatpak
 .secrets
-.lean-ctx/
+.lea*
+AG*
