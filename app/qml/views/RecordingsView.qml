@@ -747,10 +747,10 @@ Item {
                                             } else if (event.key === Qt.Key_Y) {
                                                 manualRecordDialog.open()
                                                 event.accepted = true
-                                            } else if (event.key === Qt.Key_PageUp || event.key === Qt.Key_BracketLeft) {
+                                            } else if (event.key === Qt.Key_BracketLeft) {
                                                 recordingsView.cycleFilter(-1)
                                                 event.accepted = true
-                                            } else if (event.key === Qt.Key_PageDown || event.key === Qt.Key_BracketRight) {
+                                            } else if (event.key === Qt.Key_BracketRight) {
                                                 recordingsView.cycleFilter(1)
                                                 event.accepted = true
                                             }
@@ -2018,6 +2018,7 @@ Item {
             })
         }
     }
+    }
 
     Rectangle {
         id: deleteConfirmDialog
@@ -2422,6 +2423,5 @@ Item {
             font.pixelSize: Theme.fontSizeXs
             color: Theme.textSecondary
         }
-    }
     }
 }

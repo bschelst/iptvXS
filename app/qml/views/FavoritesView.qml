@@ -95,18 +95,13 @@ Item {
                     currentIndex += cols
                 }
             }
-            Keys.onLeftPressed: {
+            Keys.onLeftPressed: function(event) {
                 if (currentIndex > 0 && (currentIndex % cols) !== 0) {
                     currentIndex--
                     event.accepted = true
                 }
             }
-            Keys.onRightPressed: {
-                // Standard grid nav: advance to the next card in the row.
-                // Press X (Qt.Key_Space) to toggle the favorite off — see
-                // the delegate's Keys.onPressed handler. The remove button
-                // is no longer reachable via D-pad Right to keep nav
-                // intuitive.
+            Keys.onRightPressed: function(event) {
                 if (currentIndex + 1 < count
                         && (currentIndex + 1) % cols !== 0) {
                     currentIndex++
