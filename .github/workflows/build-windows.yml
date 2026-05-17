@@ -202,7 +202,7 @@ jobs:
     needs: build
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: windows-latest
-    environment: release
+    environment: iptvXS
     permissions:
       contents: write
 
