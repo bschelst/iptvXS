@@ -316,6 +316,22 @@ ApplicationWindow {
                     window.showNormal()
                 }
             }
+            // Reset shared channelList filters on view switch.
+            // HomeView sets recentlyAddedFilter=true; other views
+            // need it off. ChannelsView needs typeFilter="live";
+            // HomeView needs it empty. Each view's onCompleted
+            // sets its own state, but cached views skip onCompleted
+            // on revisit, so we reset to safe defaults here.
+            if (appViewModel.channelList) {
+                if (view === "home") {
+                    appViewModel.channelList.typeFilter = ""
+                    appViewModel.channelList.recentlyAddedFilter = true
+                } else {
+                    appViewModel.channelList.recentlyAddedFilter = false
+                    if (view === "channels")
+                        appViewModel.channelList.typeFilter = "live"
+                }
+            }
             loadViewForCurrentName(view)
             if (searchOverlay.open) {
                 focusRestorePending = false

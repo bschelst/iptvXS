@@ -2123,12 +2123,6 @@ Item {
         }
     }
 
-    onVisibleChanged: {
-        if (visible && appViewModel) {
-            appViewModel.channelList.recentlyAddedFilter = false
-        }
-    }
-
     Component.onCompleted: {
         if (appViewModel) {
             appViewModel.channelList.searchQuery = ""

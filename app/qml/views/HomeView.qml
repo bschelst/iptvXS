@@ -185,17 +185,6 @@ Item {
 
     // --- Recently-added filter lifecycle ---
     property bool recentlyAddedReady: false
-    onVisibleChanged: {
-        if (appViewModel && appViewModel.channelList) {
-            if (visible) {
-                appViewModel.channelList.typeFilter = ""
-                appViewModel.channelList.recentlyAddedFilter = true
-                recentlyAddedReady = true
-            } else {
-                appViewModel.channelList.recentlyAddedFilter = false
-            }
-        }
-    }
     Component.onCompleted: {
         if (appViewModel && appViewModel.channelList) {
             appViewModel.channelList.typeFilter = ""

@@ -13,10 +13,6 @@ Item {
     // --- D-pad / controller navigation state ---
     property int currentFocusIndex: 0
 
-    onVisibleChanged: {
-        if (visible) focusPrimary()
-    }
-
     function focusPrimary() {
         currentFocusIndex = 0
         if (focusTarget()) {

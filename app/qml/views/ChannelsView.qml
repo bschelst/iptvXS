@@ -1467,13 +1467,6 @@ Item {
         appViewModel.currentView = "player"
     }
 
-    onVisibleChanged: {
-        if (visible && appViewModel) {
-            appViewModel.channelList.recentlyAddedFilter = false
-            appViewModel.channelList.typeFilter = "live"
-        }
-    }
-
     Component.onCompleted: {
         if (appViewModel) {
             appViewModel.channelList.searchQuery = ""
