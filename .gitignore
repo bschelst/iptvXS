@@ -14,7 +14,7 @@ CMakeUserPresets.json
 repo/
 .tmp-bundle-repo/
 *.flatpak.prev
-.codex
+.co*
 .mc*
 iptvxs.flatpak
 .secrets
